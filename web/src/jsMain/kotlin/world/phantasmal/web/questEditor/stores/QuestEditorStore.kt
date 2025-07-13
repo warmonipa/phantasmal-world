@@ -2,18 +2,11 @@ package world.phantasmal.web.questEditor.stores
 
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
-import world.phantasmal.cell.Cell
-import world.phantasmal.cell.and
-import world.phantasmal.cell.flatMapNull
-import world.phantasmal.cell.isNotNull
+import world.phantasmal.cell.*
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.filtered
 import world.phantasmal.cell.list.flatMapToList
-import world.phantasmal.cell.map
-import world.phantasmal.cell.mutableCell
-import world.phantasmal.cell.mutate
-import world.phantasmal.cell.not
 import world.phantasmal.psolib.Episode
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.commands.Command
@@ -37,6 +30,8 @@ class QuestEditorStore(
     initializeNewQuest: Boolean,
 ) : Store() {
     private val _devMode = mutableCell(false)
+    private val _showRoomIds = mutableCell(false) // Room ID display toggle
+    private val _spawnMonstersOnGround = mutableCell(false) // Monster ground spawn toggle
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
     private val _selectedEvent = mutableCell<QuestEventModel?>(null)
@@ -44,12 +39,15 @@ class QuestEditorStore(
     private val _selectedEntity = mutableCell<QuestEntityModel<*, *>?>(null)
     private val mainUndo = UndoStack(undoManager)
     private val _showCollisionGeometry = mutableCell(true)
+    private val _mouseWorldPosition = mutableCell<Vector3?>(null)
 
     val devMode: Cell<Boolean> = _devMode
 
     private val runner = QuestRunner()
     val currentQuest: Cell<QuestModel?> = _currentQuest
     val currentArea: Cell<AreaModel?> = _currentArea
+    val showRoomIds: Cell<Boolean> = _showRoomIds
+    val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
     val currentAreaVariant: Cell<AreaVariantModel?> =
         map(currentArea, currentQuest.flatMapNull { it?.areaVariants }) { area, variants ->
             if (area != null && variants != null) {
@@ -93,6 +91,7 @@ class QuestEditorStore(
     val canSaveChanges: Cell<Boolean> = !undoManager.allAtSavePoint
 
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
+    val mouseWorldPosition: Cell<Vector3?> = _mouseWorldPosition
 
     init {
         addDisposables(
@@ -403,6 +402,19 @@ class QuestEditorStore(
 
     fun setShowCollisionGeometry(show: Boolean) {
         _showCollisionGeometry.value = show
+    }
+
+    fun setShowRoomIds(show: Boolean) {
+        _showRoomIds.value = show
+    }
+
+    fun setSpawnMonstersOnGround(spawn: Boolean) {
+        _spawnMonstersOnGround.value = spawn
+        QuestNpcModel.setSpawnOnGround(spawn)
+    }
+
+    fun setMouseWorldPosition(position: Vector3?) {
+        _mouseWorldPosition.value = position
     }
 
     fun questSaved() {

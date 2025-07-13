@@ -11,7 +11,9 @@ import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.files.cursor
 import world.phantasmal.web.core.files.writeBuffer
 import world.phantasmal.web.core.stores.UiStore
+import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.models.AreaModel
+import world.phantasmal.web.questEditor.models.AreaVariantModel
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
@@ -97,12 +99,57 @@ class QuestEditorToolbarController(
         quest?.let {
             map(quest.entitiesPerArea, quest.areaVariants) { entitiesPerArea, variants ->
                 areaStore.getAreasForEpisode(quest.episode).map { area ->
-                    val entityCount = entitiesPerArea[area.id]
-                    val name = variants.firstOrNull { it.area == area }?.name ?: area.name
-                    AreaAndLabel(area, name + (entityCount?.let { " ($it)" } ?: ""))
+                    val entityCount = getEntityCountForArea(entitiesPerArea, area)
+                    val variant = getAreaVariant(area, variants)
+                    val displayName = buildAreaDisplayName(area, variant, entityCount)
+
+                    AreaAndLabel(area, displayName)
                 }
             }
         } ?: cell(emptyList())
+    }
+
+    private fun getEntityCountForArea(entitiesPerArea: Map<Int, Int>, area: AreaModel): Int? {
+        return entitiesPerArea[area.id]
+    }
+
+    private fun getAreaVariant(area: AreaModel, variants: List<AreaVariantModel>): AreaVariantModel? {
+        return variants.firstOrNull { it.area == area }
+    }
+
+    private fun buildAreaDisplayName(area: AreaModel, variant: AreaVariantModel?, entityCount: Int?): String {
+        val baseName = variant?.name ?: area.name
+        val mapSuffix = getMapVariantSuffix(area, variant?.id, entityCount)
+        val countSuffix = createCountSuffix(entityCount)
+
+        return baseName + mapSuffix + countSuffix
+    }
+
+    private fun getMapVariantSuffix(area: AreaModel, variantId: Int?, entityCount: Int?): String {
+        return when {
+            entityCount == null || area.id <= 0 -> ""
+            isBossArea(area) -> ""
+            else -> " - Map ${(variantId ?: 0) + 1}"
+        }
+    }
+
+    private fun isBossArea(area: AreaModel): Boolean {
+        return when (area.name) {
+            "Under the Dome",
+            "Underground Channel", 
+            "Monitor Room",
+            "Dark Falz",
+            "VR Temple Final",
+            "VR Spaceship Final",
+            "Cliffs of Gal Da Val",
+            "Test Subject Disposal Area",
+            "Meteor Impact Site" -> true
+            else -> false
+        }
+    }
+
+    private fun createCountSuffix(entityCount: Int?): String {
+        return entityCount?.let { " ($it)" } ?: ""
     }
 
     val currentArea: Cell<AreaAndLabel?> = map(areas, questEditorStore.currentArea) { areas, area ->
@@ -114,6 +161,9 @@ class QuestEditorToolbarController(
     // Settings
 
     val showCollisionGeometry: Cell<Boolean> = questEditorStore.showCollisionGeometry
+    val showRoomIds: Cell<Boolean> = questEditorStore.showRoomIds
+    val spawnMonstersOnGround: Cell<Boolean> = questEditorStore.spawnMonstersOnGround
+    val mouseWorldPosition: Cell<Vector3?> = questEditorStore.mouseWorldPosition
 
     init {
         addDisposables(
@@ -350,6 +400,14 @@ class QuestEditorToolbarController(
 
     fun setShowCollisionGeometry(show: Boolean) {
         questEditorStore.setShowCollisionGeometry(show)
+    }
+
+    fun setShowRoomIds(show: Boolean) {
+        questEditorStore.setShowRoomIds(show)
+    }
+
+    fun setSpawnMonstersOnGround(spawn: Boolean) {
+        questEditorStore.setSpawnMonstersOnGround(spawn)
     }
 
     private fun setFileHolder(fileHolder: FileHolder?) {

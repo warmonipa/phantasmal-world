@@ -5,6 +5,18 @@ import world.phantasmal.psolib.asm.*
 
 private val logger = KotlinLogging.logger {}
 
+private fun processVariantIdForArea(areaId: Int, rawVariantId: Int): Int {
+    return if (isForestArea(areaId)) {
+        (rawVariantId and 0xFF00) shr 8
+    } else {
+        rawVariantId and 0xFF
+    }
+}
+
+private fun isForestArea(areaId: Int): Boolean {
+    return areaId == 1 || areaId == 2
+}
+
 fun getMapDesignations(
     func0Segment: InstructionSegment,
     createCfg: () -> ControlFlowGraph,
@@ -41,11 +53,15 @@ fun getMapDesignations(
                     continue
                 }
 
-                mapDesignations[areaId[0]!!] = variantId[0]!!
+                val processedVariantId = processVariantIdForArea(areaId[0]!!, variantId[0]!!)
+                mapDesignations[areaId[0]!!] = processedVariantId
             }
 
             OP_BB_MAP_DESIGNATE.code -> {
-                mapDesignations[(inst.args[0] as IntArg).value] = (inst.args[2] as IntArg).value
+                val areaId = (inst.args[0] as IntArg).value
+                val rawVariantId = (inst.args[2] as IntArg).value
+                val processedVariantId = processVariantIdForArea(areaId, rawVariantId)
+                mapDesignations[areaId] = processedVariantId
             }
         }
     }
