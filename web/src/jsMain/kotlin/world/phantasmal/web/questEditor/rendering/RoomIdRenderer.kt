@@ -167,4 +167,115 @@ class RoomIdRenderer {
             frustumCulled = false
         }
     }
+    
+    /**
+     * Creates SCL_TAMA visualization with circle, one radius line and value display.
+     * Only shown when ObjRoomID object is selected.
+     * Positioned close to ground level like EventCollision range circles.
+     */
+    fun createSclTamaVisualization(
+        centerX: Float,
+        centerY: Float,
+        centerZ: Float,
+        sclTamaValue: Float
+    ): Group {
+        val group = Group()
+        val calculatedRadius = sclTamaValue * 10.0f
+        
+        // Create transparent circle outline at ground level
+        val circle = createGroundLevelCircle(calculatedRadius, CIRCLE_COLOR, CIRCLE_OPACITY)
+        group.add(circle)
+        
+        // Create single radius line at ground level
+        val radiusLine = createGroundLevelRadiusLine(calculatedRadius)
+        group.add(radiusLine)
+        
+        // Create value text at the end of the line, slightly elevated above ground
+        val valueText = createSimpleValueText(calculatedRadius)
+        valueText.position.set(calculatedRadius.toDouble(), 2.0, 0.0) // Slightly above ground
+        group.add(valueText)
+        
+        // Position the entire group at entity position (no height offset)
+        group.position.set(centerX.toDouble(), centerY.toDouble(), centerZ.toDouble())
+        group.name = "SclTamaVisualization_${sclTamaValue.hashCode()}"
+        
+        // Rendering settings
+        group.renderOrder = 9999
+        group.frustumCulled = false
+        
+        return group
+    }
+    
+    /**
+     * Creates simple value text display (just the number).
+     */
+    private fun createSimpleValueText(radiusValue: Float): Mesh {
+        val valueText = "${(radiusValue * 10).toInt() / 10.0f}" // Just the number, no "R:" prefix
+        return createTextPlane(valueText, 0xFFFF00, (TEXT_SIZE * 0.8f).toDouble()).apply {
+            name = "SclTamaSimpleText"
+            frustumCulled = false
+        }
+    }
+    
+    /**
+     * Creates a transparent circle at ground level like EventCollision range circles.
+     */
+    private fun createGroundLevelCircle(radius: Float, color: Int, opacity: Double): Object3D {
+        // Create circle vertices
+        val vertices = mutableListOf<Float>()
+        for (i in 0..CIRCLE_SEGMENTS) {
+            val angle = (i * 2 * PI / CIRCLE_SEGMENTS)
+            val x = (cos(angle) * radius).toFloat()
+            val z = (sin(angle) * radius).toFloat()
+            vertices.add(x)
+            vertices.add(0.0f) // Y is always 0 (ground level)
+            vertices.add(z)
+        }
+        
+        val geometry = BufferGeometry().apply {
+            setAttribute("position", Float32BufferAttribute(Float32Array(vertices.toTypedArray()), 3))
+        }
+        
+        val material = LineBasicMaterial(obj {
+            this.color = Color(color)
+            transparent = true
+            this.opacity = opacity
+            linewidth = 2.0
+        })
+        
+        return Line(geometry, material).apply {
+            name = "SclTamaGroundCircle"
+            renderOrder = 1000 // Same as EventCollision range circles
+            frustumCulled = false
+        }
+    }
+    
+    /**
+     * Creates a single radius line at ground level.
+     */
+    private fun createGroundLevelRadiusLine(radius: Float): LineSegments {
+        val points = FloatArray(6) // 1 line * 2 points * 3 coordinates
+        var index = 0
+        
+        // Single line from center to east at ground level
+        points[index++] = 0f; points[index++] = 0f; points[index++] = 0f
+        points[index++] = radius; points[index++] = 0f; points[index++] = 0f
+        
+        val geometry = BufferGeometry().apply {
+            setAttribute("position", Float32BufferAttribute(Float32Array(points.toTypedArray()), 3))
+        }
+        
+        val material = LineBasicMaterial(obj {
+            color = Color(1.0, 0.8, 0.0) // Golden color for radius line
+            transparent = true
+            opacity = 0.8
+            linewidth = 3.0 // Thicker line for better visibility
+        })
+        
+        return LineSegments(geometry, material).apply {
+            name = "SclTamaGroundRadiusLine"
+            renderOrder = 1000 // Same as EventCollision range circles
+            frustumCulled = false
+        }
+    }
 }

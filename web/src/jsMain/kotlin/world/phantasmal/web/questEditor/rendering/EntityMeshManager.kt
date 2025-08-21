@@ -99,6 +99,11 @@ class EntityMeshManager(
      */
     private var roomIdObserverDisposer = addDisposable(Disposer())
 
+    /**
+     * SCL_TAMA circles currently being displayed for ObjRoomID objects.
+     */
+    private val sclTamaCircles = mutableMapOf<QuestObjectModel, Group>()
+
     private var highlightedEntityInstance: EntityInstance? = null
     private var selectedEntityInstance: EntityInstance? = null
 
@@ -163,6 +168,8 @@ class EntityMeshManager(
         if (enableRoomLabels) {
             clearRoomIdLabels()
         }
+        // Dispose all SCL_TAMA circles
+        clearAllSclTamaCircles()
         super.dispose()
     }
 
@@ -215,6 +222,11 @@ class EntityMeshManager(
 
         if (entity is QuestObjectModel && entity.hasDestination) {
             destinationInstanceContainer.removeInstance(entity)
+        }
+        
+        // Remove SCL_TAMA circle if it exists
+        if (entity is QuestObjectModel && entity.type == ObjectType.ObjRoomID) {
+            removeSclTamaCircleForObjRoomId(entity)
         }
     }
 
@@ -306,7 +318,7 @@ class EntityMeshManager(
 
     /**
      * Updates the range circle for the currently selected entity.
-     * Shows range circle only for selected EventCollision objects.
+     * Shows range circle for selected EventCollision objects and SCL_TAMA circle for ObjRoomID objects.
      */
     private fun updateSelectedEntityRangeCircle(entity: QuestEntityModel<*, *>?) {
         // Clear existing range circle and observers
@@ -315,6 +327,11 @@ class EntityMeshManager(
         // Add range circle for selected EventCollision object
         if (entity is QuestObjectModel && entity.type == ObjectType.EventCollision) {
             createRangeCircleForEntity(entity)
+        }
+        
+        // Add SCL_TAMA circle for selected ObjRoomID object
+        if (entity is QuestObjectModel && entity.type == ObjectType.ObjRoomID) {
+            createSclTamaCircleForSelectedEntity(entity)
         }
     }
     
@@ -521,6 +538,72 @@ class EntityMeshManager(
         }
         
         roomIdObserverDisposer.disposeAll()
+    }
+    
+    /**
+     * Creates SCL_TAMA visualization for the selected ObjRoomID object.
+     * Shows circle, radius lines, and value display only when the entity is selected.
+     */
+    private fun createSclTamaCircleForSelectedEntity(entity: QuestObjectModel) {
+        try {
+            // Get SCL_TAMA value from entity data (offset 40, float)
+            val sclTamaValue = entity.entity.data.getFloat(40)
+            
+            // Only create visualization if SCL_TAMA value is positive
+            if (sclTamaValue > 0.0f) {
+                val position = entity.worldPosition.value
+                val visualization = roomIdRenderer.createSclTamaVisualization(
+                    position.x.toFloat(),
+                    position.y.toFloat(),
+                    position.z.toFloat(),
+                    sclTamaValue
+                )
+                
+                // Add to helpers group (not entities, since this is visual aid, not selectable)
+                renderContext.helpers.add(visualization)
+                
+                // Store as selected entity range circle for proper cleanup
+                selectedEntityRangeCircle = visualization
+                
+                // Observe position changes to update the visualization position
+                rangeCircleObserverDisposer.add(entity.worldPosition.observeNow { newPosition ->
+                    if (questEditorStore.selectedEntity.value == entity && selectedEntityRangeCircle != null) {
+                        selectedEntityRangeCircle!!.position.set(
+                            newPosition.x, 
+                            newPosition.y, 
+                            newPosition.z
+                        )
+                    }
+                })
+                
+                logger.debug { "Created SCL_TAMA visualization for selected ObjRoomID at (${position.x}, ${position.y}, ${position.z}) with radius ${sclTamaValue * 10.0f}" }
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to create SCL_TAMA visualization for selected ObjRoomID entity" }
+        }
+    }
+
+    /**
+     * Removes and disposes the SCL_TAMA circle for the specified ObjRoomID entity.
+     */
+    private fun removeSclTamaCircleForObjRoomId(entity: QuestObjectModel) {
+        sclTamaCircles.remove(entity)?.let { circle ->
+            renderContext.entities.remove(circle)
+            disposeObject3DResources(circle)
+            logger.debug { "Removed SCL_TAMA circle for ObjRoomID entity" }
+        }
+    }
+    
+    /**
+     * Clears all SCL_TAMA circles.
+     */
+    private fun clearAllSclTamaCircles() {
+        for (circle in sclTamaCircles.values) {
+            renderContext.entities.remove(circle)
+            disposeObject3DResources(circle)
+        }
+        sclTamaCircles.clear()
+        logger.debug { "Cleared all SCL_TAMA circles" }
     }
 
     private fun calculateGroundHeight(x: Double, z: Double): Double {
