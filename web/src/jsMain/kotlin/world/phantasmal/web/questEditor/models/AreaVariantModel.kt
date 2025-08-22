@@ -3,12 +3,13 @@ package world.phantasmal.web.questEditor.models
 import world.phantasmal.core.requireNonNegative
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.mutableListCell
+import world.phantasmal.psolib.Episode
 
-class AreaVariantModel(val id: Int, val area: AreaModel) {
+class AreaVariantModel(val id: Int, val area: AreaModel, val episode: Episode) {
     private val _sections = mutableListCell<SectionModel>()
 
     // Tower has 5 variants. PW4 and LHB use variant 1. ID 0 is Seaside Area at Night.
-    val name: String = if (area.id == 16 && id in 1..4) "Tower" else area.name
+    val name: String = if (episode == Episode.II && area.id == 16 && id in 1..4) "Tower" else area.name
 
     val sections: ListCell<SectionModel> = _sections
 

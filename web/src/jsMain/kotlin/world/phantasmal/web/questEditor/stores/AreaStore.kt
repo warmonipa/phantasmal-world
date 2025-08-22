@@ -16,7 +16,7 @@ class AreaStore(private val areaAssetLoader: AreaAssetLoader) : Store() {
                 val areaModel = AreaModel(area.id, area.name, area.order, variants)
 
                 area.areaVariants.forEach { variant ->
-                    variants.add(AreaVariantModel(variant.id, areaModel))
+                    variants.add(AreaVariantModel(variant.id, areaModel, episode))
                 }
 
                 areaModel

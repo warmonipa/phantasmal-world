@@ -37,10 +37,9 @@ private val AREAS by lazy {
         createArea(9, "Ruins 2", order++, 5),
         createArea(10, "Ruins 3", order++, 5),
         createArea(14, "Dark Falz", order++, 1),
-        // TODO:
-        // createArea(15, "BA Ruins", order++, 3),
-        // createArea(16, "BA Spaceship", order++, 3),
-        // createArea(17, "Lobby", order++, 15),
+        createArea(15, "Lobby", order++, 15),
+        createArea(16, "BA Spaceship", order++, 3),
+        createArea(17, "BA Palace", order++, 3),
     )
 
     order = 0

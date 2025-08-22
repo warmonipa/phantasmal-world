@@ -23,7 +23,7 @@ class QuestEditorToolbarWidget(private val ctrl: QuestEditorToolbarController) :
                     Dropdown(
                         text = "New quest",
                         iconLeft = Icon.NewFile,
-                        items = listCell(Episode.I),
+                        items = listCell(Episode.I, Episode.II, Episode.IV),
                         itemToString = { "Episode $it" },
                         onSelect = { scope.launch { ctrl.createNewQuest(it) } },
                     ),
