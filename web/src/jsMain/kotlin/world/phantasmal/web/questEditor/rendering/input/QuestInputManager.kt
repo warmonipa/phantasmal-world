@@ -7,6 +7,7 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.FocusEvent
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.pointerevents.PointerEvent
+import world.phantasmal.cell.observeNow
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.web.core.rendering.InputManager
 import world.phantasmal.web.core.rendering.OrbitalCameraInputManager
@@ -89,7 +90,29 @@ class QuestInputManager(
         stateContext = StateContext(questEditorStore, renderContext, cameraInputManager)
         state = IdleState(stateContext, entityManipulationEnabled)
 
+        // Observe quest editing enabled state
         observeNow(questEditorStore.questEditingEnabled) { entityManipulationEnabled = it }
+        
+        // Observe target camera position for navigation - safe implementation
+        observeNow(questEditorStore.targetCameraPosition) { targetPosition ->
+            targetPosition?.let { position ->
+                console.log("Navigating camera to section at position: ${position.x}, ${position.y}, ${position.z}")
+                
+                // Calculate camera position above and in front of the target section (further increased distance)
+                val cameraOffset = Vector3(0.0, 600.0, 900.0)  // Further increased Y and Z for wider overview
+                val cameraPosition = position.clone().add(cameraOffset)
+                
+                console.log("Moving camera to: ${cameraPosition.x}, ${cameraPosition.y}, ${cameraPosition.z}")
+                
+                // Move camera to look at the section
+                cameraInputManager.lookAt(cameraPosition, position)
+                
+                // Clear the target position after navigation to allow future navigations
+                window.setTimeout({
+                    questEditorStore.setTargetCameraPosition(null)
+                }, 200)
+            }
+        }
 
         pointerTrap.className = "pw-quest-editor-input-manager-pointer-trap"
         pointerTrap.hidden = true

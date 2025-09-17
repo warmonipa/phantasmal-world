@@ -111,6 +111,7 @@ class RoomIdRenderer {
     
     /**
      * Creates a text plane using canvas texture for displaying room ID numbers.
+     * The text will maintain constant screen size regardless of camera distance.
      */
     private fun createTextPlane(text: String, color: Int, size: Double): Mesh {
         // Create canvas for text rendering (larger to avoid text clipping)
@@ -141,8 +142,8 @@ class RoomIdRenderer {
         texture.asDynamic().image = canvas
         texture.needsUpdate = true
         
-        // Create plane geometry (larger to ensure text is not clipped)
-        val geometry = PlaneGeometry(size * 3.0, size * 1.8)  // Increased size to accommodate larger text
+        // Create plane geometry with a base size that will be scaled later
+        val geometry = PlaneGeometry(size * 2.0, size * 1.2)  // Base size for scaling
         
         // Create material with aggressive visibility settings
         val material = MeshBasicMaterial(obj {
@@ -157,14 +158,17 @@ class RoomIdRenderer {
         
         return Mesh(geometry, material).apply {
             name = "RoomText"
-            // Make text always face the camera (billboard effect)
-            // Don't set lookAt here, it will be handled dynamically
             
             // Set high render order for this mesh specifically
             renderOrder = 10000
             
             // Additional settings to ensure visibility
             frustumCulled = false
+            
+            // Custom property to track base scale for constant screen size
+            userData = js("{}")
+            userData.asDynamic().baseScale = 1.0
+            userData.asDynamic().targetScreenSize = size // Target screen size in pixels
         }
     }
     
@@ -277,5 +281,44 @@ class RoomIdRenderer {
             renderOrder = 1000 // Same as EventCollision range circles
             frustumCulled = false
         }
+    }
+
+    /**
+     * Updates the scale of room ID labels to maintain constant screen size.
+     * Should be called when camera position or zoom changes.
+     */
+    fun updateTextScales(camera: Camera, roomIdLabels: Collection<Group>) {
+        roomIdLabels.forEach { group ->
+            group.children.forEach { child ->
+                if (child is Mesh && child.name == "RoomText") {
+                    updateTextMeshScale(camera, child)
+                }
+            }
+        }
+    }
+
+    /**
+     * Updates individual text mesh scale based on camera distance.
+     */
+    private fun updateTextMeshScale(camera: Camera, textMesh: Mesh) {
+        val userData = textMesh.userData
+        val targetScreenSize = userData.asDynamic().targetScreenSize as? Double ?: TEXT_SIZE
+
+        // Calculate distance from camera to text mesh
+        val cameraPosition = camera.position
+        val textWorldPosition = Vector3()
+        textMesh.asDynamic().getWorldPosition(textWorldPosition)
+        val distance = cameraPosition.distanceTo(textWorldPosition)
+
+        // Calculate scale factor to maintain constant screen size
+        // Base scale for distance of 1000 units
+        val baseDistance = 1000.0
+        val scaleFactor = (distance / baseDistance).coerceIn(0.1, 10.0) // Clamp to reasonable range
+
+        // Apply scale to maintain constant apparent size
+        textMesh.scale.asDynamic().setScalar(scaleFactor)
+
+        // Ensure text always faces camera (billboard effect)
+        textMesh.asDynamic().lookAt(cameraPosition)
     }
 }

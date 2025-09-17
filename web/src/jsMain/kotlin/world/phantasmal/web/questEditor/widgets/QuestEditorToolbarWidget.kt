@@ -94,6 +94,25 @@ class QuestEditorToolbarWidget(private val ctrl: QuestEditorToolbarController) :
                         checked = ctrl.spawnMonstersOnGround,
                         onChange = ctrl::setSpawnMonstersOnGround,
                     ),
+                    Select(
+                        label = "Go to Section:",
+                        enabled = ctrl.gotoSectionEnabled,
+                        items = ctrl.availableSections,
+                        itemToString = { "Section ${it.id}" },
+                        selected = ctrl.selectedSection,
+                        onSelect = { section ->
+                            ctrl.setSelectedSection(section)
+                            ctrl.goToSelectedSection()
+                        },
+                    ).apply {
+                        // Trigger section loading when user clicks the dropdown
+                        element.addEventListener("focus", { 
+                            ctrl.ensureSectionsLoaded() 
+                        })
+                        element.addEventListener("click", { 
+                            ctrl.ensureSectionsLoaded() 
+                        })
+                    },
                     Label(
                         textCell = ctrl.mouseWorldPosition.map { position ->
                             if (position != null) {

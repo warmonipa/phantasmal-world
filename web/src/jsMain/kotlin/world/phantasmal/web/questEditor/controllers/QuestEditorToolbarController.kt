@@ -15,6 +15,7 @@ import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.models.AreaModel
 import world.phantasmal.web.questEditor.models.AreaVariantModel
 import world.phantasmal.web.questEditor.models.QuestModel
+import world.phantasmal.web.questEditor.models.SectionModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
@@ -164,6 +165,12 @@ class QuestEditorToolbarController(
     val showRoomIds: Cell<Boolean> = questEditorStore.showRoomIds
     val spawnMonstersOnGround: Cell<Boolean> = questEditorStore.spawnMonstersOnGround
     val mouseWorldPosition: Cell<Vector3?> = questEditorStore.mouseWorldPosition
+    
+    // Go to Section functionality
+    private val _selectedSection = mutableCell<SectionModel?>(null)
+    val selectedSection: Cell<SectionModel?> = _selectedSection
+    val availableSections: Cell<List<SectionModel>> = questEditorStore.currentAreaSections
+    val gotoSectionEnabled: Cell<Boolean> = questEditorStore.currentQuest.isNotNull()
 
     init {
         addDisposables(
@@ -395,6 +402,8 @@ class QuestEditorToolbarController(
     }
 
     fun setCurrentArea(areaAndLabel: AreaAndLabel) {
+        // Clear selected section when area changes to avoid showing wrong sections
+        clearSelectedSection()
         questEditorStore.setCurrentArea(areaAndLabel.area)
     }
 
@@ -408,6 +417,41 @@ class QuestEditorToolbarController(
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {
         questEditorStore.setSpawnMonstersOnGround(spawn)
+    }
+    
+    fun setSelectedSection(section: SectionModel?) {
+        _selectedSection.value = section
+    }
+    
+    fun goToSelectedSection() {
+        _selectedSection.value?.let { section ->
+            questEditorStore.goToSection(section.id)
+        }
+    }
+    
+    /**
+     * Trigger section loading when user interacts with the section dropdown
+     */
+    fun ensureSectionsLoaded() {
+        val quest = questEditorStore.currentQuest.value
+        val areaVariant = questEditorStore.currentAreaVariant.value
+        
+        if (quest != null && areaVariant != null) {
+            // Check if sections are already loaded
+            val loadedSections = areaStore.getLoadedSections(quest.episode, areaVariant)
+            if (loadedSections == null) {
+                console.log("Triggering section loading for area variant ${areaVariant.id}")
+                // We'll trigger this from the store instead where scope is available
+                questEditorStore.requestSectionLoading(quest.episode, areaVariant)
+            }
+        }
+    }
+    
+    /**
+     * Clear selected section when area changes
+     */
+    fun clearSelectedSection() {
+        _selectedSection.value = null
     }
 
     private fun setFileHolder(fileHolder: FileHolder?) {

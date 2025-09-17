@@ -626,5 +626,15 @@ class EntityMeshManager(
         return groundIntersection?.point?.y ?: 0.0
     }
 
+    /**
+     * Called before each render to update text scales for constant screen size.
+     */
+    fun beforeRender() {
+        // Only update text scales if we have room labels enabled and labels exist
+        if (enableRoomLabels && roomIdLabels.isNotEmpty()) {
+            roomIdRenderer.updateTextScales(renderContext.camera, roomIdLabels.values)
+        }
+    }
+
     private data class TypeAndModel(val type: EntityType, val model: Int?)
 }

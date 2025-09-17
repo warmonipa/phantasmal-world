@@ -31,16 +31,17 @@ class QuestRenderer(
 
     override val inputManager = addDisposable(QuestInputManager(questEditorStore, context))
 
+    private val meshManager = addDisposable(
+        QuestEditorMeshManager(
+            areaAssetLoader,
+            entityAssetLoader,
+            questEditorStore,
+            areaStore,
+            context,
+        ),
+    )
+
     init {
-        addDisposables(
-            QuestEditorMeshManager(
-                areaAssetLoader,
-                entityAssetLoader,
-                questEditorStore,
-                areaStore,
-                context,
-            ),
-        )
 
         var prevQuest = questEditorStore.currentQuest.value
         var prevAreaVariant = questEditorStore.currentAreaVariant.value
@@ -53,5 +54,10 @@ class QuestRenderer(
                 prevAreaVariant = av
             }
         }
+    }
+
+    override fun render() {
+        // Call parent render method (handles inputManager.beforeRender() and actual rendering)
+        super.render()
     }
 }

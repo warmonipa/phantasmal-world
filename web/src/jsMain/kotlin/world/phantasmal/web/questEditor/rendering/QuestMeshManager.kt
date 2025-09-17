@@ -87,4 +87,12 @@ abstract class QuestMeshManager protected constructor(
             change.inserted.forEach(objectMeshManager::add)
         }
     }
+
+    /**
+     * Called before each render to update text scales for constant screen size.
+     */
+    fun beforeRender() {
+        // Update text scales in the NPC mesh manager (which handles room labels)
+        npcMeshManager.beforeRender()
+    }
 }

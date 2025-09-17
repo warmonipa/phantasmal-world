@@ -29,14 +29,14 @@ class QuestEditorMeshManager(
         observeNow(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
-            questEditorStore.selectedEvent.flatMapNull { it?.wave },
-        ) { quest, area, wave ->
+            questEditorStore.selectedEventsWaves,
+        ) { quest, area, selectedWaves ->
             loadNpcMeshes(
                 if (quest != null && area != null) {
                     quest.npcs.filteredCell {
                         it.sectionInitialized and
                                 (it.areaId == area.id) and
-                                ((wave == null) or (it.wave eq wave))
+                                (selectedWaves.isEmpty() or (it.wave.value in selectedWaves))
                     }
                 } else {
                     emptyListCell()

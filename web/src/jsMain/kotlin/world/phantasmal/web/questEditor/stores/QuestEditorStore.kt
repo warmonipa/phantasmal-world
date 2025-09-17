@@ -1,5 +1,6 @@
 package world.phantasmal.web.questEditor.stores
 
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import world.phantasmal.cell.*
@@ -35,11 +36,18 @@ class QuestEditorStore(
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
     private val _selectedEvent = mutableCell<QuestEventModel?>(null)
+    private val _selectedEvents = mutableCell<Set<QuestEventModel>>(emptySet())
     private val _highlightedEntity = mutableCell<QuestEntityModel<*, *>?>(null)
     private val _selectedEntity = mutableCell<QuestEntityModel<*, *>?>(null)
     private val mainUndo = UndoStack(undoManager)
     private val _showCollisionGeometry = mutableCell(true)
     private val _mouseWorldPosition = mutableCell<Vector3?>(null)
+    private val _targetCameraPosition = mutableCell<Vector3?>(null)
+    private val _sectionsUpdated = mutableCell(0) // Trigger to update sections
+    
+    // Queue to batch cell updates and avoid circular dependencies
+    private var updateQueue: (() -> Unit)? = null
+    private var isProcessingUpdates = false
 
     val devMode: Cell<Boolean> = _devMode
 
@@ -67,6 +75,27 @@ class QuestEditorStore(
         }
 
     val selectedEvent: Cell<QuestEventModel?> = _selectedEvent
+    val selectedEvents: Cell<Set<QuestEventModel>> = _selectedEvents
+
+    /**
+     * Get all waves from selected events for NPC filtering
+     */
+    val selectedEventsWaves: Cell<Set<WaveModel>> = selectedEvents.map { events ->
+        events.map { it.wave.value }.toSet()
+    }
+
+    /**
+     * Get all sections for the current area variant for goto section functionality
+     */
+    val currentAreaSections: Cell<List<SectionModel>> = 
+        map(currentQuest, currentAreaVariant, _sectionsUpdated) { quest, areaVariant, _ ->
+            if (quest != null && areaVariant != null) {
+                // Simply return already loaded sections, or empty list if not loaded
+                areaStore.getLoadedSections(quest.episode, areaVariant) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        }
 
     /**
      * The entity the user is currently hovering over.
@@ -92,6 +121,7 @@ class QuestEditorStore(
 
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
     val mouseWorldPosition: Cell<Vector3?> = _mouseWorldPosition
+    val targetCameraPosition: Cell<Vector3?> = _targetCameraPosition
 
     init {
         addDisposables(
@@ -107,6 +137,38 @@ class QuestEditorStore(
                 makeMainUndoCurrent()
             }
         }
+
+        // TODO: Re-enable section loading observer after fixing parsing issues
+        // Observe area variant changes and update sections
+        /*
+        observeNow(currentQuest, currentAreaVariant) { quest, areaVariant ->
+            if (quest != null && areaVariant != null) {
+                console.log("Loading sections for quest episode ${quest.episode} and area variant ${areaVariant.id}")
+                // Try to get already loaded sections first
+                val loadedSections = areaStore.getLoadedSections(quest.episode, areaVariant)
+                if (loadedSections != null) {
+                    console.log("Found ${loadedSections.size} loaded sections")
+                    _currentAreaSections.value = loadedSections
+                } else {
+                    console.log("Sections not loaded, triggering async load")
+                    // Clear sections first
+                    _currentAreaSections.value = emptyList()
+                    // Trigger async loading
+                    scope.launch {
+                        try {
+                            val sections = areaStore.getSections(quest.episode, areaVariant)
+                            console.log("Loaded ${sections.size} sections asynchronously")
+                            _currentAreaSections.value = sections
+                        } catch (e: Exception) {
+                            console.log("Error loading sections: ${e.message}")
+                        }
+                    }
+                }
+            } else {
+                _currentAreaSections.value = emptyList()
+            }
+        }
+        */
 
         if (initializeNewQuest) {
             scope.launch { setCurrentQuest(getDefaultQuest(Episode.I)) }
@@ -152,6 +214,10 @@ class QuestEditorStore(
             // Ensure all entities have their section initialized.
             quest.npcs.value.forEach(QuestNpcModel::setSectionInitialized)
             quest.objects.value.forEach(QuestObjectModel::setSectionInitialized)
+            
+            // Trigger section loading for dropdown immediately after quest is loaded
+            console.log("Quest loaded, triggering section loading for goto dropdown")
+            _sectionsUpdated.value = _sectionsUpdated.value + 1
         }
     }
 
@@ -176,6 +242,20 @@ class QuestEditorStore(
         _highlightedEntity.value = null
         _selectedEntity.value = null
         _currentArea.value = area
+        
+        // Trigger section list update when area changes
+        console.log("Area changed to ${area?.name}, triggering section list update")
+        
+        // Load sections for the new area if quest is loaded
+        // Use setTimeout to ensure currentAreaVariant has been updated first
+        window.setTimeout({
+            currentQuest.value?.let { quest ->
+                currentAreaVariant.value?.let { areaVariant ->
+                    console.log("Requesting section loading for new area variant ${areaVariant.id}")
+                    requestSectionLoading(quest.episode, areaVariant)
+                }
+            }
+        }, 50)
     }
 
     fun addEvent(quest: QuestModel, index: Int, event: QuestEventModel) {
@@ -193,29 +273,53 @@ class QuestEditorStore(
     }
 
     fun setSelectedEvent(event: QuestEventModel?) {
-        event?.let {
-            val wave = event.wave.value
-
-            highlightedEntity.value?.let { entity ->
-                if (entity is QuestNpcModel && entity.wave.value != wave) {
-                    setHighlightedEntity(null)
-                }
-            }
-
-            selectedEntity.value?.let { entity ->
-                if (entity is QuestNpcModel && entity.wave.value != wave) {
-                    setSelectedEntity(null)
-                }
-            }
-
-            val quest = currentQuest.value
-
-            if (quest != null && _currentArea.value?.id != event.areaId) {
-                _currentArea.value = areaStore.getArea(quest.episode, event.areaId)
-            }
-        }
-
+        console.log("setSelectedEvent called with event: ${event?.id?.value}")
+        
+        // Simple implementation - just set the selected event
         _selectedEvent.value = event
+        
+        // Update multi-selection to match single selection
+        if (event != null) {
+            _selectedEvents.value = setOf(event)
+        } else {
+            _selectedEvents.value = emptySet()
+        }
+    }
+
+    /**
+     * Toggle event selection for multi-selection with Ctrl+click
+     */
+    fun toggleEventSelection(event: QuestEventModel) {
+        console.log("toggleEventSelection called for event: ${event.id.value}")
+        val currentSelection = _selectedEvents.value.toMutableSet()
+        
+        if (event in currentSelection) {
+            console.log("Removing event ${event.id.value} from multi-selection")
+            currentSelection.remove(event)
+        } else {
+            console.log("Adding event ${event.id.value} to multi-selection")
+            currentSelection.add(event)
+        }
+        
+        _selectedEvents.value = currentSelection
+        console.log("Multi-selection now contains: ${currentSelection.map { it.id.value }}")
+        
+        // Update single selection to the last selected event (or null if none)
+        _selectedEvent.value = if (currentSelection.isEmpty()) null else event
+    }
+
+    /**
+     * Check if an event is currently selected in multi-selection
+     */
+    fun isEventSelected(event: QuestEventModel): Boolean = 
+        event in _selectedEvents.value
+
+    /**
+     * Clear all event selections
+     */
+    fun clearEventSelection() {
+        _selectedEvents.value = emptySet()
+        _selectedEvent.value = null
     }
 
     fun <T> setEventProperty(
@@ -417,8 +521,29 @@ class QuestEditorStore(
         _mouseWorldPosition.value = position
     }
 
+    fun setTargetCameraPosition(position: Vector3?) {
+        _targetCameraPosition.value = position
+    }
+
     fun questSaved() {
         undoManager.savePoint()
+    }
+
+    /**
+     * Request async loading of sections for a specific area variant
+     */
+    fun requestSectionLoading(episode: Episode, areaVariant: AreaVariantModel) {
+        scope.launch {
+            try {
+                console.log("Loading sections for episode $episode and area variant ${areaVariant.id}")
+                areaStore.getSections(episode, areaVariant)
+                console.log("Section loading completed, triggering UI update")
+                // Trigger UI update by incrementing the counter
+                _sectionsUpdated.value = _sectionsUpdated.value + 1
+            } catch (e: Exception) {
+                console.log("Error loading sections: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -433,6 +558,32 @@ class QuestEditorStore(
         currentAreaEvents.value.find { it.id.value == eventId }?.let { event ->
             setSelectedEvent(event)
         }
+    }
+
+    /**
+     * Navigate camera to a specific section by section ID.
+     */
+    fun goToSection(sectionId: Int) {
+        console.log("goToSection called for section $sectionId")
+        currentAreaVariant.value?.let { areaVariant ->
+            currentQuest.value?.let { quest ->
+                val sections = areaStore.getLoadedSections(quest.episode, areaVariant)
+                sections?.find { it.id == sectionId }?.let { section ->
+                    console.log("Found section $sectionId at position: ${section.position.x}, ${section.position.y}, ${section.position.z}")
+                    // Set target camera position without using observers to avoid circular dependencies
+                    _targetCameraPosition.value = section.position.clone()
+                } ?: run {
+                    console.log("Section $sectionId not found")
+                }
+            }
+        }
+    }
+
+    /**
+     * Navigate camera to the section of a specific event.
+     */
+    fun goToEventSection(event: QuestEventModel) {
+        goToSection(event.sectionId.value)
     }
 
     private suspend fun updateQuestEntitySections(quest: QuestModel) {
