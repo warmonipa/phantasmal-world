@@ -26,11 +26,11 @@ class EntityMeshManager(
     private val renderContext: QuestRenderContext,
     private val entityAssetLoader: EntityAssetLoader,
     private val areaStore: AreaStore,
-    private val enableRoomLabels: Boolean = false, // Only enable room labels for one manager
+    private val enableSectionLabels: Boolean = false, // Only enable section labels for one manager
 ) : DisposableContainer() {
     private val scope = addDisposable(DisposableSupervisedScope(this::class, Dispatchers.Main))
     private val rangeCircleRenderer = RangeCircleRenderer()
-    private val roomIdRenderer = RoomIdRenderer()
+    private val sectionIdRenderer = SectionIdRenderer()
 
     /**
      * Contains one [EntityInstanceContainer] per [EntityType] and model.
@@ -90,17 +90,17 @@ class EntityMeshManager(
     private var rangeCircleObserverDisposer = addDisposable(Disposer())
 
     /**
-     * Room ID labels currently being displayed.
+     * Section ID labels currently being displayed.
      */
-    private val roomIdLabels = mutableMapOf<Int, Group>()
+    private val sectionIdLabels = mutableMapOf<Int, Group>()
     
     /**
-     * Disposer for room ID label observers.
+     * Disposer for section ID label observers.
      */
-    private var roomIdObserverDisposer = addDisposable(Disposer())
+    private var sectionIdObserverDisposer = addDisposable(Disposer())
 
     /**
-     * SCL_TAMA circles currently being displayed for ObjRoomID objects.
+     * SCL_TAMA circles currently being displayed for ObjSectionID objects.
      */
     private val sclTamaCircles = mutableMapOf<QuestObjectModel, Group>()
 
@@ -143,17 +143,17 @@ class EntityMeshManager(
             // Update range circle for selected entity
             updateSelectedEntityRangeCircle(entity)
         }
-        
-        // Initialize room ID labels when quest, area, or show setting changes (only for enabled managers)
-        if (enableRoomLabels) {
+
+        // Initialize section ID labels when quest, area, or show setting changes (only for enabled managers)
+        if (enableSectionLabels) {
             observeNow(questEditorStore.currentQuest) { _ ->
-                updateRoomIdLabels()
+                updateSectionIdLabels()
             }
             observeNow(questEditorStore.currentAreaVariant) { _ ->
-                updateRoomIdLabels()
+                updateSectionIdLabels()
             }
-            observeNow(questEditorStore.showRoomIds) { _ ->
-                updateRoomIdLabels()
+            observeNow(questEditorStore.showSectionIds) { _ ->
+                updateSectionIdLabels()
             }
         }
     }
@@ -164,9 +164,9 @@ class EntityMeshManager(
         disposeObject3DResources(warpLines)
         // Dispose selected entity range circle
         clearSelectedEntityRangeCircle()
-        // Dispose room ID labels (only for enabled managers)
-        if (enableRoomLabels) {
-            clearRoomIdLabels()
+        // Dispose section ID labels (only for enabled managers)
+        if (enableSectionLabels) {
+            clearSectionIdLabels()
         }
         // Dispose all SCL_TAMA circles
         clearAllSclTamaCircles()
@@ -424,16 +424,16 @@ class EntityMeshManager(
     }
 
     /**
-     * Updates room ID labels for the current area and sections.
+     * Updates section ID labels for the current area and sections.
      * Uses fixed map geometry data, independent of quest files.
      */
-    private fun updateRoomIdLabels() {
+    private fun updateSectionIdLabels() {
         // Always clear existing labels first
-        clearRoomIdLabels()
-        
-        // Check if room IDs should be shown
-        if (!questEditorStore.showRoomIds.value) {
-            return // Don't create any labels if room IDs are disabled
+        clearSectionIdLabels()
+
+        // Check if section IDs should be shown
+        if (!questEditorStore.showSectionIds.value) {
+            return // Don't create any labels if section IDs are disabled
         }
         
         val currentAreaVariant = questEditorStore.currentAreaVariant.value ?: return
@@ -446,7 +446,7 @@ class EntityMeshManager(
         val sections = currentAreaVariant.sections.value
         if (sections.isNotEmpty()) {
             // Use already loaded sections immediately (synchronous)
-            createRoomLabelsForSections(sections, currentAreaVariant)
+            createSectionLabelsForSections(sections, currentAreaVariant)
         } else {
             // Sections not loaded yet, need to load them directly from area store
             scope.launch {
@@ -466,10 +466,10 @@ class EntityMeshManager(
                     
                     // Update the area variant with the loaded sections
                     currentAreaVariant.setSections(loadedSections)
-                    
-                    // Create room labels with the loaded sections
+
+                    // Create section labels with the loaded sections
                     if (loadedSections.isNotEmpty()) {
-                        createRoomLabelsForSections(loadedSections, currentAreaVariant)
+                        createSectionLabelsForSections(loadedSections, currentAreaVariant)
                     }
                 } catch (e: Exception) {
                     logger.error(e) { "Failed to load sections for area variant ${currentAreaVariant.area.name}" }
@@ -479,56 +479,62 @@ class EntityMeshManager(
     }
     
     /**
-     * Creates room labels for a list of sections.
+     * Creates section labels for a list of sections.
      * Uses stable section data from map geometry.
      */
-    private fun createRoomLabelsForSections(
+    private fun createSectionLabelsForSections(
         sections: List<SectionModel>, 
         areaVariant: AreaVariantModel,
     ) {
         for (section in sections) {
             // Always use section position from map geometry - this is the stable, fixed position
-            val roomCenter = section.position
-            
+            val sectionCenter = section.position
+
             // Use a unique key combining area variant and section for proper tracking
             val uniqueKey = "${areaVariant.area.id}_${areaVariant.id}_${section.id}".hashCode()
-            
+
             // Display the section ID as it appears within this area
-            createRoomIdLabelForSection(
+            createSectionIdLabelForSection(
                 uniqueKey,
                 section.id,  // Use the actual section ID within this area
-                roomCenter.x.toFloat(),
-                roomCenter.y.toFloat(),
-                roomCenter.z.toFloat()
+                sectionCenter.x.toFloat(),
+                sectionCenter.y.toFloat(),
+                sectionCenter.z.toFloat()
             )
         }
     }
     
     /**
-     * Creates and displays a room ID label for a specific section with unique tracking.
+     * Creates and displays a section ID label for a specific section with unique tracking.
      */
-    private fun createRoomIdLabelForSection(uniqueKey: Int, roomId: Int, centerX: Float, centerY: Float, centerZ: Float) {
-        val label = roomIdRenderer.createRoomIdLabel(centerX, centerY, centerZ, roomId)
+    private fun createSectionIdLabelForSection(
+        uniqueKey: Int,
+        sectionId: Int,
+        centerX: Float,
+        centerY: Float,
+        centerZ: Float
+    ) {
+        val label = sectionIdRenderer.createSectionIdLabel(centerX, centerY, centerZ, sectionId)
         renderContext.helpers.add(label)
-        roomIdLabels[uniqueKey] = label
+        sectionIdLabels[uniqueKey] = label
     }
     
     /**
-     * Clears all room ID labels and their observers.
+     * Clears all section ID labels and their observers.
      */
-    private fun clearRoomIdLabels() {
+    private fun clearSectionIdLabels() {
         // Clear our tracked labels
-        for (label in roomIdLabels.values) {
+        for (label in sectionIdLabels.values) {
             renderContext.helpers.remove(label)
             renderContext.scene.remove(label)
             disposeObject3DResources(label)
         }
-        roomIdLabels.clear()
-        
-        // Additional cleanup: remove any remaining room ID labels by name pattern
+        sectionIdLabels.clear()
+
+        // Additional cleanup: remove any remaining section ID labels by name pattern
         val toRemove = mutableListOf<Object3D>()
         renderContext.helpers.children.forEach { child ->
-            if (child.name.startsWith("RoomIdLabel_")) {
+            if (child.name.startsWith("SectionIdLabel_")) {
                 toRemove.add(child)
             }
         }
@@ -536,8 +542,8 @@ class EntityMeshManager(
             renderContext.helpers.remove(obj)
             disposeObject3DResources(obj)
         }
-        
-        roomIdObserverDisposer.disposeAll()
+
+        sectionIdObserverDisposer.disposeAll()
     }
     
     /**
@@ -552,7 +558,8 @@ class EntityMeshManager(
             // Only create visualization if SCL_TAMA value is positive
             if (sclTamaValue > 0.0f) {
                 val position = entity.worldPosition.value
-                val visualization = roomIdRenderer.createSclTamaVisualization(
+
+                val visualization = sectionIdRenderer.createSclTamaVisualization(
                     position.x.toFloat(),
                     position.y.toFloat(),
                     position.z.toFloat(),
@@ -630,9 +637,9 @@ class EntityMeshManager(
      * Called before each render to update text scales for constant screen size.
      */
     fun beforeRender() {
-        // Only update text scales if we have room labels enabled and labels exist
-        if (enableRoomLabels && roomIdLabels.isNotEmpty()) {
-            roomIdRenderer.updateTextScales(renderContext.camera, roomIdLabels.values)
+        // Only update text scales if we have section labels enabled and labels exist
+        if (enableSectionLabels && sectionIdLabels.isNotEmpty()) {
+            sectionIdRenderer.updateTextScales(renderContext.camera, sectionIdLabels.values)
         }
     }
 

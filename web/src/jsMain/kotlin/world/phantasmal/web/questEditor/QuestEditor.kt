@@ -107,7 +107,7 @@ class QuestEditor(
             { QuestInfoWidget(questInfoController) },
             { NpcCountsWidget(npcCountsController) },
             { EntityInfoWidget(entityInfoController) },
-            { QuestEditorRendererWidget(renderer) },
+            { QuestEditorRendererWidget(renderer, questEditorStore.mouseWorldPosition) },
             { AsmWidget(asmController) },
             { EntityListWidget(npcListController, entityImageRenderer) },
             { EntityListWidget(objectListController, entityImageRenderer) },

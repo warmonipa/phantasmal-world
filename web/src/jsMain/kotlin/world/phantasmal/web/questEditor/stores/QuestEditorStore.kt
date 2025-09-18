@@ -31,7 +31,7 @@ class QuestEditorStore(
     initializeNewQuest: Boolean,
 ) : Store() {
     private val _devMode = mutableCell(false)
-    private val _showRoomIds = mutableCell(false) // Room ID display toggle
+    private val _showSectionIds = mutableCell(false) // Section ID display toggle
     private val _spawnMonstersOnGround = mutableCell(false) // Monster ground spawn toggle
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
@@ -54,7 +54,7 @@ class QuestEditorStore(
     private val runner = QuestRunner()
     val currentQuest: Cell<QuestModel?> = _currentQuest
     val currentArea: Cell<AreaModel?> = _currentArea
-    val showRoomIds: Cell<Boolean> = _showRoomIds
+    val showSectionIds: Cell<Boolean> = _showSectionIds
     val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
     val currentAreaVariant: Cell<AreaVariantModel?> =
         map(currentArea, currentQuest.flatMapNull { it?.areaVariants }) { area, variants ->
@@ -508,8 +508,8 @@ class QuestEditorStore(
         _showCollisionGeometry.value = show
     }
 
-    fun setShowRoomIds(show: Boolean) {
-        _showRoomIds.value = show
+    fun setShowSectionIds(show: Boolean) {
+        _showSectionIds.value = show
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {

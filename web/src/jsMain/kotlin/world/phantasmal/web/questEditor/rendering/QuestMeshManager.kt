@@ -3,10 +3,10 @@ package world.phantasmal.web.questEditor.rendering
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import world.phantasmal.core.disposable.Disposable
-import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.ListChangeEvent
+import world.phantasmal.core.disposable.Disposable
+import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.psolib.Episode
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
@@ -30,10 +30,22 @@ abstract class QuestMeshManager protected constructor(
     private val scope = addDisposable(DisposableSupervisedScope(this::class, Dispatchers.Default))
     private val areaMeshManager = AreaMeshManager(renderContext, areaAssetLoader)
     private val npcMeshManager = addDisposable(
-        EntityMeshManager(questEditorStore, renderContext, entityAssetLoader, areaStore, enableRoomLabels = true) // Only NPC manager handles room labels
+        EntityMeshManager(
+            questEditorStore,
+            renderContext,
+            entityAssetLoader,
+            areaStore,
+            enableSectionLabels = true
+        ) // Only NPC manager handles section labels
     )
     private val objectMeshManager = addDisposable(
-        EntityMeshManager(questEditorStore, renderContext, entityAssetLoader, areaStore, enableRoomLabels = false) // Object manager doesn't handle room labels
+        EntityMeshManager(
+            questEditorStore,
+            renderContext,
+            entityAssetLoader,
+            areaStore,
+            enableSectionLabels = false
+        ) // Object manager doesn't handle section labels
     )
 
     private var areaLoadJob: Job? = null
@@ -92,7 +104,7 @@ abstract class QuestMeshManager protected constructor(
      * Called before each render to update text scales for constant screen size.
      */
     fun beforeRender() {
-        // Update text scales in the NPC mesh manager (which handles room labels)
+        // Update text scales in the NPC mesh manager (which handles section labels)
         npcMeshManager.beforeRender()
     }
 }
