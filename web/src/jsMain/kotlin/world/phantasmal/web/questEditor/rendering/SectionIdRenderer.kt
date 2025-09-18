@@ -7,8 +7,6 @@ import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.webui.obj
 import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * Renders section ID labels as transparent circles with text for quest sections.
@@ -72,38 +70,87 @@ class SectionIdRenderer {
     }
 
     /**
-     * Creates a transparent circle using line segments.
+     * Creates a transparent ring using custom geometry for better visibility.
      */
     private fun createTransparentCircle(radius: Float, color: Int, opacity: Double): Object3D {
-        // Create circle vertices
+        // Create a thick ring geometry manually
+        val ringThickness = 2.0f  // Make ring moderately thick
+        val innerRadius = radius - ringThickness
+        val outerRadius = radius + ringThickness
+        val height = 1.0f  // Very thin height for ring appearance
+
+        // Create ring vertices manually
         val vertices = mutableListOf<Float>()
-        for (i in 0..CIRCLE_SEGMENTS) {
-            val angle = (i * 2 * PI / CIRCLE_SEGMENTS)
-            val x = (cos(angle) * radius).toFloat()
-            val z = (sin(angle) * radius).toFloat()
-            vertices.add(x)
-            vertices.add(0.0f) // Y relative to group position
-            vertices.add(z)
+        val indices = mutableListOf<Int>()
+
+        // Create ring by making two circles and connecting them
+        for (i in 0 until CIRCLE_SEGMENTS) {
+            val angle1 = (i * 2 * PI / CIRCLE_SEGMENTS)
+            val angle2 = ((i + 1) * 2 * PI / CIRCLE_SEGMENTS)
+
+            // Outer circle bottom
+            val x1o = (kotlin.math.cos(angle1) * outerRadius).toFloat()
+            val z1o = (kotlin.math.sin(angle1) * outerRadius).toFloat()
+            val x2o = (kotlin.math.cos(angle2) * outerRadius).toFloat()
+            val z2o = (kotlin.math.sin(angle2) * outerRadius).toFloat()
+
+            // Inner circle bottom
+            val x1i = (kotlin.math.cos(angle1) * innerRadius).toFloat()
+            val z1i = (kotlin.math.sin(angle1) * innerRadius).toFloat()
+            val x2i = (kotlin.math.cos(angle2) * innerRadius).toFloat()
+            val z2i = (kotlin.math.sin(angle2) * innerRadius).toFloat()
+
+            val baseIndex = vertices.size / 3
+
+            // Add vertices for this segment (8 vertices: 4 bottom, 4 top)
+            // Bottom vertices
+            vertices.addAll(listOf(x1o, 0f, z1o))  // 0: outer1 bottom
+            vertices.addAll(listOf(x2o, 0f, z2o))  // 1: outer2 bottom
+            vertices.addAll(listOf(x1i, 0f, z1i))  // 2: inner1 bottom
+            vertices.addAll(listOf(x2i, 0f, z2i))  // 3: inner2 bottom
+
+            // Top vertices
+            vertices.addAll(listOf(x1o, height, z1o))  // 4: outer1 top
+            vertices.addAll(listOf(x2o, height, z2o))  // 5: outer2 top
+            vertices.addAll(listOf(x1i, height, z1i))  // 6: inner1 top
+            vertices.addAll(listOf(x2i, height, z2i))  // 7: inner2 top
+
+            // Create faces for this ring segment
+            // Bottom face (ring shape)
+            indices.addAll(listOf(baseIndex, baseIndex + 2, baseIndex + 1))
+            indices.addAll(listOf(baseIndex + 1, baseIndex + 2, baseIndex + 3))
+
+            // Top face (ring shape)
+            indices.addAll(listOf(baseIndex + 4, baseIndex + 5, baseIndex + 6))
+            indices.addAll(listOf(baseIndex + 5, baseIndex + 7, baseIndex + 6))
+
+            // Outer wall
+            indices.addAll(listOf(baseIndex, baseIndex + 1, baseIndex + 4))
+            indices.addAll(listOf(baseIndex + 1, baseIndex + 5, baseIndex + 4))
+
+            // Inner wall
+            indices.addAll(listOf(baseIndex + 2, baseIndex + 6, baseIndex + 3))
+            indices.addAll(listOf(baseIndex + 3, baseIndex + 6, baseIndex + 7))
         }
 
         val geometry = BufferGeometry().apply {
             setAttribute("position", Float32BufferAttribute(Float32Array(vertices.toTypedArray()), 3))
+            setIndex(indices.map { it.toDouble() }.toTypedArray())
         }
 
-        val material = LineBasicMaterial(obj {
+        val material = MeshBasicMaterial(obj {
             this.color = Color(color)
             transparent = true
             this.opacity = opacity
-            linewidth = 2.0
+            side = DoubleSide
         })
 
         // Force material settings after creation
         material.asDynamic().depthTest = false
         material.asDynamic().depthWrite = false
 
-        return Line(geometry, material).apply {
+        return Mesh(geometry, material).apply {
             name = "SectionCircle"
-            // Set high render order for this line specifically
             renderOrder = 10000
             frustumCulled = false
         }
@@ -222,32 +269,29 @@ class SectionIdRenderer {
     }
 
     /**
-     * Creates a transparent circle at ground level like EventCollision range circles.
+     * Creates a transparent circle at ground level using thick cylinder geometry for better visibility.
      */
     private fun createGroundLevelCircle(radius: Float, color: Int, opacity: Double): Object3D {
-        // Create circle vertices
-        val vertices = mutableListOf<Float>()
-        for (i in 0..CIRCLE_SEGMENTS) {
-            val angle = (i * 2 * PI / CIRCLE_SEGMENTS)
-            val x = (cos(angle) * radius).toFloat()
-            val z = (sin(angle) * radius).toFloat()
-            vertices.add(x)
-            vertices.add(0.0f) // Y is always 0 (ground level)
-            vertices.add(z)
-        }
+        // Create a thick ring using cylinder geometry
+        val ringThickness = 2.0f  // Slightly thinner than section circles for ground level
+        val outerRadius = radius + ringThickness
+        val height = 1.0f  // Very thin height for ring appearance
 
-        val geometry = BufferGeometry().apply {
-            setAttribute("position", Float32BufferAttribute(Float32Array(vertices.toTypedArray()), 3))
-        }
+        val geometry =
+            CylinderGeometry(outerRadius.toDouble(), outerRadius.toDouble(), height.toDouble(), CIRCLE_SEGMENTS)
 
-        val material = LineBasicMaterial(obj {
+        val material = MeshBasicMaterial(obj {
             this.color = Color(color)
             transparent = true
             this.opacity = opacity
-            linewidth = 2.0
+            side = DoubleSide  // Use proper DoubleSide constant
         })
 
-        return Line(geometry, material).apply {
+        // Force material settings after creation
+        material.asDynamic().depthTest = false
+        material.asDynamic().depthWrite = false
+
+        return Mesh(geometry, material).apply {
             name = "SclTamaGroundCircle"
             renderOrder = 1000 // Same as EventCollision range circles
             frustumCulled = false

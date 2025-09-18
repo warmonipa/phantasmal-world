@@ -31,7 +31,7 @@ class QuestEditorStore(
     initializeNewQuest: Boolean,
 ) : Store() {
     private val _devMode = mutableCell(false)
-    private val _showSectionIds = mutableCell(false) // Section ID display toggle
+    private val _showSectionIds = mutableCell(true) // Section ID display toggle
     private val _spawnMonstersOnGround = mutableCell(false) // Monster ground spawn toggle
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
