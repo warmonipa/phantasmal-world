@@ -162,7 +162,7 @@ class QuestEditorToolbarController(
     // Settings
 
     val showCollisionGeometry: Cell<Boolean> = questEditorStore.showCollisionGeometry
-    val showRoomIds: Cell<Boolean> = questEditorStore.showRoomIds
+    val showSectionIds: Cell<Boolean> = questEditorStore.showSectionIds
     val spawnMonstersOnGround: Cell<Boolean> = questEditorStore.spawnMonstersOnGround
     val mouseWorldPosition: Cell<Vector3?> = questEditorStore.mouseWorldPosition
     
@@ -411,8 +411,8 @@ class QuestEditorToolbarController(
         questEditorStore.setShowCollisionGeometry(show)
     }
 
-    fun setShowRoomIds(show: Boolean) {
-        questEditorStore.setShowRoomIds(show)
+    fun setShowSectionIds(show: Boolean) {
+        questEditorStore.setShowSectionIds(show)
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {

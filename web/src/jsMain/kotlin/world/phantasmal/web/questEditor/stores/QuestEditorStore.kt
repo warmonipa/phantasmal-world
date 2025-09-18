@@ -31,8 +31,9 @@ class QuestEditorStore(
     initializeNewQuest: Boolean,
 ) : Store() {
     private val _devMode = mutableCell(false)
-    private val _showRoomIds = mutableCell(false) // Room ID display toggle
+    private val _showSectionIds = mutableCell(true) // Section ID display toggle
     private val _spawnMonstersOnGround = mutableCell(false) // Monster ground spawn toggle
+    private val _omnispawn = mutableCell(false) // Omnispawn toggle for NPCs
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
     private val _selectedEvent = mutableCell<QuestEventModel?>(null)
@@ -54,8 +55,9 @@ class QuestEditorStore(
     private val runner = QuestRunner()
     val currentQuest: Cell<QuestModel?> = _currentQuest
     val currentArea: Cell<AreaModel?> = _currentArea
-    val showRoomIds: Cell<Boolean> = _showRoomIds
+    val showSectionIds: Cell<Boolean> = _showSectionIds
     val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
+    val omnispawn: Cell<Boolean> = _omnispawn
     val currentAreaVariant: Cell<AreaVariantModel?> =
         map(currentArea, currentQuest.flatMapNull { it?.areaVariants }) { area, variants ->
             if (area != null && variants != null) {
@@ -508,13 +510,17 @@ class QuestEditorStore(
         _showCollisionGeometry.value = show
     }
 
-    fun setShowRoomIds(show: Boolean) {
-        _showRoomIds.value = show
+    fun setShowSectionIds(show: Boolean) {
+        _showSectionIds.value = show
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {
         _spawnMonstersOnGround.value = spawn
         QuestNpcModel.setSpawnOnGround(spawn)
+    }
+
+    fun setOmnispawn(omnispawn: Boolean) {
+        _omnispawn.value = omnispawn
     }
 
     fun setMouseWorldPosition(position: Vector3?) {
