@@ -28,7 +28,7 @@ abstract class QuestRendererWidget(
                             position.y.asDynamic().toFixed(1)
                         }, ${position.z.asDynamic().toFixed(1)})"
                     } else {
-                        "World: (--, --, --)"
+                        "World Position: (--, --, --)"
                     }
                 }
             ).apply {
