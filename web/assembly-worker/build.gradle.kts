@@ -23,9 +23,9 @@ kotlin {
 }
 
 tasks.named("jsBrowserDevelopmentRun") {
-    dependsOn("jsDevelopmentExecutableCompileSync")
+    dependsOn("jsProductionExecutableCompileSync")
 }
 
 tasks.named("jsBrowserProductionWebpack") {
-    dependsOn("jsProductionExecutableCompileSync")
+    dependsOn("jsDevelopmentExecutableCompileSync")
 }
