@@ -22,12 +22,26 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
 
     override val worldPosition: Cell<Vector3> =
         map(super.worldPosition, _spawnOnGround, section) { basePos, spawnOnGround, section ->
-            if (spawnOnGround && section != null) {
+            val adjustedPos = if (spawnOnGround && section != null) {
                 // Calculate the actual ground height for this position
                 val groundY = calculateGroundHeight(basePos.x, basePos.z, section)
                 Vector3(basePos.x, groundY, basePos.z)
             } else {
                 basePos
+            }
+
+            // Apply entity-specific Y offset adjustments
+            val yOffset = when (type) {
+                NpcType.Epsilon -> 20.0  // Epsilon appears too low, raise by 20 units
+                NpcType.GiGue -> 25.0    // Gigue appears too low, raise by 25 units
+                // Add more entity-specific Y offsets here as needed
+                else -> 0.0
+            }
+
+            if (yOffset != 0.0) {
+                Vector3(adjustedPos.x, adjustedPos.y + yOffset, adjustedPos.z)
+            } else {
+                adjustedPos
             }
         }
 

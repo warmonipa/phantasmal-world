@@ -62,12 +62,12 @@ class QuestEditorStore(
     val currentAreaVariant: Cell<AreaVariantModel?> = _currentAreaVariant
 
     val currentAreaEvents: ListCell<QuestEventModel> =
-        flatMapToList(currentQuest, currentArea) { quest, area ->
+        flatMapToList(currentQuest, currentArea, currentAreaVariant) { quest, area, areaVariant ->
             if (quest != null && area != null) {
                 if (quest.floorMappings.isNotEmpty()) {
-                    // For quests with floor mappings, find events by floor IDs that map to this area
+                    // For quests with floor mappings, find events by floor IDs that map to this area AND variant
                     val relevantFloorIds = quest.floorMappings
-                        .filter { it.areaId == area.id }
+                        .filter { it.areaId == area.id && (areaVariant == null || it.variantId == areaVariant.id) }
                         .map { it.floorId }
                         .toSet()
                     quest.events.filtered { event -> event.areaId in relevantFloorIds }
@@ -149,6 +149,15 @@ class QuestEditorStore(
 
         if (initializeNewQuest) {
             scope.launch { setCurrentQuest(getDefaultQuest(Episode.I)) }
+        }
+
+        // Clear entity selection when wave filters change and selected entities are no longer visible
+        // Use async execution to avoid circular dependencies
+        observeNow(selectedEventsSectionWaves) { sectionWaves ->
+            // Defer the entity selection clearing to break the circular dependency
+            window.setTimeout({
+                clearIncompatibleEntitySelections(sectionWaves)
+            }, 0)
         }
     }
 
@@ -603,6 +612,41 @@ class QuestEditorStore(
      */
     fun goToEventSection(event: QuestEventModel) {
         goToSection(event.sectionId.value)
+    }
+
+    /**
+     * Clear entity selections that are incompatible with the current wave filters.
+     * Called asynchronously to avoid circular dependencies.
+     */
+    private fun clearIncompatibleEntitySelections(sectionWaves: Set<Pair<Int, Int>>) {
+        val selectedEntity = _selectedEntity.value
+        val highlightedEntity = _highlightedEntity.value
+
+        // Check if selected entity should still be visible
+        if (selectedEntity != null && sectionWaves.isNotEmpty()) {
+            val selectedEntityMatches = sectionWaves.contains(
+                Pair(
+                    selectedEntity.sectionId.value,
+                    (selectedEntity as? QuestNpcModel)?.wave?.value?.id ?: -1
+                )
+            )
+            if (!selectedEntityMatches) {
+                _selectedEntity.value = null
+            }
+        }
+
+        // Check if highlighted entity should still be visible
+        if (highlightedEntity != null && sectionWaves.isNotEmpty()) {
+            val highlightedEntityMatches = sectionWaves.contains(
+                Pair(
+                    highlightedEntity.sectionId.value,
+                    (highlightedEntity as? QuestNpcModel)?.wave?.value?.id ?: -1
+                )
+            )
+            if (!highlightedEntityMatches) {
+                _highlightedEntity.value = null
+            }
+        }
     }
 
     private suspend fun updateQuestEntitySections(quest: QuestModel) {
