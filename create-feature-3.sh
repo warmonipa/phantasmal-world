@@ -1,77 +1,82 @@
 #!/bin/bash
-# Feature #3: 多地板副本完整系统
+# Feature #3: Multi-Floor Quest System
 
 set -e
 
-echo "创建 Feature #3 分支: feature/multi-floor-quest-system"
+echo "Creating Feature #3 branch: feature/multi-floor-quest-system"
 
-# 从 master 创建新分支
+# Create new branch from master
 git checkout master
 git checkout -b feature/multi-floor-quest-system
 
-# 从 release/1.0.0 提取文件
-echo "提取数据流分析层..."
+# Extract files from release/1.0.0
+echo "Extracting base library dependencies..."
+git checkout release/1.0.0 -- \
+  cell/src/commonMain/kotlin/world/phantasmal/cell/list/ListCells.kt \
+  web/shared/src/commonMain/kotlin/world/phantasmal/web/shared/messages/Messages.kt
+
+echo "Extracting data flow analysis layer..."
 git checkout release/1.0.0 -- \
   psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/FloorMappings.kt \
   psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/GameArea.kt
 
-# 删除旧文件（如果存在）
+# Delete old file if exists
 if [ -f "psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/GetMapDesignations.kt" ]; then
   git rm psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/GetMapDesignations.kt
-  echo "已删除 GetMapDesignations.kt"
+  echo "Deleted GetMapDesignations.kt"
 fi
 
-echo "提取字节码和 Opcode 支持..."
+echo "Extracting bytecode and opcode support..."
 git checkout release/1.0.0 -- \
   psolib/srcGeneration/asm/opcodes.yml \
   psolib/src/commonMain/kotlin/world/phantasmal/psolib/fileFormats/quest/Bytecode.kt
 
-echo "提取 Quest 数据模型..."
+echo "Extracting Quest data model..."
 git checkout release/1.0.0 -- \
   psolib/src/commonMain/kotlin/world/phantasmal/psolib/fileFormats/quest/Quest.kt \
   psolib/src/commonMain/kotlin/world/phantasmal/psolib/fileFormats/quest/ObjectType.kt \
   psolib/src/commonTest/kotlin/world/phantasmal/psolib/fileFormats/quest/QuestTests.kt
 
-echo "提取 Assembly Worker..."
+echo "Extracting Assembly Worker..."
 git checkout release/1.0.0 -- \
   web/assembly-worker/src/jsMain/kotlin/world/phantasmal/web/assemblyWorker/AsmAnalyser.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/asm/AsmAnalyser.kt
 
-echo "提取 Web 模型层..."
+echo "Extracting Web model layer..."
 git checkout release/1.0.0 -- \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/QuestModel.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/AreaModel.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/AreaVariantModel.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/QuestEntityModel.kt
 
-echo "提取 Quest Editor Store 层..."
+echo "Extracting Quest Editor Store layer..."
 git checkout release/1.0.0 -- \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/stores/QuestEditorStore.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/stores/AreaStore.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/stores/ModelConversion.kt
 
-echo "提取 Controller 适配..."
+echo "Extracting Controller adaptations..."
 git checkout release/1.0.0 -- \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/controllers/EntityInfoController.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/controllers/EventsController.kt
 
-echo "提取测试更新..."
+echo "Extracting test updates..."
 git checkout release/1.0.0 -- \
   web/src/jsTest/kotlin/world/phantasmal/web/test/TestModels.kt
 
-# 查看状态
+# View status
 git status
 
 echo ""
-echo "✅ Feature #3 文件已提取完成（20 个文件）"
+echo "✅ Feature #3 files extracted successfully (22 files)"
 echo ""
-echo "⚠️  依赖提示："
-echo "   此 Feature 依赖 Feature #2 (area-and-npc-system)"
-echo "   确保 Feature #2 已经合并到 master 后再创建此分支"
+echo "⚠️  Dependency notice:"
+echo "   This feature depends on Feature #2 (area-and-npc-system)"
+echo "   Make sure Feature #2 has been merged to master before creating this branch"
 echo ""
-echo "下一步操作:"
-echo "1. 检查改动: git diff --staged"
-echo "2. 提交改动: git commit -m 'feat: multi-floor quest system"
+echo "Next steps:"
+echo "1. Review changes: git diff --staged"
+echo "2. Commit changes: git commit -m 'feat: multi-floor quest system"
 echo ""
 echo "This is a major feature enabling quests with multiple floors/maps."
 echo ""
@@ -86,15 +91,12 @@ echo "- Auto area/variant switching on entity selection"
 echo "- Backward compatible with traditional single-area quests"
 echo ""
 echo "Technical stack:"
+echo "- Base library support (ListCells.kt 3-param flatMapToList, Messages.kt multi-mapping)"
 echo "- Data flow analysis layer (FloorMappings.kt, GameArea.kt)"
 echo "- Bytecode support (opcodes.yml, Bytecode.kt)"
 echo "- Quest data model (Quest.kt, ObjectType.kt, tests)"
 echo "- Assembly worker integration"
 echo "- Web model layer (QuestModel, AreaModel, etc.)"
 echo "- QuestEditorStore layer (326 lines refactor)"
-echo "- Controller adaptations"
-echo ""
-echo "🤖 Generated with Claude Code"
-echo ""
-echo "Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>'"
-echo "3. 推送分支: git push -u origin feature/multi-floor-quest-system"
+echo "- Controller adaptations'"
+echo "3. Push branch: git push -u origin feature/multi-floor-quest-system"

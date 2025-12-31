@@ -1,80 +1,90 @@
-# Feature 依赖关系详解
+# Feature Dependencies
 
-## 📊 完整依赖关系图
+## Complete Dependency Graph
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     依赖关系总览                              │
+│                  Dependency Overview                         │
 └─────────────────────────────────────────────────────────────┘
 
-Feature #1: infrastructure-and-assets (13 files)
-    └─ 完全独立，无任何依赖
-       ✅ 可以第一个提交
+Feature #1: infrastructure-and-assets (10 files)
+    └─ Completely independent, no dependencies
+       ✅ Can be submitted first
 
-       ↓ （可选依赖）
+       ↓ (optional dependency)
 
-Feature #2: area-and-npc-system (5 files) ← 修正：增加了 QuestNpc.kt
-    ├─ Areas.kt → 定义 bossArea, isBossArea(), isPioneer2OrLab()
-    ├─ NpcType.kt → 定义 boss, minion 字段
-    ├─ QuestNpc.kt → 定义 gameAreaId 字段 ⭐
-    ├─ NpcTypeFromData.kt → 使用 gameAreaId
-    └─ QuestNpcModel.kt → 地面生成逻辑
-    └─ 完全独立，或仅弱依赖 #1 的资源
-       ✅ 可以在 #1 之后提交（或与 #1 并行）
+Feature #2: area-and-npc-system (5 files)
+    ├─ Areas.kt → Defines bossArea, isBossArea(), isPioneer2OrLab()
+    ├─ NpcType.kt → Defines boss, minion fields
+    ├─ QuestNpc.kt → Defines gameAreaId field ⭐
+    ├─ NpcTypeFromData.kt → Uses gameAreaId
+    └─ QuestNpcModel.kt → Ground spawning logic
+    └─ Completely independent, or only weak dependency on #1
+       ✅ Can be submitted after #1 (or in parallel)
 
-       ↓ （强依赖）
+       ↓ (strong dependency)
 
-Feature #3: multi-floor-quest-system (20 files) ← 修正：减少了 QuestNpc.kt
-    ├─ 依赖 #2 的 Areas.kt:
-    │  └─ QuestEditorStore 使用 isBossArea(), isPioneer2OrLab()
-    │  └─ EntityListWidget 使用 isBossArea(), isPioneer2OrLab()
-    ├─ 依赖 #2 的 QuestNpc.kt:
-    │  └─ Quest.kt 设置 npc.gameAreaId = mapping.areaId
-    └─ ⚠️  必须在 #2 合并后才能提交
+Feature #3: multi-floor-quest-system (22 files)
+    ├─ Depends on #2's Areas.kt:
+    │  └─ QuestEditorStore uses isBossArea(), isPioneer2OrLab()
+    ├─ Depends on #2's QuestNpc.kt:
+    │  └─ Quest.kt sets npc.gameAreaId = mapping.areaId
+    ├─ ListCells.kt → 3-param flatMapToList for multi-floor event filtering
+    ├─ Messages.kt → MapDesignations supports one-to-many mapping
+    └─ ⚠️  MUST be submitted after #2 is merged
 
-       ↓ （强依赖）
+       ↓ (strong dependency)
 
 Feature #4: rendering-visualization-system (7 files)
-    ├─ 依赖 #2 的 QuestNpcModel:
-    │  └─ EntityMeshManager 设置地面高度计算器
-    ├─ 依赖 #3 的 QuestEditorStore:
-    │  └─ 使用 showSectionIds, spawnMonstersOnGround, showOriginPoint
-    └─ ⚠️  必须在 #2, #3 合并后才能提交
+    ├─ Depends on #2's QuestNpcModel:
+    │  └─ EntityMeshManager sets ground height calculator
+    ├─ Depends on #3's QuestEditorStore:
+    │  └─ Uses showSectionIds, spawnMonstersOnGround, showOriginPoint
+    └─ ⚠️  MUST be submitted after #2, #3 are merged
 
-       ↓ （强依赖）
+       ↓ (strong dependency)
 
 Feature #5: quest-editor-ui-system (13 files)
-    ├─ 依赖 #2 的 Areas.kt:
-    │  └─ EntityListWidget 使用 isBossArea(), isPioneer2OrLab()
-    ├─ 依赖 #3 的 QuestEditorStore:
-    │  └─ 工具栏、相机导航、事件列表都依赖 Store 的功能
-    ├─ 依赖 #4 的渲染器:
-    │  └─ 工具栏的显示控制开关需要渲染器支持
-    └─ ⚠️  必须在 #2, #3, #4 合并后才能提交
+    ├─ Depends on #2's Areas.kt:
+    │  └─ EntityListWidget uses isBossArea(), isPioneer2OrLab()
+    ├─ Depends on #3's QuestEditorStore:
+    │  └─ Toolbar, camera navigation, event list all depend on Store
+    ├─ Depends on #4's renderers:
+    │  └─ Toolbar display control switches need renderer support
+    └─ ⚠️  MUST be submitted after #2, #3, #4 are merged
+
+       ↓ (optional)
+
+Feature #6: general-improvements (3 files)
+    ├─ Application.kt → macOS Cmd key support
+    ├─ UiStore.kt → macOS Cmd key support
+    └─ Menu.kt → z-index fix
+    └─ Completely independent, can be submitted at any time
+       ✅ Recommended as the last PR
 ```
 
-## 🔍 详细依赖分析
+## Detailed Dependency Analysis
 
 ### Feature #1 → Feature #2
-**依赖类型**: 弱依赖（可选）
-**原因**: Feature #2 可能会使用 Feature #1 加载的默认 Quest 文件进行测试
-**是否可以跳过**: ✅ 是，Feature #2 可以独立开发和测试
+**Dependency Type**: Weak (optional)
+**Reason**: Feature #2 may use Feature #1's default Quest files for testing
+**Can be skipped**: ✅ Yes, Feature #2 can be developed and tested independently
 
 ---
 
 ### Feature #2 → Feature #3
-**依赖类型**: 强依赖（必须）
-**依赖详情**:
+**Dependency Type**: Strong (required)
+**Dependency Details**:
 
-#### 1. Areas.kt 的函数被使用
+#### 1. Areas.kt functions are used
 ```kotlin
-// Feature #2 定义
+// Feature #2 defines
 // Areas.kt
 fun isBossArea(episode: Int, areaId: Int): Boolean
 fun isPioneer2OrLab(episode: Int, areaId: Int): Boolean
 
-// Feature #3 使用
-// QuestEditorStore.kt (部分代码)
+// Feature #3 uses
+// QuestEditorStore.kt
 val showOmnispawn = map(currentQuest, currentArea) { quest, area ->
     val isPioneer2OrLab = isPioneer2OrLab(quest.episode, area.id)
     val isBoss = isBossArea(quest.episode, area.id)
@@ -82,44 +92,44 @@ val showOmnispawn = map(currentQuest, currentArea) { quest, area ->
 }
 ```
 
-#### 2. QuestNpc.gameAreaId 字段被使用
+#### 2. QuestNpc.gameAreaId field is used
 ```kotlin
-// Feature #2 定义
+// Feature #2 defines
 // QuestNpc.kt
 class QuestNpc {
-    var gameAreaId: Int = areaId  // 新增字段
+    var gameAreaId: Int = areaId  // New field
 }
 
-// Feature #3 使用
+// Feature #3 uses
 // Quest.kt
 if (floorMappings.isNotEmpty()) {
     for (npc in npcs) {
         val mapping = floorMappings.find { it.floorId == npc.areaId }
         if (mapping != null) {
-            npc.gameAreaId = mapping.areaId  // 设置这个字段
+            npc.gameAreaId = mapping.areaId  // Sets this field
         }
     }
 }
 ```
 
-**结论**: Feature #3 无法在没有 Feature #2 的情况下编译通过
+**Conclusion**: Feature #3 cannot compile without Feature #2
 
 ---
 
 ### Feature #3 → Feature #4
-**依赖类型**: 强依赖（必须）
-**依赖详情**:
+**Dependency Type**: Strong (required)
+**Dependency Details**:
 
-#### 1. QuestNpcModel 的地面生成功能
+#### 1. QuestNpcModel ground spawning functionality
 ```kotlin
-// Feature #2 定义
+// Feature #2 defines
 // QuestNpcModel.kt
 object QuestNpcModel {
     private var _spawnOnGround = ...
     fun setGroundHeightCalculator(...)
 }
 
-// Feature #4 使用
+// Feature #4 uses
 // EntityMeshManager.kt
 init {
     QuestNpcModel.setGroundHeightCalculator { x, z, section ->
@@ -128,152 +138,183 @@ init {
 }
 ```
 
-#### 2. QuestEditorStore 的显示控制
+#### 2. QuestEditorStore display controls
 ```kotlin
-// Feature #3 定义
+// Feature #3 defines
 // QuestEditorStore.kt
 val showSectionIds: Cell<Boolean>
 val spawnMonstersOnGround: Cell<Boolean>
 val showOriginPoint: Cell<Boolean>
 
-// Feature #4 使用
+// Feature #4 uses
 // EntityMeshManager.kt
 observe(store.showSectionIds) { show ->
     if (show) updateSectionIdLabels() else clearSectionIdLabels()
 }
 ```
 
-**结论**: Feature #4 需要 Feature #2 的 NPC 模型和 Feature #3 的 Store 功能
+**Conclusion**: Feature #4 needs Feature #2's NPC model and Feature #3's Store functionality
 
 ---
 
 ### Feature #4 → Feature #5
-**依赖类型**: 强依赖（必须）
-**依赖详情**:
+**Dependency Type**: Strong (required)
+**Dependency Details**:
 
-#### 1. 渲染器功能
+#### 1. Renderer functionality
 ```kotlin
-// Feature #4 提供
+// Feature #4 provides
 // EntityMeshManager.kt
-- OriginPointRenderer 集成
-- SectionIdRenderer 集成
-- RangeCircleRenderer 集成
+- OriginPointRenderer integration
+- SectionIdRenderer integration
+- RangeCircleRenderer integration
 
-// Feature #5 使用
+// Feature #5 uses
 // QuestEditorToolbarWidget.kt
 toggleSwitch("Show Section IDs") { store.setShowSectionIds(it) }
 toggleSwitch("Show Origin Point") { store.setShowOriginPoint(it) }
 ```
 
-#### 2. Store 和 Areas 功能
+#### 2. Store and Areas functionality
 ```kotlin
-// Feature #2 + #3 提供
+// Feature #2 + #3 provide
 // Areas.kt + QuestEditorStore.kt
 
-// Feature #5 使用
+// Feature #5 uses
 // EntityListWidget.kt
 val showOmnispawn = map(store.currentQuest, store.currentArea) { quest, area ->
-    val isPioneer2OrLab = isPioneer2OrLab(quest.episode, area.id)  // 来自 Feature #2
-    val isBoss = isBossArea(quest.episode, area.id)                // 来自 Feature #2
+    val isPioneer2OrLab = isPioneer2OrLab(quest.episode, area.id)  // From Feature #2
+    val isBoss = isBossArea(quest.episode, area.id)                // From Feature #2
     !isPioneer2OrLab && !isBoss
 }
 ```
 
-**结论**: Feature #5 需要所有前置 Features 的功能
+**Conclusion**: Feature #5 needs all prerequisite Features
 
 ---
 
-## ✅ 推荐的提交顺序
+## Recommended Submission Order
 
-### 严格按照以下顺序提交 PR：
+### Follow this strict order for PR submissions:
 
 ```bash
 1️⃣  Feature #1: infrastructure-and-assets
-    ├─ 文件数: 13
-    ├─ 依赖: 无
-    ├─ 审查时间: ~30 分钟
-    └─ 提交后等待合并
+    ├─ Files: 10
+    ├─ Dependencies: None
+    ├─ Review time: ~20 minutes
+    └─ Wait for merge
         ↓
 2️⃣  Feature #2: area-and-npc-system
-    ├─ 文件数: 5 (修正后)
-    ├─ 依赖: 无（或弱依赖 #1）
-    ├─ 审查时间: ~1 小时
-    └─ 提交后等待合并
+    ├─ Files: 5
+    ├─ Dependencies: None (or weak dependency on #1)
+    ├─ Review time: ~1 hour
+    └─ Wait for merge
         ↓
-3️⃣  Feature #3: multi-floor-quest-system ⚠️  核心
-    ├─ 文件数: 20 (修正后)
-    ├─ 依赖: 强依赖 #2
-    ├─ 审查时间: ~3-4 小时
-    └─ ⚠️  必须等待 #2 合并后才能创建此分支
+3️⃣  Feature #3: multi-floor-quest-system ⚠️  Core
+    ├─ Files: 22
+    ├─ Dependencies: Strong dependency on #2
+    ├─ Review time: ~3-4 hours
+    └─ ⚠️  MUST wait for #2 to merge before creating this branch
         ↓
 4️⃣  Feature #4: rendering-visualization-system
-    ├─ 文件数: 7
-    ├─ 依赖: 强依赖 #2, #3
-    ├─ 审查时间: ~1.5 小时
-    └─ ⚠️  必须等待 #2, #3 合并后才能创建此分支
+    ├─ Files: 7
+    ├─ Dependencies: Strong dependency on #2, #3
+    ├─ Review time: ~1.5 hours
+    └─ ⚠️  MUST wait for #2, #3 to merge before creating this branch
         ↓
 5️⃣  Feature #5: quest-editor-ui-system
-    ├─ 文件数: 13
-    ├─ 依赖: 强依赖 #2, #3, #4
-    ├─ 审查时间: ~2 小时
-    └─ ⚠️  必须等待 #2, #3, #4 合并后才能创建此分支
+    ├─ Files: 13
+    ├─ Dependencies: Strong dependency on #2, #3, #4
+    ├─ Review time: ~2 hours
+    └─ ⚠️  MUST wait for #2, #3, #4 to merge before creating this branch
+        ↓
+6️⃣  Feature #6: general-improvements (optional)
+    ├─ Files: 3
+    ├─ Dependencies: None
+    ├─ Review time: ~15 minutes
+    └─ 💡 Can be submitted at any time, recommended as last PR
 ```
 
-### ⚠️  重要提示
+### Important Notes
 
-1. **不能跳过顺序**: 由于存在强依赖关系，必须严格按照 1→2→3→4→5 的顺序
-2. **每次基于最新 master**: 创建新分支前，确保 `git pull origin master` 获取最新代码
-3. **等待 PR 合并**: 在创建下一个 Feature 分支前，确保前置 PR 已经合并到 master
-4. **避免并行开发**: 不要同时开发多个有依赖关系的 Feature
+1. **Cannot skip order**: Due to strong dependencies, must strictly follow 1→2→3→4→5 order
+2. **Always base on latest master**: Before creating new branch, ensure `git pull origin master` to get latest code
+3. **Wait for PR merge**: Before creating next Feature branch, ensure prerequisite PR has been merged to master
+4. **Avoid parallel development**: Don't develop multiple dependent Features simultaneously
 
-## 🔧 如果打破顺序会发生什么？
+## What Happens If Order Is Broken?
 
-### 场景 1: 在 #2 合并前创建 #3
+### Scenario 1: Creating #3 before #2 is merged
 ```bash
-# 错误操作
-git checkout master  # master 还没有 Feature #2 的改动
+# Wrong operation
+git checkout master  # master doesn't have Feature #2 changes yet
 git checkout -b feature/multi-floor-quest-system
 git checkout release/1.0.0 -- <files>
 
-# 结果：编译失败
+# Result: Compilation fails
 ❌ Error: Unresolved reference: isBossArea
 ❌ Error: Unresolved reference: isPioneer2OrLab
 ❌ Error: Unresolved reference: gameAreaId
 ```
 
-### 场景 2: 尝试并行开发 #3 和 #4
+### Scenario 2: Attempting parallel development of #3 and #4
 ```bash
-# 即使都基于 release/1.0.0，也会在 PR 审查时造成困扰
-# 因为 #4 依赖 #3 的 Store 功能
+# Even if both based on release/1.0.0, it will confuse PR reviewers
+# Because #4 depends on #3's Store functionality
 
-# PR #4 的审查者会看到：
-❌ "这个 Feature 依赖的 showSectionIds 在哪里定义的？"
-❌ "为什么 QuestEditorStore 没有这些字段？"
+# PR #4 reviewer will see:
+❌ "Where is the showSectionIds that this Feature depends on?"
+❌ "Why doesn't QuestEditorStore have these fields?"
 ```
 
-## 📋 修正总结
+## Cohesion Optimization Summary
 
-### 文件重新分配
-- **QuestNpc.kt** 从 Feature #3 移到 Feature #2
-- Feature #2: 4 files → **5 files**
-- Feature #3: 21 files → **20 files**
+### File Reallocation (compared to initial version)
 
-### 为什么这样调整？
-1. **解决循环依赖**: NpcTypeFromData.kt 需要 gameAreaId，所以 QuestNpc.kt 必须在同一个 Feature
-2. **逻辑自洽**: QuestNpc.kt 是 NPC 数据模型，应该和其他 NPC 相关文件在一起
-3. **依赖清晰**: Feature #3 单向依赖 Feature #2，没有循环依赖
+#### Feature #1: From 13 files → **10 files**
+**Removed files** (for cohesion):
+- ❌ ListCells.kt → Moved to Feature #3 (specifically serves multi-floor system)
+- ❌ Messages.kt → Moved to Feature #3 (multi-floor data structure)
+- ❌ Application.kt → Moved to Feature #6 (general keyboard compatibility)
+- ❌ UiStore.kt → Moved to Feature #6 (general keyboard compatibility)
+- ❌ Menu.kt → Moved to Feature #6 (general UI fix)
 
-## ✅ 验证依赖关系的方法
+**Retained files** (highly cohesive):
+- ✅ webpack.config.js - Build configuration
+- ✅ Resource files (.qst, .nj, .xvm) - Episode 2/4 and NPC models
+- ✅ Resource loaders - Directly related to resource files
 
-在创建每个 Feature 分支后，验证编译：
+#### Feature #2: Remains **5 files** (unchanged)
+- ✅ All are area and NPC system related
+
+#### Feature #3: From 20 files → **22 files**
+**Added files** (enhanced cohesion):
+- ➕ ListCells.kt - QuestEditorStore's multi-floor event filtering direct dependency
+- ➕ Messages.kt - Multi-floor system core data structure
+
+#### Feature #6: **3 files** (new)
+**General improvements** (independent cohesion):
+- ✅ Application.kt - macOS Cmd key support
+- ✅ UiStore.kt - macOS Cmd key support
+- ✅ Menu.kt - z-index fix
+
+### Why These Adjustments?
+1. **Cohesion principle**: Each Feature only contains directly related changes
+2. **Easy to understand**: Reviewers can immediately understand each Feature's purpose
+3. **Clear dependencies**: Inter-Feature dependencies are more explicit
+4. **Independence**: Feature #6 can be submitted at any time
+
+## Verifying Dependencies
+
+After creating each Feature branch, verify compilation:
 
 ```bash
-# 创建分支后
+# After creating branch
 git checkout feature/xxx
 
-# 尝试编译
+# Try to compile
 ./gradlew build
 
-# 应该能成功编译（如果所有依赖都已合并）
-# 如果失败，检查是否有未合并的前置 Feature
+# Should compile successfully (if all dependencies have been merged)
+# If it fails, check if prerequisite Features have been merged
 ```
