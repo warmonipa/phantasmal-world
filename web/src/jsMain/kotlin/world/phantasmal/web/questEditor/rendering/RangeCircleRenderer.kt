@@ -14,8 +14,6 @@ class RangeCircleRenderer {
     companion object {
         private const val SEGMENTS = 64  // More segments for smoother circle
         private const val BRIGHT_RED_COLOR = 0xFF0000  // Bright red color, very visible
-        private const val LINE_WIDTH = 12.0  // Very thick line for maximum visibility
-        private const val OPACITY = 1.0
     }
 
     /**
