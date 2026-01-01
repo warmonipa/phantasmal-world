@@ -4,9 +4,20 @@
 set -e
 
 echo "Creating Feature #4 branch: feature/rendering-visualization-system"
+echo ""
+echo "⚠️  This feature depends on Feature #2 (NPC system) and Feature #3 (Multi-floor system)"
+echo "   Make sure Feature #2 and #3 have been merged upstream and you have pulled latest master"
+echo ""
+read -p "Have you updated master with latest changes? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Please update master first: git checkout master && git pull origin master"
+    exit 1
+fi
 
-# Create new branch from master
+# Create new branch from latest master
 git checkout master
+git pull origin master
 git checkout -b feature/rendering-visualization-system
 
 # Extract files from release/1.0.0

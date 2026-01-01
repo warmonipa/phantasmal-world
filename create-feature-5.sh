@@ -4,9 +4,20 @@
 set -e
 
 echo "Creating Feature #5 branch: feature/quest-editor-ui-system"
+echo ""
+echo "⚠️  This feature depends on Feature #2, #3, #4 being merged to master"
+echo "   Make sure all prerequisite features have been merged upstream and you have pulled latest master"
+echo ""
+read -p "Have you updated master with latest changes? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Please update master first: git checkout master && git pull origin master"
+    exit 1
+fi
 
-# Create new branch from master
+# Create new branch from latest master
 git checkout master
+git pull origin master
 git checkout -b feature/quest-editor-ui-system
 
 # Extract files from release/1.0.0
