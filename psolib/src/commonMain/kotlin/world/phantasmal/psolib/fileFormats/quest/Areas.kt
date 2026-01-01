@@ -15,12 +15,14 @@ class AreaVariant(
     val area: Area,
 )
 
-fun getAreasForEpisode(episode: Episode): List<Area> = AREAS.getValue(episode)
+fun getAreasForEpisode(episode: Episode): List<Area> =
+    AREAS.getValue(episode)
 
 private val AREAS by lazy {
     var order = 0
 
-    @Suppress("UNUSED_CHANGED_VALUE") val ep1 = listOf(
+    @Suppress("UNUSED_CHANGED_VALUE")
+    val ep1 = listOf(
         createArea(0, "Pioneer II", order++, 1),
         createArea(1, "Forest 1", order++, 1),
         createArea(2, "Forest 2", order++, 1),
@@ -43,7 +45,8 @@ private val AREAS by lazy {
 
     order = 0
 
-    @Suppress("UNUSED_CHANGED_VALUE") val ep2 = listOf(
+    @Suppress("UNUSED_CHANGED_VALUE")
+    val ep2 = listOf(
         createArea(0, "Lab", order++, 1),
         createArea(1, "VR Temple Alpha", order++, 3),
         createArea(2, "VR Temple Beta", order++, 3),
@@ -66,7 +69,8 @@ private val AREAS by lazy {
 
     order = 0
 
-    @Suppress("UNUSED_CHANGED_VALUE") val ep4 = listOf(
+    @Suppress("UNUSED_CHANGED_VALUE")
+    val ep4 = listOf(
         createArea(0, "Pioneer II", order++, 1),
         createArea(1, "Crater Route 1", order++, 1),
         createArea(2, "Crater Route 2", order++, 1),
