@@ -46,13 +46,19 @@ echo "Extracting tests..."
 git checkout release/1.0.0 -- \
   web/src/jsTest/kotlin/world/phantasmal/web/questEditor/controllers/EventsControllerTests.kt
 
+echo "Extracting general improvements (keyboard compatibility & UI fixes)..."
+git checkout release/1.0.0 -- \
+  web/src/jsMain/kotlin/world/phantasmal/web/application/Application.kt \
+  web/src/jsMain/kotlin/world/phantasmal/web/core/stores/UiStore.kt \
+  webui/src/jsMain/kotlin/world/phantasmal/webui/widgets/Menu.kt
+
 # Note: UI-related parts of QuestEditorStore.kt were already extracted in Feature #3
 
 # View status
 git status
 
 echo ""
-echo "✅ Feature #5 files extracted successfully (13 files)"
+echo "✅ Feature #5 files extracted successfully (16 files)"
 echo ""
 echo "⚠️  Dependency notice:"
 echo "   This feature depends on Feature #2, #3, #4 being merged to master"
@@ -89,5 +95,12 @@ echo "- selectedSection: current selected Section"
 echo "- currentAreaSections: Section list for current area variant"
 echo "- targetCameraPosition: camera target for navigation"
 echo "- mouseWorldPosition: mouse position in world space"
-echo "- _selectedEvents: multi-select events collection'"
+echo "- _selectedEvents: multi-select events collection"
+echo ""
+echo "General improvements:"
+echo "- Keyboard compatibility: Support macOS Cmd key (metaKey) as Ctrl modifier"
+echo "- Apply to global keybindings (undo/redo, shortcuts)"
+echo "- UI fixes: Increase Menu z-index from 1000 to 1001"
+echo "- Fix menu overlay issues with other UI components"
+echo ""
 echo "3. Push branch: git push -u origin feature/quest-editor-ui-system"

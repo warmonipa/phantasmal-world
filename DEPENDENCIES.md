@@ -44,23 +44,18 @@ Feature #4: rendering-visualization-system (7 files)
 
        ↓ (strong dependency)
 
-Feature #5: quest-editor-ui-system (13 files)
+Feature #5: quest-editor-ui-system (16 files)
     ├─ Depends on #2's Areas.kt:
     │  └─ EntityListWidget uses isBossArea(), isPioneer2OrLab()
     ├─ Depends on #3's QuestEditorStore:
     │  └─ Toolbar, camera navigation, event list all depend on Store
     ├─ Depends on #4's renderers:
     │  └─ Toolbar display control switches need renderer support
+    ├─ General improvements (merged from previous Feature #6):
+    │  ├─ Application.kt → macOS Cmd key support
+    │  ├─ UiStore.kt → macOS Cmd key support
+    │  └─ Menu.kt → z-index fix
     └─ ⚠️  MUST be submitted after #2, #3, #4 are merged
-
-       ↓ (optional)
-
-Feature #6: general-improvements (3 files)
-    ├─ Application.kt → macOS Cmd key support
-    ├─ UiStore.kt → macOS Cmd key support
-    └─ Menu.kt → z-index fix
-    └─ Completely independent, can be submitted at any time
-       ✅ Recommended as the last PR
 ```
 
 ## Detailed Dependency Analysis
@@ -222,25 +217,20 @@ val showOmnispawn = map(store.currentQuest, store.currentArea) { quest, area ->
     ├─ Review time: ~1.5 hours
     └─ ⚠️  MUST wait for #2, #3 to merge before creating this branch
         ↓
-5️⃣  Feature #5: quest-editor-ui-system
-    ├─ Files: 13
+5️⃣  Feature #5: quest-editor-ui-system and general improvements
+    ├─ Files: 16 (13 UI system + 3 general improvements)
     ├─ Dependencies: Strong dependency on #2, #3, #4
-    ├─ Review time: ~2 hours
+    ├─ Review time: ~2.5 hours
     └─ ⚠️  MUST wait for #2, #3, #4 to merge before creating this branch
-        ↓
-6️⃣  Feature #6: general-improvements (optional)
-    ├─ Files: 3
-    ├─ Dependencies: None
-    ├─ Review time: ~15 minutes
-    └─ 💡 Can be submitted at any time, recommended as last PR
 ```
 
 ### Important Notes
 
 1. **Cannot skip order**: Due to strong dependencies, must strictly follow 1→2→3→4→5 order
-2. **Always base on latest master**: Before creating new branch, ensure `git pull origin master` to get latest code
-3. **Wait for PR merge**: Before creating next Feature branch, ensure prerequisite PR has been merged to master
-4. **Avoid parallel development**: Don't develop multiple dependent Features simultaneously
+2. **Feature #6 merged into #5**: General improvements (keyboard compatibility & UI fixes) are now part of Feature #5
+3. **Always base on latest master**: Before creating new branch, ensure `git pull origin master` to get latest code
+4. **Wait for PR merge**: Before creating next Feature branch, ensure prerequisite PR has been merged to master
+5. **Avoid parallel development**: Don't develop multiple dependent Features simultaneously
 
 ## What Happens If Order Is Broken?
 
@@ -275,9 +265,9 @@ git checkout release/1.0.0 -- <files>
 **Removed files** (for cohesion):
 - ❌ ListCells.kt → Moved to Feature #3 (specifically serves multi-floor system)
 - ❌ Messages.kt → Moved to Feature #3 (multi-floor data structure)
-- ❌ Application.kt → Moved to Feature #6 (general keyboard compatibility)
-- ❌ UiStore.kt → Moved to Feature #6 (general keyboard compatibility)
-- ❌ Menu.kt → Moved to Feature #6 (general UI fix)
+- ❌ Application.kt → Moved to Feature #5 (general keyboard compatibility)
+- ❌ UiStore.kt → Moved to Feature #5 (general keyboard compatibility)
+- ❌ Menu.kt → Moved to Feature #5 (general UI fix)
 
 **Retained files** (highly cohesive):
 - ✅ webpack.config.js - Build configuration
@@ -292,17 +282,21 @@ git checkout release/1.0.0 -- <files>
 - ➕ ListCells.kt - QuestEditorStore's multi-floor event filtering direct dependency
 - ➕ Messages.kt - Multi-floor system core data structure
 
-#### Feature #6: **3 files** (new)
-**General improvements** (independent cohesion):
-- ✅ Application.kt - macOS Cmd key support
-- ✅ UiStore.kt - macOS Cmd key support
-- ✅ Menu.kt - z-index fix
+#### Feature #5: From 13 files → **16 files**
+**Added files** (general improvements merged):
+- ➕ Application.kt - macOS Cmd key support
+- ➕ UiStore.kt - macOS Cmd key support
+- ➕ Menu.kt - z-index fix
+
+**Combined scope**:
+- 13 UI system files (toolbar, entity list, event list, camera navigation)
+- 3 general improvement files (keyboard compatibility & UI fixes)
 
 ### Why These Adjustments?
 1. **Cohesion principle**: Each Feature only contains directly related changes
 2. **Easy to understand**: Reviewers can immediately understand each Feature's purpose
 3. **Clear dependencies**: Inter-Feature dependencies are more explicit
-4. **Independence**: Feature #6 can be submitted at any time
+4. **Streamlined submission**: Reduced from 6 to 5 PRs by merging general improvements into UI system
 
 ## Verifying Dependencies
 

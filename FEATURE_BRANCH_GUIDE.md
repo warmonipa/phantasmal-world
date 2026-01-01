@@ -1,18 +1,17 @@
 # Feature Branch Split Guide
 
-This guide explains how to split the `release/1.0.0` branch (59 file changes) into 6 highly cohesive feature branches for easier code review and merging.
+This guide explains how to split the `release/1.0.0` branch (59 file changes) into 5 highly cohesive feature branches for easier code review and merging.
 
 ## Overall Strategy
 
 ```
 release/1.0.0 (59 files)
-    ↓ Split into 6 feature branches (cohesion-optimized)
+    ↓ Split into 5 feature branches (cohesion-optimized)
     ├─ feature/infrastructure-and-assets (10 files)
     ├─ feature/area-and-npc-system (5 files)
     ├─ feature/multi-floor-quest-system (22 files) ⚠️ Core
     ├─ feature/rendering-visualization-system (7 files)
-    ├─ feature/quest-editor-ui-system (13 files)
-    └─ feature/general-improvements (3 files)
+    └─ feature/quest-editor-ui-system (16 files)
 ```
 
 ## Prerequisites
@@ -292,7 +291,7 @@ git pull origin master
 git diff --staged
 
 # Commit
-git commit -m "feat: Quest Editor UI system
+git commit -m "feat: Quest Editor UI system and general improvements
 
 Toolbar features:
 - Area/variant selector with multi-floor quest support
@@ -321,18 +320,24 @@ Store UI features:
 - currentAreaSections: Section list for current area variant
 - targetCameraPosition: camera target for navigation
 - mouseWorldPosition: mouse position in world space
-- _selectedEvents: multi-select events collection"
+- _selectedEvents: multi-select events collection
+
+General improvements:
+- Keyboard compatibility: Support macOS Cmd key (metaKey) as Ctrl modifier
+- Apply to global keybindings (undo/redo, shortcuts)
+- UI fixes: Increase Menu z-index from 1000 to 1001
+- Fix menu overlay issues with other UI components"
 
 # Push
 git push -u origin feature/quest-editor-ui-system
 ```
 
-**PR Title**: `feat: Quest Editor UI system`
+**PR Title**: `feat: Quest Editor UI system and general improvements`
 **PR Description**:
 ```markdown
 ## Summary
 Complete UI system for Quest Editor with enhanced toolbar, entity list,
-event list, and camera navigation.
+event list, camera navigation, and general improvements for cross-platform compatibility.
 
 ## Toolbar Features
 - Area/variant selector with multi-floor support
@@ -355,9 +360,16 @@ event list, and camera navigation.
 - User preference tracking
 - Target position navigation
 
+## General Improvements
+- **Keyboard Compatibility**: Support macOS Cmd key (metaKey) as Ctrl modifier
+- Apply to global keybindings (undo/redo, shortcuts)
+- **UI Fixes**: Increase Menu z-index to fix overlay issues
+
 ## Changes
-- 13 files changed
+- 16 files changed
 - Complete UI interaction layer
+- Cross-platform keyboard handling
+- UI layering improvements
 
 ## Test Plan
 - [ ] Test area/variant selector with multi-floor quest
@@ -367,69 +379,8 @@ event list, and camera navigation.
 - [ ] Test multi-select events with Ctrl+Click
 - [ ] Test camera navigation between Sections
 - [ ] Test camera reset on floor transitions
-```
-
----
-
-#### Feature #6: General Improvements (Can be submitted anytime)
-
-```bash
-# Can be executed at any time, recommended after Feature #5
-git checkout master
-git pull origin master
-
-# Create Feature #6
-./create-feature-6.sh
-
-# Review changes
-git diff --staged
-
-# Commit
-git commit -m "feat: general improvements
-
-Keyboard compatibility:
-- Support macOS Cmd key (metaKey) as Ctrl modifier
-- Apply to global keybindings (undo/redo, shortcuts)
-- Improve cross-platform user experience
-
-UI fixes:
-- Increase Menu z-index from 1000 to 1001
-- Fix menu overlay issues with other UI components
-
-Files changed:
-- Application.kt: Add metaKey support for preventDefault
-- UiStore.kt: Map metaKey to Ctrl in keybinding dispatcher
-- Menu.kt: Increase z-index to fix layering issues"
-
-# Push
-git push -u origin feature/general-improvements
-```
-
-**PR Title**: `feat: General improvements`
-**PR Description**:
-```markdown
-## Summary
-General improvements for cross-platform compatibility and UI fixes.
-
-## Keyboard Compatibility
-- Support macOS Cmd key (metaKey) as Ctrl modifier
-- Improve undo/redo shortcuts on macOS
-- Better cross-platform keyboard handling
-
-## UI Fixes
-- Increase Menu z-index to fix overlay issues
-- Resolve conflicts with other UI components
-
-## Changes
-- 3 files changed
-- Platform-agnostic keyboard handling
-- UI layering improvements
-
-## Test Plan
-- [ ] Test Cmd+Z (undo) on macOS
-- [ ] Test Ctrl+Z (undo) on Windows/Linux
+- [ ] Test Cmd+Z (undo) on macOS and Ctrl+Z on Windows/Linux
 - [ ] Verify menu displays above all other UI elements
-- [ ] Test keyboard shortcuts work consistently across platforms
 ```
 
 ---
@@ -458,14 +409,9 @@ PR #4: feature/rendering-visualization-system
   └─ Estimated review time: 1.5 hours
      ↓ After merge
 PR #5: feature/quest-editor-ui-system
-  ├─ 13 files, ⭐⭐⭐⭐⭐
+  ├─ 16 files, ⭐⭐⭐⭐⭐
   ├─ Dependencies: PR #2, PR #3, PR #4 (required)
-  └─ Estimated review time: 2 hours
-     ↓ (optional)
-PR #6: feature/general-improvements 💡
-  ├─ 3 files, ⭐
-  ├─ No dependencies (can be submitted anytime)
-  └─ Estimated review time: 15 minutes
+  └─ Estimated review time: 2.5 hours
 ```
 
 ## Notes
@@ -510,7 +456,6 @@ git diff master...release/1.0.0 --name-only | sort > /tmp/release-files.txt
   git diff master...feature/multi-floor-quest-system --name-only
   git diff master...feature/rendering-visualization-system --name-only
   git diff master...feature/quest-editor-ui-system --name-only
-  git diff master...feature/general-improvements --name-only
 ) | sort | uniq > /tmp/feature-files.txt
 
 # Compare
@@ -530,19 +475,18 @@ rm FEATURE_BRANCH_GUIDE.md
 
 ## Summary
 
-Through cohesion optimization, we split the 59-file large PR into **6 highly cohesive PRs**:
+Through cohesion optimization, we split the 59-file large PR into **5 highly cohesive PRs**:
 
 - **PR #1**: 10 files (configuration and resources) - Infrastructure
 - **PR #2**: 5 files (areas and NPCs) - NPC system enhancement
 - **PR #3**: 22 files (multi-floor core) ⚠️ - Core feature
 - **PR #4**: 7 files (rendering system) - Visualization enhancement
-- **PR #5**: 13 files (UI system) - Interaction layer completion
-- **PR #6**: 3 files (general improvements) 💡 - Cross-platform compatibility
+- **PR #5**: 16 files (UI system and general improvements) - Interaction layer completion + Cross-platform compatibility
 
 **Cohesion Principles**:
 - Each PR only contains directly related changes
 - Easy to understand and review
 - Clear dependencies
-- Feature #6 can be submitted independently at any time
+- Streamlined from 6 to 5 features by merging general improvements into UI system
 
 **Total**: 60 files (including 1 deleted file)
