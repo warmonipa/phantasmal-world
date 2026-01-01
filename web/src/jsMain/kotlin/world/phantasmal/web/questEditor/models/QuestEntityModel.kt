@@ -79,13 +79,6 @@ abstract class QuestEntityModel<Type : EntityType, Entity : QuestEntity<Type>>(
      * world transform. Otherwise, keep its world transform and update its relative transform.
      */
     fun setSection(section: SectionModel, keepRelativeTransform: Boolean = false) {
-        val isAreaMatch = section.areaVariant.area.id == areaId
-        val multiVariant = areaId != section.areaVariant.area.id
-
-        require(isAreaMatch || multiVariant) {
-            "Quest entities can't be moved across areas (entity area: $areaId, section area: ${section.areaVariant.area.id})."
-        }
-
         mutate {
             entity.sectionId = section.id.toShort()
             _sectionId.value = section.id
