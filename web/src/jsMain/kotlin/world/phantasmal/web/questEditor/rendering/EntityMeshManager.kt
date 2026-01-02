@@ -144,13 +144,26 @@ class EntityMeshManager(
             updateSelectedEntityRangeCircle(entity)
         }
 
-        // Initialize section ID labels when quest, area, or show setting changes (only for enabled managers)
+        // Initialize section ID labels when area, show setting, or selected section changes (only for enabled managers)
+        // Note: We don't observe currentQuest because currentAreaVariant is set after currentQuest,
+        // and observing currentQuest would cause us to read stale area variant data
         if (enableSectionLabels) {
-            observeNow(questEditorStore.currentQuest) { _ ->
+            var sectionsDisposer: world.phantasmal.core.disposable.Disposable? = null
+
+            observeNow(questEditorStore.currentAreaVariant) { areaVariant ->
+                // Dispose previous sections observer
+                sectionsDisposer?.dispose()
+                sectionsDisposer = null
+
                 updateSectionIdLabels()
-            }
-            observeNow(questEditorStore.currentAreaVariant) { _ ->
-                updateSectionIdLabels()
+
+                // Also observe the sections list of the current area variant
+                // This ensures labels are updated when sections are loaded from map files
+                if (areaVariant != null) {
+                    sectionsDisposer = areaVariant.sections.observeNow { sections ->
+                        updateSectionIdLabels()
+                    }
+                }
             }
             observeNow(questEditorStore.showSectionIds) { _ ->
                 updateSectionIdLabels()

@@ -24,8 +24,13 @@ class AreaVariantModel(val id: Int, val area: AreaModel, val episode: Episode) {
         if (this === other) return true
         if (other == null || this::class.js != other::class.js) return false
         other as AreaVariantModel
-        return id == other.id && area.id == other.area.id
+        return id == other.id && area.id == other.area.id && episode == other.episode
     }
 
-    override fun hashCode(): Int = 31 * id + area.hashCode()
+    override fun hashCode(): Int {
+        var result = id
+        result = 31 * result + area.hashCode()
+        result = 31 * result + episode.hashCode()
+        return result
+    }
 }
