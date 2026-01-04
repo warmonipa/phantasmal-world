@@ -57,7 +57,7 @@ private val logger = KotlinLogging.logger {}
  *
  * <p>The correct mapping should be:</p>
  *
- * <blockquote>Lab0, Tower0, and Tower1</blockquote>
+ * <blockquote>Lab0, Tower1, and Tower2</blockquote>
  *
  * <p>By switching to an <code>areaId(1)</code> ↔ <code>variant(N)</code> mapping,
  * the <b>FloorMapping</b> design now correctly resolves multi-variant maps under the same <code>mapId</code>.</p>
