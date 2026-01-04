@@ -2,6 +2,8 @@ package world.phantasmal.psolib.asm.dataFlowAnalysis
 
 import mu.KotlinLogging
 import world.phantasmal.psolib.asm.*
+import world.phantasmal.psolib.fileFormats.quest.getAreaIdByMapId
+import world.phantasmal.psolib.fileFormats.quest.getMapId
 
 private val logger = KotlinLogging.logger {}
 
@@ -287,12 +289,6 @@ fun getFloorMappings(
 }
 
 /**
- * Maps game-internal map ID to model area ID.
- * Returns null if area ID is unknown.
- */
-fun getAreaIdByMapId(mapId: Int): Int? = GameArea.findByMapId(mapId)?.areaId
-
-/**
  * Extract episode number from function 0 segment.
  * Returns 0 if no set_episode instruction is found.
  */
@@ -308,10 +304,3 @@ fun getEpisode(func0Segment: InstructionSegment): Int {
         else -> (setEpisode.args[0] as IntArg).value
     }
 }
-
-/**
- * Maps episode and area ID to map ID.
- * Returns 0 for unknown episodes.
- */
-fun getMapId(episode: Int, areaId: Int): Int =
-    GameArea.findByEpisodeAndArea(episode, areaId)?.mapId ?: 0
