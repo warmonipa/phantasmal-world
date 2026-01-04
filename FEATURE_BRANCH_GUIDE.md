@@ -146,7 +146,7 @@ This is a major feature enabling quests with multiple floors/maps.
 
 Core components:
 - FloorMapping data structure (floorId, mapId, areaId, variantId)
-- GameArea enum with 35 game area mappings
+- Area lookup functions with cached mappings (uses Areas.kt from Feature #2)
 - Data flow analysis for bb_map_designate instruction
 - Quest model support for floor mappings and multi-variant
 - QuestNpc.gameAreaId field for proper NPC type detection
@@ -156,7 +156,7 @@ Core components:
 
 Technical stack:
 - Base library support (ListCells.kt 3-param flatMapToList, Messages.kt multi-mapping)
-- Data flow analysis layer (FloorMappings.kt, GameArea.kt)
+- Data flow analysis layer (FloorMappings.kt + Areas.kt from Feature #2)
 - Bytecode support (opcodes.yml, Bytecode.kt)
 - Quest data model (Quest.kt, ObjectType.kt, tests)
 - Assembly worker integration
@@ -187,7 +187,7 @@ technical stack from data flow analysis to UI Store.
 ✅ Backward compatible with traditional single-area quests
 
 ## Technical Changes
-- **Data flow analysis**: FloorMappings.kt (317 lines), GameArea.kt (99 lines)
+- **Data flow analysis**: FloorMappings.kt (uses Areas.kt from Feature #2 for area lookups)
 - **Bytecode**: Support for `bb_map_designate` instruction
 - **Quest model**: `floorMappings` list, `mapDesignations` now `Map<Int, Set<Int>>`
 - **NPC model**: `gameAreaId` field for correct type detection

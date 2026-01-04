@@ -28,8 +28,7 @@ git checkout release/1.0.0 -- \
 
 echo "Extracting data flow analysis layer..."
 git checkout release/1.0.0 -- \
-  psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/FloorMappings.kt \
-  psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/GameArea.kt
+  psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/FloorMappings.kt
 
 # Delete old file if exists
 if [ -f "psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalysis/GetMapDesignations.kt" ]; then
@@ -93,7 +92,7 @@ echo "This is a major feature enabling quests with multiple floors/maps."
 echo ""
 echo "Core components:"
 echo "- FloorMapping data structure (floorId, mapId, areaId, variantId)"
-echo "- GameArea enum with 35 game area mappings"
+echo "- Area lookup functions with cached mappings (uses Areas.kt from Feature #2)"
 echo "- Data flow analysis for bb_map_designate instruction"
 echo "- Quest model support for floor mappings and multi-variant"
 echo "- Uses QuestNpc.gameAreaId (from Feature #2) for NPC handling"
@@ -103,7 +102,7 @@ echo "- Backward compatible with traditional single-area quests"
 echo ""
 echo "Technical stack:"
 echo "- Base library support (ListCells.kt 3-param flatMapToList, Messages.kt multi-mapping)"
-echo "- Data flow analysis layer (FloorMappings.kt, GameArea.kt)"
+echo "- Data flow analysis layer (FloorMappings.kt + Areas.kt from Feature #2)"
 echo "- Bytecode support (opcodes.yml, Bytecode.kt)"
 echo "- Quest data model (Quest.kt, ObjectType.kt, tests)"
 echo "- Assembly worker integration"
