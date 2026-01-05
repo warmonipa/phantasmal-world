@@ -123,7 +123,7 @@ class EntityListWidget(
 
     companion object {
         init {
-            @Suppress("CssUnusedSymbol")
+            @Suppress("CssUnusedSymbol", "CssUnresolvedCustomProperty")
             // language=css
             style("""
                 .pw-quest-editor-entity-list {
