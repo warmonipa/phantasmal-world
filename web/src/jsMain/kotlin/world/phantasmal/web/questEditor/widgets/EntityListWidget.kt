@@ -33,7 +33,7 @@ class EntityListWidget(
                     val areaId = area?.id ?: 0
 
                     // Check if this is Pioneer2/Lab area
-                    val isPioneer2OrLab = isPioneer2OrLab(episode, areaId)
+                    val isPioneer2OrLab = isPioneer2OrLab(areaId)
 
                     // Check if this is boss area
                     val isBoss = isBossArea(episode, areaId)
