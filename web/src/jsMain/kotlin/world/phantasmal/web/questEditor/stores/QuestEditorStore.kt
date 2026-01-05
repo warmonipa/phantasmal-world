@@ -146,7 +146,6 @@ class QuestEditorStore(
             }
         }
 
-
         if (initializeNewQuest) {
             scope.launch { setCurrentQuest(getDefaultQuest(Episode.I)) }
         }
