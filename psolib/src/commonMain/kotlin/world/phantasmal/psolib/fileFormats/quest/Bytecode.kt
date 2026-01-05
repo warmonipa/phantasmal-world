@@ -584,16 +584,7 @@ private fun parseInstructionArguments(
                 is ILabelVarType -> {
                     varargCount++
                     val argSize = cursor.uByte()
-                    val bytesNeeded = argSize.toInt() * 2
-                    val bytesAvailable = cursor.size - cursor.position
-
-                    if (bytesNeeded <= bytesAvailable) {
-                        args.addAll(cursor.uShortArray(argSize.toInt()).map { IntArg(it.toInt()) })
-                    } else {
-                        // Insufficient data, this is clearly not an instruction segment
-                        // This exception will be caught by tryParseInstructionsSegment and properly mark the segment as data
-                        throw IllegalArgumentException("Data segment detected: expected instruction format but found insufficient data")
-                    }
+                    args.addAll(cursor.uShortArray(argSize.toInt()).map { IntArg(it.toInt()) })
                 }
 
                 is LabelType -> {
@@ -628,15 +619,7 @@ private fun parseInstructionArguments(
                 is RegVarType -> {
                     varargCount++
                     val argSize = cursor.uByte()
-                    val bytesNeeded = argSize.toInt()
-                    val bytesAvailable = cursor.size - cursor.position
-
-                    if (bytesNeeded <= bytesAvailable) {
-                        args.addAll(cursor.uByteArray(argSize.toInt()).map { IntArg(it.toInt()) })
-                    } else {
-                        // Insufficient data, this is clearly not an instruction segment
-                        throw IllegalArgumentException("Data segment detected: expected instruction format but found insufficient data")
-                    }
+                    args.addAll(cursor.uByteArray(argSize.toInt()).map { IntArg(it.toInt()) })
                 }
 
                 else -> error("Parameter type ${param.type} not implemented.")
