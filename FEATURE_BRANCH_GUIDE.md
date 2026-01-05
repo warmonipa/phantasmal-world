@@ -9,7 +9,7 @@ release/1.0.0 (59 files)
     ↓ Split into 5 feature branches (cohesion-optimized)
     ├─ feature/infrastructure-and-assets (10 files)
     ├─ feature/area-and-npc-system (5 files)
-    ├─ feature/multi-floor-quest-system (22 files) ⚠️ Core
+    ├─ feature/multi-floor-quest-system (21 files) ⚠️ Core
     ├─ feature/rendering-visualization-system (7 files)
     └─ feature/quest-editor-ui-system (16 files)
 ```
@@ -126,7 +126,7 @@ ground spawning, and improved type detection.
 
 #### Feature #3: Multi-Floor Quest System (After #2 merged) ⚠️
 
-**This is the core Feature with 22 file changes**
+**This is the core Feature with 21 file changes**
 
 ```bash
 # Ensure Feature #2 has been merged to master
@@ -157,7 +157,7 @@ Core components:
 Technical stack:
 - Base library support (ListCells.kt 3-param flatMapToList, Messages.kt multi-mapping)
 - Data flow analysis layer (FloorMappings.kt + Areas.kt from Feature #2)
-- Bytecode support (opcodes.yml, Bytecode.kt)
+- Bytecode opcode definitions (opcodes.yml)
 - Quest data model (Quest.kt, ObjectType.kt, tests)
 - Assembly worker integration
 - Web model layer (QuestModel, AreaModel, etc.)
@@ -174,7 +174,7 @@ git push -u origin feature/multi-floor-quest-system
 ## Summary
 Major feature enabling quests with multiple floors/maps (e.g., Phantasmal World #4).
 
-This is the largest change in this release, involving 22 files across the entire
+This is the largest change in this release, involving 21 files across the entire
 technical stack from data flow analysis to UI Store.
 
 ## Core Features
@@ -399,7 +399,7 @@ PR #2: feature/area-and-npc-system
   └─ Estimated review time: 1 hour
      ↓ After merge
 PR #3: feature/multi-floor-quest-system ⚠️
-  ├─ 22 files, ⭐⭐⭐⭐⭐
+  ├─ 21 files, ⭐⭐⭐⭐⭐
   ├─ Dependencies: PR #2 (required)
   └─ Estimated review time: 3-4 hours (core functionality, needs careful review)
      ↓ After merge
@@ -479,7 +479,7 @@ Through cohesion optimization, we split the 59-file large PR into **5 highly coh
 
 - **PR #1**: 10 files (configuration and resources) - Infrastructure
 - **PR #2**: 5 files (areas and NPCs) - NPC system enhancement
-- **PR #3**: 22 files (multi-floor core) ⚠️ - Core feature
+- **PR #3**: 21 files (multi-floor core) ⚠️ - Core feature
 - **PR #4**: 7 files (rendering system) - Visualization enhancement
 - **PR #5**: 16 files (UI system and general improvements) - Interaction layer completion + Cross-platform compatibility
 

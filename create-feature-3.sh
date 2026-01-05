@@ -36,10 +36,9 @@ if [ -f "psolib/src/commonMain/kotlin/world/phantasmal/psolib/asm/dataFlowAnalys
   echo "Deleted GetMapDesignations.kt"
 fi
 
-echo "Extracting bytecode and opcode support..."
+echo "Extracting bytecode opcode definitions..."
 git checkout release/1.0.0 -- \
-  psolib/srcGeneration/asm/opcodes.yml \
-  psolib/src/commonMain/kotlin/world/phantasmal/psolib/fileFormats/quest/Bytecode.kt
+  psolib/srcGeneration/asm/opcodes.yml
 
 echo "Extracting Quest data model..."
 git checkout release/1.0.0 -- \
@@ -78,7 +77,7 @@ git checkout release/1.0.0 -- \
 git status
 
 echo ""
-echo "✅ Feature #3 files extracted successfully (22 files)"
+echo "✅ Feature #3 files extracted successfully (21 files)"
 echo ""
 echo "⚠️  Dependency notice:"
 echo "   This feature depends on Feature #2 (area-and-npc-system)"
@@ -103,7 +102,7 @@ echo ""
 echo "Technical stack:"
 echo "- Base library support (ListCells.kt 3-param flatMapToList, Messages.kt multi-mapping)"
 echo "- Data flow analysis layer (FloorMappings.kt + Areas.kt from Feature #2)"
-echo "- Bytecode support (opcodes.yml, Bytecode.kt)"
+echo "- Bytecode opcode definitions (opcodes.yml)"
 echo "- Quest data model (Quest.kt, ObjectType.kt, tests)"
 echo "- Assembly worker integration"
 echo "- Web model layer (QuestModel, AreaModel, etc.)"
