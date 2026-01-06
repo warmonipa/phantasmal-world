@@ -119,6 +119,19 @@ fun parseBinDatToQuest(
             // gameAreaId is used for NPC type detection, while areaId remains as floorId for variant mapping
             if (floorMappings.isNotEmpty()) {
                 for (npc in npcs) {
+                    /*
+                     * Use FloorMapping.floorId to match NPC.areaId.
+                     *
+                     * Reason:
+                     * - FloorMapping.floorId represents the original logical floor.
+                     * - NPC.areaId also stores the original floor ID.
+                     * - FloorMapping.areaId is derived from mapId and may differ
+                     *   from floorId when multiple floors share the same map.
+                     *
+                     * Example:
+                     *   Floor 17 -> Tower (mapId 35), variant 0
+                     *   Floor 16 -> Tower (mapId 35), variant 1
+                     */
                     val mapping = floorMappings.find { it.floorId == npc.areaId }
                     if (mapping != null) {
                         npc.gameAreaId = mapping.areaId
