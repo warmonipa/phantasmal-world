@@ -144,7 +144,7 @@ fun parseBinDatToQuest(
                 // For bb_map_designate, use floor ID as key with its corresponding variant
                 mapDesignations = mutableMapOf()
                 for (mapping in floorMappings) {
-                    mapDesignations[mapping.areaId] = mutableSetOf(mapping.variantId)
+                    mapDesignations.getOrPut(mapping.areaId) { mutableSetOf() }.add(mapping.variantId)
                 }
             } else {
                 // Fall back to original logic for non-bb_map_designate quests

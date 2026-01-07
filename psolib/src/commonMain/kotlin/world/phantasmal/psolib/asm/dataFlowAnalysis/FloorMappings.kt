@@ -69,7 +69,7 @@ data class FloorMapping(
     val floorId: Int,
     // Map id to place on that floor.
     val mapId: Int,
-    // Area id corresponding to the mapId.
+    // Area id deduced from the mapId.
     val areaId: Int,
     // Map variation id on the floor.
     val variantId: Int
@@ -112,11 +112,13 @@ fun getMapDesignations(
                     continue
                 }
 
-                // For OP_MAP_DESIGNATE, map ID is same as floor ID
+                // For OP_MAP_DESIGNATE, map ID is same as floor ID, it only changes the map variant for the default floor
                 if (inst.opcode == OP_MAP_DESIGNATE) {
                     mapIdValues.setValue(floorIdValues[0]!!)
                 }
 
+                // map_designate R40 reads: R40, R41, R42, R43
+                // is equivalent to R40, (R41), R42, R43, R44(map_designate_ex)
                 // Get variant ID from base+2 or base+3 register depending on opcode
                 val variantRegister = baseRegister + (if (inst.opcode == OP_MAP_DESIGNATE) 2 else 3)
                 val variantIdValues = getRegisterValue(cfg, inst, variantRegister)
@@ -126,8 +128,8 @@ fun getMapDesignations(
                 }
 
                 val mapId = mapIdValues[0]!!
-                val variantId = variantIdValues[0]!!
                 val areaId = getAreaIdByMapId(mapId)
+                val variantId = variantIdValues[0]!!
 
                 if (areaId != null) {
                     mapDesignations.getOrPut(areaId) { mutableSetOf() }.add(variantId)
@@ -179,29 +181,29 @@ fun getFloorMappings(
                     }
 
                     // These opcodes read consecutive registers starting from the given register
-                    // map_designate_ex R40 reads: R40, R41, R42, R43, R44
-                    // map_designate R40 reads: R40, R41, R42, R43
                     val baseRegister = (inst.args[0] as IntArg).value
 
-                    // Get floor ID from base register (R+0)
+                    // Get floor ID from base register
                     val floorIdValues = getRegisterValue(cfg, inst, baseRegister)
                     if (floorIdValues.size > 1) {
                         logger.warn { "Could not determine floor ID from register R$baseRegister for ${inst.opcode.mnemonic}" }
                         continue
                     }
 
-                    // Get map ID from base+1 register (R+1)
+                    // Get map ID from base+1 register
                     val mapIdValues = getRegisterValue(cfg, inst, baseRegister + 1)
                     if (mapIdValues.size > 1) {
                         logger.warn { "Could not determine map ID from register R${baseRegister + 1} for ${inst.opcode.mnemonic}" }
                         continue
                     }
 
-                    // For OP_MAP_DESIGNATE, map ID is same as floor ID
+                    // For OP_MAP_DESIGNATE, map ID is same as floor ID, it only changes the map variant for the default floor
                     if (inst.opcode == OP_MAP_DESIGNATE) {
                         mapIdValues.setValue(floorIdValues[0]!!)
                     }
 
+                    // map_designate R40 reads: R40, R41, R42, R43
+                    // is equivalent to R40, (R41), R42, R43, R44(map_designate_ex)
                     // Get variant ID from base+2 or base+3 register depending on opcode
                     val variantRegister = baseRegister + (if (inst.opcode == OP_MAP_DESIGNATE) 2 else 3)
                     val variantIdValues = getRegisterValue(cfg, inst, variantRegister)
@@ -215,22 +217,9 @@ fun getFloorMappings(
                     val areaId = getAreaIdByMapId(mapId)
                     val variantId = variantIdValues[0]!!
 
-                    logger.debug {
-                        "${inst.opcode.mnemonic}: FloorId=$floorId, MapId=$mapId (0x${
-                            mapId.toString(16).uppercase()
-                        }), " +
-                                "AreaId=$areaId, Variant=$variantId, BaseReg=R$baseRegister"
-                    }
-
                     if (areaId != null) {
                         // map_designate/map_designate_ex have higher priority than set_floor_handler
                         floorMappings[floorId] = FloorMapping(floorId, mapId, areaId, variantId)
-                    } else {
-                        logger.warn {
-                            "Could not map ${inst.opcode.mnemonic} mapId 0x${
-                                mapId.toString(16).uppercase()
-                            } to areaId"
-                        }
                     }
                 }
 
@@ -245,12 +234,6 @@ fun getFloorMappings(
                     if (areaId != null) {
                         // bb_map_designate has higher priority than set_floor_handler, can override existing mappings
                         floorMappings[floorId] = FloorMapping(floorId, mapId, areaId, variantId)
-                    } else {
-                        logger.warn {
-                            "Could not map BB_MAP_DESIGNATE mapId 0x${
-                                mapId.toString(16).uppercase()
-                            } to areaId"
-                        }
                     }
                 }
 
@@ -274,8 +257,6 @@ fun getFloorMappings(
                                 // areaId is same as floorId for set_floor_handler
                                 floorMappings[floorId] = FloorMapping(floorId, mapId, floorId, variantId)
                             }
-                        } else {
-                            logger.warn { "Could not determine floor number from stack: $floorIdValue" }
                         }
                     } catch (e: Exception) {
                         logger.warn { "Error getting stack values for OP_SET_FLOOR_HANDLER: ${e.message}" }
