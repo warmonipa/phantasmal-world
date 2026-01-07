@@ -65,7 +65,16 @@ private val logger = KotlinLogging.logger {}
  * the <b>FloorMapping</b> design now correctly resolves multi-variant maps under the same <code>mapId</code>.</p>
  */
 data class FloorMapping(
-    // Floor id to place the map on.
+    /**
+     * The ID of the floor where the map should be placed.
+     *
+     * Before multi-variant map support was introduced, most code used `areaId` to refer to what is now
+     * the floor ID (at that time, `areaId` and floor ID were effectively the same concept).
+     *
+     * With multi-variant maps:
+     * - `floorId` is the actual, unique ID of the floor/layer the map is assigned to.
+     * - `areaId` is derived from `mapId` and represents the logical area the map belongs to (an area may span multiple floors).
+     */
     val floorId: Int,
     // Map id to place on that floor.
     val mapId: Int,
