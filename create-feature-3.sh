@@ -64,10 +64,11 @@ git checkout release/1.0.0 -- \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/stores/AreaStore.kt \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/stores/ModelConversion.kt
 
-echo "Extracting Controller adaptations..."
+echo "Extracting Controller and Widget adaptations..."
 git checkout release/1.0.0 -- \
   web/src/jsMain/kotlin/world/phantasmal/web/questEditor/controllers/EntityInfoController.kt \
-  web/src/jsMain/kotlin/world/phantasmal/web/questEditor/controllers/EventsController.kt
+  web/src/jsMain/kotlin/world/phantasmal/web/questEditor/controllers/EventsController.kt \
+  web/src/jsMain/kotlin/world/phantasmal/web/questEditor/widgets/EventsWidget.kt
 
 echo "Extracting test updates..."
 git checkout release/1.0.0 -- \
@@ -77,7 +78,7 @@ git checkout release/1.0.0 -- \
 git status
 
 echo ""
-echo "✅ Feature #3 files extracted successfully (21 files)"
+echo "✅ Feature #3 files extracted successfully (22 files)"
 echo ""
 echo "⚠️  Dependency notice:"
 echo "   This feature depends on Feature #2 (area-and-npc-system)"
@@ -97,6 +98,7 @@ echo "- Quest model support for floor mappings and multi-variant"
 echo "- Uses QuestNpc.gameAreaId (from Feature #2) for NPC handling"
 echo "- QuestEditorStore multi-floor event filtering and area switching"
 echo "- Auto area/variant switching on entity selection"
+echo "- EventsWidget scroll position reset when switching floors/variants"
 echo "- Backward compatible with traditional single-area quests"
 echo ""
 echo "Technical stack:"
@@ -107,5 +109,6 @@ echo "- Quest data model (Quest.kt, ObjectType.kt, tests)"
 echo "- Assembly worker integration"
 echo "- Web model layer (QuestModel, AreaModel, etc.)"
 echo "- QuestEditorStore layer (326 lines refactor)"
-echo "- Controller adaptations'"
+echo "- Controller adaptations (currentAreaIdentifier for scroll reset)"
+echo "- Widget UI enhancements (reset scroll position on floor/variant changes)'"
 echo "3. Push branch: git push -u origin feature/multi-floor-quest-system"

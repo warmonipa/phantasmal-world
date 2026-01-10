@@ -9,7 +9,7 @@ release/1.0.0 (59 files)
     ↓ Split into 5 feature branches (cohesion-optimized)
     ├─ feature/infrastructure-and-assets (10 files)
     ├─ feature/area-and-npc-system (5 files)
-    ├─ feature/multi-floor-quest-system (21 files) ⚠️ Core
+    ├─ feature/multi-floor-quest-system (22 files) ⚠️ Core
     ├─ feature/rendering-visualization-system (7 files)
     └─ feature/quest-editor-ui-system (16 files)
 ```
@@ -126,7 +126,7 @@ ground spawning, and improved type detection.
 
 #### Feature #3: Multi-Floor Quest System (After #2 merged) ⚠️
 
-**This is the core Feature with 21 file changes**
+**This is the core Feature with 22 file changes**
 
 ```bash
 # Ensure Feature #2 has been merged to master
@@ -152,6 +152,7 @@ Core components:
 - QuestNpc.gameAreaId field for proper NPC type detection
 - QuestEditorStore multi-floor event filtering and area switching
 - Auto area/variant switching on entity selection
+- EventsWidget scroll position reset when switching floors/variants
 - Backward compatible with traditional single-area quests
 
 Technical stack:
@@ -162,7 +163,8 @@ Technical stack:
 - Assembly worker integration
 - Web model layer (QuestModel, AreaModel, etc.)
 - QuestEditorStore layer (326 lines refactor)
-- Controller adaptations"
+- Controller adaptations (currentAreaIdentifier for scroll reset)
+- Widget UI enhancements (reset scroll position on floor/variant changes)"
 
 # Push
 git push -u origin feature/multi-floor-quest-system
@@ -174,8 +176,8 @@ git push -u origin feature/multi-floor-quest-system
 ## Summary
 Major feature enabling quests with multiple floors/maps (e.g., Phantasmal World #4).
 
-This is the largest change in this release, involving 21 files across the entire
-technical stack from data flow analysis to UI Store.
+This is the largest change in this release, involving 22 files across the entire
+technical stack from data flow analysis to UI Store and Widget layer.
 
 ## Core Features
 ✅ Support quests with multiple floors/maps
@@ -184,6 +186,7 @@ technical stack from data flow analysis to UI Store.
 ✅ NPC type detection works correctly in multi-floor quests
 ✅ Events filtered by floor/area/variant
 ✅ Auto area/variant switching on entity selection
+✅ Events list scroll position resets when switching floors/variants
 ✅ Backward compatible with traditional single-area quests
 
 ## Technical Changes
@@ -192,7 +195,8 @@ technical stack from data flow analysis to UI Store.
 - **Quest model**: `floorMappings` list, `mapDesignations` now `Map<Int, Set<Int>>`
 - **NPC model**: `gameAreaId` field for correct type detection
 - **QuestEditorStore**: 326-line refactor for multi-floor support
-- **Controllers**: Adapted for multi-floor logic
+- **Controllers**: EventsController with `currentAreaIdentifier` for scroll reset tracking
+- **Widgets**: EventsWidget with scroll position reset on area/variant changes
 
 ## Test Plan
 - [ ] Load multi-floor quest (e.g., Phantasmal World #4)
@@ -200,6 +204,7 @@ technical stack from data flow analysis to UI Store.
 - [ ] Verify NPC type detection works in Tower areas
 - [ ] Verify events show in correct area/variant
 - [ ] Verify selecting entity switches to correct area/variant
+- [ ] Verify events list scrolls to top when switching floors/variants
 - [ ] Verify traditional quests still work correctly
 
 ## Breaking Changes
@@ -399,7 +404,7 @@ PR #2: feature/area-and-npc-system
   └─ Estimated review time: 1 hour
      ↓ After merge
 PR #3: feature/multi-floor-quest-system ⚠️
-  ├─ 21 files, ⭐⭐⭐⭐⭐
+  ├─ 22 files, ⭐⭐⭐⭐⭐
   ├─ Dependencies: PR #2 (required)
   └─ Estimated review time: 3-4 hours (core functionality, needs careful review)
      ↓ After merge
@@ -479,7 +484,7 @@ Through cohesion optimization, we split the 59-file large PR into **5 highly coh
 
 - **PR #1**: 10 files (configuration and resources) - Infrastructure
 - **PR #2**: 5 files (areas and NPCs) - NPC system enhancement
-- **PR #3**: 21 files (multi-floor core) ⚠️ - Core feature
+- **PR #3**: 22 files (multi-floor core) ⚠️ - Core feature
 - **PR #4**: 7 files (rendering system) - Visualization enhancement
 - **PR #5**: 16 files (UI system and general improvements) - Interaction layer completion + Cross-platform compatibility
 

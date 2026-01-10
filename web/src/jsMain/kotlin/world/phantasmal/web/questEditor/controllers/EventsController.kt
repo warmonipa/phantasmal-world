@@ -15,6 +15,12 @@ class EventsController(private val store: QuestEditorStore) : Controller() {
     val removeEventEnabled: Cell<Boolean> = enabled and store.selectedEvent.isNotNull()
     val events: ListCell<QuestEventModel> = store.currentAreaEvents
 
+    // Track current area and variant for scroll reset on floor changes
+    val currentAreaIdentifier: Cell<Pair<Int?, Int?>> =
+        map(store.currentArea, store.currentAreaVariant) { area, variant ->
+            Pair(area?.id, variant?.id)
+        }
+
     val eventActionTypes: ListCell<String> = listCell(
         QuestEventActionModel.SpawnNpcs.SHORT_NAME,
         QuestEventActionModel.Door.Unlock.SHORT_NAME,

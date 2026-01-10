@@ -48,8 +48,8 @@ class EventsWidget(private val ctrl: EventsController) : Widget() {
                         EventWidget(ctrl, event)
                     }
 
-                    // Reset scroll position when events list changes
-                    observe(ctrl.events) {
+                    // Reset scroll position when floor/variant changes
+                    observe(ctrl.currentAreaIdentifier) {
                         scrollTop = 0.0
                     }
                 }
