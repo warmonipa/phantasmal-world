@@ -47,6 +47,11 @@ class EventsWidget(private val ctrl: EventsController) : Widget() {
                     bindChildWidgetsTo(ctrl.events) { event, _ ->
                         EventWidget(ctrl, event)
                     }
+
+                    // Reset scroll position when events list changes
+                    observe(ctrl.events) {
+                        scrollTop = 0.0
+                    }
                 }
             }
             addChild(UnavailableWidget(
