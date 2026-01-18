@@ -161,8 +161,21 @@
 
 ---
 
+## 已知问题
+
+1. **bb_map_designate 只显示一个错误**
+   - 症状: 任务中有4个 bb_map_designate，但只显示1个错误
+   - 可能原因: `textModel` 为 null 或 `assemble` 失败时回退到 `quest.bytecodeIr`
+   - 需要调查: `CompatibilityController.checkAllVersions()` 中的 bytecodeIr 获取逻辑
+
+---
+
 ## 更新日志
 
 | 日期 | 更新内容 |
 |------|----------|
 | 2026-01-18 | 初始完成度评估 |
+| 2026-01-18 | 修复: NPC标签检查逻辑 - 扩展标签从 BB-only 改为 GC-only (符合guide规范) |
+| 2026-01-18 | 修复: BB版本使用DC V2检查规则 (effectiveVersion=1) |
+| 2026-01-18 | 修复: 对所有非默认标签进行脚本定义检查 |
+| 2026-01-18 | 重命名: EP1_BB_EXTRA/EP2_BB_EXTRA -> EP1_GC_EXTRA/EP2_GC_EXTRA |
