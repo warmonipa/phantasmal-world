@@ -1,6 +1,5 @@
 package world.phantasmal.web.questEditor.controllers
 
-import kotlinx.browser.window
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.isNull
 import world.phantasmal.cell.list.ListCell
@@ -11,6 +10,7 @@ import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.compatibility.CompatibilityChecker
 import world.phantasmal.psolib.compatibility.CompatibilityResult
 import world.phantasmal.psolib.compatibility.PSOVersion
+import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.stores.AsmStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
@@ -24,15 +24,9 @@ class CompatibilityController(
     private val _results = mutableListCell<CompatibilityResult>()
     private val _isChecking = mutableCell(false)
     private val _selectedVersion = mutableCell<PSOVersion?>(null)
+    private var checkedQuest: QuestModel? = null
 
     val unavailable: Cell<Boolean> = store.currentQuest.isNull()
-
-    init {
-        // Clear results when quest changes (use setTimeout to avoid nested cell changes)
-        observe(store.currentQuest) {
-            window.setTimeout({ clearResults() }, 0)
-        }
-    }
 
     /**
      * All PSO versions available for compatibility checking.
@@ -55,31 +49,45 @@ class CompatibilityController(
     val selectedVersion: Cell<PSOVersion?> = _selectedVersion
 
     /**
-     * Result for the selected version.
+     * Summary of compatibility status for each version.
+     * Returns NOT_CHECKED for all versions if the quest has changed since last check.
      */
-    val selectedResult: Cell<CompatibilityResult?> = map(selectedVersion, results) { version, results ->
-        version?.let { v -> results.find { it.version == v } }
-    }
+    val versionSummaries: Cell<List<VersionSummary>> =
+        map(store.currentQuest, results) { currentQuest, resultList ->
+            // If quest changed since last check, show all as not checked
+            val validResults = if (currentQuest != null && currentQuest === checkedQuest) {
+                resultList
+            } else {
+                emptyList()
+            }
+
+            PSOVersion.entries.map { version ->
+                val result = validResults.find { it.version == version }
+                VersionSummary(
+                    version = version,
+                    status = when {
+                        result == null -> CompatibilityStatus.NOT_CHECKED
+                        result.hasErrors -> CompatibilityStatus.INCOMPATIBLE
+                        result.hasWarnings -> CompatibilityStatus.WARNING
+                        else -> CompatibilityStatus.COMPATIBLE
+                    },
+                    errorCount = result?.errors?.size ?: 0,
+                    warningCount = result?.warnings?.size ?: 0,
+                )
+            }
+        }
 
     /**
-     * Summary of compatibility status for each version.
+     * Result for the selected version.
+     * Returns null if no version selected or version not checked yet.
      */
-    val versionSummaries: Cell<List<VersionSummary>> = results.map { resultList ->
-        PSOVersion.entries.map { version ->
-            val result = resultList.find { it.version == version }
-            VersionSummary(
-                version = version,
-                status = when {
-                    result == null -> CompatibilityStatus.NOT_CHECKED
-                    result.hasErrors -> CompatibilityStatus.INCOMPATIBLE
-                    result.hasWarnings -> CompatibilityStatus.WARNING
-                    else -> CompatibilityStatus.COMPATIBLE
-                },
-                errorCount = result?.errors?.size ?: 0,
-                warningCount = result?.warnings?.size ?: 0,
-            )
+    val selectedResult: Cell<CompatibilityResult?> =
+        map(selectedVersion, versionSummaries, results) { version, summaries, resultList ->
+            version
+                ?.let { v -> summaries.find { it.version == v } }
+                ?.takeIf { it.status != CompatibilityStatus.NOT_CHECKED }
+                ?.let { resultList.find { it.version == version } }
         }
-    }
 
     /**
      * Run compatibility check for all versions.
@@ -89,6 +97,7 @@ class CompatibilityController(
 
         _isChecking.value = true
         _results.clear()
+        checkedQuest = questModel
 
         try {
             // Re-assemble from current text to get bytecodeIr with source locations
@@ -116,6 +125,12 @@ class CompatibilityController(
      */
     fun checkVersion(version: PSOVersion) {
         val questModel = store.currentQuest.value ?: return
+
+        // If quest changed, clear old results first
+        if (questModel !== checkedQuest) {
+            _results.clear()
+            checkedQuest = questModel
+        }
 
         _isChecking.value = true
 
@@ -153,6 +168,7 @@ class CompatibilityController(
     fun clearResults() {
         _results.clear()
         _selectedVersion.value = null
+        checkedQuest = null
     }
 }
 
