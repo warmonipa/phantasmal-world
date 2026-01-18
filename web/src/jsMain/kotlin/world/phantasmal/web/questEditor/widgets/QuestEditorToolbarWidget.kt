@@ -7,12 +7,25 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.cell.cell
 import world.phantasmal.cell.list.listCell
+import world.phantasmal.cell.mutableCell
+import world.phantasmal.web.questEditor.controllers.CompatibilityController
 import world.phantasmal.web.questEditor.controllers.QuestEditorToolbarController
 import world.phantasmal.webui.dom.Icon
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.widgets.*
 
-class QuestEditorToolbarWidget(private val ctrl: QuestEditorToolbarController) : Widget() {
+/**
+ * Tool menu items.
+ */
+private enum class ToolMenuItem(val label: String) {
+    COMPATIBILITY_CHECK("Compatibility Check"),
+}
+
+class QuestEditorToolbarWidget(
+    private val ctrl: QuestEditorToolbarController,
+    private val compatibilityCtrl: CompatibilityController,
+) : Widget() {
+    private val compatibilityDialogVisible = mutableCell(false)
     override fun Node.createElement() =
         div {
             className = "pw-quest-editor-toolbar"
@@ -76,7 +89,19 @@ class QuestEditorToolbarWidget(private val ctrl: QuestEditorToolbarController) :
                         ),
                         checked = ctrl.showCollisionGeometry,
                         onChange = ctrl::setShowCollisionGeometry,
-                    )
+                    ),
+                    Dropdown(
+                        text = "Tools",
+                        items = listCell(*ToolMenuItem.entries.toTypedArray()),
+                        itemToString = { it.label },
+                        onSelect = { item ->
+                            when (item) {
+                                ToolMenuItem.COMPATIBILITY_CHECK -> {
+                                    compatibilityDialogVisible.value = true
+                                }
+                            }
+                        },
+                    ),
                 )
             ))
 
@@ -138,6 +163,12 @@ class QuestEditorToolbarWidget(private val ctrl: QuestEditorToolbarController) :
                 visible = ctrl.resultDialogVisible,
                 result = ctrl.result,
                 onDismiss = ctrl::dismissResultDialog,
+            ))
+
+            addDisposable(CompatibilityDialog(
+                visible = compatibilityDialogVisible,
+                ctrl = compatibilityCtrl,
+                onDismiss = { compatibilityDialogVisible.value = false },
             ))
         }
 

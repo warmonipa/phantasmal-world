@@ -75,6 +75,7 @@ class QuestEditor(
         val objectListController =
             addDisposable(EntityListController(questEditorStore, npcs = false))
         val eventsController = addDisposable(EventsController(questEditorStore))
+        val compatibilityController = addDisposable(CompatibilityController(questEditorStore, asmStore))
 
         // Rendering
         val renderer = addDisposable(
@@ -102,7 +103,7 @@ class QuestEditor(
         // Main Widget
         return QuestEditorWidget(
             questEditorController,
-            { QuestEditorToolbarWidget(toolbarController) },
+            { QuestEditorToolbarWidget(toolbarController, compatibilityController) },
             { QuestInfoWidget(questInfoController) },
             { NpcCountsWidget(npcCountsController) },
             { EntityInfoWidget(entityInfoController) },
