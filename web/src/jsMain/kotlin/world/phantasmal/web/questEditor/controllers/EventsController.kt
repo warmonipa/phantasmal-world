@@ -307,4 +307,46 @@ class EventsController(private val store: QuestEditorStore) : Controller() {
             }
             "$header\n$separator\n$rows"
         }
+
+    /**
+     * Get a tooltip summarizing NPCs for all multi-selected events.
+     * Returns a Cell<String?> that updates when selected events or their NPCs change.
+     */
+    fun getMultiSelectedEventNpcsSummary(): Cell<String?> =
+        map(store.currentQuest, store.selectedEvents) { quest, selectedEvents ->
+            if (quest == null || selectedEvents.size < 2) return@map null
+
+            // Collect all matching NPCs from all selected events
+            val allMatchingNpcs = selectedEvents.flatMap { event ->
+                val eventAreaId = event.areaId
+                quest.npcs.value.filter { npc ->
+                    npc.areaId == eventAreaId &&
+                            npc.wave.value.id == event.wave.value.id &&
+                            npc.sectionId.value == event.sectionId.value
+                }
+            }
+
+            if (allMatchingNpcs.isEmpty()) return@map null
+
+            // Group NPCs by type and count
+            val npcCounts = allMatchingNpcs
+                .groupBy { it.type }
+                .map { (type, npcs) -> type.simpleName to npcs.size }
+                .sortedByDescending { it.second }
+
+            // Format as table with Name and Count columns
+            val header = "Monster          Count"
+            val separator = "-".repeat(22)
+            val rows = npcCounts.joinToString("\n") { (name, count) ->
+                name.padEnd(17) + count.toString()
+            }
+            // Add count of selected events at the top
+            "Selected: ${selectedEvents.size} events\n$header\n$separator\n$rows"
+        }
+
+    /**
+     * Check if there are multiple events selected (for multi-selection mode).
+     */
+    fun hasMultiSelection(): Cell<Boolean> =
+        store.selectedEvents.map { it.size >= 2 }
 }

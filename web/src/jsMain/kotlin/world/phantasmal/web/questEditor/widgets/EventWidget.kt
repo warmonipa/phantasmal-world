@@ -19,6 +19,8 @@ class EventWidget(
     private val isSelected = ctrl.isSelected(event)
     private val isMultiSelected = ctrl.isMultiSelected(event)
     private val npcsSummary = ctrl.getEventNpcsSummary(event)
+    private val multiSelectedNpcsSummary = ctrl.getMultiSelectedEventNpcsSummary()
+    private val hasMultiSelection = ctrl.hasMultiSelection()
 
     override fun Node.createElement() =
         div {
@@ -72,11 +74,24 @@ class EventWidget(
                 }
                 document.body?.appendChild(overlay)
 
-                // Update overlay content when NPC summary changes
-                var hasNpcs = false
+                // Track NPC summary states
+                var singleEventSummary: String? = null
+                var multiEventSummary: String? = null
+                var isInMultiSelection = false
+
+                // Update single event summary
                 observeNow(npcsSummary) { summary ->
-                    hasNpcs = summary != null
-                    overlay.textContent = summary ?: ""
+                    singleEventSummary = summary
+                }
+
+                // Update multi-selection summary
+                observeNow(multiSelectedNpcsSummary) { summary ->
+                    multiEventSummary = summary
+                }
+
+                // Track if this event is part of multi-selection
+                observeNow(isMultiSelected) { selected ->
+                    isInMultiSelection = selected
                 }
 
                 // Clean up overlay when widget is disposed
@@ -101,21 +116,39 @@ class EventWidget(
                             addChild(labelElement)
 
                             // Show overlay after 1 second hover on ID label
+                            // If event is in multi-selection, show multi-selection summary
+                            // Otherwise show single event summary
                             labelElement.element.onmouseenter = { _ ->
-                                if (hasNpcs) {
+                                val summaryToShow = if (isInMultiSelection && multiEventSummary != null) {
+                                    multiEventSummary
+                                } else {
+                                    singleEventSummary
+                                }
+
+                                if (summaryToShow != null) {
                                     hoverTimerId = window.setTimeout({
-                                        val rect = labelElement.element.getBoundingClientRect()
-                                        overlay.style.left = "${rect.right + 2}px"
-                                        overlay.style.display = "block"
-
-                                        val overlayHeight = overlay.offsetHeight
-                                        val viewportHeight = window.innerHeight
-                                        val spaceBelow = viewportHeight - rect.top
-
-                                        if (overlayHeight > spaceBelow) {
-                                            overlay.style.top = "${rect.bottom - overlayHeight}px"
+                                        // Re-check current state at display time
+                                        val currentSummary = if (isInMultiSelection && multiEventSummary != null) {
+                                            multiEventSummary
                                         } else {
-                                            overlay.style.top = "${rect.top}px"
+                                            singleEventSummary
+                                        }
+
+                                        if (currentSummary != null) {
+                                            overlay.textContent = currentSummary
+                                            val rect = labelElement.element.getBoundingClientRect()
+                                            overlay.style.left = "${rect.right + 2}px"
+                                            overlay.style.display = "block"
+
+                                            val overlayHeight = overlay.offsetHeight
+                                            val viewportHeight = window.innerHeight
+                                            val spaceBelow = viewportHeight - rect.top
+
+                                            if (overlayHeight > spaceBelow) {
+                                                overlay.style.top = "${rect.bottom - overlayHeight}px"
+                                            } else {
+                                                overlay.style.top = "${rect.top}px"
+                                            }
                                         }
                                     }, 1000)
                                 }
