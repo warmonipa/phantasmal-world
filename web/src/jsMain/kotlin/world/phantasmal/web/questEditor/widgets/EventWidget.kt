@@ -1,5 +1,6 @@
 package world.phantasmal.web.questEditor.widgets
 
+import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.*
 import world.phantasmal.cell.map
@@ -17,6 +18,7 @@ class EventWidget(
 ) : Widget() {
     private val isSelected = ctrl.isSelected(event)
     private val isMultiSelected = ctrl.isMultiSelected(event)
+    private val npcsSummary = ctrl.getEventNpcsSummary(event)
 
     override fun Node.createElement() =
         div {
@@ -113,7 +115,57 @@ class EventWidget(
                         th { addChild(delayInput.label!!) }
                         td { addChild(delayInput) }
                     }
+                }
 
+                // Monster icon with hover overlay
+                span {
+                    className = "pw-quest-editor-event-monster-icon"
+                    textContent = "\uD83D\uDC7E" // Monster emoji
+
+                    // Create overlay element
+                    val overlay = (document.createElement("div") as HTMLDivElement).apply {
+                        className = "pw-quest-editor-event-monster-overlay"
+                    }
+                    document.body?.appendChild(overlay)
+
+                    // Update overlay content when NPC summary changes
+                    observeNow(npcsSummary) { summary ->
+                        if (summary != null) {
+                            style.display = "inline-block"
+                            overlay.textContent = summary
+                        } else {
+                            style.display = "none"
+                        }
+                    }
+
+                    // Show/hide overlay on hover
+                    onmouseenter = { _ ->
+                        val rect = getBoundingClientRect()
+                        overlay.style.left = "${rect.left}px"
+                        overlay.style.display = "block"
+
+                        // Check if overlay would go below screen bottom
+                        val overlayHeight = overlay.offsetHeight
+                        val viewportHeight = window.innerHeight
+                        val spaceBelow = viewportHeight - rect.bottom - 4
+
+                        if (overlayHeight > spaceBelow) {
+                            // Show above the icon
+                            overlay.style.top = "${rect.top - overlayHeight - 4}px"
+                        } else {
+                            // Show below the icon
+                            overlay.style.top = "${rect.bottom + 4}px"
+                        }
+                    }
+
+                    onmouseleave = {
+                        overlay.style.display = "none"
+                    }
+
+                    // Clean up overlay when widget is disposed
+                    addDisposable(world.phantasmal.core.disposable.disposable {
+                        overlay.remove()
+                    })
                 }
             }
             div {
@@ -209,6 +261,38 @@ class EventWidget(
 
                 .pw-quest-editor-event th {
                     text-align: left;
+                }
+
+                /* Monster icon */
+                .pw-quest-editor-event-monster-icon {
+                    display: none;
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin-top: 4px;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    background-color: hsl(0, 0%, 25%);
+                }
+
+                .pw-quest-editor-event-monster-icon:hover {
+                    background-color: hsl(0, 0%, 35%);
+                }
+
+                /* Monster overlay (fixed position, appended to body) */
+                .pw-quest-editor-event-monster-overlay {
+                    display: none;
+                    position: fixed;
+                    background-color: hsl(0, 0%, 10%);
+                    color: hsl(0, 0%, 90%);
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    border: 1px solid hsl(0, 0%, 30%);
+                    font-size: 12px;
+                    font-family: monospace;
+                    white-space: pre;
+                    z-index: 10000;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+                    pointer-events: none;
                 }
                 """.trimIndent()
             )

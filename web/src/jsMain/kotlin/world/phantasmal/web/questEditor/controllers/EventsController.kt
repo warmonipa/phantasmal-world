@@ -271,4 +271,40 @@ class EventsController(private val store: QuestEditorStore) : Controller() {
             )
         )
     }
+
+    /**
+     * Get a tooltip summarizing NPCs that belong to the given event.
+     * NPCs are matched by area ID (or floor ID), wave ID, and section ID.
+     * Returns a Cell<String?> that updates when NPCs or event properties change.
+     */
+    fun getEventNpcsSummary(event: QuestEventModel): Cell<String?> =
+        map(store.currentQuest, event.wave, event.sectionId) { quest, wave, sectionId ->
+            if (quest == null) return@map null
+
+            // Event's areaId might be a floorId for quests with floor mappings
+            val eventAreaId = event.areaId
+
+            // Find NPCs that match this event's area, wave, and section
+            val matchingNpcs = quest.npcs.value.filter { npc ->
+                npc.areaId == eventAreaId &&
+                        npc.wave.value.id == wave.id &&
+                        npc.sectionId.value == sectionId
+            }
+
+            if (matchingNpcs.isEmpty()) return@map null
+
+            // Group NPCs by type and count
+            val npcCounts = matchingNpcs
+                .groupBy { it.type }
+                .map { (type, npcs) -> type.simpleName to npcs.size }
+                .sortedByDescending { it.second }
+
+            // Format as table with Name and Count columns
+            val header = "Monster          Count"
+            val separator = "-".repeat(22)
+            val rows = npcCounts.joinToString("\n") { (name, count) ->
+                name.padEnd(17) + count.toString()
+            }
+            "$header\n$separator\n$rows"
+        }
 }
