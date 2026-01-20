@@ -55,15 +55,7 @@ class EventWidget(
                 }
             }
 
-            observeNow(isSelected) {
-                if (it) {
-                    scrollIntoView(obj<ScrollIntoViewOptions> {
-                        behavior = ScrollBehavior.SMOOTH
-                        inline = ScrollLogicalPosition.NEAREST
-                        block = ScrollLogicalPosition.NEAREST
-                    })
-                }
-            }
+            // Note: Auto-scroll removed - scroll reset happens only on floor/quest changes in EventsWidget
 
             div {
                 className = "pw-quest-editor-event-props"

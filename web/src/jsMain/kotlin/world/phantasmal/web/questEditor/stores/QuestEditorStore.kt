@@ -308,17 +308,36 @@ class QuestEditorStore(
      */
     fun toggleEventSelection(event: QuestEventModel) {
         val currentSelection = _selectedEvents.value.toMutableSet()
+        // Use ID-based comparison instead of reference equality
+        val eventId = event.id.value
+        val wasInSelection = currentSelection.any { it.id.value == eventId }
 
-        if (event in currentSelection) {
-            currentSelection.remove(event)
+        if (wasInSelection) {
+            // Remove by ID, not by reference
+            currentSelection.removeAll { it.id.value == eventId }
         } else {
             currentSelection.add(event)
         }
 
         _selectedEvents.value = currentSelection
 
-        // Update single selection to the last selected event (or null if none)
-        _selectedEvent.value = if (currentSelection.isEmpty()) null else event
+        // Update _selectedEvent based on the operation
+        when {
+            currentSelection.isEmpty() -> {
+                // No events selected, clear single selection
+                _selectedEvent.value = null
+            }
+            wasInSelection -> {
+                // Removed an event - if it was the selected one, pick another
+                if (_selectedEvent.value?.id?.value == eventId) {
+                    _selectedEvent.value = currentSelection.firstOrNull()
+                }
+            }
+            else -> {
+                // Added an event - make it the selected one
+                _selectedEvent.value = event
+            }
+        }
     }
 
     fun <T> setEventProperty(
@@ -327,29 +346,56 @@ class QuestEditorStore(
         value: T,
     ) {
         mutate {
-            setSelectedEvent(event)
+            // Preserve multi-selection state when editing properties
+            ensureEventInSelection(event)
             setter(event, value)
         }
     }
 
     fun addEventAction(event: QuestEventModel, action: QuestEventActionModel) {
         mutate {
-            setSelectedEvent(event)
+            // Preserve multi-selection state when adding actions
+            ensureEventInSelection(event)
             event.addAction(action)
         }
     }
 
     fun addEventAction(event: QuestEventModel, index: Int, action: QuestEventActionModel) {
         mutate {
-            setSelectedEvent(event)
+            // Preserve multi-selection state when adding actions
+            ensureEventInSelection(event)
             event.addAction(index, action)
         }
     }
 
     fun removeEventAction(event: QuestEventModel, action: QuestEventActionModel) {
         mutate {
-            setSelectedEvent(event)
+            // Preserve multi-selection state when removing actions
+            ensureEventInSelection(event)
             event.removeAction(action)
+        }
+    }
+
+    /**
+     * Ensures the event is in the selection without clearing multi-selection.
+     * If multi-selection is active and the event is already selected, preserve it.
+     * Otherwise, set it as the single selected event.
+     */
+    private fun ensureEventInSelection(event: QuestEventModel) {
+        val currentSelection = _selectedEvents.value
+        val eventId = event.id.value
+        // Use ID-based comparison instead of reference equality
+        val isInSelection = currentSelection.any { it.id.value == eventId }
+
+        if (currentSelection.size > 1 && isInSelection) {
+            // Event is part of multi-selection, just update _selectedEvent
+            _selectedEvent.value = event
+        } else if (currentSelection.size == 1 && isInSelection) {
+            // Event is the only selected event, already correct
+            _selectedEvent.value = event
+        } else {
+            // Event is not in selection, make it the single selected event
+            setSelectedEvent(event)
         }
     }
 
@@ -360,7 +406,8 @@ class QuestEditorStore(
         value: T,
     ) {
         mutate {
-            setSelectedEvent(event)
+            // Preserve multi-selection state when editing action properties
+            ensureEventInSelection(event)
             setter(action, value)
         }
     }

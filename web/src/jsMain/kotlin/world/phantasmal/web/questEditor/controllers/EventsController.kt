@@ -37,10 +37,14 @@ class EventsController(private val store: QuestEditorStore) : Controller() {
     }
 
     fun isSelected(event: QuestEventModel): Cell<Boolean> =
-        store.selectedEvent eq event
+        map(store.selectedEvent, event.id) { selectedEvent, eventId ->
+            selectedEvent?.id?.value == eventId
+        }
 
     fun isMultiSelected(event: QuestEventModel): Cell<Boolean> =
-        store.selectedEvents.map { selectedEvents -> event in selectedEvents }
+        map(store.selectedEvents, event.id) { selectedEvents, eventId ->
+            selectedEvents.any { it.id.value == eventId }
+        }
 
     fun selectEvent(event: QuestEventModel?, ctrlKey: Boolean = false) {
         if (ctrlKey && event != null) {
