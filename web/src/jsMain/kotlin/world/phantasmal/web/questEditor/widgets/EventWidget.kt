@@ -66,6 +66,26 @@ class EventWidget(
             div {
                 className = "pw-quest-editor-event-props"
 
+                // Create overlay element for NPC summary
+                val overlay = (document.createElement("div") as HTMLDivElement).apply {
+                    className = "pw-quest-editor-event-monster-overlay"
+                }
+                document.body?.appendChild(overlay)
+
+                // Update overlay content when NPC summary changes
+                var hasNpcs = false
+                observeNow(npcsSummary) { summary ->
+                    hasNpcs = summary != null
+                    overlay.textContent = summary ?: ""
+                }
+
+                // Clean up overlay when widget is disposed
+                addDisposable(world.phantasmal.core.disposable.disposable {
+                    overlay.remove()
+                })
+
+                var hoverTimerId: Int? = null
+
                 table {
                     tr {
                         val idInput = IntInput(
@@ -76,7 +96,38 @@ class EventWidget(
                             min = 0,
                             step = 1,
                         )
-                        th { addChild(idInput.label!!) }
+                        th {
+                            val labelElement = idInput.label!!
+                            addChild(labelElement)
+
+                            // Show overlay after 1 second hover on ID label
+                            labelElement.element.onmouseenter = { _ ->
+                                if (hasNpcs) {
+                                    hoverTimerId = window.setTimeout({
+                                        val rect = labelElement.element.getBoundingClientRect()
+                                        overlay.style.left = "${rect.right + 2}px"
+                                        overlay.style.display = "block"
+
+                                        val overlayHeight = overlay.offsetHeight
+                                        val viewportHeight = window.innerHeight
+                                        val spaceBelow = viewportHeight - rect.top
+
+                                        if (overlayHeight > spaceBelow) {
+                                            overlay.style.top = "${rect.bottom - overlayHeight}px"
+                                        } else {
+                                            overlay.style.top = "${rect.top}px"
+                                        }
+                                    }, 1000)
+                                }
+                                Unit
+                            }
+
+                            labelElement.element.onmouseleave = {
+                                hoverTimerId?.let { window.clearTimeout(it) }
+                                hoverTimerId = null
+                                overlay.style.display = "none"
+                            }
+                        }
                         td { addChild(idInput) }
                     }
                     tr {
@@ -115,57 +166,6 @@ class EventWidget(
                         th { addChild(delayInput.label!!) }
                         td { addChild(delayInput) }
                     }
-                }
-
-                // Monster icon with hover overlay
-                span {
-                    className = "pw-quest-editor-event-monster-icon"
-                    textContent = "\uD83D\uDC7E" // Monster emoji
-
-                    // Create overlay element
-                    val overlay = (document.createElement("div") as HTMLDivElement).apply {
-                        className = "pw-quest-editor-event-monster-overlay"
-                    }
-                    document.body?.appendChild(overlay)
-
-                    // Update overlay content when NPC summary changes
-                    observeNow(npcsSummary) { summary ->
-                        if (summary != null) {
-                            style.display = "inline-block"
-                            overlay.textContent = summary
-                        } else {
-                            style.display = "none"
-                        }
-                    }
-
-                    // Show/hide overlay on hover
-                    onmouseenter = { _ ->
-                        val rect = getBoundingClientRect()
-                        overlay.style.left = "${rect.left}px"
-                        overlay.style.display = "block"
-
-                        // Check if overlay would go below screen bottom
-                        val overlayHeight = overlay.offsetHeight
-                        val viewportHeight = window.innerHeight
-                        val spaceBelow = viewportHeight - rect.bottom - 4
-
-                        if (overlayHeight > spaceBelow) {
-                            // Show above the icon
-                            overlay.style.top = "${rect.top - overlayHeight - 4}px"
-                        } else {
-                            // Show below the icon
-                            overlay.style.top = "${rect.bottom + 4}px"
-                        }
-                    }
-
-                    onmouseleave = {
-                        overlay.style.display = "none"
-                    }
-
-                    // Clean up overlay when widget is disposed
-                    addDisposable(world.phantasmal.core.disposable.disposable {
-                        overlay.remove()
-                    })
                 }
             }
             div {
@@ -261,21 +261,6 @@ class EventWidget(
 
                 .pw-quest-editor-event th {
                     text-align: left;
-                }
-
-                /* Monster icon */
-                .pw-quest-editor-event-monster-icon {
-                    display: none;
-                    cursor: pointer;
-                    font-size: 14px;
-                    margin-top: 4px;
-                    padding: 2px 4px;
-                    border-radius: 3px;
-                    background-color: hsl(0, 0%, 25%);
-                }
-
-                .pw-quest-editor-event-monster-icon:hover {
-                    background-color: hsl(0, 0%, 35%);
                 }
 
                 /* Monster overlay (fixed position, appended to body) */
