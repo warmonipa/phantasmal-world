@@ -2,12 +2,13 @@ package world.phantasmal.web.questEditor.widgets
 
 import kotlinx.browser.document
 import kotlinx.browser.window
-import org.w3c.dom.*
+import org.w3c.dom.Element
+import org.w3c.dom.HTMLDivElement
+import org.w3c.dom.Node
 import world.phantasmal.cell.map
 import world.phantasmal.web.questEditor.controllers.EventsController
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.webui.dom.*
-import world.phantasmal.webui.obj
 import world.phantasmal.webui.widgets.Dropdown
 import world.phantasmal.webui.widgets.IntInput
 import world.phantasmal.webui.widgets.Widget
@@ -18,9 +19,9 @@ class EventWidget(
 ) : Widget() {
     private val isSelected = ctrl.isSelected(event)
     private val isMultiSelected = ctrl.isMultiSelected(event)
+    private val hasMultiSelection = ctrl.hasMultiSelection()
     private val npcsSummary = ctrl.getEventNpcsSummary(event)
     private val multiSelectedNpcsSummary = ctrl.getMultiSelectedEventNpcsSummary()
-    private val hasMultiSelection = ctrl.hasMultiSelection()
 
     override fun Node.createElement() =
         div {
@@ -66,32 +67,49 @@ class EventWidget(
                 }
                 document.body?.appendChild(overlay)
 
-                // Track NPC summary states
-                var singleEventSummary: String? = null
-                var multiEventSummary: String? = null
-                var isInMultiSelection = false
-
-                // Update single event summary
-                observeNow(npcsSummary) { summary ->
-                    singleEventSummary = summary
-                }
-
-                // Update multi-selection summary
-                observeNow(multiSelectedNpcsSummary) { summary ->
-                    multiEventSummary = summary
-                }
-
-                // Track if this event is part of multi-selection
-                observeNow(isMultiSelected) { selected ->
-                    isInMultiSelection = selected
-                }
-
                 // Clean up overlay when widget is disposed
                 addDisposable(world.phantasmal.core.disposable.disposable {
                     overlay.remove()
                 })
 
                 var hoverTimerId: Int? = null
+                var isHovering = false
+
+                fun showOverlay(anchorElement: Element) {
+                    if (!isHovering) return
+
+                    // Get current values directly from cells
+                    // Show multi-selection summary if: there are >=2 events selected AND this event is one of them
+                    val hasMulti = hasMultiSelection.value
+                    val inMulti = isMultiSelected.value
+                    val currentSummary = if (hasMulti && inMulti) {
+                        multiSelectedNpcsSummary.value ?: npcsSummary.value ?: "(No NPCs)"
+                    } else {
+                        npcsSummary.value ?: "(No NPCs)"
+                    }
+
+                    overlay.textContent = currentSummary
+                    val rect = anchorElement.getBoundingClientRect()
+                    overlay.style.left = "${rect.right + 2}px"
+                    overlay.style.top = "${rect.top}px"
+                    overlay.style.display = "block"
+
+                    // Adjust position if needed
+                    val overlayHeight = overlay.offsetHeight
+                    val viewportHeight = window.innerHeight
+                    val spaceBelow = viewportHeight - rect.top
+
+                    if (overlayHeight > spaceBelow) {
+                        overlay.style.top = "${rect.bottom - overlayHeight}px"
+                    }
+                }
+
+                fun hideOverlay() {
+                    isHovering = false
+                    hoverTimerId?.let { window.clearTimeout(it) }
+                    hoverTimerId = null
+                    overlay.style.display = "none"
+                }
 
                 table {
                     tr {
@@ -107,50 +125,16 @@ class EventWidget(
                             val labelElement = idInput.label!!
                             addChild(labelElement)
 
-                            // Show overlay after 1 second hover on ID label
-                            // If event is in multi-selection, show multi-selection summary
-                            // Otherwise show single event summary
+                            // Show overlay after short delay on ID label hover
                             labelElement.element.onmouseenter = { _ ->
-                                val summaryToShow = if (isInMultiSelection && multiEventSummary != null) {
-                                    multiEventSummary
-                                } else {
-                                    singleEventSummary
-                                }
-
-                                if (summaryToShow != null) {
-                                    hoverTimerId = window.setTimeout({
-                                        // Re-check current state at display time
-                                        val currentSummary = if (isInMultiSelection && multiEventSummary != null) {
-                                            multiEventSummary
-                                        } else {
-                                            singleEventSummary
-                                        }
-
-                                        if (currentSummary != null) {
-                                            overlay.textContent = currentSummary
-                                            val rect = labelElement.element.getBoundingClientRect()
-                                            overlay.style.left = "${rect.right + 2}px"
-                                            overlay.style.display = "block"
-
-                                            val overlayHeight = overlay.offsetHeight
-                                            val viewportHeight = window.innerHeight
-                                            val spaceBelow = viewportHeight - rect.top
-
-                                            if (overlayHeight > spaceBelow) {
-                                                overlay.style.top = "${rect.bottom - overlayHeight}px"
-                                            } else {
-                                                overlay.style.top = "${rect.top}px"
-                                            }
-                                        }
-                                    }, 1000)
-                                }
-                                Unit
+                                isHovering = true
+                                hoverTimerId = window.setTimeout({
+                                    showOverlay(labelElement.element)
+                                }, 300)
                             }
 
                             labelElement.element.onmouseleave = {
-                                hoverTimerId?.let { window.clearTimeout(it) }
-                                hoverTimerId = null
-                                overlay.style.display = "none"
+                                hideOverlay()
                             }
                         }
                         td { addChild(idInput) }
