@@ -35,10 +35,10 @@ private val AREAS by lazy {
         createArea(8, 0x08, "Ruins 1", order++, 5),
         createArea(9, 0x09, "Ruins 2", order++, 5),
         createArea(10, 0x0A, "Ruins 3", order++, 5),
-        createBossArea(11, 0x0B, "Under the Dome", order++),
-        createBossArea(12, 0x0C, "Underground Channel", order++),
-        createBossArea(13, 0x0D, "Monitor Room", order++),
-        createBossArea(14, 0x0E, "Dark Falz", order++),
+        createArea(11, 0x0B, "Under the Dome", order++, bossArea = true),
+        createArea(12, 0x0C, "Underground Channel", order++, bossArea = true),
+        createArea(13, 0x0D, "Monitor Room", order++, bossArea = true),
+        createArea(14, 0x0E, "Dark Falz", order++, bossArea = true),
         createArea(15, 0x0F, "Lobby", order++, 15),
         createArea(16, 0x10, "BA Spaceship", order++, 3),
         createArea(17, 0x11, "BA Palace", order++, 3),
@@ -60,10 +60,10 @@ private val AREAS by lazy {
         createArea(9, 0x1B, "Seaside Area", order++, 1),
         createArea(10, 0x1C, "Seabed Upper Levels", order++, 3),
         createArea(11, 0x1D, "Seabed Lower Levels", order++, 3),
-        createBossArea(12, 0x1E, "Cliffs of Gal Da Val", order++),
-        createBossArea(13, 0x1F, "Test Subject Disposal Area", order++),
-        createBossArea(14, 0x20, "VR Temple Final", order++),
-        createBossArea(15, 0x21, "VR Spaceship Final", order++),
+        createArea(12, 0x1E, "Cliffs of Gal Da Val", order++, bossArea = true),
+        createArea(13, 0x1F, "Test Subject Disposal Area", order++, bossArea = true),
+        createArea(14, 0x20, "VR Temple Final", order++, bossArea = true),
+        createArea(15, 0x21, "VR Spaceship Final", order++, bossArea = true),
         createArea(16, 0x22, "Seaside Area at Night", order++, 2),
         createArea(17, 0x23, "Tower", order++, 5),
     )
@@ -81,7 +81,7 @@ private val AREAS by lazy {
         createArea(6, 0x29, "Subterranean Desert 1", order++, 3),
         createArea(7, 0x2A, "Subterranean Desert 2", order++, 3),
         createArea(8, 0x2B, "Subterranean Desert 3", order++, 3),
-        createBossArea(9, 0x2C, "Meteor Impact Site", order++),
+        createArea(9, 0x2C, "Meteor Impact Site", order++, bossArea = true),
     )
 
     mapOf(
@@ -91,22 +91,17 @@ private val AREAS by lazy {
     )
 }
 
-private fun createArea(id: Int, mapId: Int, name: String, order: Int, variants: Int): Area {
-    return createArea(id, mapId, name, false, order, variants)
-}
-
-private fun createBossArea(id: Int, mapId: Int, name: String, order: Int): Area {
-    return createArea(id, mapId, name, true, order, 1)
-}
-
-private fun createArea(id: Int, mapId: Int, name: String, bossArea: Boolean, order: Int, variants: Int): Area {
+private fun createArea(
+    id: Int,
+    mapId: Int,
+    name: String,
+    order: Int,
+    variants: Int = 1,
+    bossArea: Boolean = false,
+): Area {
     val avs = mutableListOf<AreaVariant>()
     val area = Area(id, mapId, name, bossArea, order, avs)
-
-    for (avId in 0 until variants) {
-        avs.add(AreaVariant(avId, area))
-    }
-
+    repeat(variants) { avs.add(AreaVariant(it, area)) }
     return area
 }
 
@@ -125,19 +120,9 @@ private val areasByMapId: Map<Int, Area> by lazy {
  * Episode is represented as Int: 0=I, 1=II, 2=IV
  */
 private val areasByEpisodeAndId: Map<Pair<Int, Int>, Area> by lazy {
-    val result = mutableMapOf<Pair<Int, Int>, Area>()
-
-    getAreasForEpisode(Episode.I).forEach { area ->
-        result[Pair(0, area.id)] = area
-    }
-    getAreasForEpisode(Episode.II).forEach { area ->
-        result[Pair(1, area.id)] = area
-    }
-    getAreasForEpisode(Episode.IV).forEach { area ->
-        result[Pair(2, area.id)] = area
-    }
-
-    result
+    listOf(0 to Episode.I, 1 to Episode.II, 2 to Episode.IV)
+        .flatMap { (epInt, ep) -> getAreasForEpisode(ep).map { (epInt to it.id) to it } }
+        .toMap()
 }
 
 /**
@@ -154,7 +139,7 @@ fun findAreaByMapId(mapId: Int): Area? = areasByMapId[mapId]
  * @return The corresponding Area or null if not found
  */
 fun findAreaByEpisodeAndAreaId(episode: Int, areaId: Int): Area? =
-    areasByEpisodeAndId[Pair(episode, areaId)]
+    areasByEpisodeAndId[episode to areaId]
 
 /**
  * Maps game-internal map ID to model area ID.
@@ -175,10 +160,7 @@ fun getMapId(episode: Int, areaId: Int): Int =
 /**
  * Check if current area is a boss area
  */
-fun isBossArea(episode: Episode, areaId: Int): Boolean {
-    AREAS[episode]?.any { area -> area.id == areaId && area.bossArea }.let { return it == true }
-}
+fun isBossArea(episode: Episode, areaId: Int): Boolean =
+    AREAS[episode]?.any { it.id == areaId && it.bossArea } ?: false
 
-fun isPioneer2OrLab(areaId: Int): Boolean {
-    return areaId == 0
-}
+fun isPioneer2OrLab(areaId: Int): Boolean = areaId == 0
