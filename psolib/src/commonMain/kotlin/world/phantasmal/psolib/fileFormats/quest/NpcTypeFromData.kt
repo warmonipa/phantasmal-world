@@ -125,7 +125,7 @@ fun npcTypeFromQuestNpc(npc: QuestNpc): NpcType {
         0x0DE -> NpcType.Morfos
         0x0DF -> NpcType.Recobox
         0x0E0 -> when {
-            areaId > 15 -> NpcType.Epsilon
+            areaId == 17 -> NpcType.Epsilon  // Tower (EP2 area 17)
             skin % 2 == 0 -> NpcType.SinowZoa
             else -> NpcType.SinowZele
         }
