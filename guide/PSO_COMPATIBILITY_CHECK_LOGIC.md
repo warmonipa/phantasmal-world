@@ -1,63 +1,64 @@
-# PSO Quest 兼容性检查逻辑文档
+# PSO Quest Compatibility Check Logic Document
 
-## 概述
+## Overview
 
-此文档详细描述PSO Quest Editor的兼容性检查算法，用于验证任务文件是否与不同PSO版本兼容。
+This document describes in detail the compatibility checking algorithm of the PSO Quest Editor, used to verify whether
+quest files are compatible with different PSO versions.
 
-**源代码位置**: `main.pas` 第9053-9312行 (`TestCompatibility` 过程)
+**Source code location**: `main.pas` lines 9053-9312 (`TestCompatibility` procedure)
 
 ---
 
-## 1. 版本定义
+## 1. Version Definitions
 
 ```pascal
-// 版本参数 ver 的取值:
+// Version parameter ver values:
 // 0 = DC V1    (Dreamcast V1)
 // 1 = DC V2    (Dreamcast V2)
-// 2 = PC       (PC版本)
+// 2 = PC       (PC version)
 // 3 = GC EP1&2 (GameCube Episode 1&2)
 
-// 注意: Blue Burst 使用 DC V2 (ver=1) 的结果
-// 见 Compatibilitycheck1Click: form27.er[2] := form27.er[1]
+// Note: Blue Burst uses DC V2 (ver=1) results
+// See Compatibilitycheck1Click: form27.er[2] := form27.er[1]
 ```
 
-**版本显示顺序** (Form27.ListBox1):
-| 索引 | 版本名称 | ver参数 |
-|------|----------|---------|
+**Version display order** (Form27.ListBox1):
+| Index | Version Name | ver Parameter |
+|-------|--------------|---------------|
 | 0 | DC V1 | 0 |
 | 1 | DC V2 | 1 |
-| 2 | Blue Burst | (复制DC V2结果) |
+| 2 | Blue Burst | (copies DC V2 result) |
 | 3 | PC | 2 |
 | 4 | GC EP1&2 | 3 |
 
 ---
 
-## 2. 常量定义
+## 2. Constant Definitions
 
-### 2.1 默认NPC动作标签 (main.pas:9055-9058)
+### 2.1 Default NPC Action Labels (main.pas:9055-9058)
 
 ```pascal
-// Episode 1/4 默认标签 (22个)
-// 前13个 (0-12) 用于所有版本
-// 后9个 (13-21) 仅 ver=3 (GC) 可用
+// Episode 1/4 default labels (22 entries)
+// First 13 (0-12) used for all versions
+// Last 9 (13-21) only available for ver=3 (GC)
 DefaultLabel: array [0..21] of integer = (
-  100, 90, 120, 130, 80, 70, 60, 140, 110, 30, 50, 1, 20,  // 基础 [0-12]
-  850, 800, 830, 820, 810, 860, 870, 840, 880              // V3扩展 [13-21]
+  100, 90, 120, 130, 80, 70, 60, 140, 110, 30, 50, 1, 20,  // Base [0-12]
+  850, 800, 830, 820, 810, 860, 870, 840, 880              // V3 extended [13-21]
 );
 
-// Episode 2 默认标签 (19个)
-// 前10个 (0-9) 用于所有版本
-// 后9个 (10-18) 仅 ver=3 (GC) 可用
+// Episode 2 default labels (19 entries)
+// First 10 (0-9) used for all versions
+// Last 9 (10-18) only available for ver=3 (GC)
 DefaultLabel2: array [0..18] of integer = (
-  720, 660, 620, 600, 501, 520, 560, 540, 580, 680,  // 基础 [0-9]
-  950, 900, 930, 920, 910, 960, 970, 940, 980        // V3扩展 [10-18]
+  720, 660, 620, 600, 501, 520, 560, 540, 580, 680,  // Base [0-9]
+  950, 900, 930, 920, 910, 960, 970, 940, 980        // V3 extended [10-18]
 );
 ```
 
-### 2.2 敌人ID列表 (main.pas:47-49)
+### 2.2 Enemy ID List (main.pas:47-49)
 
 ```pascal
-// 58个敌人Skin ID - 用于区分敌人和NPC
+// 58 enemy Skin IDs - used to distinguish enemies from NPCs
 EnemyID: array [0..57] of integer = (
   68, 67, 64, 65, 128, 129, 131, 133, 163, 97, 99, 98, 96,
   168, 166, 165, 160, 162, 164, 192, 197, 193, 194, 200,
@@ -67,116 +68,116 @@ EnemyID: array [0..57] of integer = (
 );
 ```
 
-### 2.3 转换指令操作码 (main.pas:9084-9086)
+### 2.3 Conversion Instruction Opcodes (main.pas:9084-9086)
 
 ```pascal
-// 这些操作码在V1版本中可能有参数转换问题
+// These opcodes may have parameter conversion issues in V1 version
 ConvertOpcodes = [$66, $6D, $79, $7C, $7D, $7F, $84, $87, $A8, $C0, $CD, $CE]
 ```
 
-### 2.4 参数类型常量 (Unit1.pas)
+### 2.4 Parameter Type Constants (Unit1.pas)
 
 ```pascal
-T_NONE    = 0   // 无参数
-T_IMED    = 1   // 立即数
-T_ARGS    = 2   // 参数模式
-T_PUSH    = 3   // 压栈
-T_VASTART = 4   // 可变参数开始
-T_VAEND   = 5   // 可变参数结束
-T_DC      = 6   // DC专用
+T_NONE    = 0   // No parameter
+T_IMED    = 1   // Immediate value
+T_ARGS    = 2   // Argument mode
+T_PUSH    = 3   // Push stack
+T_VASTART = 4   // Variable argument start
+T_VAEND   = 5   // Variable argument end
+T_DC      = 6   // DC specific
 
-T_REG     = 7   // 寄存器 (R0-R255)
-T_BYTE    = 8   // 字节值
-T_WORD    = 9   // 字值
-T_DWORD   = 10  // 双字值
-T_FLOAT   = 11  // 浮点数
-T_STR     = 12  // 字符串
+T_REG     = 7   // Register (R0-R255)
+T_BYTE    = 8   // Byte value
+T_WORD    = 9   // Word value
+T_DWORD   = 10  // Double word value
+T_FLOAT   = 11  // Float
+T_STR     = 12  // String
 
-T_RREG    = 13  // 寄存器引用
-T_FUNC    = 14  // 函数标签
-T_FUNC2   = 15  // 函数标签2
-T_SWITCH  = 16  // Switch语句
-T_SWITCH2B= 17  // Switch 2字节
-T_PFLAG   = 18  // 标志
+T_RREG    = 13  // Register reference
+T_FUNC    = 14  // Function label
+T_FUNC2   = 15  // Function label 2
+T_SWITCH  = 16  // Switch statement
+T_SWITCH2B= 17  // Switch 2 bytes
+T_PFLAG   = 18  // Flag
 
-T_STRDATA = 19  // 字符串数据
-T_DATA    = 20  // 数据标签
-T_HEX     = 21  // 十六进制数据
-T_STRHEX  = 22  // 十六进制字符串
+T_STRDATA = 19  // String data
+T_DATA    = 20  // Data label
+T_HEX     = 21  // Hexadecimal data
+T_STRHEX  = 22  // Hexadecimal string
 ```
 
 ---
 
-## 3. 主检查流程
+## 3. Main Check Flow
 
 ```pascal
 Procedure TestCompatibility(ver: integer; var errors, warn: tstringlist);
 ```
 
-### 检查流程概述:
+### Check Flow Overview:
 
-1. **脚本检查** (9067-9191)
-    - Label 0 存在性检查
-    - 操作码版本兼容性
-    - 参数类型检查
-    - 标签引用验证
+1. **Script checks** (9067-9191)
+   - Label 0 existence check
+   - Opcode version compatibility
+   - Parameter type check
+   - Label reference verification
 
-2. **怪物/NPC检查** (9196-9265)
-    - NPC动作标签验证
-    - Skin 51 特殊检查
-    - Floor特定怪物兼容性
+2. **Monster/NPC checks** (9196-9265)
+   - NPC action label verification
+   - Skin 51 special check
+   - Floor-specific monster compatibility
 
-3. **对象检查** (9266-9278)
-    - Floor特定对象兼容性
+3. **Object checks** (9266-9278)
+   - Floor-specific object compatibility
 
-4. **数量限制检查** (9279-9282)
-    - 怪物数量 > 400
-    - 对象数量 > 400
+4. **Quantity limit checks** (9279-9282)
+   - Monster count > 400
+   - Object count > 400
 
-5. **数据标签检查** (9286-9290)
-    - 未使用的数据标签
+5. **Data label checks** (9286-9290)
+   - Unused data labels
 
-6. **文件检查** (9293-9310)
-    - .bin文件必需
-    - .dat文件推荐
-    - .pvr文件限制
+6. **File checks** (9293-9310)
+   - .bin file required
+   - .dat file recommended
+   - .pvr file restrictions
 
 ---
 
-## 4. 详细检查逻辑
+## 4. Detailed Check Logic
 
-### 4.1 Label 0 检查 (9067-9068)
+### 4.1 Label 0 Check (9067-9068)
 
 ```pascal
-// 任务入口点必须存在
+// Quest entry point must exist
 if LookForLabel2('0') = 0 then
     errors.Add(GetLanguageString(86));  // "Label 0 does not exist"
 ```
 
-**错误信息**: LanguageString[86]
+**Error message**: LanguageString[86]
 
 ---
 
-### 4.2 操作码遍历检查 (9070-9191)
+### 4.2 Opcode Iteration Check (9070-9191)
 
-对于每一行脚本:
+For each script line:
 
 ```pascal
-// 解析脚本行格式: "label:  opcode args"
+// Parse script line format: "label:  opcode args"
 s := form4.ListBox1.Items.Strings[x];
-delete(s, 1, 8);  // 跳过前8个字符(标签部分)
+delete(s, 1, 8);  // Skip first 8 characters (label part)
 y := pos(' ', s);
 if y > 0 then
-    cmd := copy(s, 1, y - 1)  // 提取操作码
+    cmd := copy(s, 1, y - 1)  // Extract opcode
 else
     cmd := s;
-delete(s, 1, length(cmd) + 1);  // 剩余部分为参数
+delete(s, 1, length(cmd) + 1);  // Remaining part is arguments
 ```
 
-#### 4.2.1 转换指令警告 (9084-9091)
+#### 4.2.1 Conversion Instruction Warning (9084-9091)
 
 ```pascal
-// 条件: ver < 2 且 order <> T_DC
+// Condition: ver < 2 and order <> T_DC
 if (asmcode[i].fnc in [$66,$6D,$79,$7C,$7D,$7F,$84,$87,$A8,$C0,$CD,$CE]) then
 begin
     if (ver < 2) and (asmcode[i].order <> T_DC) then
@@ -184,43 +185,43 @@ begin
 end
 ```
 
-**警告信息**: LanguageString[89] + 操作码名 + LanguageString[87] + 行号
+**Warning message**: LanguageString[89] + opcode name + LanguageString[87] + line number
 
-#### 4.2.2 Episode参数检查 (9094-9100)
+#### 4.2.2 Episode Parameter Check (9094-9100)
 
 ```pascal
-// 操作码 $F8BC = set_episode
+// Opcode $F8BC = set_episode
 if (asmcode[i].fnc = $F8BC) then
 begin
-    // V1/V2 只支持 Episode 1
+    // V1/V2 only supports Episode 1
     if (ver < 2) and (s <> '00000000') then
         errors.Add(GetLanguageString(90) + s + GetLanguageString(87) + ' ' + inttostr(x));
-    // PC版本不支持 Episode 4
+    // PC version does not support Episode 4
     if (ver = 2) and (s = '00000002') then
         errors.Add(GetLanguageString(90) + s + GetLanguageString(87) + ' ' + inttostr(x));
 end
 ```
 
-**Episode参数**:
+**Episode parameters**:
 
 - `00000000` = Episode 1
 - `00000001` = Episode 2
 - `00000002` = Episode 4
 
-**错误信息**: LanguageString[90] + 参数值 + LanguageString[87] + 行号
+**Error message**: LanguageString[90] + parameter value + LanguageString[87] + line number
 
-#### 4.2.3 操作码版本检查 (9103-9105)
+#### 4.2.3 Opcode Version Check (9103-9105)
 
 ```pascal
-// 排除特殊操作码 $D9 和 $EF
+// Exclude special opcodes $D9 and $EF
 if (asmcode[i].fnc <> $D9) and (asmcode[i].fnc <> $EF) then
     if asmcode[i].ver > ver then
         errors.Add(GetLanguageString(91) + cmd + GetLanguageString(87) + ' ' + inttostr(x));
 ```
 
-**错误信息**: LanguageString[91] + 操作码名 + LanguageString[87] + 行号
+**Error message**: LanguageString[91] + opcode name + LanguageString[87] + line number
 
-#### 4.2.4 特殊操作码警告 (9107-9108)
+#### 4.2.4 Special Opcode Warning (9107-9108)
 
 ```pascal
 // $F8EE = call_image_data
@@ -228,28 +229,28 @@ if (asmcode[i].fnc = $F8EE) then
     warn.Add(GetLanguageString(92));
 ```
 
-**警告信息**: LanguageString[92]
+**Warning message**: LanguageString[92]
 
 ---
 
-### 4.3 参数检查 (9113-9189)
+### 4.3 Parameter Check (9113-9189)
 
-#### 4.3.1 参数类型匹配 (9117-9119)
+#### 4.3.1 Parameter Type Matching (9117-9119)
 
 ```pascal
-// 仅检查: ver < 2 且 opcode.ver < 2 且 order = T_ARGS
+// Only check: ver < 2 and opcode.ver < 2 and order = T_ARGS
 if (asmcode[i].ver < 2) and (asmcode[i].order = T_ARGS) and (ver < 2) then
     if ((asmcode[i].arg[c] = T_REG) and (s[1] <> 'R')) or
        ((asmcode[i].arg[c] = T_DWORD) and (s[1] = 'R')) then
         errors.Add(GetLanguageString(93) + cmd + GetLanguageString(87) + ' ' + inttostr(x));
 ```
 
-**错误信息**: LanguageString[93] + 操作码名 + LanguageString[87] + 行号
+**Error message**: LanguageString[93] + opcode name + LanguageString[87] + line number
 
-#### 4.3.2 标签引用检查 (9121-9128)
+#### 4.3.2 Label Reference Check (9121-9128)
 
 ```pascal
-// 参数类型: T_FUNC, T_FUNC2, T_DATA
+// Parameter types: T_FUNC, T_FUNC2, T_DATA
 if (asmcode[i].arg[c] = T_FUNC) or (asmcode[i].arg[c] = T_FUNC2) or
    (asmcode[i].arg[c] = T_DATA) then
 begin
@@ -261,19 +262,19 @@ begin
 end;
 ```
 
-**警告信息**: LanguageString[94] + 标签名 + LanguageString[88] + 行号
+**Warning message**: LanguageString[94] + label name + LanguageString[88] + line number
 
-#### 4.3.3 Switch语句检查 (9131-9158)
+#### 4.3.3 Switch Statement Check (9131-9158)
 
 ```pascal
-// 参数类型: T_SWITCH
-// 格式: "count:label1:label2:..."
+// Parameter type: T_SWITCH
+// Format: "count:label1:label2:..."
 if (asmcode[i].arg[c] = T_SWITCH) then
 begin
-    // 提取count
+    // Extract count
     k := strtoint(copy(b, 1, l - 1));
 
-    // 验证每个标签
+    // Verify each label
     for d := 1 to k do
     begin
         if b = '' then
@@ -281,28 +282,28 @@ begin
             errors.Add('Array of function is missing entrys at line ' + inttostr(x));
             break;
         end;
-        // 检查标签是否存在
+        // Check if label exists
         if LookForLabel2(copy(b, 1, l)) = 0 then
             warn.Add(GetLanguageString(94) + ' ' + copy(b, 1, l) +
                      GetLanguageString(88) + ' ' + inttostr(x));
     end;
 
-    // 检查是否有多余条目
+    // Check for extra entries
     if b <> '' then
         errors.Add('Array of function contain too many entrys at line ' + inttostr(x));
 end;
 ```
 
-**错误信息**:
+**Error messages**:
 
-- "Array of function is missing entrys at line " + 行号
-- "Array of function contain too many entrys at line " + 行号
+- "Array of function is missing entrys at line " + line number
+- "Array of function contain too many entrys at line " + line number
 
-#### 4.3.4 字符串参数检查 (9167-9189)
+#### 4.3.4 String Parameter Check (9167-9189)
 
 ```pascal
-// 参数类型: T_STR, T_STRDATA
-// 检查 <> 标记是否匹配
+// Parameter types: T_STR, T_STRDATA
+// Check if <> markers are matched
 c := 0;
 for l := 1 to length(s) do
 begin
@@ -313,25 +314,25 @@ if c <> 0 then
     warn.Add(GetLanguageString(95) + ' ' + inttostr(x));
 ```
 
-**警告信息**: LanguageString[95] + 行号
+**Warning message**: LanguageString[95] + line number
 
 ---
 
-### 4.4 NPC动作标签检查 (9196-9236)
+### 4.4 NPC Action Label Check (9196-9236)
 
 ```pascal
-ep := GetEpisode;  // 获取当前Episode
+ep := GetEpisode;  // Get current Episode
 
-for x := 0 to 20 do  // 遍历所有Floor
+for x := 0 to 20 do  // Iterate all Floors
     if Form1.CheckListBox1.Checked[x] then
     begin
         for y := 0 to Floor[x].MonsterCount - 1 do
         begin
-            // 检查是否为敌人
+            // Check if it's an enemy
             for i := 0 to 57 do
                 if EnemyID[i] = Floor[x].Monster[y].Skin then break;
 
-            if i = 58 then  // 不是敌人，是NPC
+            if i = 58 then  // Not an enemy, it's an NPC
             begin
                 if round(Floor[x].Monster[y].Action) > 0 then
                 begin
@@ -339,30 +340,30 @@ for x := 0 to 20 do  // 遍历所有Floor
 
                     if ep = 1 then  // Episode 2
                     begin
-                        // 检查基础标签 [0-9]
+                        // Check base labels [0-9]
                         for l := 0 to 9 do
                             if DefaultLabel2[l] = round(Floor[x].Monster[y].Action) then
                                 c := 1;
-                        // V3额外检查扩展标签 [10-18]
+                        // V3 additionally checks extended labels [10-18]
                         if ver = 3 then
                             for l := 10 to 18 do
                                 if DefaultLabel2[l] = round(Floor[x].Monster[y].Action) then
                                     c := 1;
                     end
-                    else  // Episode 1 或 4
+                    else  // Episode 1 or 4
                     begin
-                        // 检查基础标签 [0-12]
+                        // Check base labels [0-12]
                         for l := 0 to 12 do
                             if DefaultLabel[l] = round(Floor[x].Monster[y].Action) then
                                 c := 1;
-                        // V3额外检查扩展标签 [13-21]
+                        // V3 additionally checks extended labels [13-21]
                         if ver = 3 then
                             for l := 13 to 21 do
                                 if DefaultLabel[l] = round(Floor[x].Monster[y].Action) then
                                     c := 1;
                     end;
 
-                    // 不是默认标签，检查自定义标签
+                    // Not a default label, check custom label
                     if c = 0 then
                         if LookForLabel2(inttostr(round(Floor[x].Monster[y].Action))) = 0 then
                             warn.Add(GetLanguageString(96) + ' ' +
@@ -375,32 +376,33 @@ for x := 0 to 20 do  // 遍历所有Floor
     end;
 ```
 
-**警告信息**: LanguageString[96] + 标签值 + LanguageString[97] + 怪物索引 + LanguageString[98] + Floor索引
+**Warning message**: LanguageString[96] + label value + LanguageString[97] + monster index + LanguageString[98] + Floor
+index
 
 ---
 
-### 4.5 Skin 51 特殊检查 (9237-9254)
+### 4.5 Skin 51 Special Check (9237-9254)
 
 ```pascal
 if Floor[x].Monster[y].Skin = 51 then
 begin
     if ver < 2 then
-        // V1版本不支持Skin 51
+        // V1 version does not support Skin 51
         warn.Add(GetLanguageString(99) + ' ' + inttostr(Floor[x].Monster[y].Skin) +
                  GetLanguageString(100) + inttostr(y) +
                  GetLanguageString(98) + ' ' + inttostr(x))
     else if ep = 2 then
-        // Episode 4 中Skin 51可能有问题
+        // Skin 51 may have issues in Episode 4
         warn.Add(GetLanguageString(99) + ' ' + inttostr(Floor[x].Monster[y].Skin) +
                  GetLanguageString(100) + inttostr(y) +
                  GetLanguageString(98) + ' ' + inttostr(x))
     else
     begin
-        // 验证子类型
+        // Verify subtype
         if Floor[x].Monster[y].unknow7 > 15 then
             errors.Add(GetLanguageString(101) + inttostr(y) +
                        GetLanguageString(98) + ' ' + inttostr(x))
-        // 验证NPC51Name表
+        // Verify NPC51Name table
         else if (NPC51Name[Floor[x].floorid, Floor[x].Monster[y].unknow7] = 'CRASH') or
                 (NPC51Name[Floor[x].floorid, Floor[x].Monster[y].unknow7] = '') then
             errors.Add(GetLanguageString(101) + inttostr(y) +
@@ -409,17 +411,17 @@ begin
 end;
 ```
 
-**Skin 51 检查规则**:
-| 条件 | 结果 |
-|------|------|
-| ver < 2 | 警告 |
-| ep = 2 (Episode 4) | 警告 |
-| unknow7 > 15 | 错误 |
-| NPC51Name为空或"CRASH" | 错误 |
+**Skin 51 check rules**:
+| Condition | Result |
+|-----------|--------|
+| ver < 2 | Warning |
+| ep = 2 (Episode 4) | Warning |
+| unknow7 > 15 | Error |
+| NPC51Name is empty or "CRASH" | Error |
 
 ---
 
-### 4.6 Floor特定怪物检查 (9255-9264)
+### 4.6 Floor-Specific Monster Check (9255-9264)
 
 ```pascal
 if Floor[x].floorid < 50 then
@@ -435,11 +437,12 @@ begin
 end;
 ```
 
-**警告信息**: LanguageString[99] + Skin值 + LanguageString[102] + 怪物索引 + LanguageString[98] + Floor索引
+**Warning message**: LanguageString[99] + Skin value + LanguageString[102] + monster index + LanguageString[98] + Floor
+index
 
 ---
 
-### 4.7 对象检查 (9266-9278)
+### 4.7 Object Check (9266-9278)
 
 ```pascal
 for y := 0 to Floor[x].ObjCount - 1 do
@@ -458,11 +461,12 @@ begin
 end;
 ```
 
-**警告信息**: LanguageString[103] + Skin值 + LanguageString[102] + 对象索引 + LanguageString[98] + Floor索引
+**Warning message**: LanguageString[103] + Skin value + LanguageString[102] + object index + LanguageString[98] + Floor
+index
 
 ---
 
-### 4.8 数量限制检查 (9279-9282)
+### 4.8 Quantity Limit Check (9279-9282)
 
 ```pascal
 if Floor[x].ObjCount > 400 then
@@ -471,14 +475,14 @@ if Floor[x].MonsterCount > 400 then
     warn.Add(GetLanguageString(104) + ' ' + inttostr(x) + GetLanguageString(106));
 ```
 
-**警告信息**:
+**Warning messages**:
 
-- 对象过多: LanguageString[104] + Floor索引 + LanguageString[105]
-- 怪物过多: LanguageString[104] + Floor索引 + LanguageString[106]
+- Too many objects: LanguageString[104] + Floor index + LanguageString[105]
+- Too many monsters: LanguageString[104] + Floor index + LanguageString[106]
 
 ---
 
-### 4.9 未使用数据标签检查 (9286-9290)
+### 4.9 Unused Data Label Check (9286-9290)
 
 ```pascal
 for x := 0 to TsData.count - 1 do
@@ -488,26 +492,26 @@ begin
 end;
 ```
 
-**警告信息**: LanguageString[107] + 数据标签名
+**Warning message**: LanguageString[107] + data label name
 
 ---
 
-### 4.10 文件检查 (9293-9310)
+### 4.10 File Check (9293-9310)
 
 ```pascal
-// 检查 .bin 文件 (必需)
+// Check .bin file (required)
 for x := 0 to qstfilecount - 1 do
     if pos('.bin', lowercase(qstfile[x].name)) > 0 then break;
 if x = qstfilecount then
     errors.Add(GetLanguageString(108));
 
-// 检查 .dat 文件 (推荐)
+// Check .dat file (recommended)
 for x := 0 to qstfilecount - 1 do
     if pos('.dat', lowercase(qstfile[x].name)) > 0 then break;
 if x = qstfilecount then
     warn.Add(GetLanguageString(109));
 
-// 检查 .pvr 文件 (V2+不支持)
+// Check .pvr file (V2+ not supported)
 for x := 0 to qstfilecount - 1 do
     if pos('.pvr', lowercase(qstfile[x].name)) > 0 then break;
 if ver > 1 then
@@ -515,127 +519,127 @@ if ver > 1 then
         errors.Add(GetLanguageString(110));
 ```
 
-**文件检查规则**:
-| 文件类型 | 条件 | 结果 |
-|----------|------|------|
-| .bin | 不存在 | 错误 (LanguageString[108]) |
-| .dat | 不存在 | 警告 (LanguageString[109]) |
-| .pvr | 存在且ver>1 | 错误 (LanguageString[110]) |
+**File check rules**:
+| File Type | Condition | Result |
+|-----------|-----------|--------|
+| .bin | Does not exist | Error (LanguageString[108]) |
+| .dat | Does not exist | Warning (LanguageString[109]) |
+| .pvr | Exists and ver>1 | Error (LanguageString[110]) |
 
 ---
 
-## 5. 辅助函数
+## 5. Helper Functions
 
 ### 5.1 GetReferenceType (FScrypt.pas:1201-1267)
 
-返回数据标签的引用类型:
+Returns the reference type of a data label:
 
 ```pascal
 Function GetReferenceType(x:integer):integer;
-// 返回值:
-// 0  = 未使用
-// 1  = NPC数据 (get_npc_data / $F841)
-// 2  = 代码 (非HEX数据的标签定义)
-// 3  = 图像数据 (call_image_data / $F8EE)
-// 4  = 字符串数据 (STR:)
-// 5  = 敌人物理数据 (get_physical_data / $F892)
-// 6  = 敌人抗性数据 (get_resist_data / $F894)
-// 7  = 敌人攻击数据 (get_attack_data / $F893)
-// 8  = 敌人移动数据 (get_movement_data / $F895)
-// 10 = 向量数据 ($F8F2, $F8DB)
+// Return values:
+// 0  = Unused
+// 1  = NPC data (get_npc_data / $F841)
+// 2  = Code (label definition for non-HEX data)
+// 3  = Image data (call_image_data / $F8EE)
+// 4  = String data (STR:)
+// 5  = Enemy physical data (get_physical_data / $F892)
+// 6  = Enemy resistance data (get_resist_data / $F894)
+// 7  = Enemy attack data (get_attack_data / $F893)
+// 8  = Enemy movement data (get_movement_data / $F895)
+// 10 = Vector data ($F8F2, $F8DB)
 ```
 
-**检查顺序**:
+**Check order**:
 
-1. 检查标签定义行 (HEX: / STR:)
-2. 检查 get_npc_data ($F841) 引用
-3. 检查 get_physical_data ($F892) 引用
-4. 检查 get_movement_data ($F895) 引用
-5. 检查 get_resist_data ($F894) 引用
-6. 检查 get_attack_data ($F893) 引用
-7. 检查 call_image_data ($F8EE) 引用
-8. 检查向量数据引用 ($F8F2, $F8DB)
+1. Check label definition line (HEX: / STR:)
+2. Check get_npc_data ($F841) reference
+3. Check get_physical_data ($F892) reference
+4. Check get_movement_data ($F895) reference
+5. Check get_resist_data ($F894) reference
+6. Check get_attack_data ($F893) reference
+7. Check call_image_data ($F8EE) reference
+8. Check vector data reference ($F8F2, $F8DB)
 
 ### 5.2 GetEpisode (FScrypt.pas:1269-1281)
 
 ```pascal
 Function GetEpisode:integer;
-// 查找 set_episode 操作码 ($F8BC)
-// 返回值:
-// 0 = Episode 1 (参数 00000000)
-// 1 = Episode 2 (参数 00000001)
-// 2 = Episode 4 (参数 00000002)
+// Find set_episode opcode ($F8BC)
+// Return values:
+// 0 = Episode 1 (parameter 00000000)
+// 1 = Episode 2 (parameter 00000001)
+// 2 = Episode 4 (parameter 00000002)
 ```
 
 ### 5.3 LookForLabel2 (main.pas)
 
 ```pascal
 function LookForLabel2(s: string): integer;
-// 查找标签是否存在
-// 返回值:
-// 0 = 不存在
-// >0 = 存在 (返回行号)
+// Check if label exists
+// Return values:
+// 0 = Does not exist
+// >0 = Exists (returns line number)
 ```
 
 ---
 
-## 6. 语言字符串映射
+## 6. Language String Mapping
 
-| 索引  | 用途          | 示例内容                                      |
-|-----|-------------|-------------------------------------------|
-| 86  | Label 0不存在  | "Label 0 does not exist"                  |
-| 87  | "在行"        | " at line "                               |
-| 88  | "在函数中"      | " in function"                            |
-| 89  | 转换指令警告      | "Conversion opcode warning: "             |
-| 90  | Episode参数错误 | "Episode parameter "                      |
-| 91  | 操作码版本错误     | "Opcode requires newer version: "         |
-| 92  | 特殊操作码警告     | "Warning: 0xF8EE opcode detected"         |
-| 93  | 参数类型不匹配     | "Argument type mismatch: "                |
-| 94  | 标签未找到       | "Label not found: "                       |
-| 95  | 字符串标记不匹配    | "Unmatched string markers '<>'"           |
-| 96  | NPC动作标签     | "NPC action label "                       |
-| 97  | 怪物编号        | " monster #"                              |
-| 98  | Floor编号     | " on floor "                              |
-| 99  | Skin版本警告    | "Skin "                                   |
-| 100 | "在怪物中"      | " in monster #"                           |
-| 101 | Skin51无效子类型 | "Skin 51 invalid subtype"                 |
-| 102 | "可能无法生成"    | " may not spawn correctly"                |
-| 103 | 对象Floor警告   | "Object "                                 |
-| 104 | Floor编号前缀   | "Floor "                                  |
-| 105 | 对象过多        | " has too many objects"                   |
-| 106 | 怪物过多        | " has too many monsters"                  |
-| 107 | 未使用数据标签     | "Unused data label: "                     |
-| 108 | 缺少.bin文件    | "Quest must contain a .bin file"          |
-| 109 | 缺少.dat文件    | "Quest does not contain a .dat file"      |
-| 110 | .pvr不支持     | ".pvr texture files not supported in V2+" |
+| Index | Purpose                   | Example Content                           |
+|-------|---------------------------|-------------------------------------------|
+| 86    | Label 0 does not exist    | "Label 0 does not exist"                  |
+| 87    | "at line"                 | " at line "                               |
+| 88    | "in function"             | " in function"                            |
+| 89    | Conversion opcode warning | "Conversion opcode warning: "             |
+| 90    | Episode parameter error   | "Episode parameter "                      |
+| 91    | Opcode version error      | "Opcode requires newer version: "         |
+| 92    | Special opcode warning    | "Warning: 0xF8EE opcode detected"         |
+| 93    | Parameter type mismatch   | "Argument type mismatch: "                |
+| 94    | Label not found           | "Label not found: "                       |
+| 95    | String marker mismatch    | "Unmatched string markers '<>'"           |
+| 96    | NPC action label          | "NPC action label "                       |
+| 97    | Monster number            | " monster #"                              |
+| 98    | Floor number              | " on floor "                              |
+| 99    | Skin version warning      | "Skin "                                   |
+| 100   | "in monster"              | " in monster #"                           |
+| 101   | Skin 51 invalid subtype   | "Skin 51 invalid subtype"                 |
+| 102   | "may not spawn correctly" | " may not spawn correctly"                |
+| 103   | Object Floor warning      | "Object "                                 |
+| 104   | Floor number prefix       | "Floor "                                  |
+| 105   | Too many objects          | " has too many objects"                   |
+| 106   | Too many monsters         | " has too many monsters"                  |
+| 107   | Unused data label         | "Unused data label: "                     |
+| 108   | Missing .bin file         | "Quest must contain a .bin file"          |
+| 109   | Missing .dat file         | "Quest does not contain a .dat file"      |
+| 110   | .pvr not supported        | ".pvr texture files not supported in V2+" |
 
 ---
 
-## 7. 数据结构
+## 7. Data Structures
 
 ### 7.1 FloorIDData (main.pas:548)
 
 ```pascal
 TFloorIDData = record
-    count: array[0..3] of integer;      // 每个版本允许的数量
-    ids: array[0..3, 0..99] of integer; // 每个版本允许的ID列表
+    count: array[0..3] of integer;      // Allowed count per version
+    ids: array[0..3, 0..99] of integer; // Allowed ID list per version
 end;
 
 FloorMonsID, FloorObjID: array [0..50] of TFloorIDData;
 ```
 
-### 7.2 Monster结构
+### 7.2 Monster Structure
 
 ```pascal
 TMonster = record
-    Skin: integer;      // 外观ID
-    Action: single;     // 动作标签ID (浮点数)
-    unknow7: integer;   // 子类型 (Skin 51使用)
-    // ... 其他字段
+    Skin: integer;      // Appearance ID
+    Action: single;     // Action label ID (float)
+    unknow7: integer;   // Subtype (used by Skin 51)
+    // ... other fields
 end;
 ```
 
-### 7.3 Floor结构
+### 7.3 Floor Structure
 
 ```pascal
 TFloor = record
@@ -649,76 +653,76 @@ end;
 
 ---
 
-## 8. 检查流程图
+## 8. Check Flow Diagram
 
 ```
 TestCompatibility(ver)
-├── 1. Label 0 检查
-│   └── 不存在 → 错误
+├── 1. Label 0 Check
+│   └── Does not exist → Error
 │
-├── 2. 脚本遍历
-│   ├── 2.1 转换指令检查
-│   │   └── ver<2 且 order≠T_DC → 警告
-│   ├── 2.2 Episode参数检查
-│   │   ├── ver<2 且 参数≠00000000 → 错误
-│   │   └── ver=2 且 参数=00000002 → 错误
-│   ├── 2.3 操作码版本检查
-│   │   └── opcode.ver > ver → 错误
-│   ├── 2.4 特殊操作码检查
-│   │   └── $F8EE → 警告
-│   └── 2.5 参数检查
-│       ├── 类型不匹配 → 错误
-│       ├── 标签不存在 → 警告
-│       ├── Switch数组错误 → 错误
-│       └── 字符串标记不匹配 → 警告
+├── 2. Script Iteration
+│   ├── 2.1 Conversion Instruction Check
+│   │   └── ver<2 and order≠T_DC → Warning
+│   ├── 2.2 Episode Parameter Check
+│   │   ├── ver<2 and parameter≠00000000 → Error
+│   │   └── ver=2 and parameter=00000002 → Error
+│   ├── 2.3 Opcode Version Check
+│   │   └── opcode.ver > ver → Error
+│   ├── 2.4 Special Opcode Check
+│   │   └── $F8EE → Warning
+│   └── 2.5 Parameter Check
+│       ├── Type mismatch → Error
+│       ├── Label does not exist → Warning
+│       ├── Switch array error → Error
+│       └── String marker mismatch → Warning
 │
-├── 3. Floor遍历
-│   ├── 3.1 NPC动作标签检查
-│   │   └── 标签不存在 → 警告
-│   ├── 3.2 Skin 51检查
-│   │   ├── ver<2 → 警告
-│   │   ├── ep=2 → 警告
-│   │   └── 无效子类型 → 错误
-│   ├── 3.3 Floor怪物兼容性
-│   │   └── Skin不在允许列表 → 警告
-│   ├── 3.4 Floor对象兼容性
-│   │   └── Skin不在允许列表 → 警告
-│   └── 3.5 数量限制
-│       ├── MonsterCount>400 → 警告
-│       └── ObjCount>400 → 警告
+├── 3. Floor Iteration
+│   ├── 3.1 NPC Action Label Check
+│   │   └── Label does not exist → Warning
+│   ├── 3.2 Skin 51 Check
+│   │   ├── ver<2 → Warning
+│   │   ├── ep=2 → Warning
+│   │   └── Invalid subtype → Error
+│   ├── 3.3 Floor Monster Compatibility
+│   │   └── Skin not in allowed list → Warning
+│   ├── 3.4 Floor Object Compatibility
+│   │   └── Skin not in allowed list → Warning
+│   └── 3.5 Quantity Limits
+│       ├── MonsterCount>400 → Warning
+│       └── ObjCount>400 → Warning
 │
-├── 4. 数据标签检查
-│   └── 未使用 → 警告
+├── 4. Data Label Check
+│   └── Unused → Warning
 │
-└── 5. 文件检查
-    ├── 无.bin → 错误
-    ├── 无.dat → 警告
-    └── ver>1 且 有.pvr → 错误
+└── 5. File Check
+    ├── No .bin → Error
+    ├── No .dat → Warning
+    └── ver>1 and has .pvr → Error
 ```
 
 ---
 
-## 9. 关键注意事项
+## 9. Key Notes
 
-1. **脚本行格式**: 前8个字符是标签部分，从第9个字符开始是代码
-2. **大小写**: 操作码名称比较时使用 `lowercase()` 不区分大小写
-3. **版本参数**:
+1. **Script line format**: First 8 characters are the label part, code starts from the 9th character
+2. **Case sensitivity**: Opcode name comparison uses `lowercase()` for case-insensitive matching
+3. **Version parameters**:
     - 0 = DC V1, 1 = DC V2, 2 = PC, 3 = GC
-    - Blue Burst 复用 DC V2 的检查结果
-4. **Episode检测**: 通过查找 `set_episode` 操作码 ($F8BC) 确定
-5. **Floor数据**: 从 FloorSet.ini 加载，存储每个版本允许的怪物/对象ID
-6. **NPC51Name**: 从 MyConst.pas 定义，存储Skin 51的子类型名称
+   - Blue Burst reuses DC V2 check results
+4. **Episode detection**: Determined by finding the `set_episode` opcode ($F8BC)
+5. **Floor data**: Loaded from FloorSet.ini, stores allowed monster/object IDs per version
+6. **NPC51Name**: Defined in MyConst.pas, stores Skin 51 subtype names
 
 ---
 
-## 10. 版本兼容性汇总
+## 10. Version Compatibility Summary
 
-| 检查项       | DC V1 | DC V2 | PC | GC |
-|-----------|-------|-------|----|----|
-| Episode 1 | ✓     | ✓     | ✓  | ✓  |
-| Episode 2 | ✗     | ✓     | ✓  | ✓  |
-| Episode 4 | ✗     | ✗     | ✗  | ✓  |
-| Skin 51   | ✗     | ✓     | ✓  | ✓  |
-| 扩展默认标签    | ✗     | ✗     | ✗  | ✓  |
-| .pvr文件    | ✓     | ✓     | ✗  | ✗  |
-| 转换指令      | 警告    | ✓     | ✓  | ✓  |
+| Check Item              | DC V1   | DC V2 | PC | GC |
+|-------------------------|---------|-------|----|----|
+| Episode 1               | ✓       | ✓     | ✓  | ✓  |
+| Episode 2               | ✗       | ✓     | ✓  | ✓  |
+| Episode 4               | ✗       | ✗     | ✗  | ✓  |
+| Skin 51                 | ✗       | ✓     | ✓  | ✓  |
+| Extended default labels | ✗       | ✗     | ✗  | ✓  |
+| .pvr files              | ✓       | ✓     | ✗  | ✗  |
+| Conversion instructions | Warning | ✓     | ✓  | ✓  |
