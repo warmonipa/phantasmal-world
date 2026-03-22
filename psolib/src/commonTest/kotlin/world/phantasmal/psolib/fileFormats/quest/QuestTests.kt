@@ -73,22 +73,26 @@ class QuestTests : LibTestSuite {
         assertTrue(0 in seg1.labels)
         assertEquals(OP_SET_EPISODE, seg1.instructions[0].opcode)
         assertEquals(0, seg1.instructions[0].args[0].value)
-        // set_floor_handler with args (0, 150) should be present in func 0
-        val setFloorHandler = seg1.instructions.find { it.opcode == OP_SET_FLOOR_HANDLER }
-        assertNotNull(setFloorHandler, "Expected set_floor_handler in func 0")
+        assertEquals(OP_SET_FLOOR_HANDLER, seg1.instructions[1].opcode)
+        assertEquals(0, seg1.instructions[1].args[0].value)
+        assertEquals(150, seg1.instructions[1].args[1].value)
 
         val seg2 = quest.bytecodeIr.segments[1]
         assertTrue(seg2 is InstructionSegment)
         assertTrue(1 in seg2.labels)
 
-        // Find segments by label rather than by index (segment order may vary with arg pushes)
-        val seg10 = quest.bytecodeIr.instructionSegments().find { 10 in it.labels }
-        assertNotNull(seg10, "Expected segment with label 10")
+        val seg3 = quest.bytecodeIr.segments[2]
+        assertTrue(seg3 is InstructionSegment)
+        assertTrue(10 in seg3.labels)
 
-        val seg150 = quest.bytecodeIr.instructionSegments().find { 150 in it.labels }
-        assertNotNull(seg150, "Expected segment with label 150")
-        val switchJmp = seg150.instructions.find { it.opcode == OP_SWITCH_JMP }
-        assertNotNull(switchJmp, "Expected switch_jmp in label 150 segment")
+        val seg4 = quest.bytecodeIr.segments[3]
+        assertTrue(seg4 is InstructionSegment)
+        assertTrue(150 in seg4.labels)
+        assertEquals(1, seg4.instructions.size)
+        assertEquals(OP_SWITCH_JMP, seg4.instructions[0].opcode)
+        assertEquals(0, seg4.instructions[0].args[0].value)
+        assertEquals(200, seg4.instructions[0].args[1].value)
+        assertEquals(201, seg4.instructions[0].args[2].value)
     }
 
     @Test
