@@ -65,9 +65,7 @@ fun getFloorMappings(
     var cfg: ControlFlowGraph? = null
 
     for (segment in instructionSegments) {
-        val instructions = segment.instructions
-        for (instIdx in instructions.indices) {
-            val inst = instructions[instIdx]
+        for (inst in segment.instructions) {
             when (inst.opcode) {
                 OP_MAP_DESIGNATE,
                 OP_MAP_DESIGNATE_EX -> {
@@ -135,21 +133,8 @@ fun getFloorMappings(
 
                 OP_SET_FLOOR_HANDLER -> {
                     try {
-                        // set_floor_handler takes 2 stack args: floorId and label.
-                        // If push normalization has been applied, args are inlined.
-                        // Otherwise, we scan preceding arg_push* instructions.
-                        val floorId: Int
-
-                        if (inst.args.isNotEmpty()) {
-                            // Normalized: args are inlined.
-                            floorId = (inst.args[0] as IntArg).value
-                        } else {
-                            // Non-normalized: look for preceding arg_push* instructions.
-                            // set_floor_handler pops 2 args; the first pushed is floorId.
-                            floorId = findPrecedingArgPushValue(instructions, instIdx, 2)
-                                ?: continue
-                        }
-
+                        // After normalization, args are inlined: arg[0] = floorId, arg[1] = label.
+                        val floorId = (inst.args[0] as IntArg).value
                         val mapId = getMapId(episode, floorId) ?: continue
 
                         // Low priority: only fills in floors not yet mapped by map_designate / bb_map_designate.
@@ -191,39 +176,4 @@ internal fun getEpisode(func0Segment: InstructionSegment): Episode {
         logger.warn { "Unknown set_episode value: $value, defaulting to Episode I." }
         Episode.I
     }
-}
-
-/**
- * Scans backwards from [targetIdx] in [instructions] for arg_push* instructions to extract
- * the value of the Nth argument (1-based from the bottom of the stack).
- *
- * For example, for `set_floor_handler` which pops 2 args, the first pushed is floorId (argCount=2
- * returns the value of the first push, i.e., the one pushed 2 positions before the target).
- *
- * @return The integer value of the first pushed argument, or null if not found.
- */
-private fun findPrecedingArgPushValue(
-    instructions: List<Instruction>,
-    targetIdx: Int,
-    argCount: Int,
-): Int? {
-    var found = 0
-    var firstArgValue: Int? = null
-
-    for (i in (targetIdx - 1) downTo 0) {
-        val prev = instructions[i]
-        when (prev.opcode) {
-            OP_ARG_PUSHL, OP_ARG_PUSHB, OP_ARG_PUSHW, OP_ARG_PUSHA, OP_ARG_PUSHR, OP_ARG_PUSHO, OP_ARG_PUSHS -> {
-                found++
-                if (found == argCount) {
-                    // This is the first pushed arg (bottom of stack)
-                    firstArgValue = (prev.args[0] as IntArg).value
-                }
-                if (found >= argCount) break
-            }
-            else -> break // Non-push instruction means the pattern doesn't match
-        }
-    }
-
-    return firstArgValue
 }

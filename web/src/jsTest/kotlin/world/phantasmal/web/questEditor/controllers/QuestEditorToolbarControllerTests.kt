@@ -124,7 +124,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         assertEquals(1, result.problems.size)
         assertEquals(Severity.Error, result.problems.first().severity)
         assertEquals(
-            "Please select a .qst file, a .bin file, or a .bin + .dat pair.",
+            "Please select a .qst file, a .bin file, a .bin + .dat pair, or a free roam .dat file.",
             result.problems.first().uiMessage,
         )
     }
@@ -420,6 +420,10 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // BIN_DAT — compressed checkbox visible.
         ctrl.setSaveFormat(SaveFormat.BIN_DAT)
         assertTrue(ctrl.compressedVisible.value, "Compressed should be visible for BIN_DAT")
+
+        // FREE_ROAM — compressed checkbox hidden.
+        ctrl.setSaveFormat(SaveFormat.FREE_ROAM)
+        assertFalse(ctrl.compressedVisible.value, "Compressed should be hidden for FREE_ROAM")
     }
 
     @Test

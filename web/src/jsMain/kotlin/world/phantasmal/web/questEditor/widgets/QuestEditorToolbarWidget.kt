@@ -202,6 +202,37 @@ class QuestEditorToolbarWidget(
                         onSelect = { ctrl.selectSection(it) },
                         filter = { ctrl.filterSections(it) },
                     ),
+                    // Free roam variant controls
+                    Select(
+                        className = "pw-free-roam-select",
+                        label = "Layout:",
+                        visible = ctrl.showFreeRoamV1,
+                        items = ctrl.freeRoamV1Options,
+                        itemToString = { it.toString() },
+                        selected = ctrl.freeRoamV1,
+                        onSelect = { scope.launch { ctrl.setFreeRoamV1(it) } },
+                    ),
+                    Select(
+                        className = "pw-free-roam-select",
+                        label = "Monsters:",
+                        visible = ctrl.showFreeRoamV2,
+                        items = ctrl.freeRoamV2Options,
+                        itemToString = { it.toString() },
+                        selected = ctrl.freeRoamV2,
+                        onSelect = { scope.launch { ctrl.setFreeRoamV2(it) } },
+                    ),
+                    Checkbox(
+                        label = "Offline",
+                        visible = ctrl.showFreeRoamOnOff,
+                        checked = ctrl.freeRoamOffline,
+                        onChange = { scope.launch { ctrl.setFreeRoamOffline(it) } },
+                    ),
+                    Checkbox(
+                        label = "Ultimate",
+                        visible = ctrl.showFreeRoamUltimate,
+                        checked = ctrl.freeRoamUltimate,
+                        onChange = { scope.launch { ctrl.setFreeRoamUltimate(it) } },
+                    ),
                 )
             ))
 
@@ -221,6 +252,7 @@ class QuestEditorToolbarWidget(
                                 when (it) {
                                     SaveFormat.QST -> "QST (.qst)"
                                     SaveFormat.BIN_DAT -> "BIN + DAT"
+                                    SaveFormat.FREE_ROAM -> "Free Roam (Directory)"
                                 }
                             },
                             onSelect = ctrl::setSaveFormat,

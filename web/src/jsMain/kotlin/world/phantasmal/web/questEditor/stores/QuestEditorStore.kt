@@ -7,6 +7,7 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.filtered
 import world.phantasmal.cell.list.flatMapToList
+import world.phantasmal.core.externals.browser.FileSystemDirectoryHandle
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.web.core.PwToolType
@@ -17,11 +18,18 @@ import world.phantasmal.web.core.undo.UndoStack
 import world.phantasmal.web.externals.three.Euler
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.QuestRunner
+import world.phantasmal.web.questEditor.loading.FreeRoamAreaInfo
 import world.phantasmal.web.questEditor.loading.QuestLoader
 import world.phantasmal.web.questEditor.models.*
 import world.phantasmal.webui.stores.Store
 
 private val logger = KotlinLogging.logger {}
+
+class FreeRoamQuestResult(
+    val questModel: QuestModel,
+    val binName: String?,
+    val datFilesByFloor: Map<Int, Triple<String, String, String>>,
+)
 
 class QuestEditorStore(
     private val questLoader: QuestLoader,
@@ -309,6 +317,17 @@ class QuestEditorStore(
 
     suspend fun getLobbyQuest(variant: Int): QuestModel =
         convertQuestToModel(questLoader.loadLobbyQuest(variant), areaStore::getVariant)
+
+    suspend fun getFreeRoamQuest(
+        gameDirHandle: FileSystemDirectoryHandle,
+        info: FreeRoamAreaInfo,
+        v1: Int = 0,
+        v2: Int = 0,
+    ): FreeRoamQuestResult {
+        val result = questLoader.loadFreeRoamQuest(gameDirHandle, info, v1, v2)
+        val questModel = convertQuestToModel(result.quest, areaStore::getVariant)
+        return FreeRoamQuestResult(questModel, result.binName, result.datFilesByFloor)
+    }
 
     fun <T> setQuestProperty(
         quest: QuestModel,

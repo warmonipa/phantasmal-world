@@ -26,6 +26,7 @@ import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.web.questEditor.stores.ViewportStore
 import world.phantasmal.web.viewer.loading.AnimationAssetLoader
 import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
+import world.phantasmal.web.viewer.loading.NpcAssetLoader
 import world.phantasmal.web.viewer.stores.ViewerStore
 
 /**
@@ -43,6 +44,10 @@ class TestComponents(private val ctx: TestContext) {
 
     var characterClassAssetLoader: CharacterClassAssetLoader by default {
         CharacterClassAssetLoader(assetLoader)
+    }
+
+    var npcAssetLoader: NpcAssetLoader by default {
+        NpcAssetLoader(assetLoader)
     }
 
     var animationAssetLoader: AnimationAssetLoader by default {
@@ -72,7 +77,7 @@ class TestComponents(private val ctx: TestContext) {
     var areaStore: AreaStore by default { AreaStore(areaAssetLoader) }
 
     var viewerStore: ViewerStore by default {
-        ViewerStore(characterClassAssetLoader, animationAssetLoader, uiStore)
+        ViewerStore(characterClassAssetLoader, npcAssetLoader, animationAssetLoader, uiStore)
     }
 
     var viewportStore: ViewportStore by default { ViewportStore() }

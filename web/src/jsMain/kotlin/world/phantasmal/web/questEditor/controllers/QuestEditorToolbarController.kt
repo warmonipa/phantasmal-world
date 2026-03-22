@@ -4,6 +4,8 @@ import kotlinx.coroutines.await
 import mu.KotlinLogging
 import world.phantasmal.cell.*
 import world.phantasmal.core.*
+import world.phantasmal.core.externals.browser.FileSystemDirectoryHandle
+import world.phantasmal.core.externals.browser.arrayBuffer
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
@@ -11,6 +13,9 @@ import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.compression.prs.prsCompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.quest.*
+import world.phantasmal.web.questEditor.loading.FreeRoamAreaInfo
+import world.phantasmal.web.questEditor.loading.extractRawEntityDataByFloor
+import world.phantasmal.web.questEditor.loading.parseFreeRoamFilename
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.files.cursor
@@ -28,12 +33,15 @@ import world.phantasmal.web.questEditor.stores.convertQuestToModel
 import world.phantasmal.webui.UserAgentFeatures
 import world.phantasmal.webui.controllers.Controller
 import world.phantasmal.webui.files.*
+import world.phantasmal.webui.files.showDirectoryPicker
+import world.phantasmal.webui.obj
 
 private val logger = KotlinLogging.logger {}
 
 enum class SaveFormat {
     QST,
     BIN_DAT,
+    FREE_ROAM,
 }
 
 class AreaAndLabel(
@@ -56,9 +64,14 @@ class QuestEditorToolbarController(
     private val _selectedAreaAndLabel = mutableCell<AreaAndLabel?>(null)
     /** True while [setCurrentArea] is updating the store, to avoid clearing the selection. */
     private var settingAreaFromDropdown = false
+    private var gameDirHandle: FileSystemDirectoryHandle? = null
+
     // City map toggle (View menu)
     private val _showCityMap = mutableCell(false)
     val showCityMap: Cell<Boolean> = _showCityMap
+
+    // Free roam variant state (delegated to FreeRoamController)
+    val freeRoam = FreeRoamController()
 
     // We mainly disable saving while a save is underway for visual feedback that a save is
     // happening/has happened.
@@ -72,7 +85,12 @@ class QuestEditorToolbarController(
 
     val saveFormat: Cell<SaveFormat> = _saveFormat
     val compressedVisible: Cell<Boolean> = _saveFormat.map { it == SaveFormat.BIN_DAT }
-    val availableSaveFormats: List<SaveFormat> = listOf(SaveFormat.QST, SaveFormat.BIN_DAT)
+    val freeRoamFormatAvailable: Boolean = UserAgentFeatures.directoryPickerApi
+    val availableSaveFormats: List<SaveFormat> = buildList {
+        add(SaveFormat.QST)
+        add(SaveFormat.BIN_DAT)
+        if (UserAgentFeatures.directoryPickerApi) add(SaveFormat.FREE_ROAM)
+    }
 
     // Result
 
@@ -81,7 +99,7 @@ class QuestEditorToolbarController(
 
     val supportedFileTypes = listOf(
         FileType(
-            description = "Quest Files",
+            description = "Quests and Free Roam Files",
             accept = mapOf("application/pw-quest" to setOf(".qst", ".bin", ".dat")),
         ),
     )
@@ -279,6 +297,19 @@ class QuestEditorToolbarController(
     val spawnMonstersOnGround: Cell<Boolean> = questEditorUiStore.spawnMonstersOnGround
     val showOriginPoint: Cell<Boolean> = questEditorUiStore.showOriginPoint
 
+    // Free roam variant controls (delegated)
+
+    val freeRoamV1Options: ListCell<Int> get() = freeRoam.freeRoamV1Options
+    val freeRoamV2Options: ListCell<Int> get() = freeRoam.freeRoamV2Options
+    val showFreeRoamV1: Cell<Boolean> get() = freeRoam.showFreeRoamV1
+    val showFreeRoamV2: Cell<Boolean> get() = freeRoam.showFreeRoamV2
+    val showFreeRoamOnOff: Cell<Boolean> get() = freeRoam.showFreeRoamOnOff
+    val showFreeRoamUltimate: Cell<Boolean> get() = freeRoam.showFreeRoamUltimate
+    val freeRoamV1: Cell<Int?> get() = freeRoam.freeRoamV1
+    val freeRoamV2: Cell<Int?> get() = freeRoam.freeRoamV2
+    val freeRoamOffline: Cell<Boolean> get() = freeRoam.freeRoamOffline
+    val freeRoamUltimate: Cell<Boolean> get() = freeRoam.freeRoamUltimate
+
     // Go to Section functionality
     // Use the store's selectedSection directly to ensure sync when clicking events
     val selectedSection: Cell<SectionModel?> = questEditorStore.selectedSection
@@ -302,6 +333,8 @@ class QuestEditorToolbarController(
         }
 
         addDisposables(
+            freeRoam,
+
             uiStore.onGlobalKeyDown(PwToolType.QuestEditor, "Ctrl-O") {
                 openFiles(showOpenFilePicker(supportedFileTypes, multiple = true))
             },
@@ -333,7 +366,7 @@ class QuestEditorToolbarController(
         get() = questEditorStore.currentQuest.value?.episode ?: Episode.I
 
     suspend fun createNewQuest(episode: Episode) {
-
+        freeRoam.clearFreeRoamState()
         val quest = if (_showCityMap.value) {
             questEditorStore.getCityQuest(episode)
         } else {
@@ -343,13 +376,13 @@ class QuestEditorToolbarController(
     }
 
     suspend fun loadCityQuest(episode: Episode) {
-
+        freeRoam.clearFreeRoamState()
         _showCityMap.value = true
         setCurrentQuest(fileHolder = null, Version.BB, questEditorStore.getCityQuest(episode))
     }
 
     suspend fun loadLobbyQuest(variant: Int) {
-
+        freeRoam.clearFreeRoamState()
         _showCityMap.value = false
         setCurrentQuest(fileHolder = null, Version.BB, questEditorStore.getLobbyQuest(variant))
     }
@@ -369,12 +402,13 @@ class QuestEditorToolbarController(
             when (val strategy = resolveLoadStrategy(newFiles)) {
                 is QuestLoadStrategy.Qst -> loadQst(strategy)
                 is QuestLoadStrategy.BinDat -> loadBinDat(strategy)
+                is QuestLoadStrategy.FreeRoam -> loadFreeRoam(strategy)
                 null -> setResult(
                     Failure(
                         listOf(
                             Problem(
                                 Severity.Error,
-                                "Please select a .qst file, a .bin file, or a .bin + .dat pair.",
+                                "Please select a .qst file, a .bin file, a .bin + .dat pair, or a free roam .dat file.",
                             )
                         )
                     )
@@ -396,15 +430,23 @@ class QuestEditorToolbarController(
         val binFile = files.find { it.extension().equals("bin", ignoreCase = true) }
         val datFile = files.find { it.extension().equals("dat", ignoreCase = true) }
 
+        // Regular bin+dat pair takes priority over free roam detection.
         if (binFile != null && datFile != null) {
             return QuestLoadStrategy.BinDat(binFile, datFile)
+        }
+
+        // Check if a single file matches a free roam pattern (bin or dat).
+        val freeRoamFile = binFile ?: datFile
+        if (freeRoamFile != null) {
+            val freeRoamInfo = parseFreeRoamFilename(freeRoamFile.name)
+            if (freeRoamInfo != null) return QuestLoadStrategy.FreeRoam(freeRoamInfo)
         }
 
         return null
     }
 
     private suspend fun loadQst(strategy: QuestLoadStrategy.Qst) {
-
+        freeRoam.clearFreeRoamState()
         val parseResult = parseQstToQuest(strategy.file.cursor(Endianness.Little))
         setResult(parseResult)
 
@@ -418,7 +460,7 @@ class QuestEditorToolbarController(
     }
 
     private suspend fun loadBinDat(strategy: QuestLoadStrategy.BinDat) {
-
+        freeRoam.clearFreeRoamState()
         val shiftJis = isJapaneseFilename(strategy.binFile.name)
         val parseResult = parseBinDatToQuestAutoDetect(
             strategy.binFile.cursor(Endianness.Little),
@@ -439,6 +481,47 @@ class QuestEditorToolbarController(
                 parseResult.value.quest,
             )
         }
+    }
+
+    private suspend fun loadFreeRoam(strategy: QuestLoadStrategy.FreeRoam) {
+        if (!UserAgentFeatures.directoryPickerApi) {
+            setResult(
+                PwResult.build<Nothing>(logger)
+                    .addProblem(
+                        Severity.Error,
+                        "Loading free roam maps requires a browser that supports the File System Access API (Chrome or Edge).",
+                    )
+                    .failure()
+            )
+            return
+        }
+
+        var dirHandle = gameDirHandle
+
+        if (dirHandle == null) {
+            dirHandle = showDirectoryPicker() ?: return
+            gameDirHandle = dirHandle
+        }
+
+        val info = strategy.info
+        val result = questEditorStore.getFreeRoamQuest(dirHandle, info)
+
+        freeRoam.setupFreeRoamState(
+            episode = info.episode,
+            floorRange = info.floorRange,
+            gameDirHandle = dirHandle,
+            binPrefix = info.binPrefix,
+            isCity = info.isCity,
+            initialOffline = info.offline,
+            initialUltimate = info.ultimate,
+            tokenBase = info.tokenBase,
+        )
+
+        setCurrentQuest(
+            FileHolder.FreeRoamDir(dirHandle, result.binName, result.datFilesByFloor),
+            Version.BB,
+            result.questModel,
+        )
     }
 
     suspend fun save() {
@@ -490,6 +573,11 @@ class QuestEditorToolbarController(
                     }
                 }
 
+                is FileHolder.FreeRoamDir -> {
+                    saveToFreeRoamDir(holder, quest)
+                    return
+                }
+
                 else -> {}
             }
 
@@ -539,6 +627,7 @@ class QuestEditorToolbarController(
             when (_saveFormat.value) {
                 SaveFormat.QST -> saveAsQst(quest)
                 SaveFormat.BIN_DAT -> saveAsBinDat(quest)
+                SaveFormat.FREE_ROAM -> saveAsFreeRoam(quest)
             }
         } catch (e: Throwable) {
             setResult(
@@ -636,6 +725,42 @@ class QuestEditorToolbarController(
             setFileHolder(FileHolder.BinDat(binHandle, datHandle, compressed.value))
             questEditorStore.questSaved()
         }
+    }
+
+    private suspend fun saveAsFreeRoam(quest: QuestModel) {
+        if (!UserAgentFeatures.directoryPickerApi) {
+            setResult(
+                PwResult.build<Nothing>(logger)
+                    .addProblem(
+                        Severity.Error,
+                        "Saving as Free Roam requires a browser that supports the File System Access API (Chrome or Edge).",
+                    )
+                    .failure()
+            )
+            return
+        }
+
+        // If the quest was already loaded from a free roam directory, save back to it.
+        val holder = fileHolder.value
+        if (holder is FileHolder.FreeRoamDir) {
+            saveToFreeRoamDir(holder, quest)
+            return
+        }
+
+        // Otherwise, ask the user for a directory.
+        val dirHandle = showDirectoryPicker() ?: return
+        gameDirHandle = dirHandle
+
+        // For Save As to a new directory, we need the current holder's dat file info.
+        // Since we don't have free roam file structure, show an informative error.
+        setResult(
+            PwResult.build<Nothing>(logger)
+                .addProblem(
+                    Severity.Error,
+                    "Save As Free Roam is only supported for quests originally loaded from a free roam directory. Use Save (Ctrl+S) instead.",
+                )
+                .failure()
+        )
     }
 
     fun dismissSaveAsDialog() {
@@ -743,11 +868,70 @@ class QuestEditorToolbarController(
         questEditorStore.setSelectedSection(null)
     }
 
+    // Free roam variant change methods (delegated to freeRoam controller)
+
+    suspend fun setFreeRoamV1(v1: Int) {
+        freeRoam.setFreeRoamV1(v1, ::handleFreeRoamReload)
+    }
+
+    suspend fun setFreeRoamV2(v2: Int) {
+        freeRoam.setFreeRoamV2(v2, ::handleFreeRoamReload)
+    }
+
+    suspend fun setFreeRoamOffline(offline: Boolean) {
+        freeRoam.setFreeRoamOffline(offline, ::handleFreeRoamReload)
+    }
+
+    suspend fun setFreeRoamUltimate(ultimate: Boolean) {
+        freeRoam.setFreeRoamUltimate(ultimate, ::handleFreeRoamReload)
+    }
+
+    private suspend fun handleFreeRoamReload(params: FreeRoamReloadParams) {
+        // Preserve current area ID and variant ID across variant reload.
+        val previousAreaId = currentArea.value?.area?.id
+        val previousVariantId = currentArea.value?.variant?.id
+
+        try {
+            val result = questEditorStore.getFreeRoamQuest(
+                params.gameDirHandle, params.info, params.v1, params.v2,
+            )
+            setCurrentQuest(
+                FileHolder.FreeRoamDir(params.gameDirHandle, result.binName, result.datFilesByFloor),
+                Version.BB,
+                result.questModel,
+            )
+
+            // Restore area selection by setting the store's area/variant.
+            // Don't set _selectedAreaAndLabel — let currentArea's fallback logic
+            // find the matching AreaAndLabel from the current areas list, so it
+            // stays in sync when areas is recomputed.
+            if (previousAreaId != null) {
+                // Match by both area ID and variant ID to correctly restore multi-variant areas
+                // (e.g., challenge quests where the same area ID has multiple variants).
+                val match = areas.value.find {
+                    it.area.id == previousAreaId &&
+                        (previousVariantId == null || it.variant?.id == previousVariantId)
+                } ?: areas.value.find { it.area.id == previousAreaId }
+                if (match != null) {
+                    questEditorStore.setCurrentArea(match.area)
+                    questEditorStore.setCurrentAreaVariant(match.variant)
+                }
+            }
+        } catch (e: Throwable) {
+            setResult(
+                PwResult.build<Nothing>(logger)
+                    .addProblem(Severity.Error, "Couldn't reload free roam area.", cause = e)
+                    .failure()
+            )
+        }
+    }
+
     private fun setFileHolder(fileHolder: FileHolder?) {
         // Default save format based on source format.
         setSaveFormat(when (fileHolder) {
             is FileHolder.Qst -> SaveFormat.QST
             is FileHolder.BinDat -> SaveFormat.BIN_DAT
+            is FileHolder.FreeRoamDir -> SaveFormat.FREE_ROAM
             null -> SaveFormat.QST
         })
 
@@ -755,6 +939,7 @@ class QuestEditorToolbarController(
         setCompressed(when (fileHolder) {
             is FileHolder.Qst -> true
             is FileHolder.BinDat -> fileHolder.compressed
+            is FileHolder.FreeRoamDir -> false
             null -> true
         })
 
@@ -766,6 +951,11 @@ class QuestEditorToolbarController(
                     fileHolder.binFile.basename()
                         ?: fileHolder.datFile.basename()
                         ?: fileHolder.binFile.name
+
+                is FileHolder.FreeRoamDir ->
+                    fileHolder.binName
+                        ?: fileHolder.datFilesByFloor.values.firstOrNull()?.first
+                        ?: "Free Roam"
 
                 null -> ""
             }
@@ -805,14 +995,100 @@ class QuestEditorToolbarController(
         }
     }
 
+    private suspend fun saveToFreeRoamDir(holder: FileHolder.FreeRoamDir, quest: QuestModel) {
+        val convertedQuest = convertQuestFromModel(quest)
+        val dataDir = try {
+            holder.dirHandle.getDirectoryHandle("data").await()
+        } catch (_: Throwable) {
+            holder.dirHandle
+        }
+
+        // 1. Backup original files.
+        val backupDir = holder.dirHandle.getDirectoryHandle("backup", obj { create = true }).await()
+
+        val allDatNames = holder.datFilesByFloor.values.flatMap { (obj, npc, evt) -> listOf(obj, npc, evt) }
+        val allNames = listOfNotNull(holder.binName) + allDatNames
+        for (name in allNames) {
+            try {
+                val originalData = dataDir.getFileHandle(name).await()
+                    .getFile().await().arrayBuffer().await()
+
+                val backupHandle = backupDir.getFileHandle(name, obj { create = true }).await()
+                val writable = backupHandle.createWritable().await()
+                writable.write(originalData).await()
+                writable.close().await()
+            } catch (e: Throwable) {
+                // File might not exist (e.g., empty floor) — that's expected.
+                // Log unexpected errors so the user can investigate if backup fails unexpectedly.
+                if (e.message?.contains("not found", ignoreCase = true) == false &&
+                    e.message?.contains("NotFoundError", ignoreCase = true) == false
+                ) {
+                    logger.warn(e) { "Failed to back up file $name before saving." }
+                }
+            }
+        }
+
+        // 2. Write modified bin (uncompressed) if we have a bin file.
+        if (holder.binName != null) {
+            val (bin, _) = writeQuestToBinDat(convertedQuest, _version.value)
+
+            val binHandle = dataDir.getFileHandle(holder.binName, obj { create = true }).await()
+            val binWritable = binHandle.createWritable().await()
+            binWritable.write(bin.arrayBuffer).await()
+            binWritable.close().await()
+        }
+
+        // 3. Write modified dat files (split by floor).
+        val entityDataByFloor = extractRawEntityDataByFloor(convertedQuest)
+
+        for ((floorId, datNames) in holder.datFilesByFloor) {
+            val (objDatName, npcDatName, evtName) = datNames
+
+            val entityData = entityDataByFloor[floorId]
+            if (entityData != null) {
+                val (objBuf, npcBuf) = entityData
+
+                val objHandle = dataDir.getFileHandle(objDatName, obj { create = true }).await()
+                val objWritable = objHandle.createWritable().await()
+                objWritable.write(objBuf.arrayBuffer).await()
+                objWritable.close().await()
+
+                val npcHandle = dataDir.getFileHandle(npcDatName, obj { create = true }).await()
+                val npcWritable = npcHandle.createWritable().await()
+                npcWritable.write(npcBuf.arrayBuffer).await()
+                npcWritable.close().await()
+            }
+
+            // Always write the evt file — if null (no events on this floor), write an empty
+            // buffer so the old file is cleared and events aren't read back on next load.
+            val evtBuf = writeEventDataForFloor(convertedQuest.events, floorId)
+                ?: Buffer.withSize(0, Endianness.Little)
+            val evtHandle = dataDir.getFileHandle(evtName, obj { create = true }).await()
+            val evtWritable = evtHandle.createWritable().await()
+            evtWritable.write(evtBuf.arrayBuffer).await()
+            evtWritable.close().await()
+        }
+
+        questEditorStore.questSaved()
+    }
+
+
+
     private sealed class QuestLoadStrategy {
         class Qst(val file: FileHandle) : QuestLoadStrategy()
         class BinDat(val binFile: FileHandle, val datFile: FileHandle) : QuestLoadStrategy()
+        class FreeRoam(val info: FreeRoamAreaInfo) : QuestLoadStrategy()
     }
 
     private sealed class FileHolder {
         class Qst(val file: FileHandle) : FileHolder()
         class BinDat(val binFile: FileHandle, val datFile: FileHandle, val compressed: Boolean) : FileHolder()
+        class FreeRoamDir(
+            val dirHandle: FileSystemDirectoryHandle,
+            val binName: String?,
+            /** Map of floorId → (objDatName, npcDatName, evtName) for saving back. */
+            val datFilesByFloor: Map<Int, Triple<String, String, String>>,
+        ) : FileHolder()
     }
 
     companion object {
