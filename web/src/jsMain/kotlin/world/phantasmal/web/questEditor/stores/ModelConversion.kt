@@ -1,10 +1,11 @@
 package world.phantasmal.web.questEditor.stores
 
 import world.phantasmal.psolib.Episode
-import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.fileFormats.quest.DatEvent
 import world.phantasmal.psolib.fileFormats.quest.DatEventAction
 import world.phantasmal.psolib.fileFormats.quest.Quest
+import world.phantasmal.psolib.fileFormats.quest.QuestChallengeData
 import world.phantasmal.web.questEditor.models.*
 
 fun convertQuestToModel(
@@ -18,7 +19,6 @@ fun convertQuestToModel(
         quest.shortDescription,
         quest.longDescription,
         quest.episode,
-        quest.floorMappings.associate { it.areaId to it.variantId },
         quest.npcs.mapTo(mutableListOf()) { QuestNpcModel(it, it.wave.toInt()) },
         quest.objects.mapTo(mutableListOf()) { QuestObjectModel(it) },
         quest.events.mapTo(mutableListOf()) { event ->
@@ -46,20 +46,28 @@ fun convertQuestToModel(
                         is DatEventAction.TriggerEvent ->
                             QuestEventActionModel.TriggerEvent(action.eventId)
                     }
-                }
+                },
+                event.cmWaveSettings
             )
         },
         quest.datUnknowns,
+        quest.challengeData.cmRandomSpawns.toMutableList(),
+        quest.challengeData.cmMonsterMappings.toMutableList(),
+        quest.challengeData.cmConfigPool.toMutableList(),
         quest.bytecodeIr,
         quest.shopItems,
+        quest.floorMappings,
         getVariant,
     )
 
 /**
  * The returned [Quest] object will reference parts of [quest], so some changes to [quest] will be
- * reflected in the returned object and vice-versa.
+ * reflected in the returned object and vice versa.
+ *
+ * @param bytecodeIrOverride Optional bytecodeIr to use instead of quest.bytecodeIr. Useful when
+ *   you need bytecodeIr with source location information (e.g., for compatibility checking).
  */
-fun convertQuestFromModel(quest: QuestModel): Quest =
+fun convertQuestFromModel(quest: QuestModel, bytecodeIrOverride: BytecodeIr? = null): Quest =
     Quest(
         quest.id.value,
         quest.language.value,
@@ -95,12 +103,16 @@ fun convertQuestFromModel(quest: QuestModel): Quest =
                 },
                 event.areaId,
                 event.unknown.toShort(),
+                event.cmWaveSettings.value,
             )
         },
         quest.datUnknowns.toMutableList(),
-        bytecodeIr = quest.bytecodeIr,
-        shopItems = quest.shopItems,
-        floorMappings = quest.mapDesignations.value.map { (areaId, variantId) ->
-            FloorMapping(floorId = areaId, mapId = 0, areaId = areaId, variantId = variantId)
-        },
+        challengeData = QuestChallengeData(
+            cmRandomSpawns = quest.cmRandomSpawns.value.toMutableList(),
+            cmMonsterMappings = quest.cmMonsterMappings.value.toMutableList(),
+            cmConfigPool = quest.cmConfigPool.value.toMutableList(),
+        ),
+        bytecodeIrOverride ?: quest.bytecodeIr,
+        quest.shopItems,
+        quest.floorMappings,
     )
