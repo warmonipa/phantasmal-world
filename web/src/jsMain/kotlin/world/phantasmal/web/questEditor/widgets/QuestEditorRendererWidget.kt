@@ -292,6 +292,12 @@ class QuestEditorRendererWidget(
                         bindDisposableChildrenTo(areaNpcListCtrl.npcs) { npc, _ ->
                             val disposer = Disposer()
 
+                            val globalIdx = areaNpcListCtrl.globalIndex(npc)
+                            val idxSpan = span {
+                                className = "pw-quest-editor-overlay-entity-index"
+                                textContent = "#$globalIdx"
+                            }
+
                             val secSpan = span {}
                             disposer.add(npc.sectionId.observeNow { secSpan.textContent = "Sec $it" })
                             secSpan.className = "pw-quest-editor-overlay-entity-detail"
@@ -308,6 +314,7 @@ class QuestEditorRendererWidget(
                                     areaNpcListCtrl.selectNpc(npc)
                                 }
 
+                                appendChild(idxSpan)
                                 span {
                                     className = "pw-quest-editor-overlay-entity-name"
                                     textContent = npc.type.simpleName
@@ -353,6 +360,12 @@ class QuestEditorRendererWidget(
                         bindDisposableChildrenTo(areaObjectListCtrl.objects) { obj, _ ->
                             val disposer = Disposer()
 
+                            val globalIdx = areaObjectListCtrl.globalIndex(obj)
+                            val idxSpan = span {
+                                className = "pw-quest-editor-overlay-entity-index"
+                                textContent = "#$globalIdx"
+                            }
+
                             val secSpan = span {}
                             disposer.add(obj.sectionId.observeNow { secSpan.textContent = "Sec $it" })
                             secSpan.className = "pw-quest-editor-overlay-entity-detail"
@@ -365,6 +378,7 @@ class QuestEditorRendererWidget(
                                     areaObjectListCtrl.selectObject(obj)
                                 }
 
+                                appendChild(idxSpan)
                                 span {
                                     className = "pw-quest-editor-overlay-entity-name"
                                     textContent = obj.type.simpleName
@@ -497,6 +511,17 @@ class QuestEditorRendererWidget(
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
+                }
+
+                .pw-quest-editor-overlay-entity-index {
+                    min-width: 28px;
+                    color: rgba(255, 255, 255, 0.4);
+                    font-size: 11px;
+                    white-space: nowrap;
+                }
+
+                .pw-quest-editor-overlay-entity-row.pw-selected .pw-quest-editor-overlay-entity-index {
+                    color: rgba(255, 255, 255, 0.6);
                 }
 
                 .pw-quest-editor-overlay-entity-detail {

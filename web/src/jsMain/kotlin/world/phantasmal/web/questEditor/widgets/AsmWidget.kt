@@ -4,9 +4,6 @@ import org.w3c.dom.HTMLDivElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.Node
 import world.phantasmal.core.disposable.Disposer
-import world.phantasmal.psolib.asm.OPCODES
-import world.phantasmal.psolib.asm.OPCODES_F8
-import world.phantasmal.psolib.asm.OPCODES_F9
 import world.phantasmal.psolib.asm.Opcode
 import world.phantasmal.cell.map
 import world.phantasmal.web.questEditor.controllers.AsmEditorController
@@ -209,7 +206,9 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
                     className = "pw-asm-overlay-panel-header"
                     span {
                         className = "pw-asm-overlay-panel-title"
-                        textContent = "Opcodes"
+                        observeNow(ctrl.usedOpcodes) { ops ->
+                            textContent = "Opcodes (${ops.size})"
+                        }
                     }
                 }
 
@@ -231,19 +230,30 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
                         className = "pw-asm-opcode-list"
                     }
 
-                    // Build all opcode entries
-                    val allOpcodes = buildAllOpcodes()
-                    renderOpcodeList(listContainer, allOpcodes)
+                    // Reactively rebuild opcode list when script changes
+                    var currentFilter = ""
+                    observeNow(ctrl.usedOpcodes) { opcodes ->
+                        renderOpcodeList(listContainer, if (currentFilter.isEmpty()) {
+                            opcodes
+                        } else {
+                            opcodes.filter { op ->
+                                op.mnemonic.contains(currentFilter) ||
+                                    op.code.toString(16).contains(currentFilter) ||
+                                    (op.doc?.lowercase()?.contains(currentFilter) == true)
+                            }
+                        })
+                    }
 
                     filterInput.oninput = {
-                        val filter = (it.target as HTMLInputElement).value.lowercase()
-                        renderOpcodeList(listContainer, if (filter.isEmpty()) {
-                            allOpcodes
+                        currentFilter = (it.target as HTMLInputElement).value.lowercase()
+                        val opcodes = ctrl.usedOpcodes.value
+                        renderOpcodeList(listContainer, if (currentFilter.isEmpty()) {
+                            opcodes
                         } else {
-                            allOpcodes.filter { op ->
-                                op.mnemonic.contains(filter) ||
-                                    op.code.toString(16).contains(filter) ||
-                                    (op.doc?.lowercase()?.contains(filter) == true)
+                            opcodes.filter { op ->
+                                op.mnemonic.contains(currentFilter) ||
+                                    op.code.toString(16).contains(currentFilter) ||
+                                    (op.doc?.lowercase()?.contains(currentFilter) == true)
                             }
                         })
                     }
@@ -282,22 +292,6 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
         lastClickedMnemonic = mnemonic
 
         ctrl.goToMatch(matches[lastClickedIndex])
-    }
-
-    private fun buildAllOpcodes(): List<Opcode> {
-        val result = mutableListOf<Opcode>()
-
-        for (op in OPCODES) {
-            if (op != null && op.known) result.add(op)
-        }
-        for (op in OPCODES_F8) {
-            if (op != null && op.known) result.add(op)
-        }
-        for (op in OPCODES_F9) {
-            if (op != null && op.known) result.add(op)
-        }
-
-        return result
     }
 
     private fun renderOpcodeList(container: HTMLDivElement, opcodes: List<Opcode>) {

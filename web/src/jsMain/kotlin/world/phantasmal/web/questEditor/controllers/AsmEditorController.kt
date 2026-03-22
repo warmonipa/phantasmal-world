@@ -3,10 +3,12 @@ package world.phantasmal.web.questEditor.controllers
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.isNull
 import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.list.listMap
 import world.phantasmal.cell.map
 import world.phantasmal.cell.not
 import world.phantasmal.cell.or
 import world.phantasmal.cell.orElse
+import world.phantasmal.psolib.asm.*
 import world.phantasmal.web.core.observable.Observable
 import world.phantasmal.web.externals.monacoEditor.FindMatch
 import world.phantasmal.web.externals.monacoEditor.ITextModel
@@ -37,6 +39,20 @@ class AsmEditorController(private val store: AsmStore) : Controller() {
     val labels: ListCell<Label> = store.labels
     val registers: ListCell<RegisterInfo> = store.registers
     val segments: ListCell<SegmentInfo> = store.segments
+
+    /** Opcodes actually used in the current script, derived from labels (triggers on reparse). */
+    val usedOpcodes: Cell<List<Opcode>> = map(labels, textModel) { _, model ->
+        val text = model.getValue()
+        val mnemonics = mutableSetOf<String>()
+        for (line in text.split('\n')) {
+            val trimmed = line.trimStart()
+            if (trimmed.isEmpty() || trimmed.startsWith('.') || trimmed.startsWith("//")) continue
+            val firstToken = trimmed.substringBefore(' ').substringBefore('\t')
+            if (firstToken.endsWith(':') || firstToken.isEmpty()) continue
+            mnemonics.add(firstToken)
+        }
+        mnemonics.mapNotNull { mnemonicToOpcode(it) }.sortedBy { it.mnemonic }
+    }
 
     fun makeUndoCurrent() {
         store.makeUndoCurrent()
