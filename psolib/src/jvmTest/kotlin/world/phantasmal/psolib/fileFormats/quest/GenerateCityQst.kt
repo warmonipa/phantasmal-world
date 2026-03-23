@@ -375,6 +375,7 @@ class GenerateCityQst : LibTestSuite {
 
     @Test
     fun generate_ep1_city() = testAsync {
+        if (!gameDataDir.exists()) { println("Skipping: game data not found at $gameDataDir"); return@testAsync }
         println("=== EP1 City (Pioneer II) ===")
         // English bin exists in data.gsl but not as loose file.
         // Loose Ephinea file is Japanese with extended NPC labels.
@@ -395,6 +396,7 @@ class GenerateCityQst : LibTestSuite {
 
     @Test
     fun generate_ep2_city() = testAsync {
+        if (!gameDataDir.exists()) { println("Skipping: game data not found at $gameDataDir"); return@testAsync }
         println("=== EP2 City (Lab) ===")
         // Ephinea loose file (map_labo_on_j.bin) is BB format with Japanese text.
         // English bin exists both loose (50300) and in data.gsl (50920).
@@ -412,6 +414,7 @@ class GenerateCityQst : LibTestSuite {
 
     @Test
     fun generate_ep4_city() = testAsync {
+        if (!gameDataDir.exists()) { println("Skipping: game data not found at $gameDataDir"); return@testAsync }
         println("=== EP4 City (Pioneer II) ===")
         // Only Japanese bin exists (loose and data.gsl). No English version.
         val quest = buildCityQuest(
@@ -427,6 +430,7 @@ class GenerateCityQst : LibTestSuite {
 
     @Test
     fun list_unknown_opcodes() = testAsync {
+        if (!gameDataDir.exists()) { println("Skipping: game data not found at $gameDataDir"); return@testAsync }
         data class BinInfo(val episode: String, val file: String, val shiftJis: Boolean)
 
         val bins = listOf(

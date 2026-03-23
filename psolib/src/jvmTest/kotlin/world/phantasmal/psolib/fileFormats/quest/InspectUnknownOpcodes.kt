@@ -15,6 +15,7 @@ class InspectUnknownOpcodes : LibTestSuite {
 
     @Test
     fun inspect() = testAsync {
+        if (!gameDataDir.exists()) { println("Skipping: game data not found at $gameDataDir"); return@testAsync }
         val bins = listOf(
             "map_city_on_j.bin" to true,
             "map_labo_on_j.bin" to true,
