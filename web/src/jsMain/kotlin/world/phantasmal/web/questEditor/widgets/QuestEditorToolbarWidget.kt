@@ -52,6 +52,7 @@ class QuestEditorToolbarWidget(
                             ),
                             MenuItem.SubMenu(
                                 label = "Open Lobby",
+                                visible = ctrl.showLobbyMenu,
                                 items = (1..10).map { v ->
                                     MenuItem.Action(
                                         label = "Lobby ${v.toString().padStart(2, '0')}",

@@ -70,6 +70,10 @@ class QuestEditorToolbarController(
     private val _showCityMap = mutableCell(false)
     val showCityMap: Cell<Boolean> = _showCityMap
 
+    // Lobby menu visibility (hidden by default, toggled via Ctrl+L)
+    private val _showLobbyMenu = mutableCell(false)
+    val showLobbyMenu: Cell<Boolean> = _showLobbyMenu
+
     // Free roam variant state (delegated to FreeRoamController)
     val freeRoam = FreeRoamController()
 
@@ -357,6 +361,10 @@ class QuestEditorToolbarController(
 
             uiStore.onGlobalKeyDown(PwToolType.QuestEditor, "Ctrl-Y") {
                 redo()
+            },
+
+            uiStore.onGlobalKeyDown(PwToolType.QuestEditor, "Ctrl-L") {
+                _showLobbyMenu.value = !_showLobbyMenu.value
             },
         )
     }

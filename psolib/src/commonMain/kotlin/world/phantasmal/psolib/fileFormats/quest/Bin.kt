@@ -95,8 +95,8 @@ fun parseBin(cursor: Cursor, shiftJis: Boolean = false): BinFile {
     val longDescription: String
 
     if (format == BinFormat.DC_GC) {
-        cursor.seek(1)
         language = cursor.byte().toInt()
+        cursor.seek(1) // Skip unknown_a3.
         questId = cursor.short().toInt()
 
         // language == 0 indicates Japanese — also use Shift-JIS in that case.
@@ -124,6 +124,10 @@ fun parseBin(cursor: Cursor, shiftJis: Boolean = false): BinFile {
         longDescription = cursor.stringUtf16(576, nullTerminated = true, dropRemaining = true)
     }
 
+    // Use the header's size field when it's plausible — the actual decompressed data
+    // can be larger due to PRS streams lacking a terminator or having trailing bytes.
+    val effectiveSize = if (size in 1..cursor.size) size else cursor.size
+
     if (size != cursor.size) {
         logger.warn { "Value $size in bin size field does not match actual size ${cursor.size}." }
     }
@@ -135,14 +139,23 @@ fun parseBin(cursor: Cursor, shiftJis: Boolean = false): BinFile {
         UIntArray(0)
     }
 
-    val labelOffsetCount = (cursor.size - labelOffsetTableOffset) / 4
+    val labelOffsetCount = (effectiveSize - labelOffsetTableOffset) / 4
+    val bytecodeSize = labelOffsetTableOffset - bytecodeOffset
     val labelOffsets = cursor
         .seekStart(labelOffsetTableOffset)
         .intArray(labelOffsetCount)
 
+    // Sanitize label offsets: replace out-of-range values with -1 (unused).
+    for (i in labelOffsets.indices) {
+        val off = labelOffsets[i]
+        if (off != -1 && (off < 0 || off >= bytecodeSize)) {
+            labelOffsets[i] = -1
+        }
+    }
+
     val bytecode = cursor
         .seekStart(bytecodeOffset)
-        .buffer(labelOffsetTableOffset - bytecodeOffset)
+        .buffer(bytecodeSize)
 
     val useShiftJis = format == BinFormat.DC_GC && (shiftJis || language == 0)
 
@@ -194,8 +207,8 @@ fun writeBin(bin: BinFile): Buffer {
     cursor.writeInt(-1)
 
     if (bin.format == BinFormat.DC_GC) {
-        cursor.writeByte(0)
         cursor.writeByte(bin.language.toByte())
+        cursor.writeByte(0) // unknown_a3
         cursor.writeShort(bin.questId.toShort())
 
         if (bin.shiftJis) {

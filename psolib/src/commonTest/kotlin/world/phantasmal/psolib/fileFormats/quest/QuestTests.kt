@@ -480,7 +480,7 @@ class QuestTests : LibTestSuite {
     }
 
     /**
-     * Round-trip EP2 challenge quest 1: parse → write → parse, compare structure.
+     * Round-trip EP2 challenge quest 1 (2c1): parse → write → parse, compare structure.
      */
     @Test
     fun round_trip_ephinea_ep2_chl_2c1() = testAsync {
