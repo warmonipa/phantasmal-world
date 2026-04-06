@@ -15,10 +15,6 @@ class AsmToolbarWidget(private val ctrl: AsmEditorController) : Widget() {
             addChild(
                 Toolbar(
                     enabled = ctrl.enabled,
-                    // Previously included an "Inline args" checkbox that toggled whether
-                    // push arguments were inlined into Pop opcodes. Stack args are now
-                    // normalized unconditionally at parse time (see normalizeStackArgs in
-                    // Bytecode.kt), so the toggle is no longer needed.
                     children = listOf(
                         Checkbox(
                             enabled = ctrl.hexFormatEnabled,

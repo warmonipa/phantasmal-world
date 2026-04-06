@@ -3,17 +3,22 @@ package world.phantasmal.web.questEditor.widgets
 import org.w3c.dom.HTMLDivElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.Node
+import world.phantasmal.cell.mutableCell
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.asm.Opcode
 import world.phantasmal.cell.map
 import world.phantasmal.web.questEditor.controllers.AsmEditorController
+import world.phantasmal.web.questEditor.controllers.DataEditorController
 import world.phantasmal.web.shared.messages.SegmentInfoType
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.input
 import world.phantasmal.webui.dom.span
 import world.phantasmal.webui.widgets.Widget
 
-class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
+class AsmWidget(
+    private val ctrl: AsmEditorController,
+    private val dataEditorCtrl: DataEditorController,
+) : Widget() {
     private lateinit var editorWidget: AsmEditorWidget
 
     // Opcode navigation state: track which opcode was last clicked and which occurrence index
@@ -23,6 +28,14 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
     // Register navigation state
     private var lastClickedRegId: Int? = null
     private var lastClickedRegIndex: Int = -1
+
+    // Data editor dialog visibility and initial label selection
+    val npcDataDialogVisible = mutableCell(false)
+    val physicalDataDialogVisible = mutableCell(false)
+    val attackDataDialogVisible = mutableCell(false)
+    val resistDataDialogVisible = mutableCell(false)
+    val movementDataDialogVisible = mutableCell(false)
+    val initialLabelId = mutableCell<Int?>(null)
 
     override fun Node.createElement() =
         div {
@@ -34,7 +47,7 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
             div {
                 className = "pw-asm-editor-area"
 
-                editorWidget = addChild(AsmEditorWidget(ctrl))
+                editorWidget = addChild(AsmEditorWidget(ctrl, dataEditorCtrl, this@AsmWidget))
 
                 // Overlay panels (slide-in from right)
                 div {
@@ -46,6 +59,38 @@ class AsmWidget(private val ctrl: AsmEditorController) : Widget() {
                     createOpcodeReferencePanel(this)
                 }
             }
+
+            // Data editor dialogs
+            addChild(NpcDataDialog(
+                visible = npcDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { npcDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(EnemyPhysicalDataDialog(
+                visible = physicalDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { physicalDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(EnemyAttackDataDialog(
+                visible = attackDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { attackDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(EnemyResistDataDialog(
+                visible = resistDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { resistDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(EnemyMovementDataDialog(
+                visible = movementDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { movementDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
         }
 
     private fun createLabelListPanel(parent: HTMLDivElement) {

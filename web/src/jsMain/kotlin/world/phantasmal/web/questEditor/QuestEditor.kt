@@ -83,6 +83,7 @@ class QuestEditor(
             },
         ))
         val asmController = addDisposable(AsmEditorController(asmStore))
+        val dataEditorController = addDisposable(DataEditorController(questEditorStore, asmStore))
         val npcListController = addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = true))
         val objectListController =
             addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = false))
@@ -139,7 +140,7 @@ class QuestEditor(
                     areaObjectListController,
                 )
             },
-            { AsmWidget(asmController) },
+            { AsmWidget(asmController, dataEditorController) },
             { EntityListWidget(npcListController, entityImageRenderer, questEditorUiStore, isNpcList = true) },
             { EntityListWidget(objectListController, entityImageRenderer, questEditorUiStore, isNpcList = false) },
             { EventsWidget(eventsController) },

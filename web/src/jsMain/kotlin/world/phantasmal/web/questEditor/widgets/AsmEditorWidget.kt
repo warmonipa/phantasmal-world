@@ -5,15 +5,22 @@ import org.w3c.dom.Node
 import world.phantasmal.core.disposable.disposable
 import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.web.externals.monacoEditor.*
+import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.asm.monaco.EditorHistory
 import world.phantasmal.web.questEditor.controllers.AsmEditorController
+import world.phantasmal.web.questEditor.controllers.DataEditorController
+import world.phantasmal.web.questEditor.controllers.DataLabelEntry
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.obj
 import world.phantasmal.webui.widgets.Widget
 
 private val logger = KotlinLogging.logger {}
 
-class AsmEditorWidget(private val ctrl: AsmEditorController) : Widget() {
+class AsmEditorWidget(
+    private val ctrl: AsmEditorController,
+    private val dataEditorCtrl: DataEditorController,
+    private val asmWidget: AsmWidget,
+) : Widget() {
     private lateinit var editor: IStandaloneCodeEditor
 
     override fun Node.createElement() =
@@ -63,6 +70,23 @@ class AsmEditorWidget(private val ctrl: AsmEditorController) : Widget() {
                 }
             })
 
+            // "Edit Data..." context menu action — auto-detects data type at cursor.
+            val editDataDescriptor = object : IActionDescriptor {
+                override var id = "pw.editData"
+                override var label = "Edit Data..."
+                override var keybindings = emptyArray<Int>()
+
+                override fun run(editor: ICodeEditor, vararg args: dynamic) {
+                    val lineNo = editor.getPosition()?.lineNumber?.toInt() ?: return
+                    val entry = dataEditorCtrl.dataLabelAtLine(lineNo) ?: return
+                    openDataDialog(entry)
+                }
+            }
+            editDataDescriptor.asDynamic().contextMenuGroupId = "pw-data"
+            editDataDescriptor.asDynamic().contextMenuOrder = 1.0
+            val editDataAction = editor.addAction(editDataDescriptor)
+            addDisposable(disposable { editDataAction.dispose() })
+
             // Undo/redo.
             addDisposable(ctrl.didUndo.observe {
                 editor.focus()
@@ -105,6 +129,17 @@ class AsmEditorWidget(private val ctrl: AsmEditorController) : Widget() {
 
             addDisposable(EditorHistory(editor))
         }
+
+    private fun openDataDialog(entry: DataLabelEntry) {
+        asmWidget.initialLabelId.value = entry.labelId
+        when (entry.type) {
+            DataLabelType.NpcData -> asmWidget.npcDataDialogVisible.value = true
+            DataLabelType.PhysicalData -> asmWidget.physicalDataDialogVisible.value = true
+            DataLabelType.AttackData -> asmWidget.attackDataDialogVisible.value = true
+            DataLabelType.ResistData -> asmWidget.resistDataDialogVisible.value = true
+            DataLabelType.MovementData -> asmWidget.movementDataDialogVisible.value = true
+        }
+    }
 
     override fun focus() {
         editor.focus()
