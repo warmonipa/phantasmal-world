@@ -272,8 +272,12 @@ class NpcDataDialog(
                                 } else {
                                     v2Flags.value = 0
                                 }
-                                previewRenderer?.refresh()
+                            } else {
+                                // Wrap: NPC None → Elly (last NPC)
+                                v2Flags.value = 11
+                                extraModel.value = NPC_NAMES.size - 1
                             }
+                            previewRenderer?.refresh()
                         }
                     }
                     span {
@@ -319,7 +323,9 @@ class NpcDataDialog(
                     // Use a wrapper so the color picker overlays without affecting text centering
                     button { className = "pw-npc-btn"; textContent = "\u25C0"
                         onclick = {
-                            if (hair.value > 1) { hair.value--; previewRenderer?.refresh() }
+                            val max = HAIR_COUNT.getOrElse(charClass.value) { 0 }
+                            hair.value = if (hair.value > 1) hair.value - 1 else max
+                            previewRenderer?.refresh()
                         } }
                     div {
                         className = "pw-npc-field-center"
@@ -346,7 +352,8 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25B6"
                         onclick = {
                             val max = HAIR_COUNT.getOrElse(charClass.value) { 0 }
-                            if (hair.value < max) { hair.value++; previewRenderer?.refresh() }
+                            hair.value = if (hair.value < max) hair.value + 1 else 1
+                            previewRenderer?.refresh()
                         }
                     }
                 }
@@ -380,7 +387,9 @@ class NpcDataDialog(
             className = "pw-npc-field"
             button { className = "pw-npc-btn"; textContent = "\u25C0"
                 onclick = {
-                    if (valCell.value > 1) { valCell.value--; previewRenderer?.refresh() }
+                    val max = maxPerClass.getOrElse(charClass.value) { 0 }
+                    valCell.value = if (valCell.value > 1) valCell.value - 1 else max
+                    previewRenderer?.refresh()
                 } }
             span {
                 className = "pw-npc-field-text"
@@ -394,7 +403,8 @@ class NpcDataDialog(
             button { className = "pw-npc-btn"; textContent = "\u25B6"
                 onclick = {
                     val max = maxPerClass.getOrElse(charClass.value) { 0 }
-                    if (valCell.value < max) { valCell.value++; previewRenderer?.refresh() }
+                    valCell.value = if (valCell.value < max) valCell.value + 1 else 1
+                    previewRenderer?.refresh()
                 }
             }
         }
@@ -410,7 +420,8 @@ class NpcDataDialog(
             val max = if (oneBased) maxCount else maxCount - 1
             button { className = "pw-npc-btn"; textContent = "\u25C0"
                 onclick = {
-                    if (valCell.value > min) { valCell.value--; previewRenderer?.refresh() }
+                    valCell.value = if (valCell.value > min) valCell.value - 1 else max
+                    previewRenderer?.refresh()
                 } }
             span {
                 className = "pw-npc-field-text"
@@ -418,7 +429,8 @@ class NpcDataDialog(
             }
             button { className = "pw-npc-btn"; textContent = "\u25B6"
                 onclick = {
-                    if (valCell.value < max) { valCell.value++; previewRenderer?.refresh() }
+                    valCell.value = if (valCell.value < max) valCell.value + 1 else min
+                    previewRenderer?.refresh()
                 } }
         }
 
