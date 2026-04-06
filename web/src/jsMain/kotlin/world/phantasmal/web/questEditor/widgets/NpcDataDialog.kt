@@ -98,9 +98,12 @@ class NpcDataDialog(
                     charClassCell = charClass,
                     sectionIdCell = sectionId,
                     costumeCell = costume,
+                    skinCell = skin,
+                    faceCell = face,
                     headCell = head,
                     hairCell = hair,
                     v2FlagsCell = v2Flags,
+                    extraModelCell = extraModel,
                 )
                 addDisposable(previewRenderer!!)
                 right.appendChild(previewRenderer!!.canvas)
