@@ -1,5 +1,6 @@
 package world.phantasmal.web.questEditor.widgets
 
+import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import world.phantasmal.cell.Cell
@@ -8,6 +9,9 @@ import world.phantasmal.cell.cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.psolib.asm.NpcVisualConfig
+import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.questEditor.rendering.NpcPreviewRenderer
+import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.controllers.DataEditorController
 import world.phantasmal.web.questEditor.controllers.DataLabelEntry
@@ -36,6 +40,8 @@ class NpcDataDialog(
     private val ctrl: DataEditorController,
     onDismiss: () -> Unit,
     private val initialLabelId: Cell<Int?> = cell(null),
+    private val charClassAssetLoader: CharacterClassAssetLoader? = null,
+    private val createThreeRenderer: ((HTMLCanvasElement) -> DisposableThreeRenderer)? = null,
 ) : Dialog(
     visible = visible,
     title = cell("NPC Data"),
@@ -65,12 +71,56 @@ class NpcDataDialog(
     private val v2Flags = mutableCell(0) // 0 = NPC None (player char), != 0 = NPC model
     private var version = 0
     private var classFlags = 0
+    private var previewRenderer: NpcPreviewRenderer? = null
 
     init {
+        val hasPreview = charClassAssetLoader != null && createThreeRenderer != null
+
         val bodyElement = dialogElement.querySelector(".pw-dialog-body")
         bodyElement?.let { body ->
             body.innerHTML = ""
-            body.appendChild(addDisposable(NpcDataContent()).element)
+
+            if (hasPreview) {
+                // Two-column layout: fields left, preview right.
+                val wrapper = body.ownerDocument!!.createElement("div") as HTMLElement
+                wrapper.className = "pw-npc-dialog-split"
+
+                val left = body.ownerDocument!!.createElement("div") as HTMLElement
+                left.className = "pw-npc-dialog-left"
+                left.appendChild(addDisposable(NpcDataContent()).element)
+                wrapper.appendChild(left)
+
+                val right = body.ownerDocument!!.createElement("div") as HTMLElement
+                right.className = "pw-npc-dialog-right"
+                previewRenderer = NpcPreviewRenderer(
+                    charClassAssetLoader!!,
+                    createThreeRenderer!!,
+                    charClassCell = charClass,
+                    sectionIdCell = sectionId,
+                    costumeCell = costume,
+                    headCell = head,
+                    hairCell = hair,
+                    v2FlagsCell = v2Flags,
+                )
+                addDisposable(previewRenderer!!)
+                right.appendChild(previewRenderer!!.canvas)
+                wrapper.appendChild(right)
+
+                // Start/stop rendering and set canvas size when dialog visibility changes.
+                observeNow(visible) { vis ->
+                    if (vis) {
+                        previewRenderer!!.setSize(240, 380)
+                        previewRenderer!!.startRendering()
+                        previewRenderer!!.refresh()
+                    } else {
+                        previewRenderer!!.stopRendering()
+                    }
+                }
+
+                body.appendChild(wrapper)
+            } else {
+                body.appendChild(addDisposable(NpcDataContent()).element)
+            }
         }
 
         val footerElement = dialogElement.querySelector(".pw-dialog-footer")
@@ -86,7 +136,7 @@ class NpcDataDialog(
             ).element)
         }
 
-        dialogElement.style.width = "300px"
+        dialogElement.style.width = if (hasPreview) "560px" else "300px"
         dialogElement.style.maxHeight = "520px"
 
         observeNow(visible) { vis ->
@@ -122,6 +172,7 @@ class NpcDataDialog(
         v2Flags.value = data.validationFlags.toInt()
         version = data.version.toInt()
         classFlags = data.classFlags.toInt()
+        previewRenderer?.refresh()
     }
 
     private fun save() {
@@ -219,8 +270,9 @@ class NpcDataDialog(
                                 if (extraModel.value > 0) {
                                     extraModel.value--
                                 } else {
-                                    v2Flags.value = 0 // back to NPC None
+                                    v2Flags.value = 0
                                 }
+                                previewRenderer?.refresh()
                             }
                         }
                     }
@@ -236,14 +288,15 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25B6"
                         onclick = {
                             if (v2Flags.value == 0) {
-                                v2Flags.value = 11 // enable NPC model (same as qedit)
+                                v2Flags.value = 11
                                 extraModel.value = 0
                             } else if (extraModel.value < NPC_NAMES.size - 1) {
                                 extraModel.value++
                             } else {
-                                v2Flags.value = 0 // wrap to NPC None
+                                v2Flags.value = 0
                                 extraModel.value = 0
                             }
+                            previewRenderer?.refresh()
                         }
                     }
                 }
@@ -265,7 +318,9 @@ class NpcDataDialog(
                     className = "pw-npc-field"
                     // Use a wrapper so the color picker overlays without affecting text centering
                     button { className = "pw-npc-btn"; textContent = "\u25C0"
-                        onclick = { if (hair.value > 1) hair.value-- } }
+                        onclick = {
+                            if (hair.value > 1) { hair.value--; previewRenderer?.refresh() }
+                        } }
                     div {
                         className = "pw-npc-field-center"
                         span {
@@ -291,7 +346,7 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25B6"
                         onclick = {
                             val max = HAIR_COUNT.getOrElse(charClass.value) { 0 }
-                            if (hair.value < max) hair.value++
+                            if (hair.value < max) { hair.value++; previewRenderer?.refresh() }
                         }
                     }
                 }
@@ -324,7 +379,9 @@ class NpcDataDialog(
         ): HTMLElement = div {
             className = "pw-npc-field"
             button { className = "pw-npc-btn"; textContent = "\u25C0"
-                onclick = { if (valCell.value > 1) valCell.value-- } }
+                onclick = {
+                    if (valCell.value > 1) { valCell.value--; previewRenderer?.refresh() }
+                } }
             span {
                 className = "pw-npc-field-text"
                 val update = {
@@ -337,7 +394,7 @@ class NpcDataDialog(
             button { className = "pw-npc-btn"; textContent = "\u25B6"
                 onclick = {
                     val max = maxPerClass.getOrElse(charClass.value) { 0 }
-                    if (valCell.value < max) valCell.value++
+                    if (valCell.value < max) { valCell.value++; previewRenderer?.refresh() }
                 }
             }
         }
@@ -352,13 +409,17 @@ class NpcDataDialog(
             val min = if (oneBased) 1 else 0
             val max = if (oneBased) maxCount else maxCount - 1
             button { className = "pw-npc-btn"; textContent = "\u25C0"
-                onclick = { if (valCell.value > min) valCell.value-- } }
+                onclick = {
+                    if (valCell.value > min) { valCell.value--; previewRenderer?.refresh() }
+                } }
             span {
                 className = "pw-npc-field-text"
                 observeNow(valCell) { textContent = display(it) }
             }
             button { className = "pw-npc-btn"; textContent = "\u25B6"
-                onclick = { if (valCell.value < max) valCell.value++ } }
+                onclick = {
+                    if (valCell.value < max) { valCell.value++; previewRenderer?.refresh() }
+                } }
         }
 
         private fun Node.propSlider(valCell: MutableCell<Double>) {
@@ -390,6 +451,25 @@ class NpcDataDialog(
             @Suppress("CssUnusedSymbol", "CssUnresolvedCustomProperty")
             // language=css
             style("""
+                .pw-npc-dialog-split {
+                    display: flex;
+                    gap: 8px;
+                }
+
+                .pw-npc-dialog-left {
+                    flex: 0 0 260px;
+                    overflow-y: auto;
+                }
+
+                .pw-npc-dialog-right {
+                    width: 240px;
+                    height: 380px;
+                    background: #181818;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                }
+
                 .pw-npc-editor {
                     display: flex;
                     flex-direction: column;

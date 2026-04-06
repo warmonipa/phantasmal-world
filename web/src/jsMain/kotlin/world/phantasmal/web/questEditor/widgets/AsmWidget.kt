@@ -7,9 +7,12 @@ import world.phantasmal.cell.mutableCell
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.asm.Opcode
 import world.phantasmal.cell.map
+import org.w3c.dom.HTMLCanvasElement
+import world.phantasmal.web.core.rendering.DisposableThreeRenderer
 import world.phantasmal.web.questEditor.controllers.AsmEditorController
 import world.phantasmal.web.questEditor.controllers.DataEditorController
 import world.phantasmal.web.shared.messages.SegmentInfoType
+import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.input
 import world.phantasmal.webui.dom.span
@@ -18,6 +21,8 @@ import world.phantasmal.webui.widgets.Widget
 class AsmWidget(
     private val ctrl: AsmEditorController,
     private val dataEditorCtrl: DataEditorController,
+    private val charClassAssetLoader: CharacterClassAssetLoader,
+    private val createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Widget() {
     private lateinit var editorWidget: AsmEditorWidget
 
@@ -66,6 +71,8 @@ class AsmWidget(
                 ctrl = dataEditorCtrl,
                 onDismiss = { npcDataDialogVisible.value = false },
                 initialLabelId = initialLabelId,
+                charClassAssetLoader = charClassAssetLoader,
+                createThreeRenderer = createThreeRenderer,
             ))
             addChild(EnemyPhysicalDataDialog(
                 visible = physicalDataDialogVisible,

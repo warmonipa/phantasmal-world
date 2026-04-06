@@ -22,6 +22,44 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
     suspend fun loadNinjaObject(char: CharacterClass): NjObject =
         ninjaObjectCache.get(char)
 
+    /**
+     * Loads body parts with specific head and hair style numbers.
+     * Unlike [loadNinjaObject], this does NOT use the cache since combinations vary.
+     */
+    suspend fun loadNinjaObject(char: CharacterClass, headStyle: Int, hairStyle: Int): NjObject {
+        val texIds = textureIds(char, SectionId.Viridia, 0)
+
+        val body = loadBodyPart(char, "Body")
+        val head = loadBodyPart(char, "Head", no = headStyle)
+        var shift = 1 + texIds.body.size
+        shiftTextureIds(head, shift)
+        addToBone(body, head, parentBoneId = 59)
+
+        if (char.hairStyleCount == 0 || hairStyle < 0) {
+            return body
+        }
+
+        val hair = loadBodyPart(char, "Hair", no = hairStyle)
+        shift += texIds.head.size
+        shiftTextureIds(hair, shift)
+        addToBone(head, hair, parentBoneId = 0)
+
+        if (hairStyle !in char.hairStylesWithAccessory) {
+            return body
+        }
+
+        try {
+            val accessory = loadBodyPart(char, "Accessory", no = hairStyle)
+            shift += texIds.hair.size
+            shiftTextureIds(accessory, shift)
+            addToBone(hair, accessory, parentBoneId = 0)
+        } catch (_: Exception) {
+            // Accessory file may not exist for this style.
+        }
+
+        return body
+    }
+
     suspend fun loadXvrTextures(
         char: CharacterClass,
         sectionId: SectionId,

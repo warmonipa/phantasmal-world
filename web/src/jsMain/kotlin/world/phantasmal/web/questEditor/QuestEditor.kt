@@ -11,6 +11,7 @@ import world.phantasmal.web.core.rendering.DisposableThreeRenderer
 import world.phantasmal.web.core.stores.UiStore
 import world.phantasmal.web.core.undo.UndoManager
 import world.phantasmal.web.questEditor.controllers.*
+import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.QuestLoader
@@ -84,6 +85,7 @@ class QuestEditor(
         ))
         val asmController = addDisposable(AsmEditorController(asmStore))
         val dataEditorController = addDisposable(DataEditorController(questEditorStore, asmStore))
+        val characterClassAssetLoader = addDisposable(CharacterClassAssetLoader(assetLoader))
         val npcListController = addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = true))
         val objectListController =
             addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = false))
@@ -140,7 +142,7 @@ class QuestEditor(
                     areaObjectListController,
                 )
             },
-            { AsmWidget(asmController, dataEditorController) },
+            { AsmWidget(asmController, dataEditorController, characterClassAssetLoader, createThreeRenderer) },
             { EntityListWidget(npcListController, entityImageRenderer, questEditorUiStore, isNpcList = true) },
             { EntityListWidget(objectListController, entityImageRenderer, questEditorUiStore, isNpcList = false) },
             { EventsWidget(eventsController) },
