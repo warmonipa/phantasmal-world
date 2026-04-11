@@ -156,7 +156,12 @@ class NpcPreviewRenderer(
         }
 
         val classIdx = charClassCell.value
-        val charClass = CHAR_CLASS_BY_INDEX.getOrNull(classIdx) ?: return
+        val charClass = CHAR_CLASS_BY_INDEX.getOrNull(classIdx)
+        if (charClass == null) {
+            logger.warn { "Invalid char_class index for NPC preview: $classIdx" }
+            removeMesh()
+            return
+        }
         val isCast = charClass.hairStyleCount == 0
         val headStyle = (headCell.value - 1).coerceIn(0, charClass.headStyleCount - 1)
         val hairStyle = (hairCell.value - 1).coerceIn(0, (charClass.hairStyleCount - 1).coerceAtLeast(0))

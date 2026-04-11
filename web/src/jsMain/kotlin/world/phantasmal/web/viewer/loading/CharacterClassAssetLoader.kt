@@ -65,8 +65,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
      * Returns a list of NjObjects: [body, head] or [body, head, hair].
      */
     suspend fun loadNpcParts(extraModel: Int): List<NjObject> {
-        val slug = NPC_SLUGS.getOrNull(extraModel)
-            ?: throw IllegalArgumentException("Invalid NPC index: $extraModel")
+        val slug = npcSlugOrThrow(extraModel)
         val parts = mutableListOf<NjObject>()
         parts += loadNpcBodyPart(slug, "Body")
         parts += loadNpcBodyPart(slug, "Head")
@@ -86,7 +85,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
      * Loads all XVR textures for an NPC model from its AFS archive.
      */
     suspend fun loadNpcXvrTextures(extraModel: Int): List<XvrTexture?> {
-        val slug = NPC_SLUGS.getOrNull(extraModel) ?: return emptyList()
+        val slug = npcSlugOrThrow(extraModel)
         val buffer = assetLoader.loadArrayBuffer("/player/${slug}Tex.afs")
         val afsResult = parseAfs(buffer.cursor(Endianness.Little))
 
@@ -104,6 +103,10 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
         val buffer = assetLoader.loadArrayBuffer("/player/${slug}${bodyPart}.nj")
         return parseNj(buffer.cursor(Endianness.Little)).unwrap().first()
     }
+
+    private fun npcSlugOrThrow(extraModel: Int): String =
+        NPC_SLUGS.getOrNull(extraModel)
+            ?: throw IllegalArgumentException("Invalid NPC extra_model: $extraModel")
 
     suspend fun loadXvrTextures(
         char: CharacterClass,
@@ -385,6 +388,9 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
     companion object {
         /** File name prefixes for NPC models, indexed by extra_model (0=GM .. 6=Elly). */
         private val NPC_SLUGS = arrayOf("NpcGM", "NpcRico", "NpcSonic", "NpcKnux", "NpcTails", "NpcFlowen", "NpcElly")
+
+        /** Number of available NPC models (for extra_model). */
+        val NPC_MODEL_COUNT: Int = NPC_SLUGS.size
     }
 
     private class TextureIds(

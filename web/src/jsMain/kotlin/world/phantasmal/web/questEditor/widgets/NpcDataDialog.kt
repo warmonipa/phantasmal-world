@@ -28,12 +28,34 @@ private val CAST_CLASSES = setOf(2, 4, 5, 9)
 // extra_model 0-6 = specific NPC model names (when v2_flags != 0)
 private val NPC_NAMES = arrayOf("GM", "Rico", "Sonic", "Knux", "Tails", "Flowen", "Elly")
 
+/**
+ * Default value written to [NpcVisualConfig.validationFlags] when switching to an NPC
+ * model (extra_model != 0). The original game stores an 8-bit checksum here; 11 is the
+ * value produced by qedit when it authors a fresh NPC record, so we mirror that so our
+ * output round-trips byte-for-byte with qedit-generated quests.
+ */
+private const val NPC_MODEL_DEFAULT_FLAG = 11
+
 //                                   HUmr HUnw HUcs RAm  RAcs RAcl FOml FOnm FOnw HUcl FOmr RAml
 private val COSTUME_COUNT = intArrayOf(18,  18,   0,  18,   0,   0,  18,  18,  18,   0,  18,  18)
 private val SKIN_COUNT    = intArrayOf( 4,   4,  25,   4,  25,  25,   4,   4,   4,  25,   4,   4)
 private val FACE_COUNT    = intArrayOf( 5,   5,   0,   5,   0,   0,   5,   5,   5,   0,   5,   5)
 private val HEAD_COUNT    = intArrayOf( 1,   1,   5,   1,   5,   5,   1,   1,   1,   5,   1,   1)
 private val HAIR_COUNT    = intArrayOf(10,  10,   0,  10,   0,   0,  10,  10,  10,   0,  10,  10)
+
+/**
+ * Cycle [current] backward/forward inside `[min, max]`, wrapping at the edges.
+ * If the range is empty (`max < min`), the value is left unchanged — the field is
+ * considered unavailable for the current class and should also be disabled in the UI.
+ */
+private fun cycleValue(current: Int, min: Int, max: Int, backward: Boolean): Int {
+    if (max < min) return current
+    return if (backward) {
+        if (current > min) current - 1 else max
+    } else {
+        if (current < max) current + 1 else min
+    }
+}
 
 class NpcDataDialog(
     visible: Cell<Boolean>,
@@ -277,7 +299,7 @@ class NpcDataDialog(
                                 }
                             } else {
                                 // Wrap: NPC None → Elly (last NPC)
-                                v2Flags.value = 11
+                                v2Flags.value = NPC_MODEL_DEFAULT_FLAG
                                 extraModel.value = NPC_NAMES.size - 1
                             }
                             previewRenderer?.refresh()
@@ -295,7 +317,7 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25B6"
                         onclick = {
                             if (v2Flags.value == 0) {
-                                v2Flags.value = 11
+                                v2Flags.value = NPC_MODEL_DEFAULT_FLAG
                                 extraModel.value = 0
                             } else if (extraModel.value < NPC_NAMES.size - 1) {
                                 extraModel.value++
@@ -327,7 +349,7 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25C0"
                         onclick = {
                             val max = HAIR_COUNT.getOrElse(charClass.value) { 0 }
-                            hair.value = if (hair.value > 1) hair.value - 1 else max
+                            hair.value = cycleValue(hair.value, min = 1, max = max, backward = true)
                             previewRenderer?.refresh()
                         } }
                     div {
@@ -355,7 +377,7 @@ class NpcDataDialog(
                     button { className = "pw-npc-btn"; textContent = "\u25B6"
                         onclick = {
                             val max = HAIR_COUNT.getOrElse(charClass.value) { 0 }
-                            hair.value = if (hair.value < max) hair.value + 1 else 1
+                            hair.value = cycleValue(hair.value, min = 1, max = max, backward = false)
                             previewRenderer?.refresh()
                         }
                     }
@@ -391,7 +413,7 @@ class NpcDataDialog(
             button { className = "pw-npc-btn"; textContent = "\u25C0"
                 onclick = {
                     val max = maxPerClass.getOrElse(charClass.value) { 0 }
-                    valCell.value = if (valCell.value > 1) valCell.value - 1 else max
+                    valCell.value = cycleValue(valCell.value, min = 1, max = max, backward = true)
                     previewRenderer?.refresh()
                 } }
             span {
@@ -406,7 +428,7 @@ class NpcDataDialog(
             button { className = "pw-npc-btn"; textContent = "\u25B6"
                 onclick = {
                     val max = maxPerClass.getOrElse(charClass.value) { 0 }
-                    valCell.value = if (valCell.value < max) valCell.value + 1 else 1
+                    valCell.value = cycleValue(valCell.value, min = 1, max = max, backward = false)
                     previewRenderer?.refresh()
                 }
             }
@@ -423,7 +445,7 @@ class NpcDataDialog(
             val max = if (oneBased) maxCount else maxCount - 1
             button { className = "pw-npc-btn"; textContent = "\u25C0"
                 onclick = {
-                    valCell.value = if (valCell.value > min) valCell.value - 1 else max
+                    valCell.value = cycleValue(valCell.value, min, max, backward = true)
                     previewRenderer?.refresh()
                 } }
             span {
@@ -432,7 +454,7 @@ class NpcDataDialog(
             }
             button { className = "pw-npc-btn"; textContent = "\u25B6"
                 onclick = {
-                    valCell.value = if (valCell.value < max) valCell.value + 1 else min
+                    valCell.value = cycleValue(valCell.value, min, max, backward = false)
                     previewRenderer?.refresh()
                 } }
         }
@@ -463,6 +485,15 @@ class NpcDataDialog(
 
     companion object {
         init {
+            // NPC_NAMES is the display list shown in the UI; CharacterClassAssetLoader
+            // ships the matching NpcXxxBody.nj/.afs assets. If these get out of sync
+            // the forward/back wrap will land on an extra_model index that has no
+            // loadable asset, so fail fast at first instantiation instead.
+            require(NPC_NAMES.size == CharacterClassAssetLoader.NPC_MODEL_COUNT) {
+                "NPC_NAMES (${NPC_NAMES.size}) must match " +
+                        "CharacterClassAssetLoader.NPC_MODEL_COUNT (${CharacterClassAssetLoader.NPC_MODEL_COUNT})"
+            }
+
             @Suppress("CssUnusedSymbol", "CssUnresolvedCustomProperty")
             // language=css
             style("""
