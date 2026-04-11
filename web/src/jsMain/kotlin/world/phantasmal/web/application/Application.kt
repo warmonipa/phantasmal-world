@@ -1,7 +1,6 @@
 package world.phantasmal.web.application
 
 import kotlinx.browser.document
-import kotlinx.datetime.Clock
 import org.w3c.dom.DragEvent
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
@@ -12,6 +11,7 @@ import world.phantasmal.web.application.controllers.NavigationController
 import world.phantasmal.web.application.widgets.ApplicationWidget
 import world.phantasmal.web.application.widgets.MainContentWidget
 import world.phantasmal.web.application.widgets.NavigationWidget
+import world.phantasmal.web.core.Clock
 import world.phantasmal.web.core.PwTool
 import world.phantasmal.web.core.loading.AssetLoader
 import world.phantasmal.web.core.persistence.KeyValueStore

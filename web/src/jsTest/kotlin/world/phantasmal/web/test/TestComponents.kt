@@ -2,8 +2,8 @@ package world.phantasmal.web.test
 
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
-import kotlinx.datetime.Clock
 import org.w3c.dom.HTMLCanvasElement
+import world.phantasmal.web.core.Clock
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.testUtils.TestContext
 import world.phantasmal.web.core.loading.AssetLoader
