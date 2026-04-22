@@ -5,6 +5,7 @@ import world.phantasmal.cell.Cell
 import world.phantasmal.cell.cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.psolib.asm.EnemyPhysicalData
 import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.controllers.DataEditorController
@@ -42,6 +43,8 @@ class EnemyPhysicalDataDialog(
     private val experience = mutableCell(0)
     private val meseta = mutableCell(0)
 
+    private val templateDialogVisible = mutableCell(false)
+
     init {
         val bodyElement = dialogElement.querySelector(".pw-dialog-body")
         bodyElement?.let { body ->
@@ -50,9 +53,23 @@ class EnemyPhysicalDataDialog(
             body.appendChild(contentWidget.element)
         }
 
+        addDisposable(LoadTemplateDialog(
+            visible = templateDialogVisible,
+            repo = ctrl.battleParamRepository,
+            kind = LoadTemplateDialog.TemplateKind.Physical,
+            onApply = ::applyTemplate,
+            onDismiss = { templateDialogVisible.value = false },
+        ))
+
         val footerElement = dialogElement.querySelector(".pw-dialog-footer")
         footerElement?.let { footer ->
             footer.innerHTML = ""
+            val loadBtn = addDisposable(Button(
+                text = "Load template…",
+                enabled = ctrl.battleParamRepository.available,
+                onClick = { templateDialogVisible.value = true },
+            ))
+            footer.appendChild(loadBtn.element)
             val saveBtn = addDisposable(Button(
                 text = "OK",
                 enabled = map(ctrl.enabled, selectedLabel) { e, s -> e && s != null },
@@ -67,16 +84,22 @@ class EnemyPhysicalDataDialog(
         dialogElement.style.maxHeight = "550px"
 
         // Auto-select label when dialog opens.
+        // The observer fires inside the cell-mutation notification phase, so any
+        // direct cell writes (loadLabel mutates ~13 cells) would re-enter the
+        // mutation loop and silently lose updates. Defer them to a fresh
+        // mutation that runs after the current notification phase finishes.
         observeNow(visible) { vis ->
             if (vis) {
-                val targetId = initialLabelId.value
-                val entries = labels.value
-                val entry = if (targetId != null) {
-                    entries.find { it.labelId == targetId }
-                } else {
-                    entries.firstOrNull()
+                mutateDeferred {
+                    val targetId = initialLabelId.value
+                    val entries = labels.value
+                    val entry = if (targetId != null) {
+                        entries.find { it.labelId == targetId }
+                    } else {
+                        entries.firstOrNull()
+                    }
+                    entry?.let(::loadLabel)
                 }
-                entry?.let(::loadLabel)
             }
         }
     }
@@ -126,6 +149,23 @@ class EnemyPhysicalDataDialog(
         ctrl.writeSegmentData(entry.labelId, buf)
     }
 
+    private fun applyTemplate(lookup: LoadTemplateDialog.TemplateLookup) {
+        val data = lookup.table.physical(lookup.difficulty, lookup.slot)
+        atp.value = data.atp.toInt()
+        mst.value = data.mst.toInt()
+        evp.value = data.evp.toInt()
+        hp.value = data.hp.toInt()
+        dfp.value = data.dfp.toInt()
+        ata.value = data.ata.toInt()
+        lck.value = data.lck.toInt()
+        esp.value = data.esp.toInt()
+        attackRange.value = data.attackRange.toDouble()
+        knockbackRange.value = data.knockbackRange.toDouble()
+        level.value = data.level.toInt()
+        experience.value = data.experience.toInt()
+        meseta.value = data.meseta.toInt()
+    }
+
     private inner class Content : Widget() {
         override fun Node.createElement() =
             div {
@@ -146,32 +186,35 @@ class EnemyPhysicalDataDialog(
                     className = "pw-data-editor-table"
 
                     tbody {
+                        // Primary stats
                         fieldRow("ATP", IntInput(value = atp,
                             onChange = { atp.value = it }, min = 0, max = 65535))
                         fieldRow("MST", IntInput(value = mst,
                             onChange = { mst.value = it }, min = 0, max = 65535))
-                        fieldRow("EVP", IntInput(value = evp,
-                            onChange = { evp.value = it }, min = 0, max = 65535))
-                        fieldRow("HP", IntInput(value = hp,
-                            onChange = { hp.value = it }, min = 0, max = 65535))
-                        fieldRow("DFP", IntInput(value = dfp,
-                            onChange = { dfp.value = it }, min = 0, max = 65535))
                         fieldRow("ATA", IntInput(value = ata,
                             onChange = { ata.value = it }, min = 0, max = 65535))
-                        fieldRow("LCK", IntInput(value = lck,
-                            onChange = { lck.value = it }, min = 0, max = 65535))
+                        fieldRow("DFP", IntInput(value = dfp,
+                            onChange = { dfp.value = it }, min = 0, max = 65535))
+                        fieldRow("HP", IntInput(value = hp,
+                            onChange = { hp.value = it }, min = 0, max = 65535))
+                        // Secondary stats
+                        fieldRow("EVP", IntInput(value = evp,
+                            onChange = { evp.value = it }, min = 0, max = 65535))
                         fieldRow("ESP", IntInput(value = esp,
                             onChange = { esp.value = it }, min = 0, max = 65535))
-                        fieldRow("Attack Range", DoubleInput(value = attackRange,
-                            onChange = { attackRange.value = it }, roundTo = 4))
-                        fieldRow("Knockback Range", DoubleInput(value = knockbackRange,
-                            onChange = { knockbackRange.value = it }, roundTo = 4))
-                        fieldRow("Level", IntInput(value = level,
-                            onChange = { level.value = it }, min = 0))
-                        fieldRow("Experience", IntInput(value = experience,
-                            onChange = { experience.value = it }, min = 0))
-                        fieldRow("Meseta/TP", IntInput(value = meseta,
+                        fieldRow("LCK", IntInput(value = lck,
+                            onChange = { lck.value = it }, min = 0, max = 65535))
+                        fieldRow("TP", IntInput(value = meseta,
                             onChange = { meseta.value = it }, min = 0))
+                        fieldRow("EXP", IntInput(value = experience,
+                            onChange = { experience.value = it }, min = 0))
+                        // Range / tech
+                        fieldRow("Range", DoubleInput(value = attackRange,
+                            onChange = { attackRange.value = it }, roundTo = 4))
+                        fieldRow("Knockback range", DoubleInput(value = knockbackRange,
+                            onChange = { knockbackRange.value = it }, roundTo = 4))
+                        fieldRow("Tech", IntInput(value = level,
+                            onChange = { level.value = it }, min = 0, max = 29))
                     }
                 }
             }

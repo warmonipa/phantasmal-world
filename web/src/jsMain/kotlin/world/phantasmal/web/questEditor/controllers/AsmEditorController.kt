@@ -70,6 +70,11 @@ class AsmEditorController(private val store: AsmStore) : Controller() {
         store.goToLabelRange(range)
     }
 
+    /** Scrolls the editor to whichever label carries [labelId]. No-op if unknown. */
+    fun navigateToLabel(labelId: Int) {
+        store.goToLabel(labelId)
+    }
+
     fun findRegisterMatches(regId: Int): Array<FindMatch> {
         val model = store.textModel.value ?: return emptyArray()
         // Match register reference like r0, r1, etc. as a word boundary token

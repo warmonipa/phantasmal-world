@@ -1,11 +1,15 @@
 package world.phantasmal.web.questEditor.rendering
 
 import org.w3c.dom.HTMLCanvasElement
+import world.phantasmal.cell.Cell
+import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
 import world.phantasmal.web.core.rendering.Renderer
 import world.phantasmal.web.externals.three.PerspectiveCamera
+import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.rendering.input.QuestInputManager
 import world.phantasmal.web.questEditor.stores.*
 
@@ -17,6 +21,9 @@ class QuestRenderer(
     playbackVisualizationStore: PlaybackVisualizationStore,
     viewportStore: ViewportStore,
     areaStore: AreaStore,
+    symbolChatColliRepository: SymbolChatColliRepository,
+    symbolChatTriggers: Cell<List<SymbolChatTriggerInfo>>,
+    readSegmentData: (Int) -> Buffer?,
     createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Renderer() {
     override val context = addDisposable(QuestRenderContext(
@@ -42,6 +49,9 @@ class QuestRenderer(
             playbackVisualizationStore,
             areaStore,
             context,
+            symbolChatColliRepository,
+            symbolChatTriggers,
+            readSegmentData,
         ),
     )
 

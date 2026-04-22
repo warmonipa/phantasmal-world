@@ -5,6 +5,7 @@ import world.phantasmal.cell.Cell
 import world.phantasmal.cell.cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.psolib.asm.EnemyResistData
 import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.controllers.DataEditorController
@@ -36,6 +37,8 @@ class EnemyResistDataDialog(
     private val edk = mutableCell(0)
     private val dfpBonus = mutableCell(0)
 
+    private val templateDialogVisible = mutableCell(false)
+
     init {
         val bodyElement = dialogElement.querySelector(".pw-dialog-body")
         bodyElement?.let { body ->
@@ -44,9 +47,23 @@ class EnemyResistDataDialog(
             body.appendChild(contentWidget.element)
         }
 
+        addDisposable(LoadTemplateDialog(
+            visible = templateDialogVisible,
+            repo = ctrl.battleParamRepository,
+            kind = LoadTemplateDialog.TemplateKind.Resist,
+            onApply = ::applyTemplate,
+            onDismiss = { templateDialogVisible.value = false },
+        ))
+
         val footerElement = dialogElement.querySelector(".pw-dialog-footer")
         footerElement?.let { footer ->
             footer.innerHTML = ""
+            val loadBtn = addDisposable(Button(
+                text = "Load template…",
+                enabled = ctrl.battleParamRepository.available,
+                onClick = { templateDialogVisible.value = true },
+            ))
+            footer.appendChild(loadBtn.element)
             val saveBtn = addDisposable(Button(
                 text = "OK",
                 enabled = map(ctrl.enabled, selectedLabel) { e, s -> e && s != null },
@@ -61,16 +78,19 @@ class EnemyResistDataDialog(
         dialogElement.style.maxHeight = "400px"
 
         // Auto-select label when dialog opens.
+        // See EnemyPhysicalDataDialog for why mutateDeferred is required here.
         observeNow(visible) { vis ->
             if (vis) {
-                val targetId = initialLabelId.value
-                val entries = labels.value
-                val entry = if (targetId != null) {
-                    entries.find { it.labelId == targetId }
-                } else {
-                    entries.firstOrNull()
+                mutateDeferred {
+                    val targetId = initialLabelId.value
+                    val entries = labels.value
+                    val entry = if (targetId != null) {
+                        entries.find { it.labelId == targetId }
+                    } else {
+                        entries.firstOrNull()
+                    }
+                    entry?.let(::loadLabel)
                 }
-                entry?.let(::loadLabel)
             }
         }
     }
@@ -108,6 +128,17 @@ class EnemyResistDataDialog(
         ctrl.writeSegmentData(entry.labelId, buf)
     }
 
+    private fun applyTemplate(lookup: LoadTemplateDialog.TemplateLookup) {
+        val data = lookup.table.resist(lookup.difficulty, lookup.slot)
+        evpBonus.value = data.evpBonus.toInt()
+        efr.value = data.efr.toInt()
+        eic.value = data.eic.toInt()
+        eth.value = data.eth.toInt()
+        elt.value = data.elt.toInt()
+        edk.value = data.edk.toInt()
+        dfpBonus.value = data.dfpBonus
+    }
+
     private inner class Content : Widget() {
         override fun Node.createElement() =
             div {
@@ -128,20 +159,25 @@ class EnemyResistDataDialog(
                     className = "pw-data-editor-table"
 
                     tbody {
-                        fieldRow("EVP Bonus", IntInput(value = evpBonus,
-                            onChange = { evpBonus.value = it }))
-                        fieldRow("EFR (Fire)", IntInput(value = efr,
+                        // 5 elemental resistances (0..65535) plus the two
+                        // signed short DFP/EVP bonuses. The bonuses were
+                        // loaded/saved but not editable in a previous
+                        // iteration — restore the UI rows so every resolved
+                        // field on the Cell/data round-trip is user-editable.
+                        fieldRow("EFR", IntInput(value = efr,
                             onChange = { efr.value = it }, min = 0, max = 65535))
-                        fieldRow("EIC (Ice)", IntInput(value = eic,
+                        fieldRow("EIC", IntInput(value = eic,
                             onChange = { eic.value = it }, min = 0, max = 65535))
-                        fieldRow("ETH (Thunder)", IntInput(value = eth,
+                        fieldRow("ETH", IntInput(value = eth,
                             onChange = { eth.value = it }, min = 0, max = 65535))
-                        fieldRow("ELT (Light)", IntInput(value = elt,
+                        fieldRow("ELT", IntInput(value = elt,
                             onChange = { elt.value = it }, min = 0, max = 65535))
-                        fieldRow("EDK (Dark)", IntInput(value = edk,
+                        fieldRow("EDK", IntInput(value = edk,
                             onChange = { edk.value = it }, min = 0, max = 65535))
                         fieldRow("DFP Bonus", IntInput(value = dfpBonus,
                             onChange = { dfpBonus.value = it }))
+                        fieldRow("EVP Bonus", IntInput(value = evpBonus,
+                            onChange = { evpBonus.value = it }))
                     }
                 }
             }

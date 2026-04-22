@@ -406,11 +406,17 @@ enum class ObjectType(
             Episode.IV to listOf(1, 2, 3, 4, 5, 6, 7, 8, 0),
         ),
         typeId = 33,
+        // 3 spec slots, each packing (sc_index : low u16, switch_flag : high u16).
+        // The display order matches qedit (FEdit.pas:561) and the spec semantics
+        // are documented in newserv Map.cc TOSymbolchatColli.
         properties = listOf(
-            EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Switch ID 1", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "SC ID 1", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Switch ID 2", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Radius",        offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "SC ID 1",       offset = 52, type = EntityPropType.U16),
+            EntityProp(name = "SC Flag 1", offset = 54, type = EntityPropType.U16),
+            EntityProp(name = "SC ID 2",       offset = 56, type = EntityPropType.U16),
+            EntityProp(name = "SC Flag 2", offset = 58, type = EntityPropType.U16),
+            EntityProp(name = "SC ID 3",       offset = 60, type = EntityPropType.U16),
+            EntityProp(name = "SC Flag 3", offset = 62, type = EntityPropType.U16),
         ),
     ),
     TouchPlateObject(
@@ -2228,7 +2234,7 @@ enum class ObjectType(
             EntityProp(name = "Model", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Arc", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Switch flag", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "SC Flag", offset = 60, type = EntityPropType.I32),
         ),
     ),
     LaserDetect(

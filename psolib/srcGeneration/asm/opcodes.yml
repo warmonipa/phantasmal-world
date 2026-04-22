@@ -2931,6 +2931,24 @@ opcodes:
     params:
       - type: reg
         registers:
+          - type: float
+            read: true
+          - type: float
+            read: true
+          - type: float
+            read: true
+          - type: float
+            read: true
+          - type: int
+            read: true
+          - type: int
+            read: true
+          - type: int
+            read: true
+          - type: int
+            read: true
+          - type: int
+            read: true
           - type: int
             read: true
 

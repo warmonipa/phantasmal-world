@@ -15,6 +15,7 @@ import world.phantasmal.webui.dom.*
 import world.phantasmal.webui.widgets.*
 
 class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled = ctrl.enabled) {
+
     override fun Node.createElement() =
         div {
             className = "pw-quest-editor-entity-info"

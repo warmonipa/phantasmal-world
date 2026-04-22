@@ -59,6 +59,7 @@ class QuestModel(
     private val _cmConfigPool = mutableListCell(cmConfigPool)
     private val _cmDataRevision: MutableCell<Int> = mutableCell(0)
     private val _floorMappingRevision: MutableCell<Int> = mutableCell(0)
+    private val _bytecodeRevision: MutableCell<Int> = mutableCell(0)
     private val _areaVariants = mutableListCell<AreaVariantModel>()
 
     val id: Cell<Int> = _id
@@ -141,6 +142,15 @@ class QuestModel(
 
     var bytecodeIr: BytecodeIr = bytecodeIr
         private set
+
+    /**
+     * Ticks on every [setBytecodeIr] call. Downstream views derived from
+     * the bytecode (trigger analysis, data-label typing, inline preview,
+     * 3D trigger rings) depend on this so they refresh after ASM edits
+     * settle into a new bytecodeIr — `currentQuest` only re-emits on
+     * quest load, which isn't enough to catch in-place reassembles.
+     */
+    val bytecodeRevision: Cell<Int> = _bytecodeRevision
 
     init {
         setId(id)
@@ -296,6 +306,7 @@ class QuestModel(
 
     fun setBytecodeIr(bytecodeIr: BytecodeIr) {
         this.bytecodeIr = bytecodeIr
+        _bytecodeRevision.value++
     }
 
     fun addCmRandomSpawn(spawn: DatCmRandomSpawn) {

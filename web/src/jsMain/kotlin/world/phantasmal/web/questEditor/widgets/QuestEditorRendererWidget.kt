@@ -14,10 +14,13 @@ import world.phantasmal.cell.mutableCell
 import world.phantasmal.cell.observeNow
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.Disposer
+import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.controllers.AreaNpcListController
 import world.phantasmal.web.questEditor.controllers.AreaObjectListController
 import world.phantasmal.web.questEditor.controllers.MonsterRandomnessController
+import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
+import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.questEditor.rendering.QuestRenderer
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
@@ -39,14 +42,22 @@ class QuestEditorRendererWidget(
     private val monsterRandomnessCtrl: MonsterRandomnessController,
     private val areaNpcListCtrl: AreaNpcListController,
     private val areaObjectListCtrl: AreaObjectListController,
+    private val symbolChatColliRepository: SymbolChatColliRepository,
 ) : QuestRendererWidget(renderer, mouseWorldPosition, playbackActionText) {
 
     private val monsterRandomnessDialogVisible = mutableCell(false)
+    private val editSymbolChatPopupVisible = mutableCell(false)
     private var contextMenuPopup: HTMLDivElement? = null
     private var documentMouseDownListener: Disposable? = null
     private var documentKeyDownListener: Disposable? = null
 
     override fun interceptElement(element: HTMLElement) {
+        // Whether the current selection is a SymbolChatObject
+        val isSymbolChatObjectSelected: Cell<Boolean> =
+            questEditorStore.selectedEntity.map {
+                it is QuestObjectModel && it.type == ObjectType.SymbolChatObject
+            }
+
         // Whether the current area/variant has any CM data
         val hasCmData: Cell<Boolean> = map(
             questEditorStore.currentQuest,
@@ -171,10 +182,12 @@ class QuestEditorRendererWidget(
                     }
                 }
 
-                // Separator (only visible when quest has CM data)
+                // Separator shown when any contextual action below is visible.
+                val hasContextualAction: Cell<Boolean> =
+                    map(hasCmData, isSymbolChatObjectSelected) { cm, sc -> cm || sc }
                 div {
                     className = "pw-toolbar-menu-separator"
-                    observeNow(hasCmData) { hidden = !it }
+                    observeNow(hasContextualAction) { hidden = !it }
                 }
 
                 // Monster Randomness... action (only visible when quest has CM data)
@@ -190,6 +203,22 @@ class QuestEditorRendererWidget(
                     onclick = {
                         viewportStore.dismissContextMenu()
                         monsterRandomnessDialogVisible.value = true
+                    }
+                }
+
+                // Edit symbol chat... action (only visible when a SymbolChatObject is selected)
+                div {
+                    className = "pw-toolbar-menu-item"
+                    observeNow(isSymbolChatObjectSelected) { hidden = !it }
+
+                    span {
+                        className = "pw-toolbar-menu-item-label"
+                        textContent = "Edit symbol chat..."
+                    }
+
+                    onclick = {
+                        viewportStore.dismissContextMenu()
+                        editSymbolChatPopupVisible.value = true
                     }
                 }
             }
@@ -266,6 +295,15 @@ class QuestEditorRendererWidget(
                 mrDialog.dialogElement.style.transform = "translate(${x}px, ${y}px)"
             }
         }
+
+        // Symbol Chat Edit Popup (triggered by the context menu action).
+        // The popup handles its own sizing and centering internally.
+        addDisposable(SymbolChatEditPopup(
+            visible = editSymbolChatPopupVisible,
+            questEditorStore = questEditorStore,
+            symbolChatColliRepository = symbolChatColliRepository,
+            onDismiss = { editSymbolChatPopupVisible.value = false },
+        ))
 
         // --- Area NPC/Object overlay panels (slide-in from right edge on hover) ---
         val overlayContainer = dom {

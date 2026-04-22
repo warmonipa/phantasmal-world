@@ -224,6 +224,7 @@ class EntityInfoController(
             entity?.properties?.listMap { prop ->
                 when (prop.type) {
                     EntityPropType.I32 -> EntityInfoPropModel.I32(questEditorStore, prop)
+                    EntityPropType.U16 -> EntityInfoPropModel.I32(questEditorStore, prop)
                     EntityPropType.F32 -> EntityInfoPropModel.F32(questEditorStore, prop)
                     EntityPropType.Angle -> EntityInfoPropModel.Angle(questEditorStore, prop)
                 }

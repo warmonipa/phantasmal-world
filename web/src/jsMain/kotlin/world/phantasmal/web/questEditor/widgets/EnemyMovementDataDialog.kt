@@ -5,6 +5,7 @@ import world.phantasmal.cell.Cell
 import world.phantasmal.cell.cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.psolib.asm.EnemyMovementData
 import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.controllers.DataEditorController
@@ -41,6 +42,8 @@ class EnemyMovementDataDialog(
     private val i5 = mutableCell(0)
     private val i6 = mutableCell(0)
 
+    private val templateDialogVisible = mutableCell(false)
+
     init {
         val bodyElement = dialogElement.querySelector(".pw-dialog-body")
         bodyElement?.let { body ->
@@ -49,9 +52,23 @@ class EnemyMovementDataDialog(
             body.appendChild(contentWidget.element)
         }
 
+        addDisposable(LoadTemplateDialog(
+            visible = templateDialogVisible,
+            repo = ctrl.battleParamRepository,
+            kind = LoadTemplateDialog.TemplateKind.Movement,
+            onApply = ::applyTemplate,
+            onDismiss = { templateDialogVisible.value = false },
+        ))
+
         val footerElement = dialogElement.querySelector(".pw-dialog-footer")
         footerElement?.let { footer ->
             footer.innerHTML = ""
+            val loadBtn = addDisposable(Button(
+                text = "Load template…",
+                enabled = ctrl.battleParamRepository.available,
+                onClick = { templateDialogVisible.value = true },
+            ))
+            footer.appendChild(loadBtn.element)
             val saveBtn = addDisposable(Button(
                 text = "OK",
                 enabled = map(ctrl.enabled, selectedLabel) { e, s -> e && s != null },
@@ -66,16 +83,19 @@ class EnemyMovementDataDialog(
         dialogElement.style.maxHeight = "500px"
 
         // Auto-select label when dialog opens.
+        // See EnemyPhysicalDataDialog for why mutateDeferred is required here.
         observeNow(visible) { vis ->
             if (vis) {
-                val targetId = initialLabelId.value
-                val entries = labels.value
-                val entry = if (targetId != null) {
-                    entries.find { it.labelId == targetId }
-                } else {
-                    entries.firstOrNull()
+                mutateDeferred {
+                    val targetId = initialLabelId.value
+                    val entries = labels.value
+                    val entry = if (targetId != null) {
+                        entries.find { it.labelId == targetId }
+                    } else {
+                        entries.firstOrNull()
+                    }
+                    entry?.let(::loadLabel)
                 }
-                entry?.let(::loadLabel)
             }
         }
     }
@@ -121,6 +141,22 @@ class EnemyMovementDataDialog(
         )
         data.writeTo(buf)
         ctrl.writeSegmentData(entry.labelId, buf)
+    }
+
+    private fun applyTemplate(lookup: LoadTemplateDialog.TemplateLookup) {
+        val data = lookup.table.movement(lookup.difficulty, lookup.slot)
+        f1.value = data.f1.toDouble()
+        f2.value = data.f2.toDouble()
+        f3.value = data.f3.toDouble()
+        f4.value = data.f4.toDouble()
+        f5.value = data.f5.toDouble()
+        f6.value = data.f6.toDouble()
+        i1.value = data.i1
+        i2.value = data.i2
+        i3.value = data.i3
+        i4.value = data.i4
+        i5.value = data.i5
+        i6.value = data.i6
     }
 
     private inner class Content : Widget() {

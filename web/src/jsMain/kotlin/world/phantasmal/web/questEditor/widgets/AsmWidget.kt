@@ -9,8 +9,10 @@ import world.phantasmal.psolib.asm.Opcode
 import world.phantasmal.cell.map
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.questEditor.asm.DataLabelType
 import world.phantasmal.web.questEditor.controllers.AsmEditorController
 import world.phantasmal.web.questEditor.controllers.DataEditorController
+import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.shared.messages.SegmentInfoType
 import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.webui.dom.div
@@ -22,6 +24,7 @@ class AsmWidget(
     private val ctrl: AsmEditorController,
     private val dataEditorCtrl: DataEditorController,
     private val charClassAssetLoader: CharacterClassAssetLoader,
+    private val symbolChatColliRepository: SymbolChatColliRepository,
     private val createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Widget() {
     private lateinit var editorWidget: AsmEditorWidget
@@ -40,6 +43,19 @@ class AsmWidget(
     val attackDataDialogVisible = mutableCell(false)
     val resistDataDialogVisible = mutableCell(false)
     val movementDataDialogVisible = mutableCell(false)
+    val floatDataDialogVisible = mutableCell(false)
+    val vectorDataDialogVisible = mutableCell(false)
+    val symbolChatDialogVisible = mutableCell(false)
+    val symbolChatHexDialogVisible = mutableCell(false)
+
+    /**
+     * One-shot hand-off from the context-menu action to whichever dialog is
+     * about to open: `openDataDialog` writes this cell and then flips the
+     * matching *DialogVisible* cell, so the dialog sees the target id during
+     * its visibility observer. All the data-editor dialogs share this one
+     * cell — which works because only ever one dialog is visible at a time.
+     * Do not rely on it to drive concurrent dialogs.
+     */
     val initialLabelId = mutableCell<Int?>(null)
 
     override fun Node.createElement() =
@@ -52,7 +68,7 @@ class AsmWidget(
             div {
                 className = "pw-asm-editor-area"
 
-                editorWidget = addChild(AsmEditorWidget(ctrl, dataEditorCtrl, this@AsmWidget))
+                editorWidget = addChild(AsmEditorWidget(ctrl, dataEditorCtrl, this@AsmWidget, symbolChatColliRepository))
 
                 // Overlay panels (slide-in from right)
                 div {
@@ -97,6 +113,31 @@ class AsmWidget(
                 ctrl = dataEditorCtrl,
                 onDismiss = { movementDataDialogVisible.value = false },
                 initialLabelId = initialLabelId,
+            ))
+            addChild(FloatDataDialog(
+                visible = floatDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { floatDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(VectorDataDialog(
+                visible = vectorDataDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { vectorDataDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(SymbolChatDialog(
+                visible = symbolChatDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { symbolChatDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+            ))
+            addChild(SymbolChatDialog(
+                visible = symbolChatHexDialogVisible,
+                ctrl = dataEditorCtrl,
+                onDismiss = { symbolChatHexDialogVisible.value = false },
+                initialLabelId = initialLabelId,
+                labelType = DataLabelType.SymbolChatHexData,
             ))
         }
 
@@ -525,6 +566,15 @@ class AsmWidget(
                 .pw-asm-opcode-list {
                     max-height: 350px;
                     overflow-y: auto;
+                }
+
+                /* Shared by FloatDataDialog / VectorDataDialog and any other
+                   data-editor dialog that surfaces parse errors. */
+                .pw-data-editor-error {
+                    color: #ff8080;
+                    font-size: 11px;
+                    min-height: 14px;
+                    padding: 2px 0;
                 }
             """.trimIndent())
         }
