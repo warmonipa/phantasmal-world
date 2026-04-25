@@ -338,18 +338,27 @@ class QuestInputManager(
 
     private fun updateMouseWorldPosition() {
         try {
-            // Set up raycaster from camera through mouse position
-            raycaster.setFromCamera(pointerDevicePosition, renderContext.camera)
+            // Pick the actual scene geometry so the readout reflects real terrain height
+            // (PSO maps almost never sit at Y=0). Try collision geometry first because it's
+            // the canonical "where the floor is" data, then render geometry, then fall back
+            // to the Y=0 plane only when the ray misses geometry entirely (e.g. pointing
+            // into the sky).
+            val hit = stateContext.intersectObject(
+                pointerDevicePosition,
+                renderContext.collisionGeometry,
+            ) ?: stateContext.intersectObject(
+                pointerDevicePosition,
+                renderContext.renderGeometry,
+            )
 
-            // Intersect with ground plane (Y = 0)
-            val intersected = raycaster.ray.intersectPlane(groundPlane, intersectionPoint)
-
-            if (intersected != null) {
-                // Clone before storing — intersectionPoint is reused across events.
-                viewportStore.setMouseWorldPosition(intersected.clone())
+            val worldPos = if (hit != null) {
+                hit.point.clone()
             } else {
-                viewportStore.setMouseWorldPosition(null)
+                raycaster.setFromCamera(pointerDevicePosition, renderContext.camera)
+                raycaster.ray.intersectPlane(groundPlane, intersectionPoint)?.clone()
             }
+
+            viewportStore.setMouseWorldPosition(worldPos)
         } catch (e: Exception) {
             // If there's any error, clear the position
             viewportStore.setMouseWorldPosition(null)

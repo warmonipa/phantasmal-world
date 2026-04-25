@@ -9,6 +9,7 @@ import world.phantasmal.cell.mutableCell
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
@@ -44,6 +45,10 @@ class QuestModel(
     bytecodeIr: BytecodeIr,
     val shopItems: UIntArray,
     floorMappings: List<FloorMapping>,
+    /**
+     * `particle_v3` script invocations whose arguments could be statically resolved.
+     */
+    val particleSpawns: List<ParticleSpawn>,
     private val getVariant: (Episode, areaId: Int, variantId: Int) -> AreaVariantModel?,
 ) {
     private val _id = mutableCell(0)

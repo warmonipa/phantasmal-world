@@ -57,6 +57,7 @@ fun convertQuestToModel(
         quest.bytecodeIr,
         quest.shopItems,
         quest.floorMappings,
+        quest.particleSpawns,
         getVariant,
     )
 
@@ -115,4 +116,5 @@ fun convertQuestFromModel(quest: QuestModel, bytecodeIrOverride: BytecodeIr? = n
         bytecodeIrOverride ?: quest.bytecodeIr,
         quest.shopItems,
         quest.floorMappings,
+        particleSpawns = quest.particleSpawns,
     )

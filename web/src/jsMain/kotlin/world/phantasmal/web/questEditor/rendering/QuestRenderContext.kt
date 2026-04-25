@@ -26,6 +26,15 @@ class QuestRenderContext(
         scene.add(this)
     }
 
+    /**
+     * Static markers for `particle_v3` script invocation sites. Pickable via raycaster but not
+     * directly manipulable.
+     */
+    val particleMarkers: Object3D = Group().apply {
+        name = "Particle Markers"
+        scene.add(this)
+    }
+
     var collisionGeometryVisible = true
         set(visible) {
             field = visible

@@ -18,7 +18,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         ObjectType.Particle -> {
             data.setShort(4, 5639)
             data.setShort(6, 10)
-            data.setFloat(40, 38f) // Scale x
+            data.setFloat(40, 38f) // Particle type (param1, per newserv TObjParticle)
             data.setInt(64, 1351475840)
         }
 

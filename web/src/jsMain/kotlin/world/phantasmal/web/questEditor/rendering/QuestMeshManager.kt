@@ -8,6 +8,7 @@ import world.phantasmal.cell.list.ListChangeEvent
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.models.AreaVariantModel
@@ -57,6 +58,7 @@ abstract class QuestMeshManager protected constructor(
             enableSectionLabels = false
         ) // Object manager doesn't handle section labels
     )
+    private val particleMarkerManager = addDisposable(ParticleMarkerManager(renderContext))
 
     // Origin point rendering
     private val originPointRenderer = OriginPointRenderer()
@@ -114,6 +116,10 @@ abstract class QuestMeshManager protected constructor(
 
             objectObserver = objects.observeListChange(::objectsChanged)
         }
+    }
+
+    protected fun loadParticleMarkers(spawns: List<ParticleSpawn>) {
+        particleMarkerManager.setSpawns(spawns)
     }
 
     private fun npcsChanged(event: ListChangeEvent<QuestNpcModel>) {

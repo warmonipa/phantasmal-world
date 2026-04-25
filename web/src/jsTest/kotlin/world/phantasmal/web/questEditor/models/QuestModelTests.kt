@@ -147,6 +147,7 @@ class QuestModelTests : WebTestSuite {
             bytecodeIr = BytecodeIr(emptyList()),
             shopItems = UIntArray(0),
             floorMappings = floorMappings,
+            particleSpawns = emptyList(),
             getVariant = components.areaStore::getVariant,
         )
 
@@ -201,6 +202,7 @@ class QuestModelTests : WebTestSuite {
             bytecodeIr = BytecodeIr(emptyList()),
             shopItems = UIntArray(0),
             floorMappings = floorMappings,
+            particleSpawns = emptyList(),
             getVariant = components.areaStore::getVariant,
         )
 

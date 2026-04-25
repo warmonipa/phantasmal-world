@@ -4,6 +4,7 @@ import mu.KotlinLogging
 import world.phantasmal.core.asJsArray
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.flatMapNull
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.fileFormats.ninja.XjObject
 import world.phantasmal.web.core.dot
 import world.phantasmal.web.core.minusAssign
@@ -215,6 +216,20 @@ class StateContext(
             quest,
             entity,
         ))
+    }
+
+    /**
+     * Returns the [ParticleSpawn] under the pointer (if any). Used for the hover tooltip on
+     * particle markers.
+     *
+     * @param pointerPosition pointer coordinates in normalized device space.
+     */
+    fun pickParticle(pointerPosition: Vector2): ParticleSpawn? {
+        val intersection = intersectObject(
+            pointerPosition,
+            renderContext.particleMarkers,
+        ) { it.`object`.visible }
+        return intersection?.`object`?.userData as? ParticleSpawn
     }
 
     /**

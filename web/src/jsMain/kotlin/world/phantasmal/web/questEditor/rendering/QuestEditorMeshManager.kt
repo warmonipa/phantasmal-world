@@ -106,6 +106,10 @@ class QuestEditorMeshManager(
             )
         }
 
+        observeNow(questEditorStore.currentQuest) { quest ->
+            loadParticleMarkers(quest?.particleSpawns ?: emptyList())
+        }
+
         observeNow(questEditorUiStore.showCollisionGeometry) {
             renderContext.collisionGeometryVisible = it
             renderContext.renderGeometryVisible = !it

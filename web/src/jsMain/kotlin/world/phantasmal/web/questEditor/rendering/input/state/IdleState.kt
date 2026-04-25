@@ -116,6 +116,7 @@ class IdleState(
             is PointerOutEvt -> {
                 ctx.setHighlightedEntity(null)
                 shouldCheckHighlight = false
+                ctx.renderContext.canvas.title = ""
             }
 
             is EntityDragEnterEvt -> {
@@ -136,6 +137,17 @@ class IdleState(
     override fun beforeRender() {
         if (shouldCheckHighlight) {
             ctx.setHighlightedEntity(pickEntity(pointerDevicePosition)?.entity)
+
+            // Update particle marker tooltip via the canvas's title attribute. The browser
+            // shows a native tooltip after the user hovers for ~1s.
+            val particle = ctx.pickParticle(pointerDevicePosition)
+            ctx.renderContext.canvas.title = if (particle != null) {
+                "Particle ${particle.particleId} @ (${particle.x}, ${particle.y}, ${particle.z}) " +
+                        "for ${particle.frames} frames"
+            } else {
+                ""
+            }
+
             shouldCheckHighlight = false
         }
     }

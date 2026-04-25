@@ -25,9 +25,9 @@ abstract class QuestRendererWidget(
                 Label(
                 textCell = mouseWorldPosition.map { position ->
                     if (position != null) {
-                        "World Position: (${position.x.asDynamic().toFixed(1)}, ${
-                            position.y.asDynamic().toFixed(1)
-                        }, ${position.z.asDynamic().toFixed(1)})"
+                        "World Position: (${formatCoord(position.x)}, " +
+                                "${formatCoord(position.y)}, " +
+                                "${formatCoord(position.z)})"
                     } else {
                         "World Position: (--, --, --)"
                     }
@@ -43,6 +43,12 @@ abstract class QuestRendererWidget(
                 element.className += " pw-quest-editor-playback-action"
             })
         }
+
+    private fun formatCoord(v: Double): String {
+        // Normalize -0.0 → 0.0 so the readout doesn't show "-0.0".
+        val n = if (v == 0.0) 0.0 else v
+        return n.asDynamic().toFixed(1).unsafeCast<String>()
+    }
 
     companion object {
         init {

@@ -41,6 +41,15 @@ enum class ObjectType(
             Episode.IV to listOf(1, 2, 3, 4, 5, 6, 7, 8, 0),
         ),
         typeId = 1,
+        // TObjParticle params per newserv ObjectClasses.cc.
+        properties = listOf(
+            EntityProp(name = "Particle type", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Param 2", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Param 3", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Long range (1=1500)", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Param 5", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Param 6", offset = 60, type = EntityPropType.I32),
+        ),
     ),
     Teleporter(
         uniqueName = "Teleporter",

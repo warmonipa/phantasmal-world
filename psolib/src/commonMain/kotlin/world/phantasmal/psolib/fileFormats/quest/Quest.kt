@@ -8,7 +8,9 @@ import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.OP_SET_EPISODE
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getFloorMappings
+import world.phantasmal.psolib.asm.dataFlowAnalysis.getParticleSpawns
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.compression.prs.prsCompress
 import world.phantasmal.psolib.compression.prs.prsDecompress
@@ -49,6 +51,10 @@ class Quest(
     var shiftJis: Boolean = false,
     /** BIN format detected during parsing. Used to restore the correct version on save. */
     var binFormat: BinFormat = BinFormat.BB,
+    /**
+     * `particle_v3` script invocations whose arguments could be statically resolved.
+     */
+    val particleSpawns: List<ParticleSpawn> = emptyList(),
 )
 
 /**
@@ -104,6 +110,7 @@ fun parseBinDatToQuest(
     // Extract episode and map designations from byte code.
     var episode = Episode.I
     var floorMappings = emptyList<FloorMapping>()
+    var particleSpawns: List<ParticleSpawn> = emptyList()
 
     val parseBytecodeResult = parseBytecode(
         bin.bytecode,
@@ -142,10 +149,17 @@ fun parseBinDatToQuest(
                 npc.episode = episode
             }
 
-            // Extract floor mappings from all instruction segments
-            floorMappings = getFloorMappings(instructionSegments) {
-                ControlFlowGraph.create(bytecodeIr)
+            // Build the CFG once and reuse it across all bytecode analyses.
+            var cfg: ControlFlowGraph? = null
+            val createCfg = {
+                cfg ?: ControlFlowGraph.create(bytecodeIr).also { cfg = it }
             }
+
+            // Extract floor mappings from all instruction segments
+            floorMappings = getFloorMappings(instructionSegments, createCfg)
+
+            // Extract `particle_v3` spawn sites from all instruction segments.
+            particleSpawns = getParticleSpawns(instructionSegments, createCfg)
 
             // Update NPC gameAreaId based on floor mappings from map_designate instructions
             // gameAreaId is used for NPC type detection, while areaId remains as floorId for variant mapping
@@ -197,6 +211,7 @@ fun parseBinDatToQuest(
         bytecodeOffset = bin.bytecodeOffset,
         shiftJis = bin.shiftJis,
         binFormat = bin.format,
+        particleSpawns = particleSpawns,
     ))
 }
 
