@@ -11,7 +11,10 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class InspectUnknownOpcodes : LibTestSuite {
-    private val gameDataDir = File("D:/PSO/EphineaPSO2/data")
+    // Override with PSO_GAME_DATA_DIR; defaults to a path that exists on the original author's
+    // machine. Test skips cleanly when the directory is absent (see early-return below).
+    private val gameDataDir =
+        File(System.getenv("PSO_GAME_DATA_DIR") ?: "D:/PSO/EphineaPSO2/data")
 
     @Test
     fun inspect() = testAsync {

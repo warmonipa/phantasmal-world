@@ -5,6 +5,7 @@ import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.test.LibTestSuite
+import world.phantasmal.psolib.test.readFile
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -21,9 +22,11 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun scanAllQuests() = testAsync {
-        val roots = listOf(
-            File("/Users/wangzhen/study/phantasmal-world/psolib/src/commonTest/resources/tethealla_v0.143_quests"),
-            File("/Users/wangzhen/Documents/qedit/Quests"),
+        // Bulk scan against any large local quest archives the developer happens to have.
+        // None of these paths are required — the test gracefully reports zero hits when
+        // the directories are absent (e.g. on CI or another developer's machine).
+        val roots = listOfNotNull(
+            System.getenv("PSO_QUEST_DIR")?.let(::File),
         )
         val hits = mutableListOf<Pair<File, Int>>()
         var total = 0; var parsed = 0; var failed = 0
@@ -57,10 +60,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspectGeneratedTestQst() = testAsync {
-        val path = "/Users/wangzhen/study/phantasmal-world/psolib/src/commonTest/resources/symbol_chat_test.qst"
-        val file = File(path)
-        if (!file.exists()) { println("Skip: $path missing"); return@testAsync }
-        val res = parseQstToQuest(Buffer.fromByteArray(file.readBytes()).cursor(), lenient = true)
+        val res = parseQstToQuest(readFile("/symbol_chat_test.qst"), lenient = true)
         assertTrue(res is Success)
         val q = res.value.quest
 
@@ -117,10 +117,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspectFull() = testAsync {
-        val path = "/Users/wangzhen/Documents/qedit/Quests/sc/quest143_e.qst"
-        val file = File(path)
-        val buf = Buffer.fromByteArray(file.readBytes())
-        val res = parseQstToQuest(buf.cursor(), lenient = true)
+        val res = parseQstToQuest(readFile("/quest143_e.qst"), lenient = true)
         assertTrue(res is Success)
         val q = res.value.quest
 
@@ -159,12 +156,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspect() = testAsync {
-        val path = "/Users/wangzhen/Documents/qedit/Quests/sc/quest143_e.qst"
-        val file = File(path)
-        assertTrue(file.exists(), "Quest not found: $path")
-
-        val buf = Buffer.fromByteArray(file.readBytes())
-        val parseResult = parseQstToQuest(buf.cursor(), lenient = true)
+        val parseResult = parseQstToQuest(readFile("/quest143_e.qst"), lenient = true)
         assertTrue(parseResult is Success, "parse failed: ${parseResult.problems}")
         val quest = parseResult.value.quest
 
