@@ -917,16 +917,24 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "position X"
             read: true
           - type: any
+            name: "position Y"
             read: true
           - type: any
+            name: "position Z"
             read: true
           - type: ilabel
+            name: "angle"
             read: true
           - type: any
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
             read: true
           - type: any
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
             read: true
 
   - code: 0x68
@@ -975,6 +983,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "destination X"
             read: true
 
   - code: 0x6e
@@ -1057,6 +1066,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "position X"
             read: true
 
   - code: 0x7a
@@ -1091,6 +1101,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "position X"
             read: true
 
   - code: 0x7e
@@ -1108,6 +1119,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "position X"
             read: true
 
   - code: 0x80
@@ -1136,14 +1148,21 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "destination X"
             read: true
           - type: int
+            name: "destination Y"
             read: true
           - type: int
+            name: "destination Z"
             read: true
           - type: int
+            name: "pan time"
+            doc: "pan time (in frames; 30 frames/sec)"
             read: true
           - type: int
+            name: "end time"
+            doc: "end time (in frames; 30 frames/sec)"
             read: true
 
   - code: 0x85
@@ -1186,8 +1205,10 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "floor number"
             read: true
           - type: int
+            name: "room ID"
             read: true
 
   - code: 0x89
@@ -1206,10 +1227,13 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "floor"
             read: true
           - type: int
+            name: "room ID"
             read: true
           - type: int
+            name: "group"
             read: true
 
   - code: 0x8b
@@ -1233,14 +1257,19 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
           - type: int
+            name: "location Y"
             read: true
           - type: int
+            name: "location Z"
             read: true
           - type: int
+            name: "radius"
             read: true
           - type: ilabel
+            name: "label index where thread should start"
             read: true
 
   - code: 0x8d
@@ -1284,6 +1313,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
 
   - code: 0x90
@@ -1366,6 +1396,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "check location X"
             read: true
 
   - code: 0x98
@@ -1434,6 +1465,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
 
   - code: 0xb0
@@ -1466,6 +1498,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-2] [0]"
             read: true
       - type: reg
         registers:
@@ -1496,6 +1529,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-11] for deleted item [0]"
             read: true
 
   - code: 0xb6
@@ -1505,14 +1539,18 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-2] to search for [0]"
             read: true
           - type: int
+            name: "item.data1[0-2] to search for [1]"
             read: true
           - type: int
+            name: "item.data1[0-2] to search for [2]"
             read: true
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-11] for deleted item [0]"
             write: true
 
   - code: 0xb7
@@ -1522,6 +1560,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-2] to search for, as above [0]"
             read: true
       - type: reg
         registers:
@@ -1571,6 +1610,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
 
   - code: 0xc1
@@ -1578,7 +1618,11 @@ opcodes:
     doc: "Specifies what NPCs should say in various situations. This opcode sets strings for all NPCs; to set strings for only specific NPCs, use npc_text_id (on v3 and later). valueA = situation number: 00: NPC engaging in combat 01: NPC in danger (HP <= 75% if near player, <= 25% if far away?) 02: NPC casting any technique except those in cases 16 and 17 below 03: NPC has 20% or less TP 04: NPC died 05: NPC has been dead for a while 06: Unknown (possibly unused) 07: NPC lost sight of player 08: NPC locked on to an enemy 09: Player received a status effect 0A: Unknown (possibly unused) 0B: NPC standing still for 3 minutes 0C: Player in danger? (Like 01 but players reversed?) 0D: NPC completed 3-hit combo 0E: NPC hit for > 30% of max HP 0F: NPC hit for > 20% of max HP (and <= 30%) 10: NPC hit for > 1% of max HP (and <= 20%) 11: NPC healed by another player 12: Room cleared (wave cleared which did not trigger another wave) 13: NPC used a recovery item 14: NPC cannot heal / recover 15: Wave but not room cleared (wave triggered by another wave) 16: NPC casting Resta or Anti 17: NPC casting Foie, Zonde, or Barta 18: NPC regained sight of player (not valid on 11/2000) strB = string for NPC to say (up to 52 characters)"
     params:
       - type: int
+        name: "situation number"
+        doc: "situation number:"
       - type: string
+        name: "string for NPC to say"
+        doc: "string for NPC to say (up to 52 characters)"
     stack: pop
 
   - code: 0xc2
@@ -1598,12 +1642,18 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "floor number"
             read: true
           - type: int
+            name: "type"
+            doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
             read: true
           - type: int
+            name: "major variation"
+            doc: "major variation (minor variation is set to zero)"
             read: true
           - type: int
+            name: "ignored"
             read: true
 
   - code: 0xc5
@@ -1647,8 +1697,12 @@ opcodes:
     doc: "Creates an item in the quest board. valueA = index of item (0-5) labelB = label to call when selected strC = name of item in the Quest Board window Executing this opcode is not enough for the item to appear! The item only appears if its corresponding display register is also set to 1. The display registers are r74-r79 (for QB indexes 0-5, respectively)."
     params:
       - type: int
+        name: "index of item"
+        doc: "index of item (0-5)"
       - type: ilabel
+        name: "label to call when selected"
       - type: string
+        name: "name of item in the Quest Board window"
     stack: pop
 
   - code: 0xcc
@@ -1665,12 +1719,18 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "effect type"
             read: true
           - type: int
+            name: "duration in frames"
             read: true
           - type: int
+            name: "entity"
+            doc: "entity (client ID, 0x1000 + enemy ID, or 0x4000 + object ID)"
             read: true
           - type: int
+            name: "y offset"
+            doc: "y offset (as integer)"
             read: true
 
   - code: 0xce
@@ -1680,6 +1740,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "position X"
             read: true
 
   - code: 0xcf
@@ -1779,6 +1840,8 @@ opcodes:
       - type: reg
         registers:
           - type: any
+            name: "item.data1[0-5] [0]"
+            doc: "item.data1[0-5] (bank item must exactly match all bytes)"
             read: true
       - type: reg
         registers:
@@ -1794,6 +1857,8 @@ opcodes:
           - type: int
             read: true
       - type: int
+        name: "NPC template to modify"
+        doc: "NPC template to modify (00-3F)"
     stack: pop
 
   - code: 0xe0
@@ -1815,6 +1880,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "relative location of focus point from player [0]"
             read: true
 
   - code: 0xe3
@@ -1903,6 +1969,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "switch flag number"
             read: true
 
   - code: 0xed
@@ -1940,16 +2007,22 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "camera location X"
             read: true
           - type: int
+            name: "camera location Y"
             read: true
           - type: int
+            name: "camera location Z"
             read: true
           - type: int
+            name: "camera focus location X"
             read: true
           - type: int
+            name: "camera focus location Y"
             read: true
           - type: int
+            name: "camera focus location Z"
             read: true
 
   - code: 0xf2
@@ -1982,8 +2055,11 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
       - type: string
+        name: "trigger string"
+        doc: "trigger string (up to 31 characters)"
     stack: pop
 
   - code: 0xf808
@@ -2041,14 +2117,20 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "floor number"
             read: true
           - type: int
+            name: "area number"
             read: true
           - type: int
+            name: "type"
+            doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
             read: true
           - type: int
+            name: "major variation"
             read: true
           - type: int
+            name: "minor variation"
             read: true
 
   - code: 0xf80e
@@ -2069,6 +2151,8 @@ opcodes:
     doc: "Sets the floor where the players will start. This generally should be used in the start label (where map_designate, etc. are used). valueA specifies which floor to start on, but indirectly: valueA = 0: Temple (floor 0x10) valueA = 1: Spaceship (floor 0x11) valueA > 1 and < 0x12: Episode 1 areas (Pioneer 2, Forest 1, etc.) valueA >= 0x12: No effect Note that if the player doesn't start in the city (Pioneer 2 or Lab), the client will not reload the common and rare item tables (ItemPT and ItemRT). This means, for example, that starting an Episode 2 quest from an Episode 1 game will result in Episode 2 enemies' drop-anything rates being all zeroes, since the Episode 1 ItemPT is still loaded. This is only an issue in client drop mode; on newserv, you can forbid client drop mode in the quest's metadata JSON file if needed. (See q058.json for documentation on how to do this.)"
     params:
       - type: int
+        name: "0: Temple"
+        doc: "0: Temple (floor 0x10)"
     stack: pop
 
   - code: 0xf811
@@ -2290,8 +2374,11 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "switch flag index"
             read: true
           - type: int
+            name: "result"
+            doc: "result (0 or 1)"
             write: true
 
   - code: 0xf82e
@@ -2355,6 +2442,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "client ID"
             read: true
 
   - code: 0xf83b
@@ -2528,6 +2616,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "client ID"
             read: true
 
   - code: 0xf85b
@@ -2535,7 +2624,10 @@ opcodes:
     doc: "Unequips an item from a client. Sends 6x26 if an item is unequipped. valueA = client ID valueB = equip slot, but not the same as the EquipSlot enum: 0 = weapon 1 = armor 2 = shield 3 = mag 4-7 = units 1-4"
     params:
       - type: int
+        name: "client ID"
       - type: int
+        name: "equip slot, but not the same as the EquipSlot enum"
+        doc: "equip slot, but not the same as the EquipSlot enum:"
     stack: pop
 
   - code: 0xf85c
@@ -2587,6 +2679,7 @@ opcodes:
           - type: int
             read: true
       - type: string
+        name: "custom name"
     stack: pop
 
   - code: 0xf863
@@ -2596,6 +2689,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "returned DEF level"
             read: true
 
   - code: 0xf864
@@ -2603,7 +2697,10 @@ opcodes:
     doc: "Sets the color and rank text if the player manages to complete the current challenge stage. valueA = color as XRGB8888 strB = rank text (up to 11 characters)"
     params:
       - type: int
+        name: "color as XRGB8888"
       - type: string
+        name: "rank text"
+        doc: "rank text (up to 11 characters)"
     stack: pop
 
   - code: 0xf865
@@ -2632,6 +2729,8 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "rank"
+            doc: "rank (0 = B, 1 = A, 2 = S)"
             read: true
       - type: reg
         registers:
@@ -2733,7 +2832,11 @@ opcodes:
     doc: "Sets an override for the challenge rank text. At the time the rank is checked via check_rank_time, these overrides are applied in the order they were created. For each one, if the existing rank matches the check string, it is replaced with the override string and the color is replaced with the override color. valueA = override color (XRGB8888) strB = check string and override string (separated by \\t or \\n)"
     params:
       - type: int
+        name: "override color"
+        doc: "override color (XRGB8888)"
       - type: string
+        name: "check string and override string"
+        doc: "check string and override string (separated by \\t or \\n)"
     stack: pop
 
   - code: 0xf875
@@ -2898,6 +3001,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "client ID"
             write: true
       - type: reg
         registers:
@@ -2909,6 +3013,8 @@ opcodes:
     doc: "Writes 2 bytes to the event flags in the system file. valueA = flag index (must be 254 or less) regB/valueB = value"
     params:
       - type: int
+        name: "flag index"
+        doc: "flag index (must be 254 or less)"
       - type: int
     stack: pop
 
@@ -2917,6 +3023,8 @@ opcodes:
     doc: "Writes 4 bytes to the event flags in the system file. valueA = flag index (must be 252 or less) regB/valueB = value"
     params:
       - type: int
+        name: "flag index"
+        doc: "flag index (must be 252 or less)"
       - type: int
     stack: pop
 
@@ -2977,6 +3085,8 @@ opcodes:
           - type: int
             read: true
       - type: string
+        name: "sender name and message"
+        doc: "sender name and message (separated by \\n)"
     stack: pop
 
   - code: 0xf88c
@@ -3106,8 +3216,10 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "minimum value"
             read: true
           - type: int
+            name: "maximum value"
             read: true
       - type: reg
         registers:
@@ -3196,24 +3308,40 @@ opcodes:
       - type: reg
         registers:
           - type: float
+            name: "location X"
             read: true
           - type: float
+            name: "location Y"
             read: true
           - type: float
+            name: "location Z"
             read: true
           - type: float
+            name: "radius"
             read: true
           - type: int
+            name: "specs 0-2 [0]"
+            doc: "specs 0-2 (see TOSymbolchatColli description)"
             read: true
           - type: int
+            name: "specs 0-2 [1]"
+            doc: "specs 0-2 (see TOSymbolchatColli description)"
             read: true
           - type: int
+            name: "specs 0-2 [2]"
+            doc: "specs 0-2 (see TOSymbolchatColli description)"
             read: true
           - type: int
+            name: "data labels for symbol chats 0-2; each points to a SymbolChat structure [0]"
+            doc: "data labels for symbol chats 0-2; each points to a SymbolChat structure (see SymbolChatT in"
             read: true
           - type: int
+            name: "data labels for symbol chats 0-2; each points to a SymbolChat structure [1]"
+            doc: "data labels for symbol chats 0-2; each points to a SymbolChat structure (see SymbolChatT in"
             read: true
           - type: int
+            name: "data labels for symbol chats 0-2; each points to a SymbolChat structure [2]"
+            doc: "data labels for symbol chats 0-2; each points to a SymbolChat structure (see SymbolChatT in"
             read: true
 
   - code: 0xf8a7
@@ -3261,6 +3389,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "number of times placed 1st, 2nd, 3rd, and 4th, respectively [0]"
             read: true
 
   - code: 0xf8ac
@@ -3505,6 +3634,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
       - type: reg
         registers:
@@ -3633,6 +3763,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "camera location X"
             read: true
     stack: pop
 
@@ -3641,9 +3772,11 @@ opcodes:
     doc: "Sets the camera to follow the player at a fixed angle. valueA = client ID regsB[0-2] = camera angle (x, y, z as floats)"
     params:
       - type: int
+        name: "client ID"
       - type: reg
         registers:
           - type: int
+            name: "camera angle X"
             read: true
     stack: pop
 
@@ -3667,14 +3800,22 @@ opcodes:
     doc: "Computes a point along a path composed of multiple control points. valueA = number of control points valueB = speed along path valueC = current position along path valueD = loop flag (0 = no, 1 = yes) regsE[0-2] = result point (x, y, z as floats) regsE[3] = result code (0 = failed, 1 = success) labelF = control point entries (array of valueA VectorXYZTF structures)"
     params:
       - type: int
+        name: "number of control points"
       - type: int
+        name: "speed along path"
       - type: int
+        name: "current position along path"
       - type: int
+        name: "loop flag"
+        doc: "loop flag (0 = no, 1 = yes)"
       - type: reg
         registers:
           - type: int
+            name: "result point X"
             read: true
       - type: dlabel
+        name: "control point entries"
+        doc: "control point entries (array of valueA VectorXYZTF structures)"
     stack: pop
 
   - code: 0xf8dc
@@ -3690,6 +3831,8 @@ opcodes:
           - type: int
             read: true
       - type: slabel
+        name: "string for NPC to say"
+        doc: "string for NPC to say (up to 52 characters)"
 
   - code: 0xf8dd
     mnemonic: get_pad_cond
@@ -3774,6 +3917,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
 
   - code: 0xf8e7
@@ -3867,7 +4011,9 @@ opcodes:
     doc: "Specifies which image to use for the image board in Pioneer 2 (if placed). Only one image may be loaded at a time. Images must be square and dimensions must be a power of two, similar to the B9 command on Ep3. On DC or PCv2, the image data is expected to be a PVR file; on GC, it should be a GVR file; on Xbox and BB it should be an XVR file. regA = decompressed size labelB = label containing PRS-compressed image file data"
     params:
       - type: int
+        name: "decompressed size"
       - type: dlabel
+        name: "label containing PRS-compressed image file data"
     stack: pop
 
   - code: 0xf8ef
@@ -3889,14 +4035,22 @@ opcodes:
     doc: "Computes a point along a Bezier curve defined by a sequence of vectors. This is similar to get_vector_from_path, but results in a smoother curve. Arguments: valueA = number of control points valueB = speed along path valueC = current position along path valueD = loop flag (0 = no, 1 = yes) regsE[0-2] = result point (x, y, z as floats) regsE[3] = result code (0 = failed, 1 = success) labelF = control point entries (array of valueA VectorXYZTF structures)"
     params:
       - type: int
+        name: "number of control points"
       - type: int
+        name: "speed along path"
       - type: int
+        name: "current position along path"
       - type: int
+        name: "loop flag"
+        doc: "loop flag (0 = no, 1 = yes)"
       - type: reg
         registers:
           - type: int
+            name: "result point X"
             read: true
       - type: dlabel
+        name: "control point entries"
+        doc: "control point entries (array of valueA VectorXYZTF structures)"
     stack: pop
 
   - code: 0xf8f3
@@ -3906,9 +4060,13 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             read: true
       - type: int
+        name: "effect type"
       - type: float
+        name: "duration as float"
+        doc: "duration as float (in frames; 30 frames/sec)"
     stack: pop
 
   - code: 0xf901
@@ -4052,6 +4210,7 @@ opcodes:
     doc: "Returns the number of times a player has ever died - not just in the current quest/game/session! regA = client ID regB = returned death count"
     params:
       - type: int
+        name: "client ID"
       - type: reg
         registers:
           - type: int
@@ -4068,10 +4227,13 @@ opcodes:
             name: slot
             read: true
           - type: int
+            name: "item.data1[0-2] [0]"
             read: true
           - type: int
+            name: "item.data1[0-2] [1]"
             read: true
           - type: int
+            name: "item.data1[0-2] [2]"
             read: true
       - type: reg
         registers:
@@ -4142,6 +4304,7 @@ opcodes:
     doc: "Checks if activate_palettex has been run for a player. regA = client ID valueB = ignored regC = returned flag (0 = not overridden, 1 = overridden) The ignored argument here seems to be a bug. At least one official quest uses this opcode preceded by only two arg_push opcodes, implying that it was intended to take two arguments, but the client really does only use quest_arg_list[0] and quest_arg_list[2]."
     params:
       - type: int
+        name: "client ID"
       - type: reg
         registers:
           - type: int
@@ -4188,6 +4351,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "returned Meseta amount in inventory"
             write: true
 
   - code: 0xf920
@@ -4245,6 +4409,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "returned floor number"
             write: true
     stack: pop
 
@@ -4260,6 +4425,8 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "results for each player [0]"
+            doc: "results for each player (0 = player not present or outside radius; 1 = player within radius)"
             read: true
 
   - code: 0xf925
@@ -4267,6 +4434,8 @@ opcodes:
     doc: "Reads the value of a quest counter. valueA = counter index (0-15) regB = returned value"
     params:
       - type: int
+        name: "counter index"
+        doc: "counter index (0-15)"
       - type: reg
         registers:
           - type: int
@@ -4278,7 +4447,10 @@ opcodes:
     doc: "Writes a value to a quest counter. valueA = counter index (0-15) valueB = value to write"
     params:
       - type: int
+        name: "counter index"
+        doc: "counter index (0-15)"
       - type: int
+        name: "value to write"
     stack: pop
 
   - code: 0xf927
@@ -4288,6 +4460,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "item.data1[0-2] [0]"
             write: true
       - type: reg
         registers:
@@ -4301,12 +4474,20 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "returned flags [0]"
+            doc: "returned flags (for each player: 0 if absent, 1 if present)"
             write: true
           - type: int
+            name: "returned flags [1]"
+            doc: "returned flags (for each player: 0 if absent, 1 if present)"
             write: true
           - type: int
+            name: "returned flags [2]"
+            doc: "returned flags (for each player: 0 if absent, 1 if present)"
             write: true
           - type: int
+            name: "returned flags [3]"
+            doc: "returned flags (for each player: 0 if absent, 1 if present)"
             write: true
 
   - code: 0xf929
@@ -4348,6 +4529,8 @@ opcodes:
       - type: int
       - type: int
       - type: int
+        name: "fade speed"
+        doc: "fade speed (number of frames; 30 frames/sec)"
     stack: pop
 
   - code: 0xf92e
@@ -4377,11 +4560,18 @@ opcodes:
     doc: "Shows a message in a chat window. Can be closed with the winend opcode. valueA = X position on screen valueB = Y position on screen valueC = window width valueD = window height valueE = window style (0 = white window, 1 = chat box, anything else = no window, just text) strF = initial message"
     params:
       - type: int
+        name: "X position on screen"
       - type: int
+        name: "Y position on screen"
       - type: int
+        name: "window width"
       - type: int
+        name: "window height"
       - type: int
+        name: "window style"
+        doc: "window style (0 = white window, 1 = chat box, anything else = no window, just text)"
       - type: string
+        name: "initial message"
     stack: pop
 
   - code: 0xf931
@@ -4389,7 +4579,10 @@ opcodes:
     doc: "Shows a chat bubble linked to the given entity ID. valueA = entity (client ID, 0x1000 + enemy ID, or 0x4000 + object ID) strB = message"
     params:
       - type: int
+        name: "entity"
+        doc: "entity (client ID, 0x1000 + enemy ID, or 0x4000 + object ID)"
       - type: string
+        name: "message"
     stack: pop
 
   - code: 0xf932
@@ -4408,6 +4601,8 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "rank"
+            doc: "rank (unusual value order: 0 = S, 1 = B, 2 = A)"
             write: true
 
   - code: 0xf934
@@ -4415,16 +4610,24 @@ opcodes:
     doc: "Shows a scrolling text window. valueA = X position on screen valueB = Y position on screen valueC = window width valueD = window height valueE = window style (same as for chat_box) valueF = scrolling speed regG = set to 1 when message has entirely scrolled past strH = message"
     params:
       - type: int
+        name: "X position on screen"
       - type: int
+        name: "Y position on screen"
       - type: int
+        name: "window width"
       - type: int
+        name: "window height"
       - type: int
+        name: "window style"
+        doc: "window style (same as for chat_box)"
       - type: float
+        name: "scrolling speed"
       - type: reg
         registers:
           - type: int
             write: true
       - type: string
+        name: "message"
     stack: pop
 
   - code: 0xf935
@@ -4445,7 +4648,9 @@ opcodes:
     doc: "Damages a player. regA = client ID regB = amount"
     params:
       - type: int
+        name: "client ID"
       - type: int
+        name: "amount"
     stack: pop
 
   - code: 0xf939
@@ -4453,6 +4658,7 @@ opcodes:
     doc: "Deletes an item from the local player's inventory. Like item_delete, but doesn't return anything. valueA = item ID"
     params:
       - type: int
+        name: "item ID"
     stack: pop
 
   - code: 0xf93a
@@ -4460,9 +4666,11 @@ opcodes:
     doc: "Returns the item data for an item chosen with open_pack_select. valueA = item ID regsB[0-11] = returned item.data1[0-11] If the item doesn't exist, regsB[0] is set to 0xFFFFFFFF and the rest of regsB are unaffected."
     params:
       - type: int
+        name: "item ID"
       - type: reg
         registers:
           - type: int
+            name: "returned item.data1[0-11] [0]"
             write: true
     stack: pop
 
@@ -4471,6 +4679,7 @@ opcodes:
     doc: "Wraps an item in the player's inventory. The specified item is deleted and a new one is created with the wrapped flag set. The new item has a different item ID, which is not returned. Sends 6x29, then 6x26 if deleting the item causes the player's equipped weapon to no longer be usable, then 6x2B. It appears Sega did not intend for this to be used on BB, since the behavior wasn't changed - normally, item-related functions should be done by the server on BB, as the following opcode does. valueA = item ID"
     params:
       - type: int
+        name: "item ID"
     stack: pop
 
   - code: 0xf93c
@@ -4478,7 +4687,10 @@ opcodes:
     doc: "Like wrap_item, but also sets the present color. On BB, sends 6xD6, and the server should respond with the sequence of 6x29, 6x26 (if it was equipped), then 6xBE. valueA = item ID valueB = present color (0-15; high 4 bits are masked out)"
     params:
       - type: int
+        name: "item ID"
       - type: int
+        name: "present color"
+        doc: "present color (0-15; high 4 bits are masked out)"
     stack: pop
 
   - code: 0xf93d
@@ -4496,8 +4708,14 @@ opcodes:
     doc: "Sets some values to be sent to the server with send_statistic. valueA = stat_id (used in send_statistic); this is set to the quest number from the header when the quest starts, but that is overwritten by prepare_statistic labelB = label1 (used in send_statistic) labelC = label2 (used in send_statistic)"
     params:
       - type: int
+        name: "stat_id"
+        doc: "stat_id (used in send_statistic); this is set to the quest number from the header when the quest"
       - type: ilabel
+        name: "label1"
+        doc: "label1 (used in send_statistic)"
       - type: ilabel
+        name: "label2"
+        doc: "label2 (used in send_statistic)"
     stack: pop
 
   - code: 0xf93f
@@ -4516,6 +4734,8 @@ opcodes:
       - type: int
         name: slot
       - type: string
+        name: "string to match"
+        doc: "string to match (same semantics as for set_chat_callback)"
     stack: pop
 
   - code: 0xf941
@@ -4535,9 +4755,11 @@ opcodes:
     doc: "Returns the last symbol chat that a player said (at least, since the capture buffer was created). Use create_symbol_chat_capture_buffer before using this opcode. The data is returned as raw values in a sequence of 15 registers, in the same internal format as the game uses. On GC, this is SymbolChatBE; on all other platforms, it is SymbolChat (see SymbolChatT in PlayerSubordinates.hh for details). valueA = client ID regsB[0-14] = returned symbol chat data"
     params:
       - type: int
+        name: "client ID"
       - type: reg
         registers:
           - type: int
+            name: "returned symbol chat data [0]"
             read: true
     stack: pop
 
@@ -4574,6 +4796,7 @@ opcodes:
           - type: int
             write: true
       - type: int
+        name: "input angle"
     stack: pop
 
   - code: 0xf947
@@ -4605,7 +4828,9 @@ opcodes:
           - type: int
             write: true
       - type: float
+        name: "numerator as float"
       - type: float
+        name: "denominator as float"
     stack: pop
 
   - code: 0xf94a
@@ -4624,6 +4849,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "location X"
             write: true
 
   - code: 0xf94c
@@ -4633,6 +4859,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "effect type"
             write: true
 
   - code: 0xf94d
@@ -4642,6 +4869,7 @@ opcodes:
       - type: reg
         registers:
           - type: int
+            name: "card_id"
             write: true
 
   - code: 0xf94e
@@ -4664,9 +4892,14 @@ opcodes:
     doc: "Behaves exactly the same as map_designate_ex, but the arguments are specified as immediate values and not via registers or arg_push. Sega probably added this opcode so their quest authoring tools could easily generate the necessary header fields without doing any fancy script analysis. valueA = floor number valueB = area number valueC = type (0: use layout, 1: use offline template, 2: use online template, 3: nothing) valueD = major variation valueE = minor variation"
     params:
       - type: byte
+        name: "floor number"
       - type: short
+        name: "area number"
       - type: byte
+        name: "type"
+        doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
       - type: byte
+        name: "major variation"
 
   - code: 0xf952
     mnemonic: bb_get_number_in_pack
@@ -4688,7 +4921,9 @@ opcodes:
       - type: int
       - type: int
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf954
@@ -4696,6 +4931,7 @@ opcodes:
     doc: "Checks if an item can be wrapped. valueA = item ID regB = returned status (0 = can't be wrapped, 1 = can be wrapped, 2 = item not found)"
     params:
       - type: int
+        name: "item ID"
       - type: reg
         registers:
           - type: int
@@ -4719,7 +4955,9 @@ opcodes:
           - type: int
             read: true
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf956
@@ -4747,7 +4985,9 @@ opcodes:
           - type: int
             read: true
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf957
@@ -4775,8 +5015,12 @@ opcodes:
           - type: int
             read: true
       - type: int
+        name: "payment count"
+        doc: "payment count (number of PDs)"
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf958
@@ -4813,6 +5057,8 @@ opcodes:
     doc: "Determines whether the Episode 4 boss can escape if undefeated after 20 minutes. valueA = boss can escape (0 = no, 1 = yes (default))"
     params:
       - type: int
+        name: "boss can escape"
+        doc: "boss can escape (0 = no, 1 = yes (default))"
     stack: pop
 
   - code: 0xf95a
@@ -4829,11 +5075,21 @@ opcodes:
     doc: "Requests an item exchange. Sends 6xD9. The requested item must match one of the item creation masks in the quest script's header. valueA = find_item.data1[0-2] (low 3 bytes; high byte unused) valueB = replace_item.data1[0-2] (low 3 bytes; high byte unused) valueC = token1 (see 6xD9 in CommandFormats.hh) valueD = token2 (see 6xD9 in CommandFormats.hh) labelE = label to call on success labelF = label to call on failure"
     params:
       - type: int
+        name: "find_item.data1[0-2]"
+        doc: "find_item.data1[0-2] (low 3 bytes; high byte unused)"
       - type: int
+        name: "replace_item.data1[0-2]"
+        doc: "replace_item.data1[0-2] (low 3 bytes; high byte unused)"
       - type: int
+        name: "token1"
+        doc: "token1 (see 6xD9 in CommandFormats.hh)"
       - type: int
+        name: "token2"
+        doc: "token2 (see 6xD9 in CommandFormats.hh)"
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf95c
@@ -4841,12 +5097,16 @@ opcodes:
     doc: "Requests an exchange of Secret Lottery Tickets for items. Sends 6xDE. The pool of items that can be returned by this opcode is determined by the quest's header; newserv assembles/disassembles this field as .allow_create_item directives. The first entry in the header is the currency item (which is to be deleted from the inventory); the others are the items the server randomly chooses from. valueA = index valueB = unknown_a1 labelC = label to call on success labelD = label to call on failure (unused because of a client bug; see 6xDE description in CommandFormats.hh)"
     params:
       - type: int
+        name: "index"
       - type: reg
         registers:
           - type: int
             write: true
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
+        doc: "label to call on failure (unused because of a client bug; see 6xDE description in CommandFormats.hh)"
     stack: pop
 
   - code: 0xf95d
@@ -4859,6 +5119,8 @@ opcodes:
     doc: "Requests an item drop within a quest. Sends 6xE0. valueA = type (corresponds to QuestF95EResultItems in config.json) valueB/valueC = x, z coordinates as floats"
     params:
       - type: int
+        name: "type"
+        doc: "type (corresponds to QuestF95EResultItems in config.json)"
       - type: float
       - type: float
     stack: pop
@@ -4876,8 +5138,12 @@ opcodes:
           - type: int
             write: true
       - type: int
+        name: "result index"
+        doc: "result index (index into QuestF95FResultItems in config.json)"
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf960
@@ -4885,6 +5151,8 @@ opcodes:
     doc: "Requests a prize from the Meseta gambling prize list. Sends 6xE2. The server responds with 6xE3, which sets the <meseta_slot_prize> replacement token in message strings. The status of this can be checked with bb_get_6xE3_status. valueA = result tier (see QuestF960SuccessResultItems and QuestF960FailureResultItems in config.json)"
     params:
       - type: int
+        name: "result tier"
+        doc: "result tier (see QuestF960SuccessResultItems and QuestF960FailureResultItems in config.json)"
     stack: pop
 
   - code: 0xf961
