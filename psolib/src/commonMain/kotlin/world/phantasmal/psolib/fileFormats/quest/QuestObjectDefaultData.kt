@@ -482,9 +482,9 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         ObjectType.FloorPanel1 -> {
             data.setShort(4, 1556)
             data.setShort(6, 4)
-            data.setFloat(40, 1.000000238418579f) // Scale  x
-            data.setFloat(44, 1.000000238418579f) // Scale  y
-            data.setFloat(48, 0.9990062713623047f) // Scale  z
+            data.setFloat(40, 1.000000238418579f) // Scale x
+            data.setFloat(44, 1.000000238418579f) // Scale y
+            data.setFloat(48, 0.9990062713623047f) // Scale z
             data.setInt(64, -1929651776)
         }
 

@@ -439,7 +439,7 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay Active", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
         ),
     ),
     TargetableObject(
@@ -471,7 +471,7 @@ enum class ObjectType(
             EntityProp(name = "Scale", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Switch-Off ID", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay Active", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
         ),
     ),
     CountDownObject(
@@ -1049,9 +1049,9 @@ enum class ObjectType(
         ),
         typeId = 192,
         properties = listOf(
-            EntityProp(name = "Scale  x", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Scale  y", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Scale  z", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Scale x", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
         ),
@@ -1143,9 +1143,9 @@ enum class ObjectType(
         ),
         typeId = 203,
         properties = listOf(
-            EntityProp(name = "Scale  x", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Scale  y", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Scale  z", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Scale x", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
         ),
     ),
     FloatingJellyfish(
@@ -2083,8 +2083,8 @@ enum class ObjectType(
         typeId = 427,
         properties = listOf(
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch Total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay Active", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
         ),
     ),
     FourButtonSpaceshipDoor(
@@ -2095,8 +2095,8 @@ enum class ObjectType(
         typeId = 448,
         properties = listOf(
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch Total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay Active", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
         ),
     ),
     ItemBoxCca(
@@ -2141,8 +2141,8 @@ enum class ObjectType(
         typeId = 515,
         properties = listOf(
             EntityProp(name = "Full random", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Random Item", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Fixed Item", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Random item", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Fixed item", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Item parameter", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Item parameter 2", offset = 56, type = EntityPropType.I32),
             EntityProp(name = "Item parameter 3", offset = 60, type = EntityPropType.I32),

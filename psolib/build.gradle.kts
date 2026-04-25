@@ -79,7 +79,14 @@ fun opcodeToCode(writer: PrintWriter, opcode: Map<String, Any>) {
     val codeStr = code.toString(16).uppercase().padStart(2, '0')
     val mnemonic = opcode["mnemonic"] as String? ?: "unknown_${codeStr.lowercase()}"
     val doc = (opcode["doc"] as String?)?.let {
-        "\"${it.replace("\n", "\\n")}\""
+        // Escape characters that are special inside a Kotlin double-quoted string literal:
+        //   \ → \\,  " → \",  $ → \$ (avoid template substitution),  newline → \n.
+        val escaped = it
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\$", "\\\$")
+            .replace("\n", "\\n")
+        "\"$escaped\""
     }
     val stack = opcode["stack"] as String?
 
