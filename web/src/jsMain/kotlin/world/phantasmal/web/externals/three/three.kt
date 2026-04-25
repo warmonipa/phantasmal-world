@@ -583,6 +583,15 @@ external class SphereGeometry(
     thetaLength: Double = definedExternally,
 ) : BufferGeometry
 
+external class RingGeometry(
+    innerRadius: Double = definedExternally,
+    outerRadius: Double = definedExternally,
+    thetaSegments: Int = definedExternally,
+    phiSegments: Int = definedExternally,
+    thetaStart: Double = definedExternally,
+    thetaLength: Double = definedExternally,
+) : BufferGeometry
+
 open external class BufferAttribute {
     var needsUpdate: Boolean
 

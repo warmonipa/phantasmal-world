@@ -754,6 +754,16 @@ class QuestEditorStore(
     }
 
     /**
+     * Navigate camera target to an arbitrary world-space position. Also leaves a persistent
+     * indicator at the destination so the user can see where they were sent.
+     */
+    fun goToWorldPosition(x: Double, y: Double, z: Double) {
+        val pos = Vector3(x, y, z)
+        viewportStore.setTargetCameraPosition(pos.clone())
+        viewportStore.setGotoIndicatorPosition(pos)
+    }
+
+    /**
      * Clear entity selections that are incompatible with the current wave filters.
      * Called asynchronously to avoid circular dependencies.
      */

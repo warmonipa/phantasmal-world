@@ -203,6 +203,30 @@ class QuestEditorToolbarWidget(
                         onSelect = { ctrl.selectSection(it) },
                         filter = { ctrl.filterSections(it) },
                     ),
+                    DoubleInput(
+                        label = "Goto X:",
+                        enabled = ctrl.gotoWorldPositionEnabled,
+                        value = ctrl.gotoWorldX,
+                        onChange = ctrl::setGotoWorldX,
+                        roundTo = -1,
+                        onPaste = ctrl::smartPasteGotoPosition,
+                    ),
+                    DoubleInput(
+                        label = "Y:",
+                        enabled = ctrl.gotoWorldPositionEnabled,
+                        value = ctrl.gotoWorldY,
+                        onChange = ctrl::setGotoWorldY,
+                        roundTo = -1,
+                        onPaste = ctrl::smartPasteGotoPosition,
+                    ),
+                    DoubleInput(
+                        label = "Z:",
+                        enabled = ctrl.gotoWorldPositionEnabled,
+                        value = ctrl.gotoWorldZ,
+                        onChange = ctrl::setGotoWorldZ,
+                        roundTo = -1,
+                        onPaste = ctrl::smartPasteGotoPosition,
+                    ),
                     // Free roam variant controls
                     Select(
                         className = "pw-free-roam-select",
@@ -348,6 +372,17 @@ class QuestEditorToolbarWidget(
                     width: 40px;
                 }
 
+                /*
+                 * Browsers give <input> a default min-width based on its size attribute (~150px),
+                 * which makes the inner input overflow the 40px container — clicks land on it
+                 * instead of whichever toolbar widget visually sits to the right. Force the input
+                 * to honor its flex parent so the click target is bounded by the 40px box.
+                 */
+                .pw-goto-section .pw-combobox-inner > input {
+                    width: 0;
+                    min-width: 0;
+                }
+
                 .pw-goto-section .pw-combobox-button {
                     display: none;
                 }
@@ -367,6 +402,7 @@ class QuestEditorToolbarWidget(
                 .pw-quest-editor-toolbar-save-as .pw-input {
                     margin: 1px;
                 }
+
             """.trimIndent())
         }
     }

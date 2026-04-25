@@ -319,6 +319,17 @@ class QuestEditorToolbarController(
     val selectedSection: Cell<SectionModel?> = questEditorStore.selectedSection
     val gotoSectionEnabled: Cell<Boolean> = questEditorStore.currentAreaVariant.isNotNull()
 
+    // Go to World Position. Three small numeric inputs (X/Y/Z); each commits to the goto on
+    // change. Pasting a tuple (e.g. "(-10230, -2, -10)") into any field smart-distributes to
+    // all three — see [smartPasteGotoPosition].
+    val gotoWorldPositionEnabled: Cell<Boolean> = questEditorStore.currentQuest.isNotNull()
+    private val _gotoWorldX = mutableCell(0.0)
+    private val _gotoWorldY = mutableCell(0.0)
+    private val _gotoWorldZ = mutableCell(0.0)
+    val gotoWorldX: Cell<Double> = _gotoWorldX
+    val gotoWorldY: Cell<Double> = _gotoWorldY
+    val gotoWorldZ: Cell<Double> = _gotoWorldZ
+
     private val gotoSectionFilter: MutableCell<(SectionModel) -> Boolean> =
         mutableCell { true }
 
@@ -849,6 +860,50 @@ class QuestEditorToolbarController(
         questEditorStore.goToSection(section.id)
     }
 
+    fun setGotoWorldX(x: Double) {
+        _gotoWorldX.value = x
+        commitGotoWorldPosition()
+    }
+
+    fun setGotoWorldY(y: Double) {
+        _gotoWorldY.value = y
+        commitGotoWorldPosition()
+    }
+
+    fun setGotoWorldZ(z: Double) {
+        _gotoWorldZ.value = z
+        commitGotoWorldPosition()
+    }
+
+    private fun commitGotoWorldPosition() {
+        questEditorStore.goToWorldPosition(
+            _gotoWorldX.value,
+            _gotoWorldY.value,
+            _gotoWorldZ.value,
+        )
+    }
+
+    /**
+     * Paste interceptor for the goto X/Y/Z inputs. When the clipboard contains 2+ numbers,
+     * distribute them to X/Y/Z (missing trailing values default to 0), commit a goto, and
+     * suppress the browser's default single-value paste. When it's a single number we let the
+     * default paste handle it normally.
+     *
+     * Returns true when the paste was consumed.
+     */
+    fun smartPasteGotoPosition(text: String): Boolean {
+        val parts = NUMBER_REGEX.findAll(text).map { it.value }.take(3).toList()
+        if (parts.size < 2) return false
+        val x = parts.getOrNull(0)?.toDoubleOrNull() ?: 0.0
+        val y = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+        val z = parts.getOrNull(2)?.toDoubleOrNull() ?: 0.0
+        _gotoWorldX.value = x
+        _gotoWorldY.value = y
+        _gotoWorldZ.value = z
+        questEditorStore.goToWorldPosition(x, y, z)
+        return true
+    }
+
     /**
      * Trigger section loading when user interacts with the section dropdown
      */
@@ -1107,5 +1162,8 @@ class QuestEditorToolbarController(
             val base = filename.substringBeforeLast('.')
             return base.endsWith("_j")
         }
+
+        /** Matches signed integer / decimal components used by the goto-position parser. */
+        private val NUMBER_REGEX = Regex("""-?\d+(?:\.\d+)?""")
     }
 }

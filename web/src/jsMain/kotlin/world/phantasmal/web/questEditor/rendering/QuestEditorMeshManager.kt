@@ -17,6 +17,7 @@ class QuestEditorMeshManager(
     questEditorStore: QuestEditorStore,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
+    viewportStore: ViewportStore,
     areaStore: AreaStore,
     renderContext: QuestRenderContext,
     symbolChatColliRepository: SymbolChatColliRepository,
@@ -34,6 +35,7 @@ class QuestEditorMeshManager(
     private val symbolChatBillboardManager = addDisposable(
         SymbolChatBillboardManager(questEditorStore, symbolChatColliRepository, renderContext)
     )
+    private val gotoIndicatorManager = addDisposable(GotoIndicatorManager(renderContext))
 
     init {
         observeNow(
@@ -135,10 +137,15 @@ class QuestEditorMeshManager(
             renderContext.collisionGeometryVisible = it
             renderContext.renderGeometryVisible = !it
         }
+
+        observeNow(viewportStore.gotoIndicatorPosition) { pos ->
+            gotoIndicatorManager.setPosition(pos)
+        }
     }
 
     override fun beforeRender() {
         super.beforeRender()
         symbolChatBillboardManager.beforeRender()
+        gotoIndicatorManager.update()
     }
 }

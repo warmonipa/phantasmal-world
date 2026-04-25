@@ -47,6 +47,7 @@ class QuestRenderer(
             questEditorStore,
             questEditorUiStore,
             playbackVisualizationStore,
+            viewportStore,
             areaStore,
             context,
             symbolChatColliRepository,
