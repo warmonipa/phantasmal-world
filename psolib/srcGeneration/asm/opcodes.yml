@@ -823,16 +823,19 @@ opcodes:
 
   - code: 0x57
     mnemonic: nop_57
+    doc: "Does nothing"
     params: []
 
   - code: 0x58
     mnemonic: enable
+    doc: "Does nothing"
     params:
       - type: int
     stack: pop
 
   - code: 0x59
     mnemonic: disable
+    doc: "Does nothing"
     params:
       - type: int
     stack: pop
@@ -910,6 +913,7 @@ opcodes:
 
   - code: 0x65
     mnemonic: npc_talk
+    doc: "Disables or enables the ability to talk to NPCs"
     params: []
 
   - code: 0x66
@@ -976,6 +980,7 @@ opcodes:
 
   - code: 0x6c
     mnemonic: p_enablewarp
+    doc: "Disables/enables telepipes/Ryuker"
     params: []
 
   - code: 0x6d
@@ -1014,6 +1019,7 @@ opcodes:
 
   - code: 0x71
     mnemonic: p_action_enable
+    doc: "Disables/enables attacks for all players"
     params: []
 
   - code: 0x72
@@ -1025,6 +1031,7 @@ opcodes:
 
   - code: 0x73
     mnemonic: enable_movement1
+    doc: "Disables/enables movement for the given player"
     params:
       - type: int
     stack: pop
@@ -1036,6 +1043,7 @@ opcodes:
 
   - code: 0x75
     mnemonic: p_col
+    doc: "These appear to do nothing at all. On v3, they set and clear a flag that is never read. On DC NTE and v1, code exists to read this flag, but it belongs to an object that appears to never be constructed anywhere."
     params: []
 
   - code: 0x76
@@ -1213,6 +1221,7 @@ opcodes:
 
   - code: 0x83
     mnemonic: cam_zmout
+    doc: "Zooms the camera in or out."
     params: []
 
   - code: 0x84
@@ -1313,6 +1322,7 @@ opcodes:
 
   - code: 0x8b
     mnemonic: unhide_ene
+    doc: "Constructs all objects or enemies that match the conditions:"
     params:
       - type: reg
         registers:
@@ -1417,6 +1427,7 @@ opcodes:
 
   - code: 0x91
     mnemonic: switch_off
+    doc: "Enables/disables a switch flag (valueA). Does NOT send 6x05, so other players will not know about this change! Use sw_send instead to keep switch flag state synced."
     params:
       - type: int
     stack: pop
@@ -1467,6 +1478,7 @@ opcodes:
 
   - code: 0x95
     mnemonic: set_floor_handler
+    doc: "Causes the labelB to be called on a new thread when the player warps to floorA. If the given floor already has a registered handler, it is replaced with the new one (each floor may have at most one handler)."
     params:
       - type: int
         doc: Floor number.
@@ -1476,6 +1488,7 @@ opcodes:
 
   - code: 0x96
     mnemonic: clr_floor_handler
+    doc: "Deletes the handler for floorA."
     params:
       - type: int
         doc: Floor number.
@@ -1523,6 +1536,7 @@ opcodes:
 
   - code: 0x99
     mnemonic: hud_show
+    doc: "Hides or shows the HUD."
     params: []
 
   - code: 0x9a
@@ -1532,6 +1546,7 @@ opcodes:
 
   - code: 0x9b
     mnemonic: cine_disable
+    doc: "Enables/disables the cinema effect (black bars above/below screen)"
     params: []
 
   - code: 0xa0
@@ -1610,6 +1625,7 @@ opcodes:
 
   - code: 0xb2
     mnemonic: del_obj_param
+    doc: "Deletes an interactable object previously created by set_obj_param. valueA is the object's token, as returned by regB from set_obj_param, or regsA[0] from e.g. at_coords_call."
     params:
       - type: reg
         doc: Object handle.
@@ -1880,6 +1896,7 @@ opcodes:
 
   - code: 0xc6
     mnemonic: masterkey_off
+    doc: "Locks (masterkey_on) or unlocks (masterkey_off) all doors"
     params: []
 
   - code: 0xc7
@@ -1889,6 +1906,7 @@ opcodes:
 
   - code: 0xc8
     mnemonic: winend_time
+    doc: "Enables/disables the timer window"
     params: []
 
   - code: 0xc9
@@ -2010,6 +2028,7 @@ opcodes:
 
   - code: 0xd3
     mnemonic: disable_mainmenu
+    doc: "Enables/disables the main menu and shortcut menu."
     params: []
 
   - code: 0xd4
@@ -2019,6 +2038,7 @@ opcodes:
 
   - code: 0xd5
     mnemonic: end_battlebgm
+    doc: "Enables or disables battle music override. When enabled, the battle segments of the BGM will play regardless of whether there are enemies nearby. Changing this value only takes effect after any currently-queued music segments are done playing. The override is cleared upon changing areas."
     params: []
 
   - code: 0xd6
@@ -2221,6 +2241,7 @@ opcodes:
 
   - code: 0xe5
     mnemonic: warp_off
+    doc: "Enables or disables warps"
     params: []
 
   - code: 0xe6
@@ -2446,6 +2467,7 @@ opcodes:
 
   - code: 0xf80c
     mnemonic: disable_map
+    doc: "Enables or disables the area map and minimap."
     params: []
 
   - code: 0xf80d
@@ -2480,6 +2502,7 @@ opcodes:
 
   - code: 0xf80f
     mnemonic: enable_weapon_drop
+    doc: "Enables or disables weapon dropping upon death for a player. Sends 6x81 (disable) or 6x82 (enable)."
     params:
       - type: int
     stack: pop
@@ -2702,6 +2725,7 @@ opcodes:
 
   - code: 0xf82c
     mnemonic: lock_door2
+    doc: "Sets or clears a switch flag, and synchronizes the value to all players."
     params: [ { type: int }, { type: int } ]
     stack: pop
 
@@ -2766,6 +2790,7 @@ opcodes:
 
   - code: 0xf839
     mnemonic: unshrink
+    doc: "Shrinks a player or returns them to normal size. regA specifies the client ID."
     params:
       - type: reg
         registers:
@@ -2793,6 +2818,7 @@ opcodes:
 
   - code: 0xf83b
     mnemonic: set_shrink_cam2
+    doc: "These set some camera parameters for the specified player. These parameters appear to be unused, so these opcodes essentially do nothing."
     params:
       - type: reg
         registers:
@@ -2829,6 +2855,7 @@ opcodes:
 
   - code: 0xf841
     mnemonic: get_npc_data
+    doc: "Loads a custom visual config for creating NPCs. Generally the sequence should go like this: prepare_npc_visual label_containing_PlayerVisualConfig enable_npc_visual <opcode that creates an NPC> After any NPC is created, the effects of these opcodes are undone; if the script wants to create another NPC with a custom visual config, it must run these opcodes again."
     params:
       - type: dlabel
 
@@ -2843,6 +2870,7 @@ opcodes:
 
   - code: 0xf849
     mnemonic: take_damage_score
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2851,6 +2879,7 @@ opcodes:
 
   - code: 0xf84a
     mnemonic: unk_score_f84a
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2859,6 +2888,7 @@ opcodes:
 
   - code: 0xf84b
     mnemonic: unk_score_f84b
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2867,6 +2897,7 @@ opcodes:
 
   - code: 0xf84c
     mnemonic: kill_score
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2875,6 +2906,7 @@ opcodes:
 
   - code: 0xf84d
     mnemonic: death_score
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2883,6 +2915,7 @@ opcodes:
 
   - code: 0xf84e
     mnemonic: unk_score_f84e
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2891,6 +2924,7 @@ opcodes:
 
   - code: 0xf84f
     mnemonic: enemy_death_score
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2899,6 +2933,7 @@ opcodes:
 
   - code: 0xf850
     mnemonic: meseta_score
+    doc: "These are used to set the scores for each type of action in battle mode. The value used in each of these are regsA[0] + (regsA[1] / regsA[2]), treated as a floating-point value. For example, one way to specify the value 3.4 would be to set regsA to {3, 2, 5}. These values are not reset between battle quests or upon joining/leaving games, so battle quests should always explicitly set these! The scores which can be set are: ba_player_give_damage_score: Score earned per point of damage given to other players. (Default 0.05) ba_player_take_damage_score: Score lost per point of damage taken from other players. (Default 0.02) ba_enemy_give_damage_score: Score earned per point of damage given to non-player enemies. (Default 0.01) ba_enemy_take_damage_score: Score lost per point of damage taken from non-player enemies. (Default 0) ba_player_kill_score: Score earned by killing another player. (Default 10) ba_player_death_score: Score lost by dying to another player. (Default 7) ba_enemy_kill_score: Score earned by killing a non-player enemy. (Default 3) ba_enemy_death_score: Score lost by dying to a non-player enemy. (Default 7) ba_meseta_score: Score earned per Meseta in the player's inventory. (Default 0)"
     params:
       - type: reg
         registers:
@@ -2928,6 +2963,7 @@ opcodes:
 
   - code: 0xf854
     mnemonic: unreverse_warps
+    doc: "Enables or disables overrides of warp destination floors. When enabled, area warps will always go to the next floor (current floor + 1); when disabled, they will go to the floor specified in their constructor args."
     params: []
 
   - code: 0xf855
@@ -2937,6 +2973,7 @@ opcodes:
 
   - code: 0xf856
     mnemonic: unset_ult_map
+    doc: "Enables or disables overriding graphical features with those used in Ultimate"
     params: []
 
   - code: 0xf857
@@ -2953,6 +2990,7 @@ opcodes:
 
   - code: 0xf859
     mnemonic: ba_hide_self_traps
+    doc: "Enables or disables the ability to see your own traps."
     params: []
 
   - code: 0xf85a
@@ -3020,6 +3058,7 @@ opcodes:
 
   - code: 0xf861
     mnemonic: set_score_announce
+    doc: "Specifies when score announcements should occur during battle. The values are measured in minutes remaining. There can be up to 8 score announcements; any further set_score_announce calls are ignored. clear_score_announce deletes all announcement times."
     params:
       - type: int
     stack: pop
@@ -3168,6 +3207,7 @@ opcodes:
 
   - code: 0xf86e
     mnemonic: ba_clear_trapself
+    doc: "Enables or disables traps' ability to hurt the player who set them"
     params: []
 
   - code: 0xf86f
@@ -3230,6 +3270,7 @@ opcodes:
 
   - code: 0xf876
     mnemonic: disable_stealth_suit_effect
+    doc: "Enables or disables the transparency effect, similar to the Stealth Suit. regA is the client ID."
     params:
       - type: reg
         registers:
@@ -3538,16 +3579,19 @@ opcodes:
 
   - code: 0xf893
     mnemonic: get_attack_data
+    doc: "Replaces enemy stats with the given structures (PlayerStats, AttackData, ResistData, or MovementData) for the enemy previously specified with load_enemy_data."
     params:
       - type: dlabel
 
   - code: 0xf894
     mnemonic: get_resist_data
+    doc: "Replaces enemy stats with the given structures (PlayerStats, AttackData, ResistData, or MovementData) for the enemy previously specified with load_enemy_data."
     params:
       - type: dlabel
 
   - code: 0xf895
     mnemonic: get_movement_data
+    doc: "Replaces enemy stats with the given structures (PlayerStats, AttackData, ResistData, or MovementData) for the enemy previously specified with load_enemy_data."
     params:
       - type: dlabel
 
@@ -3568,6 +3612,7 @@ opcodes:
 
   - code: 0xf897
     mnemonic: get_eventflag32
+    doc: "Reads 2 bytes or 4 bytes from the event flags in the system file."
     params:
       - type: reg
         registers:
@@ -3664,10 +3709,12 @@ opcodes:
 
   - code: 0xf8a1
     mnemonic: enable_bosswarp_option
+    doc: "These opcodes set, clear, and check (respectively) a flag that appears to do nothing at all."
     params: []
 
   - code: 0xf8a2
     mnemonic: is_bosswarp_opt_disabled
+    doc: "These opcodes set, clear, and check (respectively) a flag that appears to do nothing at all."
     params:
       - type: reg
         registers:
@@ -4086,6 +4133,7 @@ opcodes:
 
   - code: 0xf8c7
     mnemonic: use_animation
+    doc: "Causes a player to perform an animation."
     params:
       - type: reg
         registers:
@@ -4173,6 +4221,7 @@ opcodes:
 
   - code: 0xf8cd
     mnemonic: set_slot_paralyze
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4181,6 +4230,7 @@ opcodes:
 
   - code: 0xf8ce
     mnemonic: set_slot_shock
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4189,6 +4239,7 @@ opcodes:
 
   - code: 0xf8cf
     mnemonic: set_slot_freeze
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4197,6 +4248,7 @@ opcodes:
 
   - code: 0xf8d0
     mnemonic: set_slot_slow
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4205,6 +4257,7 @@ opcodes:
 
   - code: 0xf8d1
     mnemonic: set_slot_confuse
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4213,6 +4266,7 @@ opcodes:
 
   - code: 0xf8d2
     mnemonic: set_slot_shifta
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4221,6 +4275,7 @@ opcodes:
 
   - code: 0xf8d3
     mnemonic: set_slot_deband
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4229,6 +4284,7 @@ opcodes:
 
   - code: 0xf8d4
     mnemonic: set_slot_jellen
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4237,6 +4293,7 @@ opcodes:
 
   - code: 0xf8d5
     mnemonic: set_slot_zalure
+    doc: "These opcodes inflict various status conditions on a player. In the case of Shifta/Deband/Jellen/Zalure, the effective technique level is 21."
     params:
       - type: reg
         registers:
@@ -4412,6 +4469,7 @@ opcodes:
 
   - code: 0xf8e4
     mnemonic: restore_tp
+    doc: "Sets a player's HP or TP to their maximum HP or TP."
     params:
       - type: reg
         registers:
@@ -4463,6 +4521,7 @@ opcodes:
 
   - code: 0xf8e8
     mnemonic: at_coords_talk_ex
+    doc: "These are the same as their counterparts without _ex, but these also return the object ID (which is distinct from the object token) in regB. There is a bug in set_obj_param_ex - the object token is not returned anywhere, and only the object ID is returned in regB."
     params:
       - type: reg
         registers:
@@ -4475,6 +4534,7 @@ opcodes:
 
   - code: 0xf8e9
     mnemonic: npc_coords_call_ex
+    doc: "These are the same as their counterparts without _ex, but these also return the object ID (which is distinct from the object token) in regB. There is a bug in set_obj_param_ex - the object token is not returned anywhere, and only the object ID is returned in regB."
     params:
       - type: reg
         registers:
@@ -4487,6 +4547,7 @@ opcodes:
 
   - code: 0xf8ea
     mnemonic: party_coords_call_ex
+    doc: "These are the same as their counterparts without _ex, but these also return the object ID (which is distinct from the object token) in regB. There is a bug in set_obj_param_ex - the object token is not returned anywhere, and only the object ID is returned in regB."
     params:
       - type: reg
         registers:
@@ -4499,6 +4560,7 @@ opcodes:
 
   - code: 0xf8eb
     mnemonic: set_obj_param_ex
+    doc: "These are the same as their counterparts without _ex, but these also return the object ID (which is distinct from the object token) in regB. There is a bug in set_obj_param_ex - the object token is not returned anywhere, and only the object ID is returned in regB."
     params:
       - type: reg
         registers:
@@ -4511,6 +4573,7 @@ opcodes:
 
   - code: 0xf8ec
     mnemonic: npc_check_straggle_ex
+    doc: "These are the same as their counterparts without _ex, but these also return the object ID (which is distinct from the object token) in regB. There is a bug in set_obj_param_ex - the object token is not returned anywhere, and only the object ID is returned in regB."
     params:
       - type: reg
         registers:
@@ -4558,6 +4621,7 @@ opcodes:
 
   - code: 0xf8f1
     mnemonic: turn_on_bgm_p2
+    doc: "Disables or enables the background music on Pioneer 2. If the BGM has not been overridden with create_bgmctrl and set_bgm, the music will resume at the points where it would normally change (e.g. entering or leaving the shop area). turn_off_bgm_p2 may be repeated every frame to avoid this consequence."
     params: []
 
   - code: 0xf8f2
@@ -4656,6 +4720,7 @@ opcodes:
 
   - code: 0xf904
     mnemonic: fleti
+    doc: "These are the same as let and leti. Nominally regB/valueB should be a float, but the implementation treats it as an int (which is still correct, since the float is already encoded before the handler function is called)."
     params:
       - type: reg
         registers:
@@ -4678,6 +4743,7 @@ opcodes:
 
   - code: 0xf909
     mnemonic: faddi
+    doc: "regA += regB (or valueB), as floats"
     params:
       - type: reg
         registers:
@@ -4700,6 +4766,7 @@ opcodes:
 
   - code: 0xf90b
     mnemonic: fsubi
+    doc: "regA -= regB (or valueB), as floats"
     params:
       - type: reg
         registers:
@@ -4722,6 +4789,7 @@ opcodes:
 
   - code: 0xf90d
     mnemonic: fmuli
+    doc: "regA *= regB (or valueB), as floats"
     params:
       - type: reg
         registers:
@@ -4744,6 +4812,7 @@ opcodes:
 
   - code: 0xf90f
     mnemonic: fdivi
+    doc: "regA /= regB (or valueB), as floats"
     params:
       - type: reg
         registers:
@@ -4807,6 +4876,7 @@ opcodes:
 
   - code: 0xf915
     mnemonic: activate_palettex
+    doc: "These opcodes are generally used in the following sequence: set_palettex_callback r:client_id, callback_label activate_palettex r:client_id enable_palettex r:client_id ... (X button now runs a quest function when pressed) disable_palettex r:client_id restore_palettex r:client_id ... (X button now behaves normally) Arguments: labelB (for set_palettex_callback only) = function to call when X button is pressed"
     params:
       - type: int
         name: slot
@@ -4814,6 +4884,7 @@ opcodes:
 
   - code: 0xf916
     mnemonic: enable_palettex
+    doc: "These opcodes are generally used in the following sequence: set_palettex_callback r:client_id, callback_label activate_palettex r:client_id enable_palettex r:client_id ... (X button now runs a quest function when pressed) disable_palettex r:client_id restore_palettex r:client_id ... (X button now behaves normally) Arguments: labelB (for set_palettex_callback only) = function to call when X button is pressed"
     params:
       - type: int
         name: slot
@@ -4821,6 +4892,7 @@ opcodes:
 
   - code: 0xf917
     mnemonic: restore_palettex
+    doc: "These opcodes are generally used in the following sequence: set_palettex_callback r:client_id, callback_label activate_palettex r:client_id enable_palettex r:client_id ... (X button now runs a quest function when pressed) disable_palettex r:client_id restore_palettex r:client_id ... (X button now behaves normally) Arguments: labelB (for set_palettex_callback only) = function to call when X button is pressed"
     params:
       - type: int
         name: slot
@@ -4828,6 +4900,7 @@ opcodes:
 
   - code: 0xf918
     mnemonic: disable_palettex
+    doc: "These opcodes are generally used in the following sequence: set_palettex_callback r:client_id, callback_label activate_palettex r:client_id enable_palettex r:client_id ... (X button now runs a quest function when pressed) disable_palettex r:client_id restore_palettex r:client_id ... (X button now behaves normally) Arguments: labelB (for set_palettex_callback only) = function to call when X button is pressed"
     params:
       - type: int
         name: slot
@@ -4867,6 +4940,7 @@ opcodes:
 
   - code: 0xf91c
     mnemonic: enable_movement2
+    doc: "Disables/enables movement for a player. Unlike disable_movement1, this does not send 6x2C."
     params:
       - type: int
         name: slot
@@ -5237,10 +5311,12 @@ opcodes:
 
   - code: 0xf936
     mnemonic: gba_unknown2
+    doc: "Creates, destroys, or updates the GBA loading progress bar (same as the quest download progress bar). These opcodes do nothing on Xbox and BB."
     params: []
 
   - code: 0xf937
     mnemonic: gba_unknown3
+    doc: "Creates, destroys, or updates the GBA loading progress bar (same as the quest download progress bar). These opcodes do nothing on Xbox and BB."
     params: []
 
   - code: 0xf938
@@ -5476,6 +5552,7 @@ opcodes:
 
   - code: 0xf947
     mnemonic: cos
+    doc: "Computes the sine, cosine, or tangent of the input angle. Angles are in the range [0, 65535]."
     params:
       - type: reg
         registers:
@@ -5486,6 +5563,7 @@ opcodes:
 
   - code: 0xf948
     mnemonic: tan
+    doc: "Computes the sine, cosine, or tangent of the input angle. Angles are in the range [0, 65535]."
     params:
       - type: reg
         registers:
@@ -5574,10 +5652,12 @@ opcodes:
 
   - code: 0xf94e
     mnemonic: nop_f94e
+    doc: "These opcodes all do nothing on BB. F94D is presumably the voice chat opcode from Xbox, which was removed, but it's not clear what the other two might have originally been."
     params: []
 
   - code: 0xf94f
     mnemonic: nop_f94f
+    doc: "These opcodes all do nothing on BB. F94D is presumably the voice chat opcode from Xbox, which was removed, but it's not clear what the other two might have originally been."
     params: []
 
   - code: 0xf950
