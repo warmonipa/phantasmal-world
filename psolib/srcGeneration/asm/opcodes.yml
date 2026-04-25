@@ -2690,7 +2690,11 @@ opcodes:
   - code: 0xf82b
     mnemonic: unlock_door2
     doc: "Sets or clears a switch flag, and synchronizes the value to all players"
-    params: [ { type: int }, { type: int } ]
+    params:
+      - type: int
+        name: "floor"
+      - type: int
+        name: "switch flag index"
     stack: pop
 
   - code: 0xf82c
@@ -3078,6 +3082,8 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "return value"
+            doc: "return value (1 if item successfully created; 0 otherwise)"
 
   - code: 0xf868
     mnemonic: set_cmode_rank
@@ -3123,10 +3129,14 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "item.data1[0-5]"
+            doc: "first of 6 consecutive registers holding item.data1[0]..item.data1[5]"
       - type: reg
         registers:
           - type: int
             write: true
+            name: "returned success code"
+            doc: "returned success code (1 = success, 0 = failed)"
 
   - code: 0xf86b
     mnemonic: ba_box_drops
@@ -3145,6 +3155,8 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "result code"
+            doc: "result code (0 = OK, 1 = reconsider)"
 
   - code: 0xf86d
     mnemonic: ba_set_trapself
@@ -3247,10 +3259,13 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
       - type: reg
         registers:
           - type: int
             write: true
+            name: "returned gender"
+            doc: "returned gender (0 = male, 1 = female, 2 = no player present or invalid class flags)"
 
   - code: 0xf87a
     mnemonic: get_chara_class
@@ -3330,10 +3345,14 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "event flag index"
+            doc: "event flag index (0x00-0xFF)"
       - type: reg
         registers:
           - type: int
             write: true
+            name: "returned event flag value"
+            doc: "returned event flag value (1 byte)"
 
   - code: 0xf880
     mnemonic: set_trap_damage
@@ -3476,6 +3495,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "time in seconds"
 
   - code: 0xf88e
     mnemonic: chl_get_timerecord
@@ -3536,10 +3556,12 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "event flag index"
       - type: reg
         registers:
           - type: int
             write: true
+            name: "returned value"
 
   - code: 0xf897
     mnemonic: get_eventflag32
@@ -3630,6 +3652,7 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "client ID"
 
   - code: 0xf8a0
     mnemonic: disable_bosswarp_option
@@ -4041,6 +4064,8 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "completion time in seconds"
+            doc: "completion time in seconds, as returned by chl_get_timerecord"
 
   - code: 0xf8c5
     mnemonic: stage_in_progress_multi_cm
@@ -4063,13 +4088,16 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
       - type: reg
         doc: Animation ID and duration in number of frames.
         registers:
           - type: int
             read: true
+            name: "animation ID"
           - type: int
             read: true
+            name: "duration in frames"
 
   - code: 0xf8c8
     mnemonic: stop_animation
@@ -4079,6 +4107,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
 
   - code: 0xf8c9
     mnemonic: run_to_coord
@@ -4111,10 +4140,13 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
       - type: reg
         registers:
           - type: int
             read: true
+            name: "enable invincibility"
+            doc: "enable invincibility (1 = enable, 0 = disable)"
 
   - code: 0xf8cb
     mnemonic: set_slot_targetable
@@ -4124,6 +4156,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
 
   - code: 0xf8cc
     mnemonic: set_slot_poison
@@ -4133,6 +4166,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
 
   - code: 0xf8cd
     mnemonic: set_slot_paralyze
@@ -4323,10 +4357,12 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "controller port number"
       - type: reg
         registers:
           - type: int
             write: true
+            name: "returned button flags"
 
   - code: 0xf8de
     mnemonic: get_button_cond
@@ -4369,6 +4405,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
 
   - code: 0xf8e4
     mnemonic: restore_tp
@@ -4386,6 +4423,7 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
 
   - code: 0xf8e6
     mnemonic: move_coords_object
@@ -4488,10 +4526,12 @@ opcodes:
         registers:
           - type: int
             read: true
+            name: "client ID"
       - type: reg
         registers:
           - type: int
             read: true
+            name: "returned value"
 
   - code: 0xf8ee
     mnemonic: call_image_data
@@ -5048,6 +5088,7 @@ opcodes:
         registers:
           - type: int
             write: true
+            name: "item ID"
 
   - code: 0xf92c
     mnemonic: get_item_id
