@@ -106,8 +106,29 @@ class QuestEditorMeshManager(
             )
         }
 
-        observeNow(questEditorStore.currentQuest) { quest ->
-            loadParticleMarkers(quest?.particleSpawns ?: emptyList())
+        observeNow(
+            questEditorStore.currentQuest,
+            questEditorStore.currentArea,
+            questEditorStore.currentFloorIds,
+        ) { quest, area, floorIds ->
+            val spawns = quest?.particleSpawns
+            loadParticleMarkers(
+                if (spawns == null || area == null) {
+                    emptyList()
+                } else {
+                    spawns.filter { spawn ->
+                        // Empty floorIds means the spawn could not be statically attributed to a
+                        // floor — show it everywhere as a fallback rather than hiding it.
+                        spawn.floorIds.isEmpty() || (
+                            if (floorIds != null) {
+                                spawn.floorIds.any { it in floorIds }
+                            } else {
+                                area.id in spawn.floorIds
+                            }
+                        )
+                    }
+                }
+            )
         }
 
         observeNow(questEditorUiStore.showCollisionGeometry) {

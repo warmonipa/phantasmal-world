@@ -96,6 +96,34 @@ class QuestTests : LibTestSuite {
     }
 
     @Test
+    fun particle_v3_floor_attribution_in_pw4() = testAsync {
+        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        assertTrue(result is Success)
+        val quest = result.value.quest
+
+        // pw4 has 3 statically resolvable particle_v3 calls (verified empirically):
+        //   - 1 in the Lab teleport pad area at (-10230, -2, -10)  → floor 0 (Lab)
+        //   - 2 in the East/West Tower paths at (20000, 6, -1)    → floor 16 / 17 (Tower)
+        // The floor handlers are registered in label-0 via set_floor_handler. The CFG walk
+        // should attribute each spawn site to the floor whose handler can reach it.
+
+        val labSpawn = quest.particleSpawns.firstOrNull { it.x == -10230 && it.z == -10 }
+        assertNotNull(labSpawn, "Expected lab particle_v3 at X=-10230 Z=-10")
+        assertTrue(
+            0 in labSpawn.floorIds,
+            "Lab particle_v3 should be attributed to floor 0, got ${labSpawn.floorIds}",
+        )
+
+        val towerSpawns = quest.particleSpawns.filter { it.x == 20000 && it.z == -1 }
+        assertEquals(2, towerSpawns.size, "Expected 2 tower particle_v3 calls at X=20000 Z=-1")
+        val towerFloors = towerSpawns.flatMap { it.floorIds }.toSet()
+        assertTrue(
+            16 in towerFloors || 17 in towerFloors,
+            "Tower particle_v3 calls should be attributed to floor 16 or 17, got $towerFloors",
+        )
+    }
+
+    @Test
     fun parseQstToQuest_with_phantasmal_world_4_multi_floor() = testAsync {
         val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
 
