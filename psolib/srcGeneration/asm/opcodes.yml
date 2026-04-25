@@ -874,10 +874,13 @@ opcodes:
     mnemonic: npc_crt_v3
     doc: "Creates an NPC as client ID 1. Sends 6x69 with command = 0"
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+        name: "initial state"
+        doc: "initial state (see npc_crp; 0 = alive, 1 = dead, 2 = invisible text box)"
+      - type: int
+        name: "template index"
+        doc: "template index (see 6x69 in CommandFormats.hh)"
+    stack: pop
 
   - code: 0x61
     mnemonic: npc_stop
@@ -5559,13 +5562,15 @@ opcodes:
             doc: "y offset (as integer)"
 
   - code: 0xf94d
-    mnemonic: is_there_cardbattle
-    doc: "Returns 1 in regA if a file named PSO3_CHARACTER is present on either memory card. This opcode is only available on PSO Plus on GC; that is, it only exists on JP v1.4, JP v1.5, and US v1.2."
+    mnemonic: has_ep3_save_file
+    doc: "Returns 1 in regA if a file named PSO3_CHARACTER is present on either memory card. This opcode is only available on PSO Plus on GC; that is, it only exists on JP v1.4, JP v1.5, and US v1.2. Newserv documents four other variants of 0xF94D (give_card / give_or_take_card on EP3, unknown_F94D on Xbox, nop_F94D on BB) which use different parameter shapes."
     params:
       - type: reg
         registers:
           - type: int
             write: true
+            name: "result"
+            doc: "result (1 if PSO3_CHARACTER file is present, 0 otherwise)"
 
   - code: 0xf94e
     mnemonic: nop_f94e
