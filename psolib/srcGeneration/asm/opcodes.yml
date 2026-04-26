@@ -168,6 +168,11 @@ opcodes:
     doc: "If regB is nonzero, sets flagA; otherwise, clears it"
     params:
       - type: short
+        name: "flag"
+      - type: reg
+        registers:
+          - type: int
+            read: true
 
   - code: 0x17
     mnemonic: gget
@@ -959,6 +964,7 @@ opcodes:
           - type: int
             read: true
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0x6a
@@ -1010,6 +1016,7 @@ opcodes:
     doc: "Causes the player with client ID valueA to look at an unspecified other player. The specified player looks at the player with the lowest client ID (except for the specified player). TODO: TObjPlayer::state is involved in determining which player to look at; figure out exactly what this does"
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0x70
@@ -1027,6 +1034,7 @@ opcodes:
     doc: "Disables/enables movement for the given player"
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0x73
@@ -1034,6 +1042,7 @@ opcodes:
     doc: "Disables/enables movement for the given player"
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0x74
@@ -1079,6 +1088,7 @@ opcodes:
     doc: "Opens the Hunter's Guild counter menu. valueA should be the player's client ID."
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0x79
@@ -1122,13 +1132,12 @@ opcodes:
     stack: pop
 
   - code: 0x7b
-    mnemonic: npc_crtpk_v3
+    mnemonic: npc_crtpk
     doc: "Creates attacker NPC"
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+      - type: int
+    stack: pop
 
   - code: 0x7c
     mnemonic: npc_crppk_v3
@@ -1171,7 +1180,9 @@ opcodes:
     doc: "Causes client ID valueA to look at client ID valueB. Sends 6x3E."
     params:
       - type: int
+        name: "client ID"
       - type: int
+        name: "target client ID"
     stack: pop
 
   - code: 0x7f
@@ -1481,6 +1492,7 @@ opcodes:
     doc: "Causes the labelB to be called on a new thread when the player warps to floorA. If the given floor already has a registered handler, it is replaced with the new one (each floor may have at most one handler)."
     params:
       - type: int
+        name: "floor"
         doc: Floor number.
       - type: ilabel
         doc: Handler function label.
@@ -1491,6 +1503,7 @@ opcodes:
     doc: "Deletes the handler for floorA."
     params:
       - type: int
+        name: "floor"
         doc: Floor number.
     stack: pop
 
@@ -1614,7 +1627,9 @@ opcodes:
     doc: "Gives valueB Meseta to the player with client ID valueA. Negative values do not appear to be handled properly; if this opcode attempts to take more meseta than the player has, the player ends up with 999999 Meseta."
     params:
       - type: int
+        name: "client ID"
       - type: int
+        name: "amount"
     stack: pop
 
   - code: 0xb1
@@ -2062,7 +2077,7 @@ opcodes:
     stack: pop
 
   - code: 0xd9
-    mnemonic: sync_leti
+    mnemonic: sync_register
     doc: "Sets regA to valueB, and sends 6x77 so other clients will also set their local regA to valueB."
     params:
       - type: reg
@@ -2070,6 +2085,7 @@ opcodes:
           - type: int
             write: true
       - type: int
+    stack: pop
 
   - code: 0xda
     mnemonic: set_returnhunter
@@ -2224,14 +2240,13 @@ opcodes:
             name: "relative location of camera from player [2]"
 
   - code: 0xe3
-    mnemonic: start_setevt_v3
+    mnemonic: start_setevt
     doc: "Triggers set event (valueB) on floor (valueA). Sends 6x67."
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
       - type: int
+        name: "floor"
+      - type: int
+        name: "event ID"
     stack: pop
 
   - code: 0xe4
@@ -2333,7 +2348,7 @@ opcodes:
     stack: pop
 
   - code: 0xef
-    mnemonic: sync_register
+    mnemonic: sync_register2
     doc: "Like sync_register, but takes the value from another register rather than using an immediate value. On v3 and later, this is identical to sync_register."
     params:
       - type: reg
@@ -2498,6 +2513,7 @@ opcodes:
     doc: "Enables or disables weapon dropping upon death for a player. Sends 6x81 (disable) or 6x82 (enable)."
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0xf80f
@@ -2505,6 +2521,7 @@ opcodes:
     doc: "Enables or disables weapon dropping upon death for a player. Sends 6x81 (disable) or 6x82 (enable)."
     params:
       - type: int
+        name: "client ID"
     stack: pop
 
   - code: 0xf810
@@ -3533,13 +3550,17 @@ opcodes:
 
   - code: 0xf88d
     mnemonic: chl_set_timerecord
-    doc: "Sets the local player's stage completion time in challenge mode"
+    doc: "Sets the local player's stage completion time in challenge mode. The BB form takes a second register; on v2/v3 only the first register is used."
     params:
       - type: reg
         registers:
           - type: int
             read: true
             name: "time in seconds"
+      - type: reg
+        registers:
+          - type: int
+            read: true
 
   - code: 0xf88e
     mnemonic: chl_get_timerecord
@@ -3936,8 +3957,8 @@ opcodes:
     params:
       - type: int
         doc: Address to write to.
-      - type: byte
-        doc: Value to be written.
+      - type: int
+        doc: Value to be written (low byte used).
     stack: pop
 
   - code: 0xf8b4
@@ -3946,8 +3967,8 @@ opcodes:
     params:
       - type: int
         doc: Address to write to.
-      - type: short
-        doc: Value to be written.
+      - type: int
+        doc: Value to be written (low 2 bytes used).
     stack: pop
 
   - code: 0xf8b5
@@ -4919,11 +4940,13 @@ opcodes:
     stack: pop
 
   - code: 0xf91a
-    mnemonic: get_unknown_palettex_status
+    mnemonic: get_palettex_enabled
     doc: "Checks if activate_palettex has been run for a player. The ignored argument here seems to be a bug. At least one official quest uses this opcode preceded by only two arg_push opcodes, implying that it was intended to take two arguments, but the client really does only use quest_arg_list[0] and quest_arg_list[2]"
     params:
       - type: int
         name: "client ID"
+      - type: int
+        name: "ignored"
       - type: reg
         registers:
           - type: int
@@ -5640,15 +5663,9 @@ opcodes:
             doc: "y offset (as integer)"
 
   - code: 0xf94d
-    mnemonic: has_ep3_save_file
-    doc: "Returns 1 in regA if a file named PSO3_CHARACTER is present on either memory card. This opcode is only available on PSO Plus on GC; that is, it only exists on JP v1.4, JP v1.5, and US v1.2. Newserv documents four other variants of 0xF94D (give_card / give_or_take_card on EP3, unknown_F94D on Xbox, nop_F94D on BB) which use different parameter shapes."
-    params:
-      - type: reg
-        registers:
-          - type: int
-            write: true
-            name: "result"
-            doc: "result (1 if PSO3_CHARACTER file is present, 0 otherwise)"
+    mnemonic: nop_f94d
+    doc: "On BB this opcode is a no-op. Newserv documents four other variants of 0xF94D for other versions: has_ep3_save_file on GC PSO Plus (returns 1 if a PSO3_CHARACTER file is present), give_card / give_or_take_card on EP3, and unknown_F94D on Xbox."
+    params: []
 
   - code: 0xf94e
     mnemonic: nop_f94e
@@ -5722,18 +5739,12 @@ opcodes:
     mnemonic: bb_exchange_pd_item
     doc: "Requests an item exchange for Photon Drops. Sends 6xD7. The requested item must match one of the item creation masks in the quest script's header. valueA/valueB/valueC = item.data1[0-2] for requested item"
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+        name: "item.data1[0]"
+      - type: int
+        name: "item.data1[1]"
+      - type: int
+        name: "item.data1[2]"
       - type: ilabel
         name: "label to call on success"
       - type: ilabel
@@ -5744,26 +5755,14 @@ opcodes:
     mnemonic: bb_exchange_pd_srank
     doc: "Requests an S-rank special upgrade in exchange for Photon Drops. Sends 6xD8. valueB/valueC/valueD = item.data1[0-2]"
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+      - type: int
+        name: "item.data1[0]"
+      - type: int
+        name: "item.data1[1]"
+      - type: int
+        name: "item.data1[2]"
+      - type: int
       - type: ilabel
         name: "label to call on success"
       - type: ilabel
@@ -5771,29 +5770,17 @@ opcodes:
     stack: pop
 
   - code: 0xf957
-    mnemonic: bb_exchange_pd_special
+    mnemonic: bb_exchange_pd_percent
     doc: "Requests a weapon attribute upgrade in exchange for Photon Drops. Sends 6xDA. valueB/valueC/valueD = item.data1[0-2]"
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+      - type: int
+        name: "item.data1[0]"
+      - type: int
+        name: "item.data1[1]"
+      - type: int
+        name: "item.data1[2]"
+      - type: int
       - type: int
         name: "payment count"
         doc: "payment count (number of PDs)"
@@ -5804,32 +5791,24 @@ opcodes:
     stack: pop
 
   - code: 0xf958
-    mnemonic: bb_exchange_pd_percent
+    mnemonic: bb_exchange_ps_percent
     doc: "Requests a weapon attribute upgrade in exchange for Photon Spheres. Sends 6xDA. Same arguments as bb_exchange_pd_percent, except Photon Spheres are used instead."
     params:
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
       - type: int
+      - type: int
+        name: "item.data1[0]"
+      - type: int
+        name: "item.data1[1]"
+      - type: int
+        name: "item.data1[2]"
+      - type: int
+      - type: int
+        name: "payment count"
+        doc: "payment count (number of PSes)"
       - type: ilabel
+        name: "label to call on success"
       - type: ilabel
+        name: "label to call on failure"
     stack: pop
 
   - code: 0xf959

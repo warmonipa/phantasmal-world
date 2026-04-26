@@ -66,7 +66,7 @@ private class RegisterValueFinder {
                 OP_LETI.code,
                 OP_LETB.code,
                 OP_LETW.code,
-                OP_SYNC_LETI.code,
+                OP_SYNC_REGISTER.code,
                 -> {
                     if (args[0].value == register) {
                         return ValueSet.of((args[1] as IntArg).value)
