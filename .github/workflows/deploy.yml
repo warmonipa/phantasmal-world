@@ -10,8 +10,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -26,9 +24,8 @@ jobs:
         run: './gradlew :web:jsBrowserDistribution'
 
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@3.6.2
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: web/build/dist/js/productionExecutable
-          CLEAN: true
+          branch: gh-pages
+          folder: web/build/dist/js/productionExecutable
+          clean: true
