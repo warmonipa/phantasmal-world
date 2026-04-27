@@ -2931,6 +2931,9 @@ enum class ObjectType(
             Episode.IV to listOf(9),
         ),
         typeId = 961,
+        properties = listOf(
+            EntityProp(name = "Type", offset = 52, type = EntityPropType.I32),
+        ),
     );
 
     override val simpleName = uniqueName
