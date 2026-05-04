@@ -359,6 +359,58 @@ class GetParticleSpawnsTests : LibTestSuite {
     }
 
     @Test
+    fun helper_setting_floor_register_propagates_state_back_to_caller() {
+        // Interprocedural propagation: a shared handler calls a helper that sets the floor
+        // register via get_floor_number, then dispatches on it. The floor-register taint
+        // must survive the call/return boundary so the caller's switch_jmp can be pruned.
+        val segments = toInstructions("""
+            0:
+                set_floor_handler 0, 100
+                set_floor_handler 1, 100
+                set_floor_handler 2, 100
+                ret
+            100:
+                call 200
+                switch_jmp r10, 300, 301, 302
+                ret
+            200:
+                get_floor_number 0, r10
+                ret
+            300:
+                leti r20, 1000
+                leti r21, 0
+                leti r22, 2000
+                leti r23, 1
+                leti r24, 30
+                particle_v3 r20
+                ret
+            301:
+                leti r30, 5000
+                leti r31, 0
+                leti r32, 6000
+                leti r33, 2
+                leti r34, 60
+                particle_v3 r30
+                ret
+            302:
+                leti r40, 9000
+                leti r41, 0
+                leti r42, 10000
+                leti r43, 3
+                leti r44, 90
+                particle_v3 r40
+                ret
+        """.trimIndent())
+
+        val spawns = getParticleSpawns(segments) { ControlFlowGraph.create(segments) }
+
+        assertEquals(3, spawns.size)
+        assertEquals(setOf(0), spawns.firstOrNull { it.x == 1000 }?.floorIds, "floor 0 spawn")
+        assertEquals(setOf(1), spawns.firstOrNull { it.x == 5000 }?.floorIds, "floor 1 spawn")
+        assertEquals(setOf(2), spawns.firstOrNull { it.x == 9000 }?.floorIds, "floor 2 spawn")
+    }
+
+    @Test
     fun particle_reachable_from_two_floor_handlers_gets_union_of_floors() {
         // A helper called from two different floor handlers should be tagged with both
         // floors — at runtime the helper can fire on either floor.

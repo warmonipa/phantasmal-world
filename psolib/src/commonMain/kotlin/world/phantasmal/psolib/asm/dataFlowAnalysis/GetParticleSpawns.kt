@@ -10,6 +10,7 @@ import world.phantasmal.psolib.asm.OP_GET_FLOOR_NUMBER
 import world.phantasmal.psolib.asm.OP_JMPI_E
 import world.phantasmal.psolib.asm.OP_JMPI_NE
 import world.phantasmal.psolib.asm.OP_LET
+import world.phantasmal.psolib.asm.OP_LETI
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
 import world.phantasmal.psolib.asm.OP_SWITCH_CALL
@@ -244,80 +245,118 @@ private fun computeBlockToFloors(
         }
     }
 
-    // Step 3: forward, path-sensitive BFS from each floor handler entry. We BFS once per
-    // (entry label, single floor) pair so that branch pruning can use a single, known
-    // current floor.
+    // Step 3: forward, path-sensitive, **interprocedural** reachability from each floor
+    // handler entry. We BFS once per (entry label, single floor) pair so that branch pruning
+    // can use a single, known current floor.
     //
     // Edge model — we deliberately do NOT use `block.to` directly because the CFG, via
     // linkReturningBlocks, gives every callee's Return block edges to *all* of its callers'
     // after-call blocks. Following those would let BFS from one floor handler walk into
     // another floor handler's after-call code through a shared helper, polluting the floor
     // tag for every spawn downstream. So:
-    // - Return blocks contribute no forward edges.
-    // - Call blocks contribute their callee entries (from `block.to`) plus the
-    //   segment-sequential successor (the after-call block) directly.
-    // - All other block types use `block.to`, with branch pruning applied when the
-    //   terminator dispatches on a floor-tracking register.
+    // - Return blocks contribute no forward edges within the BFS body. Instead, the floor
+    //   register state at every Return block reached during a callee walk is *unioned* into
+    //   the callee's "exit state". The exit state is then propagated to the caller's
+    //   after-call block (segment-sequential successor of the call) — not the call-site
+    //   pre-call state. This is what makes "helper sets r52 = r53; ret" propagate to the
+    //   caller's switch_jmp(r52) and let path-sensitivity prune it.
+    // - Call blocks recurse into callee entries; the recursive call returns the merged exit
+    //   state which becomes the after-call block's incoming state.
+    // - All other block types use `block.to` (filtered by branch pruning when the terminator
+    //   dispatches on a floor-tracking register).
     //
-    // BFS visited keys are (block, floorRegs) pairs because the same block can be visited
-    // with different incoming floor-register sets and produce different prunings.
+    // Visited keys are (block, floorRegs) pairs (per (handler, floor) instance). To prevent
+    // infinite recursion on mutually-recursive callees, we track in-progress (entry, regs)
+    // contexts and break cycles by returning the entry state. Per-instance exit-state
+    // memoization keeps the recursion linear in distinct (entry, regs) contexts.
     val result = mutableMapOf<BasicBlock, MutableSet<Int>>()
     for ((entryLabel, floorIds) in labelToFloors) {
-        val entry = labelToEntryBlock[entryLabel] ?: continue
+        val handlerEntry = labelToEntryBlock[entryLabel] ?: continue
         for (currentFloor in floorIds) {
             val visited = mutableSetOf<Pair<BasicBlock, Set<Int>>>()
-            val queue = ArrayDeque<Pair<BasicBlock, Set<Int>>>()
-            queue.add(entry to emptySet())
-            while (queue.isNotEmpty()) {
-                val (b, incomingRegs) = queue.removeFirst()
-                if (!visited.add(b to incomingRegs)) continue
-                result.getOrPut(b) { mutableSetOf() }.add(currentFloor)
+            val exitStateCache = mutableMapOf<Pair<BasicBlock, Set<Int>>, Set<Int>>()
+            val inProgress = mutableSetOf<Pair<BasicBlock, Set<Int>>>()
 
-                val outgoingRegs = walkBlockTrackingFloorRegs(b, incomingRegs)
-                val terminator = if (b.end > b.start) b.segment.instructions[b.end - 1] else null
+            // Recursive BFS that returns the merged register state at all Return blocks
+            // reached from `start` with `startRegs`. The depth limit guards against
+            // pathological call chains; PSO scripts rarely exceed ~20 levels.
+            fun bfs(start: BasicBlock, startRegs: Set<Int>, depth: Int): Set<Int> {
+                val key = start to startRegs
+                exitStateCache[key]?.let { return it }
+                if (key in inProgress) return startRegs
+                if (depth >= 64) return startRegs
+                inProgress.add(key)
 
-                when (b.branchType) {
-                    BranchType.Return -> {
-                        // Skip — `to` only contains return-to-caller edges.
+                val queue = ArrayDeque<Pair<BasicBlock, Set<Int>>>()
+                queue.add(key)
+                var mergedExit: Set<Int>? = null
+
+                while (queue.isNotEmpty()) {
+                    val (b, regs) = queue.removeFirst()
+                    if (!visited.add(b to regs)) continue
+                    result.getOrPut(b) { mutableSetOf() }.add(currentFloor)
+
+                    // Walk the block (excluding terminator) to compute the post-block state
+                    // even for Return blocks — pre-`ret` instructions like `let`/`leti` still
+                    // contribute to the exit state propagated to the caller.
+                    val outgoing = walkBlockTrackingFloorRegs(b, regs, currentFloor)
+                    val terminator = if (b.end > b.start) b.segment.instructions[b.end - 1] else null
+
+                    if (b.branchType == BranchType.Return) {
+                        mergedExit = (mergedExit ?: emptySet()) + outgoing
+                        // Still follow callback edges registered within this block (a `ret`
+                        // block can contain `thread_stg` / `at_coords_call` before the ret).
+                        callbackEdges[b]?.forEach { queue.add(it to outgoing) }
+                        continue
                     }
-                    BranchType.Call -> {
-                        val pruned = tryPruneSwitch(
-                            terminator, outgoingRegs, currentFloor, labelToEntryBlock,
-                        )
-                        if (pruned != null) {
-                            for (next in pruned) queue.add(next to outgoingRegs)
-                        } else {
-                            for (next in b.to) queue.add(next to outgoingRegs)
+
+                    when (b.branchType) {
+                        BranchType.Call -> {
+                            val pruned = tryPruneSwitch(
+                                terminator, outgoing, currentFloor, labelToEntryBlock,
+                            )
+                            val callees = pruned ?: b.to
+                            // Recurse into each candidate callee, union their exit states.
+                            // The after-call block inherits this union (not the pre-call state).
+                            val mergedCalleeExit = mutableSetOf<Int>()
+                            var anyCallee = false
+                            for (callee in callees) {
+                                anyCallee = true
+                                mergedCalleeExit.addAll(bfs(callee, outgoing, depth + 1))
+                            }
+                            val afterCallState = if (anyCallee) mergedCalleeExit.toSet() else outgoing
+                            nextInSegment[b]?.let { queue.add(it to afterCallState) }
                         }
-                        nextInSegment[b]?.let { queue.add(it to outgoingRegs) }
-                    }
-                    BranchType.Jump -> {
-                        val pruned = tryPruneSwitch(
-                            terminator, outgoingRegs, currentFloor, labelToEntryBlock,
-                        )
-                        if (pruned != null) {
-                            for (next in pruned) queue.add(next to outgoingRegs)
-                        } else {
-                            for (next in b.to) queue.add(next to outgoingRegs)
+                        BranchType.Jump -> {
+                            val pruned = tryPruneSwitch(
+                                terminator, outgoing, currentFloor, labelToEntryBlock,
+                            )
+                            val succs = pruned ?: b.to
+                            for (s in succs) queue.add(s to outgoing)
                         }
-                    }
-                    BranchType.ConditionalJump -> {
-                        val pruned = tryPruneConditional(
-                            b, terminator, outgoingRegs, currentFloor,
-                            labelToEntryBlock, nextInSegment,
-                        )
-                        if (pruned != null) {
-                            for (next in pruned) queue.add(next to outgoingRegs)
-                        } else {
-                            for (next in b.to) queue.add(next to outgoingRegs)
+                        BranchType.ConditionalJump -> {
+                            val pruned = tryPruneConditional(
+                                b, terminator, outgoing, currentFloor,
+                                labelToEntryBlock, nextInSegment,
+                            )
+                            val succs = pruned ?: b.to
+                            for (s in succs) queue.add(s to outgoing)
                         }
+                        BranchType.None -> {
+                            for (s in b.to) queue.add(s to outgoing)
+                        }
+                        BranchType.Return -> { /* handled above */ }
                     }
-                    BranchType.None -> {
-                        for (next in b.to) queue.add(next to outgoingRegs)
-                    }
+                    callbackEdges[b]?.forEach { queue.add(it to outgoing) }
                 }
-                callbackEdges[b]?.forEach { queue.add(it to outgoingRegs) }
+
+                inProgress.remove(key)
+                val exit = mergedExit ?: startRegs
+                exitStateCache[key] = exit
+                return exit
             }
+
+            bfs(handlerEntry, emptySet(), 0)
         }
     }
 
@@ -329,16 +368,24 @@ private fun computeBlockToFloors(
  * instance's "current floor" value. Skips the terminator: the terminator is examined separately
  * for branch pruning and never writes to the floor-tracking lineage.
  */
-private fun walkBlockTrackingFloorRegs(block: BasicBlock, incoming: Set<Int>): Set<Int> {
+private fun walkBlockTrackingFloorRegs(
+    block: BasicBlock,
+    incoming: Set<Int>,
+    currentFloor: Int,
+): Set<Int> {
     var regs = incoming
     val end = if (block.branchType != BranchType.None) block.end - 1 else block.end
     for (i in block.start until end) {
-        regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs)
+        regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs, currentFloor)
     }
     return regs
 }
 
-private fun updateFloorRegsForInstruction(inst: Instruction, regs: Set<Int>): Set<Int> {
+private fun updateFloorRegsForInstruction(
+    inst: Instruction,
+    regs: Set<Int>,
+    currentFloor: Int,
+): Set<Int> {
     when (inst.opcode.code) {
         OP_GET_FLOOR_NUMBER.code -> {
             // get_floor_number slot, baseReg writes floor at +0 and room at +1.
@@ -350,6 +397,14 @@ private fun updateFloorRegsForInstruction(inst: Instruction, regs: Set<Int>): Se
             val dest = (inst.args.getOrNull(0) as? IntArg)?.value ?: return regs
             val src = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs
             return if (src in regs) regs + dest else regs - dest
+        }
+        OP_LETI.code -> {
+            // leti dest, K writes literal K. If K equals the BFS's current floor, treat dest
+            // as a floor register (a script may stash a per-branch floor sentinel that way).
+            // Otherwise dest no longer holds the floor value.
+            val dest = (inst.args.getOrNull(0) as? IntArg)?.value ?: return regs
+            val value = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs - dest
+            return if (value == currentFloor) regs + dest else regs - dest
         }
         else -> {
             // Default: any opcode whose declared RegType params include a writable register
