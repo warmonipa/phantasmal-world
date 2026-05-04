@@ -1,9 +1,12 @@
 package world.phantasmal.web.questEditor.rendering
 
+import mu.KotlinLogging
 import world.phantasmal.core.disposable.TrackedDisposable
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.InstancedMesh
 import world.phantasmal.web.questEditor.models.QuestEntityModel
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Contains instances of an InstancedMesh related to a quest entity.
@@ -30,7 +33,16 @@ abstract class InstanceContainer<Entity : QuestEntityModel<*, *>, Inst : Instanc
     fun getInstanceAt(instanceIndex: Int): Inst =
         instances[instanceIndex]
 
-    fun addInstance(entity: Entity): Inst {
+    fun addInstance(entity: Entity): Inst? {
+        val capacity = mesh.instanceMatrix.asDynamic().count.unsafeCast<Int>()
+
+        if (mesh.count >= capacity) {
+            logger.warn {
+                "InstancedMesh capacity ($capacity) exceeded for ${mesh.name.ifEmpty { "<unnamed>" }}, entity will not be rendered."
+            }
+            return null
+        }
+
         val instanceIndex = mesh.count
         mesh.count++
 
