@@ -119,15 +119,17 @@ class QuestEditorMeshManager(
                     emptyList()
                 } else {
                     spawns.filter { spawn ->
-                        // Empty floorIds means the spawn could not be statically attributed to a
-                        // floor — show it everywhere as a fallback rather than hiding it.
-                        spawn.floorIds.isEmpty() || (
-                            if (floorIds != null) {
-                                spawn.floorIds.any { it in floorIds }
-                            } else {
-                                area.id in spawn.floorIds
-                            }
-                        )
+                        // Empty floorIds means the spawn site is not reachable from any
+                        // set_floor_handler entry (typically dead code in the bytecode).
+                        // Hide it; psolib emits a one-shot console warning listing all such
+                        // spawns when the quest is loaded.
+                        if (spawn.floorIds.isEmpty()) {
+                            false
+                        } else if (floorIds != null) {
+                            spawn.floorIds.any { it in floorIds }
+                        } else {
+                            area.id in spawn.floorIds
+                        }
                     }
                 }
             )

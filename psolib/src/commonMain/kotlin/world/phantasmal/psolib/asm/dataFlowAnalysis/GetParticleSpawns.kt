@@ -33,9 +33,11 @@ private val logger = KotlinLogging.logger {}
  *   `particleentryaXX.dat`).
  * @property frames Number of frames the effect should last.
  * @property floorIds The set of floor IDs whose `set_floor_handler` chain transitively reaches
- *   this invocation. Empty when the spawn could not be attributed to any floor (e.g. it lives
- *   inside a chat/menu handler reached only from label 0). Callers should treat an empty set
- *   as "unknown floor — show everywhere" rather than hide the marker.
+ *   this invocation. Empty when the spawn site is not reachable from any registered floor
+ *   handler — typically dead code in the bytecode (e.g. a self-looping ambient thread that
+ *   was never `thread_stg`d, or a `thread_stg` placed after an unconditional `jmp`). Callers
+ *   should hide spawns with an empty set; [getParticleSpawns] emits a one-shot warning listing
+ *   them at parse time.
  */
 data class ParticleSpawn(
     val x: Int,
@@ -106,6 +108,20 @@ fun getParticleSpawns(
                     floorIds = floorIds,
                 )
             )
+        }
+    }
+
+    val unattributed = spawns.filter { it.floorIds.isEmpty() }
+    if (unattributed.isNotEmpty()) {
+        logger.warn {
+            buildString {
+                append("Hiding ${unattributed.size} unreachable particle_v3 spawn(s) — ")
+                append("the containing segments are not reachable from any set_floor_handler ")
+                append("entry (likely dead bytecode):")
+                for (s in unattributed) {
+                    append("\n  particleId=${s.particleId} pos=(${s.x}, ${s.y}, ${s.z}) frames=${s.frames}")
+                }
+            }
         }
     }
 

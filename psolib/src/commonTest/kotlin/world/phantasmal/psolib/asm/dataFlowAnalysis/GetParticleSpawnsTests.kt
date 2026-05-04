@@ -103,8 +103,8 @@ class GetParticleSpawnsTests : LibTestSuite {
     fun particle_inside_set_qt_success_callback_is_not_attributed_to_registration_floor() {
         // set_qt_success bodies fire at the Hunter's Guild on Pioneer 2, not on the floor
         // where the registration happened. We deliberately do NOT propagate floor tags
-        // through this edge, so the spawn ends up with empty floorIds (and the renderer's
-        // "show everywhere" fallback takes over).
+        // through this edge, so the spawn ends up with empty floorIds (and the renderer
+        // hides it; this case is currently indistinguishable from genuine dead code).
         val segments = toInstructions("""
             0:
                 set_floor_handler 11, 100
