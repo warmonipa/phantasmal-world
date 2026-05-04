@@ -112,24 +112,48 @@ class QuestEditorMeshManager(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
-        ) { quest, area, floorIds ->
+            renderContext.collisionGeometryBoundingBox,
+        ) { quest, area, floorIds, bbox ->
             val spawns = quest?.particleSpawns
             loadParticleMarkers(
                 if (spawns == null || area == null) {
                     emptyList()
                 } else {
                     spawns.filter { spawn ->
-                        // Empty floorIds means the spawn site is not reachable from any
-                        // set_floor_handler entry (typically dead code in the bytecode).
-                        // Hide it; psolib emits a one-shot console warning listing all such
-                        // spawns when the quest is loaded.
-                        if (spawn.floorIds.isEmpty()) {
-                            false
-                        } else if (floorIds != null) {
+                        // 1) Empty floorIds = unreachable bytecode (psolib already warned).
+                        if (spawn.floorIds.isEmpty()) return@filter false
+
+                        // 2) Floor-id attribution from static analysis.
+                        val floorMatches = if (floorIds != null) {
                             spawn.floorIds.any { it in floorIds }
                         } else {
                             area.id in spawn.floorIds
                         }
+                        if (!floorMatches) return@filter false
+
+                        // 3) Coord-based geometry filter — script analysis can over-attribute
+                        // when a quest dispatches through random/non-floor-deterministic state
+                        // (e.g. Endless Episode 2's `r6 mod 3` chain, where floors 1..12 share
+                        // a dispatcher that reaches all per-floor thread starters). Drop spawns
+                        // whose XZ position falls clearly outside the floor's collision bbox;
+                        // those were "intended for another floor" but bled through analysis.
+                        if (bbox != null) {
+                            // Probe with the spawn's world-space XYZ but clamp Y to the bbox's
+                            // Y-range, since particles legitimately spawn above ceilings or
+                            // below floors. This makes the test effectively "is XZ inside?".
+                            val px = spawn.x.toDouble()
+                            val pz = spawn.z.toDouble()
+                            val py = spawn.y.toDouble().coerceIn(bbox.min.y, bbox.max.y)
+                            // Slack covers spawns near edges and bbox imprecision from missing
+                            // collision triangles.
+                            val slack = COORD_FILTER_SLACK
+                            val inside = px >= bbox.min.x - slack && px <= bbox.max.x + slack &&
+                                pz >= bbox.min.z - slack && pz <= bbox.max.z + slack &&
+                                py >= bbox.min.y && py <= bbox.max.y
+                            if (!inside) return@filter false
+                        }
+
+                        true
                     }
                 }
             )
@@ -149,5 +173,14 @@ class QuestEditorMeshManager(
         super.beforeRender()
         symbolChatBillboardManager.beforeRender()
         gotoIndicatorManager.update()
+    }
+
+    private companion object {
+        /**
+         * Slack (in PSO world units) added to the collision-geometry bounding box when
+         * checking script particle XZ coordinates. Covers spawns near edges, missing collision
+         * triangles, and effects placed slightly beyond the playable area.
+         */
+        private const val COORD_FILTER_SLACK = 100.0
     }
 }

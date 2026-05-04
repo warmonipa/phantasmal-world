@@ -197,6 +197,16 @@ external class Box3(min: Vector3 = definedExternally, max: Vector3 = definedExte
     fun intersectsBox(box: Box3): Boolean
 
     fun union(box: Box3): Box3
+
+    fun setFromObject(`object`: Object3D): Box3
+
+    fun containsPoint(point: Vector3): Boolean
+
+    fun expandByScalar(scalar: Double): Box3
+
+    fun isEmpty(): Boolean
+
+    fun makeEmpty(): Box3
 }
 
 external class Sphere(center: Vector3 = definedExternally, radius: Double = definedExternally) {
