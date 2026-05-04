@@ -258,6 +258,107 @@ class GetParticleSpawnsTests : LibTestSuite {
     }
 
     @Test
+    fun shared_handler_with_switch_jmp_on_floor_register_attributes_per_floor() {
+        // A handler is registered for floors 0, 1 and 2. Inside, get_floor_number is read
+        // into a register and switch_jmp dispatches to per-floor branches. Path-sensitive
+        // analysis on the floor register should attribute each particle_v3 to a single floor.
+        //
+        // Note on switch_jmp index alignment: switch_jmp uses the register's value as an
+        // index into its label list (0-based). Our per-floor BFS picks args[currentFloor + 1]
+        // as the target label, so we use floor IDs 0, 1, 2 here for clean indexing into a
+        // small label list.
+        val segments = toInstructions("""
+            0:
+                set_floor_handler 0, 100
+                set_floor_handler 1, 100
+                set_floor_handler 2, 100
+                ret
+            100:
+                get_floor_number 0, r10
+                switch_jmp r10, 200, 201, 202
+                ret
+            200:
+                leti r20, 1000
+                leti r21, 0
+                leti r22, 2000
+                leti r23, 1
+                leti r24, 30
+                particle_v3 r20
+                ret
+            201:
+                leti r30, 5000
+                leti r31, 0
+                leti r32, 6000
+                leti r33, 2
+                leti r34, 60
+                particle_v3 r30
+                ret
+            202:
+                leti r40, 9000
+                leti r41, 0
+                leti r42, 10000
+                leti r43, 3
+                leti r44, 90
+                particle_v3 r40
+                ret
+        """.trimIndent())
+
+        val spawns = getParticleSpawns(segments) { ControlFlowGraph.create(segments) }
+
+        assertEquals(3, spawns.size)
+
+        val floor0Spawn = spawns.firstOrNull { it.x == 1000 }
+        assertEquals(setOf(0), floor0Spawn?.floorIds, "Floor 0 spawn should be attributed only to floor 0")
+
+        val floor1Spawn = spawns.firstOrNull { it.x == 5000 }
+        assertEquals(setOf(1), floor1Spawn?.floorIds, "Floor 1 spawn should be attributed only to floor 1")
+
+        val floor2Spawn = spawns.firstOrNull { it.x == 9000 }
+        assertEquals(setOf(2), floor2Spawn?.floorIds, "Floor 2 spawn should be attributed only to floor 2")
+    }
+
+    @Test
+    fun shared_handler_with_jmpi_e_on_floor_register_attributes_per_floor() {
+        // Same idea but using jmpi_= instead of switch_jmp.
+        val segments = toInstructions("""
+            0:
+                set_floor_handler 1, 100
+                set_floor_handler 2, 100
+                ret
+            100:
+                get_floor_number 0, r10
+                jmpi_= r10, 1, 200
+                jmp 201
+            200:
+                leti r20, 1000
+                leti r21, 0
+                leti r22, 2000
+                leti r23, 1
+                leti r24, 30
+                particle_v3 r20
+                ret
+            201:
+                leti r30, 5000
+                leti r31, 0
+                leti r32, 6000
+                leti r33, 2
+                leti r34, 60
+                particle_v3 r30
+                ret
+        """.trimIndent())
+
+        val spawns = getParticleSpawns(segments) { ControlFlowGraph.create(segments) }
+
+        assertEquals(2, spawns.size)
+
+        val floor1Spawn = spawns.firstOrNull { it.x == 1000 }
+        assertEquals(setOf(1), floor1Spawn?.floorIds)
+
+        val floor2Spawn = spawns.firstOrNull { it.x == 5000 }
+        assertEquals(setOf(2), floor2Spawn?.floorIds)
+    }
+
+    @Test
     fun particle_reachable_from_two_floor_handlers_gets_union_of_floors() {
         // A helper called from two different floor handlers should be tagged with both
         // floors — at runtime the helper can fire on either floor.

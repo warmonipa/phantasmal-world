@@ -1,14 +1,22 @@
 package world.phantasmal.psolib.asm.dataFlowAnalysis
 
 import mu.KotlinLogging
+import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
 import world.phantasmal.psolib.asm.OP_AT_COORDS_CALL
 import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK
+import world.phantasmal.psolib.asm.OP_GET_FLOOR_NUMBER
+import world.phantasmal.psolib.asm.OP_JMPI_E
+import world.phantasmal.psolib.asm.OP_JMPI_NE
+import world.phantasmal.psolib.asm.OP_LET
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
+import world.phantasmal.psolib.asm.OP_SWITCH_CALL
+import world.phantasmal.psolib.asm.OP_SWITCH_JMP
 import world.phantasmal.psolib.asm.OP_THREAD
 import world.phantasmal.psolib.asm.OP_THREAD_STG
+import world.phantasmal.psolib.asm.RegType
 
 private val logger = KotlinLogging.logger {}
 
@@ -108,8 +116,29 @@ fun getParticleSpawns(
  * Returns a mapping from each reachable [BasicBlock] to the set of floor IDs whose
  * [OP_SET_FLOOR_HANDLER]-registered entry blocks transitively reach it.
  *
- * Reachability follows direct CFG edges (`block.to`) plus a small set of callback-registration
- * edges where the callback body is intended to be associated with the registration floor:
+ * The analysis is **path-sensitive on the floor register**. Each floor handler entry is BFSed
+ * once per floor it is registered for; during the walk we track the set of registers known to
+ * hold the current floor value (introduced via [OP_GET_FLOOR_NUMBER] and propagated through
+ * [OP_LET]). When a [OP_SWITCH_JMP] / [OP_SWITCH_CALL] / [OP_JMPI_E] / [OP_JMPI_NE] terminator
+ * dispatches on one of those registers, only the branch consistent with the BFS instance's
+ * current floor is followed. This is what makes shared handlers like
+ *
+ * ```
+ * set_floor_handler 1, 152
+ * set_floor_handler 2, 152
+ * ...
+ * set_floor_handler 12, 152
+ * 152:
+ *   get_floor_number r250, r28
+ *   let r53, r28
+ *   switch_call r53, ..., L21, L22, L23, ..., L1032
+ * ```
+ *
+ * resolve to per-floor attribution instead of "this code can be reached on floors 1..12, so
+ * tag everything with all twelve."
+ *
+ * Reachability also follows callback-registration edges where the callback body is associated
+ * with the registration floor:
  * - [OP_AT_COORDS_CALL] / [OP_AT_COORDS_TALK] — the trigger geometry (radius around an XYZ
  *   point) is created on the current floor, so the registered label only fires on that floor.
  * - [OP_THREAD] / [OP_THREAD_STG] — many quests start a per-floor "ambience" thread from the
@@ -199,7 +228,9 @@ private fun computeBlockToFloors(
         }
     }
 
-    // Step 3: forward BFS from each floor handler entry, accumulate floors per visited block.
+    // Step 3: forward, path-sensitive BFS from each floor handler entry. We BFS once per
+    // (entry label, single floor) pair so that branch pruning can use a single, known
+    // current floor.
     //
     // Edge model — we deliberately do NOT use `block.to` directly because the CFG, via
     // linkReturningBlocks, gives every callee's Return block edges to *all* of its callers'
@@ -209,30 +240,182 @@ private fun computeBlockToFloors(
     // - Return blocks contribute no forward edges.
     // - Call blocks contribute their callee entries (from `block.to`) plus the
     //   segment-sequential successor (the after-call block) directly.
-    // - All other block types use `block.to`.
+    // - All other block types use `block.to`, with branch pruning applied when the
+    //   terminator dispatches on a floor-tracking register.
+    //
+    // BFS visited keys are (block, floorRegs) pairs because the same block can be visited
+    // with different incoming floor-register sets and produce different prunings.
     val result = mutableMapOf<BasicBlock, MutableSet<Int>>()
     for ((entryLabel, floorIds) in labelToFloors) {
         val entry = labelToEntryBlock[entryLabel] ?: continue
-        val visited = mutableSetOf<BasicBlock>()
-        val queue = ArrayDeque<BasicBlock>()
-        queue.add(entry)
-        while (queue.isNotEmpty()) {
-            val b = queue.removeFirst()
-            if (!visited.add(b)) continue
-            result.getOrPut(b) { mutableSetOf() }.addAll(floorIds)
-            when (b.branchType) {
-                BranchType.Return -> {
-                    // Skip — `to` only contains return-to-caller edges.
+        for (currentFloor in floorIds) {
+            val visited = mutableSetOf<Pair<BasicBlock, Set<Int>>>()
+            val queue = ArrayDeque<Pair<BasicBlock, Set<Int>>>()
+            queue.add(entry to emptySet())
+            while (queue.isNotEmpty()) {
+                val (b, incomingRegs) = queue.removeFirst()
+                if (!visited.add(b to incomingRegs)) continue
+                result.getOrPut(b) { mutableSetOf() }.add(currentFloor)
+
+                val outgoingRegs = walkBlockTrackingFloorRegs(b, incomingRegs)
+                val terminator = if (b.end > b.start) b.segment.instructions[b.end - 1] else null
+
+                when (b.branchType) {
+                    BranchType.Return -> {
+                        // Skip — `to` only contains return-to-caller edges.
+                    }
+                    BranchType.Call -> {
+                        val pruned = tryPruneSwitch(
+                            terminator, outgoingRegs, currentFloor, labelToEntryBlock,
+                        )
+                        if (pruned != null) {
+                            for (next in pruned) queue.add(next to outgoingRegs)
+                        } else {
+                            for (next in b.to) queue.add(next to outgoingRegs)
+                        }
+                        nextInSegment[b]?.let { queue.add(it to outgoingRegs) }
+                    }
+                    BranchType.Jump -> {
+                        val pruned = tryPruneSwitch(
+                            terminator, outgoingRegs, currentFloor, labelToEntryBlock,
+                        )
+                        if (pruned != null) {
+                            for (next in pruned) queue.add(next to outgoingRegs)
+                        } else {
+                            for (next in b.to) queue.add(next to outgoingRegs)
+                        }
+                    }
+                    BranchType.ConditionalJump -> {
+                        val pruned = tryPruneConditional(
+                            b, terminator, outgoingRegs, currentFloor,
+                            labelToEntryBlock, nextInSegment,
+                        )
+                        if (pruned != null) {
+                            for (next in pruned) queue.add(next to outgoingRegs)
+                        } else {
+                            for (next in b.to) queue.add(next to outgoingRegs)
+                        }
+                    }
+                    BranchType.None -> {
+                        for (next in b.to) queue.add(next to outgoingRegs)
+                    }
                 }
-                BranchType.Call -> {
-                    for (next in b.to) queue.add(next)
-                    nextInSegment[b]?.let { queue.add(it) }
-                }
-                else -> for (next in b.to) queue.add(next)
+                callbackEdges[b]?.forEach { queue.add(it to outgoingRegs) }
             }
-            callbackEdges[b]?.forEach { queue.add(it) }
         }
     }
 
     return result
+}
+
+/**
+ * Walks `block` instruction by instruction, updating which registers currently hold the BFS
+ * instance's "current floor" value. Skips the terminator: the terminator is examined separately
+ * for branch pruning and never writes to the floor-tracking lineage.
+ */
+private fun walkBlockTrackingFloorRegs(block: BasicBlock, incoming: Set<Int>): Set<Int> {
+    var regs = incoming
+    val end = if (block.branchType != BranchType.None) block.end - 1 else block.end
+    for (i in block.start until end) {
+        regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs)
+    }
+    return regs
+}
+
+private fun updateFloorRegsForInstruction(inst: Instruction, regs: Set<Int>): Set<Int> {
+    when (inst.opcode.code) {
+        OP_GET_FLOOR_NUMBER.code -> {
+            // get_floor_number slot, baseReg writes floor at +0 and room at +1.
+            val baseReg = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs
+            return (regs + baseReg) - (baseReg + 1)
+        }
+        OP_LET.code -> {
+            // let dest, src copies src's value into dest.
+            val dest = (inst.args.getOrNull(0) as? IntArg)?.value ?: return regs
+            val src = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs
+            return if (src in regs) regs + dest else regs - dest
+        }
+        else -> {
+            // Default: any opcode whose declared RegType params include a writable register
+            // clears that register from the floor-tracking set.
+            var result = regs
+            val params = inst.opcode.params
+            val argLen = minOf(inst.args.size, params.size)
+            for (j in 0 until argLen) {
+                val type = params[j].type
+                if (type !is RegType) continue
+                val regs2 = type.registers ?: continue
+                val regRef = (inst.args[j] as? IntArg)?.value ?: continue
+                for ((k, regParam) in regs2.withIndex()) {
+                    if (regParam.write) result = result - (regRef + k)
+                }
+            }
+            return result
+        }
+    }
+}
+
+/**
+ * For [OP_SWITCH_JMP] / [OP_SWITCH_CALL] terminators that dispatch on a register currently
+ * holding the BFS's current floor value, returns the single branch consistent with that floor
+ * (an empty list if the floor is out of range). Returns `null` when no pruning is possible.
+ */
+private fun tryPruneSwitch(
+    inst: Instruction?,
+    floorRegs: Set<Int>,
+    currentFloor: Int,
+    labelToEntryBlock: Map<Int, BasicBlock>,
+): List<BasicBlock>? {
+    if (inst == null) return null
+    if (inst.opcode.code != OP_SWITCH_JMP.code && inst.opcode.code != OP_SWITCH_CALL.code) {
+        return null
+    }
+    val reg = (inst.args.getOrNull(0) as? IntArg)?.value ?: return null
+    if (reg !in floorRegs) return null
+    // switch_jmp/switch_call args: args[0]=reg, args[1+i]=label_i.
+    // If currentFloor is out of range of the label table, the switch is a no-op at runtime
+    // and execution falls through. Return null so the caller follows the default edges
+    // (b.to + sequential next-in-segment) rather than dropping all successors.
+    val labelArg = inst.args.getOrNull(currentFloor + 1) as? IntArg ?: return null
+    val target = labelToEntryBlock[labelArg.value] ?: return null
+    return listOf(target)
+}
+
+/**
+ * Pruning for [BranchType.ConditionalJump] terminators. Handles [OP_SWITCH_JMP],
+ * [OP_JMPI_E], [OP_JMPI_NE] when the discriminant is a floor-tracking register.
+ * Returns `null` when no pruning is possible.
+ */
+private fun tryPruneConditional(
+    b: BasicBlock,
+    inst: Instruction?,
+    floorRegs: Set<Int>,
+    currentFloor: Int,
+    labelToEntryBlock: Map<Int, BasicBlock>,
+    nextInSegment: Map<BasicBlock, BasicBlock>,
+): List<BasicBlock>? {
+    if (inst == null) return null
+
+    if (inst.opcode.code == OP_SWITCH_JMP.code) {
+        return tryPruneSwitch(inst, floorRegs, currentFloor, labelToEntryBlock)
+    }
+
+    if (inst.opcode.code == OP_JMPI_E.code || inst.opcode.code == OP_JMPI_NE.code) {
+        val reg = (inst.args.getOrNull(0) as? IntArg)?.value ?: return null
+        if (reg !in floorRegs) return null
+        val constVal = (inst.args.getOrNull(1) as? IntArg)?.value ?: return null
+        val labelArg = inst.args.getOrNull(2) as? IntArg ?: return null
+        val takeBranch = when (inst.opcode.code) {
+            OP_JMPI_E.code -> currentFloor == constVal
+            OP_JMPI_NE.code -> currentFloor != constVal
+            else -> error("unreachable")
+        }
+        return if (takeBranch) {
+            listOfNotNull(labelToEntryBlock[labelArg.value])
+        } else {
+            listOfNotNull(nextInSegment[b])
+        }
+    }
+
+    return null
 }
