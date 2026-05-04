@@ -111,11 +111,12 @@ private fun computeBlockToFloors(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
 ): Map<BasicBlock, Set<Int>> {
-    // Step 1: extract label -> floor from set_floor_handler in label 0 segment.
+    // Step 1: extract label -> floor from every set_floor_handler in the script.
+    // Scanning all segments (not just label 0) matches what GetFloorMappings does and
+    // covers quests that register handlers from nested segments.
     val labelToFloor = mutableMapOf<Int, Int>()
-    val label0Segment = instructionSegments.find { 0 in it.labels }
-    if (label0Segment != null) {
-        for (inst in label0Segment.instructions) {
+    for (segment in instructionSegments) {
+        for (inst in segment.instructions) {
             if (inst.opcode.code != OP_SET_FLOOR_HANDLER.code) continue
             val floorArg = inst.args.getOrNull(0) as? IntArg ?: continue
             val labelArg = inst.args.getOrNull(1) as? IntArg ?: continue
