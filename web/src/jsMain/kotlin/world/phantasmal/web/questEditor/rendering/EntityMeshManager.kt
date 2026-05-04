@@ -158,7 +158,7 @@ class EntityMeshManager(
                         )
                     )
 
-                    val instance = entityInstancedMesh.addInstance(entity)
+                    val instance = entityInstancedMesh.addInstance(entity) ?: return@launch
 
                     if (entity == questEditorStore.selectedEntity.value) {
                         markSelected(instance)

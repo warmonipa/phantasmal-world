@@ -14,6 +14,8 @@ import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class EntityDirectionIndicatorContainerTests : WebTestSuite {
@@ -53,10 +55,23 @@ class EntityDirectionIndicatorContainerTests : WebTestSuite {
     }
 
     @Test
+    fun add_instance_returns_null_when_mesh_capacity_is_exhausted() = testAsync {
+        val container = disposer.add(EntityDirectionIndicatorContainer(mutableCell(true)))
+        val capacity = container.mesh.instanceMatrix.asDynamic().count.unsafeCast<Int>()
+
+        repeat(capacity) {
+            assertNotNull(container.addInstance(createQuestObjectModel(ObjectType.PlayerSet)))
+        }
+
+        assertNull(container.addInstance(createQuestObjectModel(ObjectType.PlayerSet)))
+        assertEquals(capacity, container.mesh.count)
+    }
+
+    @Test
     fun instance_follows_entity_world_position_and_rotation() = testAsync {
         val container = disposer.add(EntityDirectionIndicatorContainer(mutableCell(true)))
         val entity = createQuestObjectModel(ObjectType.PlayerSet)
-        val instance = container.addInstance(entity)
+        val instance = assertNotNull(container.addInstance(entity))
         val follower = Object3D()
         instance.follower = follower
 
@@ -75,7 +90,7 @@ class EntityDirectionIndicatorContainerTests : WebTestSuite {
     fun removed_instance_stops_following_entity_changes() = testAsync {
         val container = disposer.add(EntityDirectionIndicatorContainer(mutableCell(true)))
         val entity = createQuestObjectModel(ObjectType.PlayerSet)
-        val instance = container.addInstance(entity)
+        val instance = assertNotNull(container.addInstance(entity))
         val follower = Object3D()
         instance.follower = follower
 
