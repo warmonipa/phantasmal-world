@@ -300,6 +300,7 @@ class QuestEditorToolbarController(
     val showDoorIds: Cell<Boolean> = questEditorUiStore.showDoorIds
     val spawnMonstersOnGround: Cell<Boolean> = questEditorUiStore.spawnMonstersOnGround
     val showOriginPoint: Cell<Boolean> = questEditorUiStore.showOriginPoint
+    val showScriptParticles: Cell<Boolean> = questEditorUiStore.showScriptParticles
 
     // Free roam variant controls (delegated)
 
@@ -831,6 +832,10 @@ class QuestEditorToolbarController(
 
     fun setShowOriginPoint(show: Boolean) {
         questEditorUiStore.setShowOriginPoint(show)
+    }
+
+    fun setShowScriptParticles(show: Boolean) {
+        questEditorUiStore.setShowScriptParticles(show)
     }
 
     fun setSelectedSection(section: SectionModel?) {

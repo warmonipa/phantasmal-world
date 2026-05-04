@@ -144,6 +144,12 @@ class QuestEditorToolbarWidget(
                                 checked = ctrl.showOriginPoint,
                                 onChange = ctrl::setShowOriginPoint,
                             ),
+                            MenuItem.Check(
+                                label = "Script Particles",
+                                tooltip = "Show particle_v3 spawn markers from the quest script",
+                                checked = ctrl.showScriptParticles,
+                                onChange = ctrl::setShowScriptParticles,
+                            ),
                             MenuItem.Separator,
                             MenuItem.Check(
                                 label = "City Map",

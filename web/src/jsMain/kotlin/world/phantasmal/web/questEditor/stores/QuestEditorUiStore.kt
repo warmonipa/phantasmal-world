@@ -20,6 +20,7 @@ class QuestEditorUiStore(
     private val _spawnMonstersOnGround = mutableCell(false)
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
+    private val _showScriptParticles = mutableCell(false)
 
     val devMode: Cell<Boolean> = _devMode
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
@@ -28,6 +29,7 @@ class QuestEditorUiStore(
     val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
+    val showScriptParticles: Cell<Boolean> = _showScriptParticles
 
     init {
         addDisposables(
@@ -62,5 +64,9 @@ class QuestEditorUiStore(
 
     fun setShowOriginPoint(show: Boolean) {
         _showOriginPoint.value = show
+    }
+
+    fun setShowScriptParticles(show: Boolean) {
+        _showScriptParticles.value = show
     }
 }

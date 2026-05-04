@@ -113,10 +113,11 @@ class QuestEditorMeshManager(
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
             renderContext.collisionGeometryBoundingBox,
-        ) { quest, area, floorIds, bbox ->
+            questEditorUiStore.showScriptParticles,
+        ) { quest, area, floorIds, bbox, showScriptParticles ->
             val spawns = quest?.particleSpawns
             loadParticleMarkers(
-                if (spawns == null || area == null) {
+                if (spawns == null || area == null || !showScriptParticles) {
                     emptyList()
                 } else {
                     spawns.filter { spawn ->
@@ -135,21 +136,19 @@ class QuestEditorMeshManager(
                         // when a quest dispatches through random/non-floor-deterministic state
                         // (e.g. Endless Episode 2's `r6 mod 3` chain, where floors 1..12 share
                         // a dispatcher that reaches all per-floor thread starters). Drop spawns
-                        // whose XZ position falls clearly outside the floor's collision bbox;
-                        // those were "intended for another floor" but bled through analysis.
+                        // whose XZ position falls clearly outside the floor's collision bbox.
+                        // Y is intentionally unconstrained: particles legitimately spawn above
+                        // ceilings or below floors as visual effects.
+                        //
+                        // Heuristic, not a guarantee: if two floors' coordinate ranges overlap
+                        // (rare in PSO maps), a spawn authored for one may also fall within
+                        // the other's bbox.
                         if (bbox != null) {
-                            // Probe with the spawn's world-space XYZ but clamp Y to the bbox's
-                            // Y-range, since particles legitimately spawn above ceilings or
-                            // below floors. This makes the test effectively "is XZ inside?".
                             val px = spawn.x.toDouble()
                             val pz = spawn.z.toDouble()
-                            val py = spawn.y.toDouble().coerceIn(bbox.min.y, bbox.max.y)
-                            // Slack covers spawns near edges and bbox imprecision from missing
-                            // collision triangles.
                             val slack = COORD_FILTER_SLACK
-                            val inside = px >= bbox.min.x - slack && px <= bbox.max.x + slack &&
-                                pz >= bbox.min.z - slack && pz <= bbox.max.z + slack &&
-                                py >= bbox.min.y && py <= bbox.max.y
+                            val inside = px in (bbox.min.x - slack)..(bbox.max.x + slack) &&
+                                pz in (bbox.min.z - slack)..(bbox.max.z + slack)
                             if (!inside) return@filter false
                         }
 
@@ -178,8 +177,9 @@ class QuestEditorMeshManager(
     private companion object {
         /**
          * Slack (in PSO world units) added to the collision-geometry bounding box when
-         * checking script particle XZ coordinates. Covers spawns near edges, missing collision
-         * triangles, and effects placed slightly beyond the playable area.
+         * checking script particle XZ coordinates. PSO maps span thousands of units, so 100
+         * is roughly a 1% margin — generous enough to catch edge spawns and bbox imprecision
+         * from missing collision triangles without leaking spawns from neighboring floors.
          */
         private const val COORD_FILTER_SLACK = 100.0
     }
