@@ -7,6 +7,8 @@ import world.phantasmal.psolib.asm.OP_AT_COORDS_CALL
 import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
+import world.phantasmal.psolib.asm.OP_THREAD
+import world.phantasmal.psolib.asm.OP_THREAD_STG
 
 private val logger = KotlinLogging.logger {}
 
@@ -107,15 +109,19 @@ fun getParticleSpawns(
  * [OP_SET_FLOOR_HANDLER]-registered entry blocks transitively reach it.
  *
  * Reachability follows direct CFG edges (`block.to`) plus a small set of callback-registration
- * edges where the callback body is guaranteed to fire on the registration floor:
+ * edges where the callback body is intended to be associated with the registration floor:
  * - [OP_AT_COORDS_CALL] / [OP_AT_COORDS_TALK] — the trigger geometry (radius around an XYZ
  *   point) is created on the current floor, so the registered label only fires on that floor.
+ * - [OP_THREAD] / [OP_THREAD_STG] — many quests start a per-floor "ambience" thread from the
+ *   floor handler whose body spawns particles at coordinates in that floor's local space.
+ *   Threads technically outlive floor transitions, but the registration site is the strongest
+ *   signal of authorial intent we have, and the alternative (no propagation) leaves heavy-thread
+ *   quests with all spawns unattributed.
  *
- * Other callback-registration opcodes (`set_qt_*`, `set_quest_board_handler`,
- * `set_chat_callback*`, `set_palettex_callback`, `thread`/`thread_stg`, …) are deliberately
- * NOT followed: their bodies fire in a context (Hunter's Guild, quest board, X-button press,
- * background thread) that is not bound to the registration floor, so propagating the floor tag
- * would mis-attribute spawns.
+ * Callback registrations whose bodies fire in a context unrelated to the registration floor
+ * are deliberately NOT followed: `set_qt_*` and `set_quest_board_handler` fire at the Hunter's
+ * Guild / quest board on Pioneer 2, `set_chat_callback*` and `set_palettex_callback` are
+ * per-client global handlers triggered on whichever floor the player is on at input time.
  *
  * Blocks not reachable from any floor handler are absent from the map (treated as "unknown floor"
  * by callers).
@@ -124,20 +130,24 @@ private fun computeBlockToFloors(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
 ): Map<BasicBlock, Set<Int>> {
-    // Step 1: extract label -> floor from every set_floor_handler in the script.
+    // Step 1: extract label -> floors from every set_floor_handler in the script.
     // Scanning all segments (not just label 0) matches what GetFloorMappings does and
     // covers quests that register handlers from nested segments.
-    val labelToFloor = mutableMapOf<Int, Int>()
+    //
+    // The map is multi-valued because a single handler label can be registered for many
+    // floors (e.g. quests that share one ambience handler across floors 1..12). All those
+    // floors must be propagated when we BFS from that label.
+    val labelToFloors = mutableMapOf<Int, MutableSet<Int>>()
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
             if (inst.opcode.code != OP_SET_FLOOR_HANDLER.code) continue
             val floorArg = inst.args.getOrNull(0) as? IntArg ?: continue
             val labelArg = inst.args.getOrNull(1) as? IntArg ?: continue
-            labelToFloor[labelArg.value] = floorArg.value
+            labelToFloors.getOrPut(labelArg.value) { mutableSetOf() }.add(floorArg.value)
         }
     }
 
-    if (labelToFloor.isEmpty()) return emptyMap()
+    if (labelToFloors.isEmpty()) return emptyMap()
 
     // Step 2: build label -> entry block (the first block of the segment carrying that label).
     val labelToEntryBlock = mutableMapOf<Int, BasicBlock>()
@@ -150,9 +160,20 @@ private fun computeBlockToFloors(
         }
     }
 
-    // Step 2.5: pre-compute callback edges. For each block that registers a same-floor
-    // callback (at_coords_call/at_coords_talk), resolve the label register via constant
-    // propagation and record an extra edge `block -> labelEntry` for the BFS to follow.
+    // Pre-compute next-in-segment lookup. cfg.blocks is in segment-traversal order, so the
+    // following block in the global list is the segment-sequential successor — but only when
+    // it shares the same segment.
+    val nextInSegment = mutableMapOf<BasicBlock, BasicBlock>()
+    for (i in cfg.blocks.indices) {
+        val b = cfg.blocks[i]
+        val n = cfg.blocks.getOrNull(i + 1) ?: continue
+        if (n.segment === b.segment) nextInSegment[b] = n
+    }
+
+    // Step 2.5: pre-compute callback edges. For each block that registers a callback whose
+    // body is associated with the registration floor (at_coords_call/at_coords_talk and
+    // thread/thread_stg), resolve the target label and record an extra edge
+    // `block -> labelEntry` for the BFS to follow.
     val callbackEdges = mutableMapOf<BasicBlock, MutableList<BasicBlock>>()
     for (block in cfg.blocks) {
         for (i in block.start until block.end) {
@@ -168,13 +189,29 @@ private fun computeBlockToFloors(
                     val target = labelToEntryBlock[label] ?: continue
                     callbackEdges.getOrPut(block) { mutableListOf() }.add(target)
                 }
+                OP_THREAD.code, OP_THREAD_STG.code -> {
+                    // Single inline ILabelType arg.
+                    val label = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                    val target = labelToEntryBlock[label] ?: continue
+                    callbackEdges.getOrPut(block) { mutableListOf() }.add(target)
+                }
             }
         }
     }
 
     // Step 3: forward BFS from each floor handler entry, accumulate floors per visited block.
+    //
+    // Edge model — we deliberately do NOT use `block.to` directly because the CFG, via
+    // linkReturningBlocks, gives every callee's Return block edges to *all* of its callers'
+    // after-call blocks. Following those would let BFS from one floor handler walk into
+    // another floor handler's after-call code through a shared helper, polluting the floor
+    // tag for every spawn downstream. So:
+    // - Return blocks contribute no forward edges.
+    // - Call blocks contribute their callee entries (from `block.to`) plus the
+    //   segment-sequential successor (the after-call block) directly.
+    // - All other block types use `block.to`.
     val result = mutableMapOf<BasicBlock, MutableSet<Int>>()
-    for ((entryLabel, floorId) in labelToFloor) {
+    for ((entryLabel, floorIds) in labelToFloors) {
         val entry = labelToEntryBlock[entryLabel] ?: continue
         val visited = mutableSetOf<BasicBlock>()
         val queue = ArrayDeque<BasicBlock>()
@@ -182,8 +219,17 @@ private fun computeBlockToFloors(
         while (queue.isNotEmpty()) {
             val b = queue.removeFirst()
             if (!visited.add(b)) continue
-            result.getOrPut(b) { mutableSetOf() }.add(floorId)
-            for (next in b.to) queue.add(next)
+            result.getOrPut(b) { mutableSetOf() }.addAll(floorIds)
+            when (b.branchType) {
+                BranchType.Return -> {
+                    // Skip — `to` only contains return-to-caller edges.
+                }
+                BranchType.Call -> {
+                    for (next in b.to) queue.add(next)
+                    nextInSegment[b]?.let { queue.add(it) }
+                }
+                else -> for (next in b.to) queue.add(next)
+            }
             callbackEdges[b]?.forEach { queue.add(it) }
         }
     }
