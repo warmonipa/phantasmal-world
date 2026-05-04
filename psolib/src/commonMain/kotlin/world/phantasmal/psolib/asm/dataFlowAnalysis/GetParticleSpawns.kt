@@ -3,6 +3,8 @@ package world.phantasmal.psolib.asm.dataFlowAnalysis
 import mu.KotlinLogging
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
+import world.phantasmal.psolib.asm.OP_AT_COORDS_CALL
+import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
 
@@ -102,7 +104,18 @@ fun getParticleSpawns(
 
 /**
  * Returns a mapping from each reachable [BasicBlock] to the set of floor IDs whose
- * [OP_SET_FLOOR_HANDLER]-registered entry blocks transitively reach it via `to` edges.
+ * [OP_SET_FLOOR_HANDLER]-registered entry blocks transitively reach it.
+ *
+ * Reachability follows direct CFG edges (`block.to`) plus a small set of callback-registration
+ * edges where the callback body is guaranteed to fire on the registration floor:
+ * - [OP_AT_COORDS_CALL] / [OP_AT_COORDS_TALK] — the trigger geometry (radius around an XYZ
+ *   point) is created on the current floor, so the registered label only fires on that floor.
+ *
+ * Other callback-registration opcodes (`set_qt_*`, `set_quest_board_handler`,
+ * `set_chat_callback*`, `set_palettex_callback`, `thread`/`thread_stg`, …) are deliberately
+ * NOT followed: their bodies fire in a context (Hunter's Guild, quest board, X-button press,
+ * background thread) that is not bound to the registration floor, so propagating the floor tag
+ * would mis-attribute spawns.
  *
  * Blocks not reachable from any floor handler are absent from the map (treated as "unknown floor"
  * by callers).
@@ -137,6 +150,28 @@ private fun computeBlockToFloors(
         }
     }
 
+    // Step 2.5: pre-compute callback edges. For each block that registers a same-floor
+    // callback (at_coords_call/at_coords_talk), resolve the label register via constant
+    // propagation and record an extra edge `block -> labelEntry` for the BFS to follow.
+    val callbackEdges = mutableMapOf<BasicBlock, MutableList<BasicBlock>>()
+    for (block in cfg.blocks) {
+        for (i in block.start until block.end) {
+            val inst = block.segment.instructions[i]
+            when (inst.opcode.code) {
+                OP_AT_COORDS_CALL.code, OP_AT_COORDS_TALK.code -> {
+                    // Single RegType[5] operand: (X, Y, Z, radius, label) at firstReg+0..+4.
+                    val firstReg = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                    if (firstReg !in 0..251) continue
+                    val labelValues = getRegisterValue(cfg, inst, firstReg + 4)
+                    if (labelValues.size != 1L) continue
+                    val label = labelValues[0] ?: continue
+                    val target = labelToEntryBlock[label] ?: continue
+                    callbackEdges.getOrPut(block) { mutableListOf() }.add(target)
+                }
+            }
+        }
+    }
+
     // Step 3: forward BFS from each floor handler entry, accumulate floors per visited block.
     val result = mutableMapOf<BasicBlock, MutableSet<Int>>()
     for ((entryLabel, floorId) in labelToFloor) {
@@ -149,6 +184,7 @@ private fun computeBlockToFloors(
             if (!visited.add(b)) continue
             result.getOrPut(b) { mutableSetOf() }.add(floorId)
             for (next in b.to) queue.add(next)
+            callbackEdges[b]?.forEach { queue.add(it) }
         }
     }
 
