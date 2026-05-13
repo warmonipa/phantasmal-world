@@ -152,7 +152,7 @@ fun parseBytecode(
 
         segments.add(segment)
 
-        offset += segment.size(stringEncoding)
+        offset += segment.size(stringEncoding, version)
     }
 
     // Add unreferenced labels to their segment.
@@ -885,6 +885,7 @@ private fun isLikelyInstructionSegment(
 fun writeBytecode(
     bytecodeIr: BytecodeIr,
     stringEncoding: BytecodeStringEncoding,
+    version: Version = Version.BB_V4,
 ): BytecodeAndLabelOffsets {
     val buffer = Buffer.withCapacity(100 * bytecodeIr.segments.size, Endianness.Little)
     val cursor = buffer.cursor()
@@ -922,7 +923,7 @@ fun writeBytecode(
             }
 
             is StringSegment -> {
-                val size = segment.size(stringEncoding)
+                val size = segment.size(stringEncoding, version)
 
                 when (stringEncoding) {
                     BytecodeStringEncoding.ASCII ->
@@ -939,7 +940,7 @@ fun writeBytecode(
         }
 
         val actualSize = cursor.position - segmentStart
-        val expectedSize = segment.size(stringEncoding)
+        val expectedSize = segment.size(stringEncoding, version)
 
         if (actualSize != expectedSize) {
             // Log and continue rather than crash — a size mismatch here typically indicates

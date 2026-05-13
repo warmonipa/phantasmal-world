@@ -2,6 +2,8 @@ package world.phantasmal.psolib.asm
 
 import world.phantasmal.core.unsafe.unsafeAssertNotNull
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.Dialect
+import world.phantasmal.psolib.fileFormats.quest.Version
 import kotlin.math.ceil
 
 /**
@@ -47,7 +49,7 @@ sealed class Segment(
     val labels: MutableList<Int>,
     val srcLoc: SegmentSrcLoc,
 ) {
-    abstract fun size(stringEncoding: BytecodeStringEncoding): Int
+    abstract fun size(stringEncoding: BytecodeStringEncoding, version: Version = Version.BB_V4): Int
     abstract fun copy(): Segment
 }
 
@@ -56,8 +58,8 @@ class InstructionSegment(
     val instructions: MutableList<Instruction>,
     srcLoc: SegmentSrcLoc = SegmentSrcLoc(mutableListOf()),
 ) : Segment(SegmentType.Instructions, labels, srcLoc) {
-    override fun size(stringEncoding: BytecodeStringEncoding): Int =
-        instructions.sumOf { it.getSize(stringEncoding) }
+    override fun size(stringEncoding: BytecodeStringEncoding, version: Version): Int =
+        instructions.sumOf { it.getSize(stringEncoding, version) }
 
     override fun copy(): InstructionSegment =
         InstructionSegment(
@@ -72,7 +74,7 @@ class DataSegment(
     val data: Buffer,
     srcLoc: SegmentSrcLoc = SegmentSrcLoc(mutableListOf()),
 ) : Segment(SegmentType.Data, labels, srcLoc) {
-    override fun size(stringEncoding: BytecodeStringEncoding): Int =
+    override fun size(stringEncoding: BytecodeStringEncoding, version: Version): Int =
         data.size
 
     override fun copy(): DataSegment =
@@ -95,7 +97,7 @@ class StringSegment(
             field = value
         }
 
-    override fun size(stringEncoding: BytecodeStringEncoding): Int =
+    override fun size(stringEncoding: BytecodeStringEncoding, version: Version): Int =
         // String segments should be multiples of 4 bytes.
         bytecodeSize
             ?: when (stringEncoding) {
@@ -176,11 +178,10 @@ class Instruction(
      * Returns the byte size of the entire instruction, i.e. the sum of the opcode size and all
      * argument sizes.
      */
-    fun getSize(stringEncoding: BytecodeStringEncoding): Int {
+    fun getSize(stringEncoding: BytecodeStringEncoding, version: Version = Version.BB_V4): Int {
         var size = opcode.size
 
-        if (opcode.stack === StackInteraction.Pop) {
-            // All known PSO versions use push instructions for Pop opcodes in binary format.
+        if (version.dialect == Dialect.V3_V4 && opcode.argsMode == ArgsMode.Stack) {
             size += pushInstructionsSize(stringEncoding)
             return size
         }

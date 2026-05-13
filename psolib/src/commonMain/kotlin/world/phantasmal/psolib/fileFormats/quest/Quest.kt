@@ -433,7 +433,7 @@ fun writeQuestToBinDat(quest: Quest, version: Version): Pair<Buffer, Buffer> {
         Version.BB_V4 -> BinFormat.BB
     }
 
-    val (bytecode, labelOffsets) = writeBytecode(quest.bytecodeIr, binFormat.stringEncoding)
+    val (bytecode, labelOffsets) = writeBytecode(quest.bytecodeIr, binFormat.stringEncoding, version)
 
     val bin = writeBin(BinFile(
         binFormat,
