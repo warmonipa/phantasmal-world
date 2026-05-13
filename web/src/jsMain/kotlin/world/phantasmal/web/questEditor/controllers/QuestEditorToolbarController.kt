@@ -491,7 +491,7 @@ class QuestEditorToolbarController(
 
         if (parseResult is Success) {
             val version = when (parseResult.value.quest.binFormat) {
-                BinFormat.DC_GC -> Version.GC_V3  // Can't distinguish DC from GC; default to GC
+                BinFormat.DC_GC -> Version.GC_V3  // BinFormat.DC_GC spans five sub-versions (DC_NTE/V1/V2, GC_NTE/V3); default to GC_V3 until auto-detect is wired up.
                 BinFormat.PC -> Version.PC_V2
                 BinFormat.BB -> Version.BB_V4
             }

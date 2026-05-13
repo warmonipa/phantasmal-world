@@ -2,7 +2,6 @@ package world.phantasmal.psolib.fileFormats.quest
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 
 class VersionTest {
     @Test
