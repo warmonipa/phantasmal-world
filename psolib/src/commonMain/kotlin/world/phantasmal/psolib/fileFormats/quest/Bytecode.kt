@@ -5,6 +5,7 @@ import world.phantasmal.core.PwResult
 import world.phantasmal.core.Severity
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.asm.*
+import world.phantasmal.psolib.asm.ArgsMode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getRegisterValue
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getStackValue
@@ -73,6 +74,7 @@ fun parseBytecode(
     entryLabels: Set<Int>,
     stringEncoding: BytecodeStringEncoding,
     lenient: Boolean,
+    version: Version = Version.BB_V4,
 ): PwResult<BytecodeIr> {
     val cursor = BufferCursor(bytecode)
     val labelHolder = LabelHolder(labelOffsets)
@@ -86,6 +88,7 @@ fun parseBytecode(
         offsetToSegment,
         lenient,
         stringEncoding,
+        version,
     )
 
     val segments: MutableList<Segment> = mutableListOf()
@@ -125,6 +128,7 @@ fun parseBytecode(
                 endOffset,
                 labels?.toMutableList() ?: mutableListOf(),
                 stringEncoding,
+                version,
             )
 
             if (!isInstructionsSegment) {
@@ -194,6 +198,7 @@ private fun findAndParseSegments(
     offsetToSegment: MutableMap<Int, Segment>,
     lenient: Boolean,
     stringEncoding: BytecodeStringEncoding,
+    version: Version,
 ) {
     var newLabels = labels
     var startSegmentCount: Int
@@ -206,7 +211,7 @@ private fun findAndParseSegments(
 
         // Parse segments of which the type is known.
         for ((label, type) in newLabels) {
-            parseSegment(offsetToSegment, labelHolder, cursor, label, type, lenient, stringEncoding)
+            parseSegment(offsetToSegment, labelHolder, cursor, label, type, lenient, stringEncoding, version)
         }
 
         // Find label references.
@@ -425,6 +430,7 @@ private fun parseSegment(
     type: SegmentType,
     lenient: Boolean,
     stringEncoding: BytecodeStringEncoding,
+    version: Version,
 ) {
     try {
         val info = labelHolder.getInfo(label)
@@ -470,6 +476,7 @@ private fun parseSegment(
                     info.next?.label,
                     lenient,
                     stringEncoding,
+                    version,
                 )
 
             SegmentType.Data ->
@@ -496,6 +503,7 @@ private fun parseInstructionsSegment(
     nextLabel: Int?,
     lenient: Boolean,
     stringEncoding: BytecodeStringEncoding,
+    version: Version,
 ) {
     val instructions = mutableListOf<Instruction>()
 
@@ -515,11 +523,11 @@ private fun parseInstructionsSegment(
             else -> mainOpcode.toInt()
         }
 
-        val opcode = codeToOpcode(fullOpcode)
+        val opcode = codeToOpcode(fullOpcode, version)
 
         // Parse the arguments.
         try {
-            val args = parseInstructionArguments(cursor, opcode, stringEncoding)
+            val args = parseInstructionArguments(cursor, opcode, version, stringEncoding)
             instructions.add(Instruction(opcode, args, srcLoc = null, valid = true))
         } catch (e: Exception) {
             if (lenient) {
@@ -556,6 +564,7 @@ private fun parseInstructionsSegment(
                 SegmentType.Instructions,
                 lenient,
                 stringEncoding,
+                version,
             )
         }
     }
@@ -609,11 +618,13 @@ private fun parseStringSegment(
 private fun parseInstructionArguments(
     cursor: Cursor,
     opcode: Opcode,
+    version: Version,
     stringEncoding: BytecodeStringEncoding,
 ): List<Arg> {
     val args = mutableListOf<Arg>()
 
-    if (opcode.stack != StackInteraction.Pop) {
+    val readInline = !(version.dialect == Dialect.V3_V4 && opcode.argsMode == ArgsMode.Stack)
+    if (readInline) {
         var varargCount = 0
 
         for (param in opcode.params) {
@@ -694,6 +705,7 @@ private fun tryParseInstructionsSegment(
     endOffset: Int,
     labels: MutableList<Int>,
     stringEncoding: BytecodeStringEncoding,
+    version: Version,
 ): Boolean {
     val offset = cursor.position
 
@@ -730,6 +742,7 @@ private fun tryParseInstructionsSegment(
             nextLabel = null,
             lenient = false,
             stringEncoding,
+            version,
         )
 
         val segment = offsetToSegment[offset]

@@ -66,6 +66,7 @@ fun parseBinDatToQuest(
     lenient: Boolean = false,
     compressed: Boolean = true,
     shiftJis: Boolean = false,
+    version: Version = Version.BB_V4,
 ): PwResult<Quest> {
     val result = PwResult.build<Quest>(logger)
 
@@ -118,6 +119,7 @@ fun parseBinDatToQuest(
         extractScriptEntryPoints(objects, npcs),
         bin.format.stringEncoding,
         lenient,
+        version,
     )
 
     result.addResult(parseBytecodeResult)
