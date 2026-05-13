@@ -13,6 +13,7 @@ import world.phantasmal.cell.mutableCell
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.compatibility.CompatibilityChecker
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.compatibility.CompatibilityResult
 import world.phantasmal.psolib.compatibility.PSOVersion
 import world.phantasmal.web.questEditor.models.QuestModel
@@ -115,7 +116,7 @@ class CompatibilityController(
                 val textModel = asmStore.textModel.value
                 val bytecodeIr = if (textModel != null) {
                     val lines = textModel.getLinesContent().toList()
-                    assemble(lines).getOrNull()
+                    assemble(lines, Version.BB_V4).getOrNull()
                 } else {
                     null
                 }
@@ -162,7 +163,7 @@ class CompatibilityController(
                 val textModel = asmStore.textModel.value
                 val bytecodeIr = if (textModel != null) {
                     val lines = textModel.getLinesContent().toList()
-                    assemble(lines).getOrNull()
+                    assemble(lines, Version.BB_V4).getOrNull()
                 } else {
                     null
                 }

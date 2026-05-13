@@ -1,5 +1,6 @@
 package world.phantasmal.psolib.asm
 
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.test.LibTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -109,7 +110,7 @@ class DisassemblyTests : LibTestSuite {
         ir: BytecodeIr,
         expectedAsm: String,
     ) {
-        val result = disassemble(ir)
+        val result = disassemble(ir, Version.BB_V4)
 
         assertEquals(
             expectedAsm.split('\n'),

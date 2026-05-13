@@ -5,13 +5,14 @@ import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.cursor.Cursor
+import world.phantasmal.psolib.fileFormats.quest.Version
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 expect suspend fun readFile(path: String): Cursor
 
 fun toInstructions(assembly: String): List<InstructionSegment> {
-    val result = assemble(assembly.split('\n'))
+    val result = assemble(assembly.split('\n'), Version.BB_V4)
 
     assertTrue(result is Success)
     assertTrue(result.problems.isEmpty())

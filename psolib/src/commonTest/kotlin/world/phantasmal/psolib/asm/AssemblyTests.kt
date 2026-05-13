@@ -1,6 +1,7 @@
 package world.phantasmal.psolib.asm
 
 import world.phantasmal.core.Success
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.test.LibTestSuite
 import world.phantasmal.psolib.test.assertDeepEquals
 import kotlin.test.Test
@@ -20,7 +21,8 @@ class AssemblyTests : LibTestSuite {
             150:
                 set_mainwarp 1
                 ret
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)
@@ -125,7 +127,8 @@ class AssemblyTests : LibTestSuite {
                 leti r255, 7
                 exit r255
                 ret
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)
@@ -190,7 +193,8 @@ class AssemblyTests : LibTestSuite {
             0:
                 p_dead_v3 r200, 3
                 ret
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)
@@ -242,7 +246,8 @@ class AssemblyTests : LibTestSuite {
             """
             0:
                 ret 100
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)
@@ -288,7 +293,8 @@ class AssemblyTests : LibTestSuite {
             """
             5000:
                 leti r100
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)
@@ -334,7 +340,8 @@ class AssemblyTests : LibTestSuite {
             """
             5000:
                 switch_jmp r100
-            """.trimIndent().split('\n')
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
         )
 
         assertTrue(result is Success)

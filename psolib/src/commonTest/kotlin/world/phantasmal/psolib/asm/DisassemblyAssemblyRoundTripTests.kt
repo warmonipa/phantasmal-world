@@ -12,6 +12,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+private val BB = Version.BB_V4
+
 class DisassemblyAssemblyRoundTripTests : LibTestSuite {
     @Test
     fun assembling_disassembled_bytecode_should_result_in_the_same_IR() = testAsync {
@@ -24,7 +26,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
             lenient = false,
         ).unwrap()
 
-        val assemblyResult = assemble(disassemble(expectedIr))
+        val assemblyResult = assemble(disassemble(expectedIr, BB), BB)
 
         assertTrue(assemblyResult.problems.isEmpty())
         assertTrue(assemblyResult is Success)
@@ -42,8 +44,8 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
             lenient = false,
         ).unwrap()
 
-        val expectedAsm = disassemble(ir)
-        val actualAsm = disassemble(assemble(expectedAsm).unwrap())
+        val expectedAsm = disassemble(ir, BB)
+        val actualAsm = disassemble(assemble(expectedAsm, BB).unwrap(), BB)
 
         assertDeepEquals(expectedAsm, actualAsm, ::assertEquals)
     }
@@ -62,13 +64,15 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
                         stringEncoding = BytecodeStringEncoding.UTF16,
                         lenient = false,
                     ).unwrap(),
-                )
+                    BB,
+                ),
+                BB,
             )
 
             assertTrue(result is Success)
             assertTrue(result.problems.isEmpty())
 
-            val newBytecode = writeBytecode(result.value, stringEncoding = BytecodeStringEncoding.UTF16).bytecode
+            val newBytecode = writeBytecode(result.value, BytecodeStringEncoding.UTF16, BB).bytecode
 
             assertDeepEquals(origBytecode, newBytecode)
         }
@@ -94,7 +98,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
             lenient = false,
         ).unwrap()
 
-        val newBytecode = writeBytecode(ir, BytecodeStringEncoding.ASCII).bytecode
+        val newBytecode = writeBytecode(ir, BytecodeStringEncoding.ASCII, BB).bytecode
 
         assertDeepEquals(origBytecode, newBytecode)
     }
@@ -119,13 +123,15 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
                     stringEncoding = BytecodeStringEncoding.ASCII,
                     lenient = false,
                 ).unwrap(),
-            )
+                BB,
+            ),
+            BB,
         )
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
 
-        val newBytecode = writeBytecode(result.value, BytecodeStringEncoding.ASCII).bytecode
+        val newBytecode = writeBytecode(result.value, BytecodeStringEncoding.ASCII, BB).bytecode
 
         assertDeepEquals(origBytecode, newBytecode)
     }

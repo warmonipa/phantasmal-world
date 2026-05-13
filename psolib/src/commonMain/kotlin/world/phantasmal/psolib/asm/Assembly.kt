@@ -5,6 +5,7 @@ import world.phantasmal.core.Problem
 import world.phantasmal.core.PwResult
 import world.phantasmal.core.Severity
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.Version
 import kotlin.time.measureTimedValue
 
 private val logger = KotlinLogging.logger {}
@@ -21,12 +22,13 @@ class AssemblyProblem(
 
 fun assemble(
     asm: List<String>,
+    version: Version,
 ): PwResult<BytecodeIr> {
     logger.trace {
         "Assembling ${asm.size} lines."
     }
 
-    val (result, time) = measureTimedValue { Assembler(asm).assemble() }
+    val (result, time) = measureTimedValue { Assembler(asm, version).assemble() }
 
     logger.trace {
         val warnings = result.problems.count { it.severity == Severity.Warning }
@@ -38,7 +40,7 @@ fun assemble(
     return result
 }
 
-private class Assembler(private val asm: List<String>) {
+private class Assembler(private val asm: List<String>, private val version: Version) {
     private var lineNo = 1
     private val tokenizer = LineTokenizer()
     private var ir: MutableList<Segment> = mutableListOf()
@@ -352,7 +354,7 @@ private class Assembler(private val asm: List<String>) {
     }
 
     private fun parseInstruction() {
-        val opcode = mnemonicToOpcode(tokenizer.strValue)
+        val opcode = mnemonicToOpcode(tokenizer.strValue, version)
         val mnemonicSrcLoc = srcLocFromTokenizer()
 
         if (opcode == null) {

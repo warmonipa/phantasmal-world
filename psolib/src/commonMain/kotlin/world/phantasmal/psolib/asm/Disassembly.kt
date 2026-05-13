@@ -1,6 +1,7 @@
 package world.phantasmal.psolib.asm
 
 import mu.KotlinLogging
+import world.phantasmal.psolib.fileFormats.quest.Version
 import kotlin.math.min
 
 private val logger = KotlinLogging.logger {}
@@ -14,12 +15,17 @@ enum class IntFormat {
 }
 
 /**
+ * @param bytecodeIr The IR to disassemble.
+ * @param version The game version the IR was parsed from. Currently used to future-proof the
+ * signature; the textual output is identical across dialects since the IR already has resolved
+ * opcodes.
  * @param intFormat How to format integer arguments: [IntFormat.HEX] for 0x prefixed hexadecimal,
  * [IntFormat.DECIMAL] for decimal. Labels and registers are not affected.
  * @param hideNops If true, NOP instructions will be omitted from the output.
  */
 fun disassemble(
     bytecodeIr: BytecodeIr,
+    version: Version,
     intFormat: IntFormat = IntFormat.DECIMAL,
     hideNops: Boolean = false,
 ): List<String> {

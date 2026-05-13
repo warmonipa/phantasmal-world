@@ -885,7 +885,7 @@ private fun isLikelyInstructionSegment(
 fun writeBytecode(
     bytecodeIr: BytecodeIr,
     stringEncoding: BytecodeStringEncoding,
-    version: Version = Version.BB_V4,
+    version: Version,
 ): BytecodeAndLabelOffsets {
     val buffer = Buffer.withCapacity(100 * bytecodeIr.segments.size, Endianness.Little)
     val cursor = buffer.cursor()
@@ -904,8 +904,10 @@ fun writeBytecode(
             is InstructionSegment -> {
                 for (instruction in segment.instructions) {
                     val opcode = instruction.opcode
+                    val emitPushPrologue =
+                        version.dialect == Dialect.V3_V4 && opcode.argsMode == ArgsMode.Stack
 
-                    if (opcode.stack == StackInteraction.Pop) {
+                    if (emitPushPrologue) {
                         // Write push instructions before the Pop opcode.
                         writePushInstructions(cursor, instruction, stringEncoding)
                     }
@@ -916,7 +918,7 @@ fun writeBytecode(
 
                     cursor.writeByte(opcode.code.toByte())
 
-                    if (opcode.stack != StackInteraction.Pop) {
+                    if (!emitPushPrologue) {
                         writeInlineArgs(cursor, instruction, stringEncoding)
                     }
                 }

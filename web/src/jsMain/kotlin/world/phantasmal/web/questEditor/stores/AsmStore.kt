@@ -16,6 +16,7 @@ import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.psolib.asm.IntFormat
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.disassemble
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.web.core.observable.Emitter
 import world.phantasmal.web.core.observable.Observable
 import world.phantasmal.web.core.undo.UndoManager
@@ -163,7 +164,7 @@ class AsmStore(
             quest ?: return@mutateDeferred
 
             val intFmt = if (hexFormat.value) IntFormat.HEX else IntFormat.DECIMAL
-            val asm = disassemble(quest.bytecodeIr, intFmt, hideNops.value)
+            val asm = disassemble(quest.bytecodeIr, Version.BB_V4, intFmt, hideNops.value)
             asmAnalyser.setAsm(asm)
 
             _textModel.value = createModel(asm.joinToString("\n"), ASM_LANG_ID).also { model ->
@@ -206,7 +207,7 @@ class AsmStore(
 
         val model = textModel.value ?: return
 
-        assemble(model.getLinesContent().toList())
+        assemble(model.getLinesContent().toList(), Version.BB_V4)
             .getOrNull()
             ?.let(quest::setBytecodeIr)
     }

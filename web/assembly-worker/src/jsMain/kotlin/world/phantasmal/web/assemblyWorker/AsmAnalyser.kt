@@ -3,6 +3,7 @@ package world.phantasmal.web.assemblyWorker
 import world.phantasmal.core.*
 import world.phantasmal.psolib.asm.*
 import world.phantasmal.psolib.asm.dataFlowAnalysis.*
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.web.shared.messages.*
 import world.phantasmal.web.shared.messages.AssemblyProblem
 import kotlin.math.max
@@ -132,7 +133,7 @@ class AsmAnalyser {
         _cfg = null
 
         val notifications = mutableListOf<ServerNotification>()
-        val assemblyResult = assemble(asm.asArray().toList())
+        val assemblyResult = assemble(asm.asArray().toList(), Version.BB_V4)
 
         @Suppress("UNCHECKED_CAST")
         val problems =

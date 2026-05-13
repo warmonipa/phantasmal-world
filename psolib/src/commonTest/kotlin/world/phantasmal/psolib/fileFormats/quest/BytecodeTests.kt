@@ -69,7 +69,7 @@ class BytecodeTests : LibTestSuite {
         assertEquals(1, segment.instructions[0].args[0].value)
 
         // Write back and verify byte-for-byte round-trip.
-        val written = writeBytecode(ir, BytecodeStringEncoding.ASCII).bytecode
+        val written = writeBytecode(ir, BytecodeStringEncoding.ASCII, Version.BB_V4).bytecode
         assertDeepEquals(buffer, written)
     }
 
@@ -162,7 +162,7 @@ class BytecodeTests : LibTestSuite {
             assertEquals(bytecode.size, segment.size(encoding), "getSize mismatch ($encoding)")
 
             // Write back and verify byte-for-byte equality.
-            val written = writeBytecode(ir, encoding).bytecode
+            val written = writeBytecode(ir, encoding, Version.BB_V4).bytecode
             assertDeepEquals(buffer, written)
         }
     }
@@ -204,7 +204,7 @@ class BytecodeTests : LibTestSuite {
 
         assertEquals(bytecode.size, segment.size(BytecodeStringEncoding.ASCII))
 
-        val written = writeBytecode(ir, BytecodeStringEncoding.ASCII).bytecode
+        val written = writeBytecode(ir, BytecodeStringEncoding.ASCII, Version.BB_V4).bytecode
         assertDeepEquals(buffer, written)
     }
 
@@ -248,7 +248,7 @@ class BytecodeTests : LibTestSuite {
 
         assertEquals(bytecode.size, segment.size(BytecodeStringEncoding.UTF16))
 
-        val written = writeBytecode(ir, BytecodeStringEncoding.UTF16).bytecode
+        val written = writeBytecode(ir, BytecodeStringEncoding.UTF16, Version.BB_V4).bytecode
         assertDeepEquals(buffer, written)
     }
 
@@ -293,7 +293,7 @@ class BytecodeTests : LibTestSuite {
 
             assertEquals(bytecode.size, segment.size(encoding), "getSize mismatch ($encoding)")
 
-            val written = writeBytecode(ir, encoding).bytecode
+            val written = writeBytecode(ir, encoding, Version.BB_V4).bytecode
             assertDeepEquals(buffer, written)
         }
     }
@@ -345,7 +345,7 @@ class BytecodeTests : LibTestSuite {
 
             assertEquals(bytecode.size, segment.size(encoding), "getSize mismatch ($encoding)")
 
-            val written = writeBytecode(ir, encoding).bytecode
+            val written = writeBytecode(ir, encoding, Version.BB_V4).bytecode
             assertDeepEquals(buffer, written)
         }
     }
@@ -382,7 +382,7 @@ class BytecodeTests : LibTestSuite {
             assertEquals(expectedStringSize, ir.segments[1].size(encoding), "StringSegment size ($encoding)")
 
             // writeBytecode has an internal consistency check that will throw if sizes don't match.
-            val result = writeBytecode(ir, encoding)
+            val result = writeBytecode(ir, encoding, Version.BB_V4)
 
             // Total = ret(1) + string segment size.
             assertEquals(1 + expectedStringSize, result.bytecode.size, "Total bytecode size ($encoding)")
@@ -433,7 +433,7 @@ class BytecodeTests : LibTestSuite {
             assertEquals(expectedSize, segment.size(encoding), "getSize ($encoding)")
 
             // writeBytecode's internal check verifies getSize == actual written bytes.
-            val result = writeBytecode(ir, encoding)
+            val result = writeBytecode(ir, encoding, Version.BB_V4)
             assertEquals(expectedSize, result.bytecode.size, "Written size ($encoding)")
         }
     }

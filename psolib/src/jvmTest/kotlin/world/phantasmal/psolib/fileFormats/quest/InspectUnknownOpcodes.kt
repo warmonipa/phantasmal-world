@@ -32,7 +32,7 @@ class InspectUnknownOpcodes : LibTestSuite {
             )
             assertTrue(ir is Success)
 
-            val lines = disassemble(ir.value)
+            val lines = disassemble(ir.value, Version.BB_V4)
             // Find lines with unknown_f9
             println("=== $fileName ===")
             for ((i, line) in lines.withIndex()) {
