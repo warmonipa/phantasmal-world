@@ -666,7 +666,7 @@ class AsmAnalyser {
 
         private val INSTRUCTION_REGEX = Regex("""^\s*([a-z][a-z0-9_=<>!]*)?${'$'}""")
         private val INSTRUCTION_SUGGESTIONS: List<CompletionItem> =
-            (OPCODES.asSequence() + OPCODES_F8.asSequence() + OPCODES_F9.asSequence())
+            ALL_OPCODES.asSequence()
                 .filterNotNull()
                 .map { opcode ->
                     val sig = getSignature(opcode)
