@@ -51,6 +51,8 @@ class Quest(
     var shiftJis: Boolean = false,
     /** BIN format detected during parsing. Used to restore the correct version on save. */
     var binFormat: BinFormat = BinFormat.BB,
+    /** Quest version detected during parsing (e.g. BB_V4, GC_V3). */
+    var version: Version = Version.BB_V4,
     /**
      * `particle_v3` script invocations whose arguments could be statically resolved.
      */
@@ -213,6 +215,7 @@ fun parseBinDatToQuest(
         bytecodeOffset = bin.bytecodeOffset,
         shiftJis = bin.shiftJis,
         binFormat = bin.format,
+        version = version,
         particleSpawns = particleSpawns,
     ))
 }

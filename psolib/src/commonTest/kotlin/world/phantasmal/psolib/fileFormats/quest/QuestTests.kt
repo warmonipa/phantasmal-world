@@ -529,6 +529,17 @@ class QuestTests : LibTestSuite {
         assertEquals(quest.challengeData.cmMonsterMappings.size, reparsed.cmMonsterMappings.size)
     }
 
+    @Test
+    fun quest_carries_version() = testAsync {
+        val result = parseBinDatToQuest(
+            readFile("/towards_the_future.bin"),
+            readFile("/towards_the_future.dat"),
+        )
+        assertTrue(result is Success)
+        // towards_the_future is BB; default detection should land on BB_V4.
+        assertEquals(Version.BB_V4, result.value.version)
+    }
+
     companion object {
         private val EXCLUDED = listOf(
             ".raw",
