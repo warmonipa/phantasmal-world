@@ -131,7 +131,8 @@ fun getFloorMappings(
                     }
                 }
 
-                OP_SET_FLOOR_HANDLER -> {
+                OP_SET_FLOOR_HANDLER_V0_V2,
+                OP_SET_FLOOR_HANDLER_V3_V4 -> {
                     try {
                         // After normalization, args are inlined: arg[0] = floorId, arg[1] = label.
                         val floorId = (inst.args[0] as IntArg).value
@@ -145,7 +146,7 @@ fun getFloorMappings(
                             floorMappings[floorId] = FloorMapping(floorId, mapId, areaId, 0, findEpisodeByMapId(mapId))
                         }
                     } catch (e: Exception) {
-                        logger.warn { "Error getting values for OP_SET_FLOOR_HANDLER: ${e.message}" }
+                        logger.warn { "Error getting values for set_floor_handler: ${e.message}" }
                     }
                 }
             }
@@ -163,7 +164,7 @@ fun getFloorMappings(
  * Returns Episode.I if no set_episode instruction is found.
  */
 internal fun getEpisode(func0Segment: InstructionSegment): Episode {
-    val setEpisode = func0Segment.instructions.find { it.opcode == OP_SET_EPISODE }
+    val setEpisode = func0Segment.instructions.find { it.opcode == OP_SET_EPISODE_V3_V4 }
         ?: return Episode.I
 
     if (setEpisode.args.isEmpty()) {

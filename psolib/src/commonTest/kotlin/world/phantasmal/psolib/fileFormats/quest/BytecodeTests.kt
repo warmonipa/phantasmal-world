@@ -34,7 +34,7 @@ class BytecodeTests : LibTestSuite {
         val segment = ir.segments[0]
 
         assertTrue(segment is InstructionSegment)
-        assertEquals(OP_SET_EPISODE, segment.instructions[0].opcode)
+        assertEquals(OP_SET_EPISODE_V3_V4, segment.instructions[0].opcode)
         assertEquals(1, segment.instructions[0].args[0].value)
         assertEquals(OP_BB_MAP_DESIGNATE, segment.instructions[1].opcode)
         assertEquals(3, segment.instructions[1].args[0].value)
@@ -65,7 +65,7 @@ class BytecodeTests : LibTestSuite {
 
         val ir = result.value
         val segment = ir.segments[0] as InstructionSegment
-        assertEquals(OP_SET_EPISODE, segment.instructions[0].opcode)
+        assertEquals(OP_SET_EPISODE_V3_V4, segment.instructions[0].opcode)
         assertEquals(1, segment.instructions[0].args[0].value)
 
         // Write back and verify byte-for-byte round-trip.
@@ -154,7 +154,7 @@ class BytecodeTests : LibTestSuite {
             // After normalization: push instructions removed, args inlined on Pop.
             assertEquals(2, segment.instructions.size, "Expected set_floor_handler + ret ($encoding)")
             val sfh = segment.instructions[0]
-            assertEquals(OP_SET_FLOOR_HANDLER, sfh.opcode)
+            assertEquals(OP_SET_FLOOR_HANDLER_V3_V4, sfh.opcode)
             assertEquals(0, sfh.args[0].coerceInt())
             assertEquals(150, sfh.args[1].coerceInt())
 
@@ -286,7 +286,7 @@ class BytecodeTests : LibTestSuite {
             assertEquals(2, segment.instructions.size, "Instruction count ($encoding)")
 
             val sfh = segment.instructions[0]
-            assertEquals(OP_SET_FLOOR_HANDLER, sfh.opcode)
+            assertEquals(OP_SET_FLOOR_HANDLER_V3_V4, sfh.opcode)
             val firstArg = sfh.args[0] as IntArg
             assertEquals(5, firstArg.value)
             assertTrue(firstArg.isRegRef, "First arg should be marked as isRegRef ($encoding)")
@@ -482,7 +482,7 @@ class IsRegRefLabelTest : LibTestSuite {
 
         // The set_floor_handler instruction should have its args normalized (isRegRef preserved).
         val seg = ir.segments[0] as InstructionSegment
-        val sfh = seg.instructions.find { it.opcode == OP_SET_FLOOR_HANDLER }
+        val sfh = seg.instructions.find { it.opcode == OP_SET_FLOOR_HANDLER_V3_V4 }
         assertNotNull(sfh, "set_floor_handler should be present after normalization")
         assertEquals(2, sfh.args.size, "set_floor_handler should have 2 inlined args")
         val labelArg = sfh.args[1] as? IntArg

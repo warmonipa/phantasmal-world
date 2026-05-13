@@ -64,7 +64,7 @@ private class RegisterValueFinder {
                 }
 
                 OP_LETI.code,
-                OP_LETB.code,
+                OP_LETB_V3_V4.code,
                 OP_LETW.code,
                 OP_SYNC_REGISTER.code,
                 -> {

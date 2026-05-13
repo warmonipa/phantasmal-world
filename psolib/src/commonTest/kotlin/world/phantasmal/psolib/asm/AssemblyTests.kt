@@ -33,7 +33,7 @@ class AssemblyTests : LibTestSuite {
                         labels = mutableListOf(0),
                         instructions = mutableListOf(
                             Instruction(
-                                opcode = OP_SET_EPISODE,
+                                opcode = OP_SET_EPISODE_V3_V4,
                                 args = listOf(IntArg(0)),
                                 srcLoc = InstructionSrcLoc(
                                     mnemonic = SrcLoc(2, 5, 11),
@@ -58,7 +58,7 @@ class AssemblyTests : LibTestSuite {
                                 valid = true,
                             ),
                             Instruction(
-                                opcode = OP_SET_FLOOR_HANDLER,
+                                opcode = OP_SET_FLOOR_HANDLER_V3_V4,
                                 args = listOf(IntArg(0), IntArg(150)),
                                 srcLoc = InstructionSrcLoc(
                                     mnemonic = SrcLoc(4, 5, 17),

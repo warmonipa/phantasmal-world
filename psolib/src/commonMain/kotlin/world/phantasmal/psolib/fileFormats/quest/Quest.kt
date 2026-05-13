@@ -5,7 +5,7 @@ import world.phantasmal.core.*
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.InstructionSegment
-import world.phantasmal.psolib.asm.OP_SET_EPISODE
+import world.phantasmal.psolib.asm.OP_SET_EPISODE_V3_V4
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
@@ -566,7 +566,7 @@ fun parseQstToQuest(cursor: Cursor, lenient: Boolean = false): PwResult<QuestDat
  */
 private fun getEpisode(rb: PwResultBuilder<*>, func0Segment: InstructionSegment): Episode {
     val setEpisode = func0Segment.instructions.find {
-        it.opcode == OP_SET_EPISODE
+        it.opcode == OP_SET_EPISODE_V3_V4
     }
 
     if (setEpisode == null) {

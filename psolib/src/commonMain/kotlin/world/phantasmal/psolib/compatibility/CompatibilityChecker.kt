@@ -65,7 +65,7 @@ class CompatibilityChecker(
 
             checkOpcodeCompatibility(opcode, lineNo, location)
 
-            if (opcode == OP_SET_EPISODE) {
+            if (opcode == OP_SET_EPISODE_V3_V4) {
                 checkEpisodeParameter(instruction, location)
             }
 
@@ -477,10 +477,10 @@ class CompatibilityChecker(
 
         // V3 opcodes that may have conversion issues in V1.
         private val CONVERT_OPCODES = setOf(
-            OP_NPC_CRP_V3.code, OP_P_MOVE_V3.code, OP_NPC_TALK_PL_V3.code,
-            OP_NPC_CRPPK_V3.code, OP_NPC_CRPTALK_V3.code, OP_NPC_CRP_ID_V3.code,
-            OP_CAM_PAN_V3.code, OP_POS_PIPE_V3.code, OP_PL_WALK_V3.code,
-            OP_PARTICLE_V3.code, OP_PARTICLE_ID_V3.code, OP_NPC_CRPTALK_ID_V3.code,
+            OP_NPC_CRP_V3_V3_V4.code, OP_P_MOVE_V3_V3_V4.code, OP_NPC_TALK_PL_V3_V3_V4.code,
+            OP_NPC_CRPPK_V3_V3_V4.code, OP_NPC_CRPTALK_V3_V3_V4.code, OP_NPC_CRP_ID_V3_V3_V4.code,
+            OP_CAM_PAN_V3_V3_V4.code, OP_POS_PIPE_V3_V3_V4.code, OP_PL_WALK_V3_V3_V4.code,
+            OP_PARTICLE_V3_V3_V4.code, OP_PARTICLE_ID_V3_V3_V4.code, OP_NPC_CRPTALK_ID_V3_V3_V4.code,
         )
 
     }

@@ -75,14 +75,29 @@ opcodes:
       - type: int
 
   - code: 0x0a
+    mnemonic: leta
+    doc: "Sets a register to the memory address of another register. V0_V2 form; not used by Sega on DC NTE. (newserv QuestScript.cc:345)"
+    params:
+      - type: reg
+        registers:
+          - type: any
+            write: true
+      - type: reg
+        registers:
+          - type: any
+            read: true
+    versions: V0_V2
+
+  - code: 0x0a
     mnemonic: letb
-    doc: Sets a register to the given value.
+    doc: Sets a register to the given byte value.
     params:
       - type: reg
         registers:
           - type: byte
             write: true
       - type: byte
+    versions: V3_V4
 
   - code: 0x0b
     mnemonic: letw
@@ -675,13 +690,21 @@ opcodes:
       - type: ilabel_var
 
   - code: 0x42
+    mnemonic: nop_42
+    doc: "Does nothing. V0_V2 inline form with one unused 32-bit argument. (newserv QuestScript.cc:517)"
+    params:
+      - type: int
+    versions: V0_V2
+
+  - code: 0x42
     mnemonic: stack_push
-    doc: "Does nothing"
+    doc: "Pushes the value of the given register onto the argument stack."
     params:
       - type: reg
         registers:
           - type: any
             read: true
+    versions: V3_V4
 
   - code: 0x43
     mnemonic: stack_pop
@@ -922,31 +945,63 @@ opcodes:
     params: []
 
   - code: 0x66
-    mnemonic: npc_crp_v3
-    doc: "Creates an NPC as client ID 1. Sends 6x69 with command = 0. valueB is required in pre-v3 but is ignored"
+    mnemonic: npc_crp
+    doc: "Creates an NPC as client ID 1. V0_V2 inline form: 6 registers (4-byte encoding) + one 32-bit extra argument that V3_V4 does not have. (newserv QuestScript.cc:631)"
     params:
       - type: reg
         registers:
           - type: int
             read: true
             name: "position X"
-          - type: any
+          - type: int
             read: true
             name: "position Y"
-          - type: any
+          - type: int
             read: true
             name: "position Z"
-          - type: ilabel
+          - type: int
             read: true
             name: "angle"
-          - type: any
+          - type: int
             read: true
             name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
-          - type: any
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box)"
+          - type: int
             read: true
             name: "template index"
             doc: "template index (see 6x69 in CommandFormats.hh)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x66
+    mnemonic: npc_crp_v3
+    doc: "Creates an NPC as client ID 1. Sends 6x69 with command = 0. (newserv QuestScript.cc:632)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+          - type: int
+            read: true
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
+    versions: V3_V4
 
   - code: 0x68
     mnemonic: create_pipe
@@ -990,8 +1045,8 @@ opcodes:
     params: []
 
   - code: 0x6d
-    mnemonic: p_move_v3
-    doc: "Moves a player. valueB is required in pre-v3 but is ignored"
+    mnemonic: p_move
+    doc: "Moves a player. V0_V2 inline form with 5 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:655)"
     params:
       - type: reg
         registers:
@@ -1010,6 +1065,33 @@ opcodes:
           - type: int
             read: true
             name: "client ID"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x6d
+    mnemonic: p_move_v3
+    doc: "Moves a player. (newserv QuestScript.cc:656)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "destination X"
+          - type: int
+            read: true
+            name: "destination Y"
+          - type: int
+            read: true
+            name: "destination Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "client ID"
+    versions: V3_V4
 
   - code: 0x6e
     mnemonic: p_look
@@ -1092,8 +1174,8 @@ opcodes:
     stack: pop
 
   - code: 0x79
-    mnemonic: npc_talk_pl_v3
-    doc: "Creates an NPC which only appears near a given location"
+    mnemonic: npc_talk_pl
+    doc: "Creates an NPC which only appears near a given location. V0_V2 inline form; register number is 4 bytes in actual binary (psolib models as 1 byte). (newserv QuestScript.cc:695)"
     params:
       - type: reg
         registers:
@@ -1123,6 +1205,41 @@ opcodes:
           - type: int
             read: true
             name: "client ID"
+    versions: V0_V2
+
+  - code: 0x79
+    mnemonic: npc_talk_pl_v3
+    doc: "Creates an NPC which only appears near a given location. (newserv QuestScript.cc:696)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "visibility radius"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
+          - type: int
+            read: true
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+          - type: int
+            read: true
+            name: "client ID"
+    versions: V3_V4
 
   - code: 0x7a
     mnemonic: npc_talk_kill
@@ -1140,17 +1257,31 @@ opcodes:
     stack: pop
 
   - code: 0x7c
-    mnemonic: npc_crppk_v3
-    doc: "Creates attacker NPC"
+    mnemonic: npc_crppk
+    doc: "Creates attacker NPC. V0_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:707)"
     params:
       - type: reg
         registers:
           - type: int
             read: true
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x7c
+    mnemonic: npc_crppk_v3
+    doc: "Creates attacker NPC. (newserv QuestScript.cc:708)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V3_V4
 
   - code: 0x7d
-    mnemonic: npc_crptalk_v3
-    doc: "Creates an NPC with client ID 1. It is not recommended to use this opcode if a player can be in that slot; use npc_crptalk_id instead"
+    mnemonic: npc_crptalk
+    doc: "Creates an NPC with client ID 1. V0_V2 inline form: 6 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:716)"
     params:
       - type: reg
         registers:
@@ -1174,6 +1305,38 @@ opcodes:
             read: true
             name: "template index"
             doc: "template index (see 6x69 in CommandFormats.hh)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x7d
+    mnemonic: npc_crptalk_v3
+    doc: "Creates an NPC with client ID 1. It is not recommended to use this opcode if a player can be in that slot; use npc_crptalk_id instead. (newserv QuestScript.cc:717)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+          - type: int
+            read: true
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
+    versions: V3_V4
 
   - code: 0x7e
     mnemonic: p_look_at_v1
@@ -1186,8 +1349,8 @@ opcodes:
     stack: pop
 
   - code: 0x7f
-    mnemonic: npc_crp_id_v3
-    doc: "Creates an NPC"
+    mnemonic: npc_crp_id
+    doc: "Creates an NPC. V0_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:728)"
     params:
       - type: reg
         registers:
@@ -1214,6 +1377,41 @@ opcodes:
             read: true
             name: "template index"
             doc: "template index (see 6x69 in CommandFormats.hh)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x7f
+    mnemonic: npc_crp_id_v3
+    doc: "Creates an NPC. (newserv QuestScript.cc:729)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+          - type: int
+            read: true
+            name: "client ID"
+          - type: int
+            read: true
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
+    versions: V3_V4
 
   - code: 0x80
     mnemonic: cam_quake
@@ -1236,8 +1434,8 @@ opcodes:
     params: []
 
   - code: 0x84
-    mnemonic: cam_pan_v3
-    doc: "Pans the camera"
+    mnemonic: cam_pan
+    doc: "Pans the camera. V0_V2 inline form: 5 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:745)"
     params:
       - type: reg
         registers:
@@ -1258,6 +1456,35 @@ opcodes:
             read: true
             name: "end time"
             doc: "end time (in frames; 30 frames/sec)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x84
+    mnemonic: cam_pan_v3
+    doc: "Pans the camera. (newserv QuestScript.cc:746)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "destination X"
+          - type: int
+            read: true
+            name: "destination Y"
+          - type: int
+            read: true
+            name: "destination Z"
+          - type: int
+            read: true
+            name: "pan time"
+            doc: "pan time (in frames; 30 frames/sec)"
+          - type: int
+            read: true
+            name: "end time"
+            doc: "end time (in frames; 30 frames/sec)"
+    versions: V3_V4
 
   - code: 0x85
     mnemonic: game_lev_super
@@ -1270,8 +1497,8 @@ opcodes:
     params: []
 
   - code: 0x87
-    mnemonic: pos_pipe_v3
-    doc: Create a telepipe at a specific position for the given player slot that takes players back to Pioneer 2 or the Lab.
+    mnemonic: pos_pipe
+    doc: "Create a telepipe at a specific position for the given player slot that takes players back to Pioneer 2 or the Lab. V0_V2 inline form: 4 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:759)"
     params:
       - type: reg
         registers:
@@ -1288,6 +1515,31 @@ opcodes:
             read: true
             name: "owner client ID"
             doc: "owner client ID (player or NPC must exist in the game)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0x87
+    mnemonic: pos_pipe_v3
+    doc: "Create a telepipe at a specific position for the given player slot that takes players back to Pioneer 2 or the Lab. (newserv QuestScript.cc:760)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "location X"
+          - type: int
+            read: true
+            name: "location Y"
+          - type: int
+            read: true
+            name: "location Z"
+          - type: int
+            read: true
+            name: "owner client ID"
+            doc: "owner client ID (player or NPC must exist in the game)"
+    versions: V3_V4
 
   - code: 0x88
     mnemonic: if_zone_clear
@@ -1489,7 +1741,19 @@ opcodes:
 
   - code: 0x95
     mnemonic: set_floor_handler
-    doc: "Causes the labelB to be called on a new thread when the player warps to floorA. If the given floor already has a registered handler, it is replaced with the new one (each floor may have at most one handler)."
+    doc: "Causes the handler to be called on a new thread when the player warps to floorA. V0_V2 inline form: floor as 32-bit int, handler as 32-bit script offset. (newserv QuestScript.cc:828)"
+    params:
+      - type: int
+        name: "floor"
+        doc: Floor number.
+      - type: int
+        name: "handler"
+        doc: "Handler function offset (32-bit, V0_V2 form)."
+    versions: V0_V2
+
+  - code: 0x95
+    mnemonic: set_floor_handler
+    doc: "Causes the labelB to be called on a new thread when the player warps to floorA. If the given floor already has a registered handler, it is replaced with the new one (each floor may have at most one handler). (newserv QuestScript.cc:829)"
     params:
       - type: int
         name: "floor"
@@ -1497,6 +1761,7 @@ opcodes:
       - type: ilabel
         doc: Handler function label.
     stack: pop
+    versions: V3_V4
 
   - code: 0x96
     mnemonic: clr_floor_handler
@@ -1572,15 +1837,35 @@ opcodes:
 
   - code: 0xa1
     mnemonic: set_qt_failure
-    doc: "Sets a function to be called (on a new thread) when the quest is failed. The quest is considered failed when you talk to the Hunter's Guild counter and r253 has the value 1 (specifically 1; other nonzero values do not trigger this function)."
+    doc: "Sets a function to be called (on a new thread) when the quest is failed. V0_V2 inline form: 32-bit script offset. (newserv QuestScript.cc:860)"
+    params:
+      - type: int
+        name: "handler"
+        doc: "Handler function offset (32-bit, V0_V2 form)."
+    versions: V0_V2
+
+  - code: 0xa1
+    mnemonic: set_qt_failure
+    doc: "Sets a function to be called (on a new thread) when the quest is failed. The quest is considered failed when you talk to the Hunter's Guild counter and r253 has the value 1 (specifically 1; other nonzero values do not trigger this function). (newserv QuestScript.cc:861)"
     params:
       - type: ilabel
+    versions: V3_V4
 
   - code: 0xa2
     mnemonic: set_qt_success
-    doc: "Like set_qt_failure, but uses r255 instead. If r255 and r253 both have the value 1 when the player talks to the Hunter's Guild counter, the success label is called and the failure label is not called."
+    doc: "Like set_qt_failure, but uses r255 instead. V0_V2 inline form: 32-bit script offset. (newserv QuestScript.cc:865)"
+    params:
+      - type: int
+        name: "handler"
+        doc: "Handler function offset (32-bit, V0_V2 form)."
+    versions: V0_V2
+
+  - code: 0xa2
+    mnemonic: set_qt_success
+    doc: "Like set_qt_failure, but uses r255 instead. If r255 and r253 both have the value 1 when the player talks to the Hunter's Guild counter, the success label is called and the failure label is not called. (newserv QuestScript.cc:866)"
     params:
       - type: ilabel
+    versions: V3_V4
 
   - code: 0xa3
     mnemonic: clr_qt_failure
@@ -1594,9 +1879,19 @@ opcodes:
 
   - code: 0xa5
     mnemonic: set_qt_cancel
-    doc: "Sets a function to be called when the quest is cancelled via the Hunter's Guild counter."
+    doc: "Sets a function to be called when the quest is cancelled via the Hunter's Guild counter. V0_V2 inline form: 32-bit script offset. (newserv QuestScript.cc:875)"
+    params:
+      - type: int
+        name: "handler"
+        doc: "Handler function offset (32-bit, V0_V2 form)."
+    versions: V0_V2
+
+  - code: 0xa5
+    mnemonic: set_qt_cancel
+    doc: "Sets a function to be called when the quest is cancelled via the Hunter's Guild counter. (newserv QuestScript.cc:876)"
     params:
       - type: ilabel
+    versions: V3_V4
 
   - code: 0xa6
     mnemonic: clr_qt_cancel
@@ -1604,8 +1899,8 @@ opcodes:
     params: []
 
   - code: 0xa8
-    mnemonic: pl_walk_v3
-    doc: "Makes a player or NPC walk to a location"
+    mnemonic: pl_walk
+    doc: "Makes a player or NPC walk to a location. V0_V2 inline form: 4 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:884)"
     params:
       - type: reg
         registers:
@@ -1621,6 +1916,30 @@ opcodes:
           - type: int
             read: true
             name: "client ID"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V0_V2
+
+  - code: 0xa8
+    mnemonic: pl_walk_v3
+    doc: "Makes a player or NPC walk to a location. (newserv QuestScript.cc:885)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "location X"
+          - type: int
+            read: true
+            name: "location Y"
+          - type: int
+            read: true
+            name: "location Z"
+          - type: int
+            read: true
+            name: "client ID"
+    versions: V3_V4
 
   - code: 0xb0
     mnemonic: pl_add_meseta
@@ -1822,9 +2141,19 @@ opcodes:
 
   - code: 0xba
     mnemonic: set_qt_exit
-    doc: "Sets a label to be called (in a new thread) when the quest exits. This happens during the unload procedure when leaving the game, so most opcodes cannot be used in these handlers. Generally they should only be used for setting quest flags, event flags, or quest counters."
+    doc: "Sets a label to be called (in a new thread) when the quest exits. V1_V2 inline form: 32-bit script offset. (newserv QuestScript.cc:942, F_V05_V2)"
+    params:
+      - type: int
+        name: "handler"
+        doc: "Handler function offset (32-bit, V1_V2 form)."
+    versions: V1_V2
+
+  - code: 0xba
+    mnemonic: set_qt_exit
+    doc: "Sets a label to be called (in a new thread) when the quest exits. This happens during the unload procedure when leaving the game, so most opcodes cannot be used in these handlers. Generally they should only be used for setting quest flags, event flags, or quest counters. (newserv QuestScript.cc:943)"
     params:
       - type: ilabel
+    versions: V3_V4
 
   - code: 0xbb
     mnemonic: clr_qt_exit
@@ -1839,8 +2168,8 @@ opcodes:
     stack: pop
 
   - code: 0xc0
-    mnemonic: particle_v3
-    doc: "Creates a timed particle effect"
+    mnemonic: particle
+    doc: "Creates a timed particle effect. V1_V2 inline form: 5 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:955, F_V05_V2)"
     params:
       - type: reg
         registers:
@@ -1860,6 +2189,34 @@ opcodes:
             read: true
             name: "duration"
             doc: "duration (in frames; 30 frames/sec)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V1_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V1_V2
+
+  - code: 0xc0
+    mnemonic: particle_v3
+    doc: "Creates a timed particle effect. (newserv QuestScript.cc:956)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "location X"
+          - type: int
+            read: true
+            name: "location Y"
+          - type: int
+            read: true
+            name: "location Z"
+          - type: int
+            read: true
+            name: "effect type"
+          - type: int
+            read: true
+            name: "duration"
+            doc: "duration (in frames; 30 frames/sec)"
+    versions: V3_V4
 
   - code: 0xc1
     mnemonic: npc_text
@@ -1944,7 +2301,21 @@ opcodes:
 
   - code: 0xcb
     mnemonic: set_quest_board_handler
-    doc: "Creates an item in the quest board. Executing this opcode is not enough for the item to appear! The item only appears if its corresponding display register is also set to 1. The display registers are r74-r79 (for QB indexes 0-5, respectively)"
+    doc: "Creates an item in the quest board. V1_V2 inline form: index as 32-bit int, handler as 32-bit script offset, name as C-string. (newserv QuestScript.cc:1026, F_V05_V2)"
+    params:
+      - type: int
+        name: "index of item"
+        doc: "index of item (0-5)"
+      - type: int
+        name: "handler"
+        doc: "Handler label offset (32-bit, V1_V2 form)."
+      - type: string
+        name: "name of item in the Quest Board window"
+    versions: V1_V2
+
+  - code: 0xcb
+    mnemonic: set_quest_board_handler
+    doc: "Creates an item in the quest board. Executing this opcode is not enough for the item to appear! The item only appears if its corresponding display register is also set to 1. The display registers are r74-r79 (for QB indexes 0-5, respectively). (newserv QuestScript.cc:1027)"
     params:
       - type: int
         name: "index of item"
@@ -1954,6 +2325,7 @@ opcodes:
       - type: string
         name: "name of item in the Quest Board window"
     stack: pop
+    versions: V3_V4
 
   - code: 0xcc
     mnemonic: clear_quest_board_handler
@@ -1963,8 +2335,8 @@ opcodes:
     stack: pop
 
   - code: 0xcd
-    mnemonic: particle_id_v3
-    doc: "Creates a particle effect on a given entity. valueB is required in pre-v3 but is ignored"
+    mnemonic: particle_id
+    doc: "Creates a particle effect on a given entity. V1_V2 inline form: 4 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:1038, F_V05_V2)"
     params:
       - type: reg
         registers:
@@ -1982,10 +2354,36 @@ opcodes:
             read: true
             name: "y offset"
             doc: "y offset (as integer)"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V1_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V1_V2
+
+  - code: 0xcd
+    mnemonic: particle_id_v3
+    doc: "Creates a particle effect on a given entity. (newserv QuestScript.cc:1039)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "effect type"
+          - type: int
+            read: true
+            name: "duration in frames"
+          - type: int
+            read: true
+            name: "entity"
+            doc: "entity (client ID, 0x1000 + enemy ID, or 0x4000 + object ID)"
+          - type: int
+            read: true
+            name: "y offset"
+            doc: "y offset (as integer)"
+    versions: V3_V4
 
   - code: 0xce
-    mnemonic: npc_crptalk_id_v3
-    doc: "Creates an NPC"
+    mnemonic: npc_crptalk_id
+    doc: "Creates an NPC. V1_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:1047, F_V05_V2)"
     params:
       - type: reg
         registers:
@@ -2012,6 +2410,41 @@ opcodes:
           - type: int
             read: true
             name: "client ID"
+      - type: int
+        name: "extra_arg"
+        doc: "Extra 32-bit argument present in V1_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V1_V2
+
+  - code: 0xce
+    mnemonic: npc_crptalk_id_v3
+    doc: "Creates an NPC. (newserv QuestScript.cc:1048)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "initial state"
+            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+          - type: int
+            read: true
+            name: "template index"
+            doc: "template index (see 6x69 in CommandFormats.hh)"
+          - type: int
+            read: true
+            name: "client ID"
+    versions: V3_V4
 
   - code: 0xcf
     mnemonic: npc_lang_clean
@@ -2078,7 +2511,7 @@ opcodes:
 
   - code: 0xd9
     mnemonic: sync_register
-    doc: "Sets regA to valueB, and sends 6x77 so other clients will also set their local regA to valueB."
+    doc: "Sets regA to valueB, and sends 6x77 so other clients will also set their local regA to valueB. V1_V2 stack form: register number is 4 bytes in actual binary (psolib models as 1 byte). (newserv QuestScript.cc:1082)"
     params:
       - type: reg
         registers:
@@ -2086,6 +2519,19 @@ opcodes:
             write: true
       - type: int
     stack: pop
+    versions: V1_V2
+
+  - code: 0xd9
+    mnemonic: sync_register
+    doc: "Sets regA to valueB, and sends 6x77 so other clients will also set their local regA to valueB. (newserv QuestScript.cc:1083)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            write: true
+      - type: int
+    stack: pop
+    versions: V3_V4
 
   - code: 0xda
     mnemonic: set_returnhunter
@@ -2142,8 +2588,69 @@ opcodes:
             write: true
 
   - code: 0xdf
+    mnemonic: npc_param
+    doc: "Sets NPC AI behaviors. V1_V2 inline form: 14 registers (4-byte encoding) + one 32-bit int argument. (newserv QuestScript.cc:1130)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+          - type: int
+            read: true
+            name: "base level. NPC's actual level depends on difficulty"
+            doc: "base level. NPC's actual level depends on difficulty:"
+          - type: int
+            read: true
+            name: "sets value of technique_flags in the TNpcPlayer object"
+            doc: "sets value of technique_flags in the TNpcPlayer object:"
+          - type: int
+            read: true
+            name: "enemy lock-on range"
+          - type: int
+            read: true
+            name: "unknown"
+            doc: "unknown (TODO)"
+          - type: int
+            read: true
+            name: "max distance from player"
+          - type: int
+            read: true
+            name: "enemy unlock range"
+          - type: int
+            read: true
+            name: "block range"
+          - type: int
+            read: true
+            name: "attack range"
+            doc: "attack range (not necessarily equal to weapon range)"
+          - type: int
+            read: true
+            name: "attack technique level"
+            doc: "attack technique level (which techniques is specified by technique_flags)"
+          - type: int
+            read: true
+            name: "support technique level"
+            doc: "support technique level (Resta/Anti)"
+          - type: int
+            read: true
+            name: "attack probability"
+            doc: "attack probability (in range [0, 100])"
+          - type: int
+            read: true
+            name: "attack technique probability"
+            doc: "attack technique probability (in range [0, 100])"
+          - type: int
+            read: true
+            name: "unknown"
+            doc: "unknown (TODO: see TNpcPlayer_FUN_801514c0); appears to be a distance range, and applies only for"
+      - type: int
+        name: "NPC template to modify"
+        doc: "NPC template to modify (00-3F). (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+    versions: V1_V2
+
+  - code: 0xdf
     mnemonic: npc_param_v3
-    doc: "Sets NPC AI behaviors. Normal: min(base level + 1, 199) Hard: min(base level + 26, 199) Very Hard: min(base level + 51, 199) Ultimate: min(base level + 151, 199) 00 = technique_flags=40 (no techniques) 01 = technique_flags=04 (has Resta, Anti, Foie, and Gifoie) 02 = technique_flags=08 (has Resta, Anti, Barta, and Gibarta) 03, 0A = technique_flags=C0 (no techniques, doesn't back off (see regsA[13])) 0B = technique_flags=84 (has Resta, Anti, Foie, and Gifoie, doesn't back off (see regsA[13])) 0C = technique_flags=88 (has Resta, Anti, Barta, and Gibarta, doesn't back off (see regsA[13])) 0D = technique_flags=90 (has Resta, Anti, Zonde, and Razonde, doesn't back off (see regsA[13])) Anything else = uninitialized value written to technique_flags NPCs that attack the player and do not have technique_flags & 0x80; could be backoff distance when attacked by a player"
+    doc: "Sets NPC AI behaviors. Normal: min(base level + 1, 199) Hard: min(base level + 26, 199) Very Hard: min(base level + 51, 199) Ultimate: min(base level + 151, 199) 00 = technique_flags=40 (no techniques) 01 = technique_flags=04 (has Resta, Anti, Foie, and Gifoie) 02 = technique_flags=08 (has Resta, Anti, Barta, and Gibarta) 03, 0A = technique_flags=C0 (no techniques, doesn't back off (see regsA[13])) 0B = technique_flags=84 (has Resta, Anti, Foie, and Gifoie, doesn't back off (see regsA[13])) 0C = technique_flags=88 (has Resta, Anti, Barta, and Gibarta, doesn't back off (see regsA[13])) 0D = technique_flags=90 (has Resta, Anti, Zonde, and Razonde, doesn't back off (see regsA[13])) Anything else = uninitialized value written to technique_flags NPCs that attack the player and do not have technique_flags & 0x80; could be backoff distance when attacked by a player. (newserv QuestScript.cc:1131)"
     params:
       - type: reg
         registers:
@@ -2201,6 +2708,7 @@ opcodes:
         name: "NPC template to modify"
         doc: "NPC template to modify (00-3F)"
     stack: pop
+    versions: V3_V4
 
   - code: 0xe0
     mnemonic: pad_dragon
@@ -2215,8 +2723,8 @@ opcodes:
     stack: pop
 
   - code: 0xe2
-    mnemonic: pcam_param_v3
-    doc: "Sets camera parameters for the current frame"
+    mnemonic: pcam_param
+    doc: "Sets camera parameters for the current frame. V1_V2 inline form: 6 registers (4-byte encoding). (newserv QuestScript.cc:1145)"
     params:
       - type: reg
         registers:
@@ -2238,6 +2746,33 @@ opcodes:
           - type: int
             read: true
             name: "relative location of camera from player [2]"
+    versions: V1_V2
+
+  - code: 0xe2
+    mnemonic: pcam_param_v3
+    doc: "Sets camera parameters for the current frame. (newserv QuestScript.cc:1146)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "relative location of focus point from player [0]"
+          - type: int
+            read: true
+            name: "relative location of focus point from player [1]"
+          - type: int
+            read: true
+            name: "relative location of focus point from player [2]"
+          - type: int
+            read: true
+            name: "relative location of camera from player [0]"
+          - type: int
+            read: true
+            name: "relative location of camera from player [1]"
+          - type: int
+            read: true
+            name: "relative location of camera from player [2]"
+    versions: V3_V4
 
   - code: 0xe3
     mnemonic: start_setevt
@@ -2349,7 +2884,21 @@ opcodes:
 
   - code: 0xef
     mnemonic: sync_register2
-    doc: "Like sync_register, but takes the value from another register rather than using an immediate value. On v3 and later, this is identical to sync_register."
+    doc: "Sets regA to regB's value, and sends 6x77. V1_V2 inline form: two register refs (4-byte encoding each). (newserv QuestScript.cc:1192)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            write: true
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V1_V2
+
+  - code: 0xef
+    mnemonic: sync_register2
+    doc: "Like sync_register, but takes the value from another register rather than using an immediate value. On v3 and later, this is identical to sync_register. (newserv QuestScript.cc:1193)"
     params:
       - type: reg
         registers:
@@ -2357,6 +2906,7 @@ opcodes:
             write: true
       - type: int
     stack: pop
+    versions: V3_V4
 
   - code: 0xf0
     mnemonic: send_regwork
@@ -2364,8 +2914,8 @@ opcodes:
     params: []
 
   - code: 0xf1
-    mnemonic: leti_fixed_camera_v3
-    doc: "Sets the camera's location and angle"
+    mnemonic: leti_fixed_camera
+    doc: "Sets the camera's location and angle. V2 inline form: 6 registers (4-byte encoding). (newserv QuestScript.cc:1202)"
     params:
       - type: reg
         registers:
@@ -2387,6 +2937,33 @@ opcodes:
           - type: int
             read: true
             name: "camera focus location Z"
+    versions: V2
+
+  - code: 0xf1
+    mnemonic: leti_fixed_camera_v3
+    doc: "Sets the camera's location and angle. (newserv QuestScript.cc:1203)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "camera location X"
+          - type: int
+            read: true
+            name: "camera location Y"
+          - type: int
+            read: true
+            name: "camera location Z"
+          - type: int
+            read: true
+            name: "camera focus location X"
+          - type: int
+            read: true
+            name: "camera focus location Y"
+          - type: int
+            read: true
+            name: "camera focus location Z"
+    versions: V3_V4
 
   - code: 0xf2
     mnemonic: default_camera_pos1
@@ -3012,7 +3589,7 @@ opcodes:
 
   - code: 0xf85a
     mnemonic: equip_item
-    doc: "Creates an item in a player's inventory and equips it"
+    doc: "Creates an item in a player's inventory and equips it. V2 inline form: 4 registers (4-byte encoding). (newserv QuestScript.cc:1474)"
     params:
       - type: reg
         registers:
@@ -3028,6 +3605,27 @@ opcodes:
           - type: int
             read: true
             name: "item.data1[0-2] [2]"
+    versions: V2
+
+  - code: 0xf85a
+    mnemonic: equip_item
+    doc: "Creates an item in a player's inventory and equips it. (newserv QuestScript.cc:1475)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "client ID"
+          - type: int
+            read: true
+            name: "item.data1[0-2] [0]"
+          - type: int
+            read: true
+            name: "item.data1[0-2] [1]"
+          - type: int
+            read: true
+            name: "item.data1[0-2] [2]"
+    versions: V3_V4
 
   - code: 0xf85b
     mnemonic: unequip_item
@@ -3082,7 +3680,25 @@ opcodes:
 
   - code: 0xf862
     mnemonic: give_s_rank_weapon
-    doc: "Creates an S-rank weapon in the player's inventory. This opcode is not used in challenge mode, presumably since it doesn't offer a mechanism for the player to choose their weapon's name. The award_item_give opcode is used instead. regA/valueA = client ID (must match local client ID) regB (must be a register, even on v3/v4) = item.data1[1]"
+    doc: "Creates an S-rank weapon in the player's inventory. V2 inline form: two register refs (4-byte encoding each) + C-string. (newserv QuestScript.cc:1520)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "client ID"
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "item.data1[1]"
+      - type: string
+        name: "custom name"
+    versions: V2
+
+  - code: 0xf862
+    mnemonic: give_s_rank_weapon
+    doc: "Creates an S-rank weapon in the player's inventory. This opcode is not used in challenge mode, presumably since it doesn't offer a mechanism for the player to choose their weapon's name. The award_item_give opcode is used instead. regA/valueA = client ID (must match local client ID) regB (must be a register, even on v3/v4) = item.data1[1]. (newserv QuestScript.cc:1521)"
     params:
       - type: int
       - type: reg
@@ -3092,25 +3708,47 @@ opcodes:
       - type: string
         name: "custom name"
     stack: pop
+    versions: V3_V4
 
   - code: 0xf863
     mnemonic: get_mag_levels
-    doc: "Returns the currently-equipped mag's levels. If no mag is equipped, regsA are unaffected! Make sure to initialize them before using this"
+    doc: "Returns the currently-equipped mag's levels. V2 inline form: 4 registers (4-byte encoding). (newserv QuestScript.cc:1529)"
     params:
       - type: reg
         registers:
           - type: int
-            read: true
+            write: true
             name: "returned DEF level"
           - type: int
-            read: true
+            write: true
             name: "returned POW level"
           - type: int
-            read: true
+            write: true
             name: "returned DEX level"
           - type: int
-            read: true
+            write: true
             name: "returned MIND level"
+    versions: V2
+
+  - code: 0xf863
+    mnemonic: get_mag_levels
+    doc: "Returns the currently-equipped mag's levels. If no mag is equipped, regsA are unaffected! Make sure to initialize them before using this. (newserv QuestScript.cc:1530)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            write: true
+            name: "returned DEF level"
+          - type: int
+            write: true
+            name: "returned POW level"
+          - type: int
+            write: true
+            name: "returned DEX level"
+          - type: int
+            write: true
+            name: "returned MIND level"
+    versions: V3_V4
 
   - code: 0xf864
     mnemonic: cmode_rank
@@ -3391,12 +4029,23 @@ opcodes:
 
   - code: 0xf87e
     mnemonic: get_serial_number
-    doc: "Returns (in regA) the player's serial number. On BB, returns 0."
+    doc: "Returns (in regA) the player's serial number. (newserv QuestScript.cc:1640)"
     params:
       - type: reg
         registers:
           - type: int
-            read: true
+            write: true
+    versions: V2_V3
+
+  - code: 0xf87e
+    mnemonic: return_0_f87e
+    doc: "On BB, returns 0 in regA. Functionally equivalent to get_serial_number but always returns 0. (newserv QuestScript.cc:1641)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            write: true
+    versions: V4
 
   - code: 0xf87f
     mnemonic: read_guildcard_flag
@@ -3460,23 +4109,51 @@ opcodes:
 
   - code: 0xf884
     mnemonic: set_eventflag16
-    doc: "Writes 2 bytes to the event flags in the system file. regB/valueB = value"
+    doc: "Writes 2 bytes to the event flags in the system file. V2 inline form: flag index as int, value from register. (newserv QuestScript.cc:1671)"
+    params:
+      - type: int
+        name: "flag index"
+        doc: "flag index (must be 254 or less)"
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf884
+    mnemonic: set_eventflag16
+    doc: "Writes 2 bytes to the event flags in the system file. regB/valueB = value. (newserv QuestScript.cc:1672)"
     params:
       - type: int
         name: "flag index"
         doc: "flag index (must be 254 or less)"
       - type: int
     stack: pop
+    versions: V3_V4
 
   - code: 0xf885
     mnemonic: set_eventflag32
-    doc: "Writes 4 bytes to the event flags in the system file. regB/valueB = value"
+    doc: "Writes 4 bytes to the event flags in the system file. V2 inline form: flag index as int, value from register. (newserv QuestScript.cc:1677)"
+    params:
+      - type: int
+        name: "flag index"
+        doc: "flag index (must be 252 or less)"
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf885
+    mnemonic: set_eventflag32
+    doc: "Writes 4 bytes to the event flags in the system file. regB/valueB = value. (newserv QuestScript.cc:1678)"
     params:
       - type: int
         name: "flag index"
         doc: "flag index (must be 252 or less)"
       - type: int
     stack: pop
+    versions: V3_V4
 
   - code: 0xf886
     mnemonic: ba_get_place
@@ -3550,17 +4227,13 @@ opcodes:
 
   - code: 0xf88d
     mnemonic: chl_set_timerecord
-    doc: "Sets the local player's stage completion time in challenge mode. The BB form takes a second register; on v2/v3 only the first register is used."
+    doc: "Sets the local player's stage completion time in challenge mode. V2_V3 uses one register; BB (V4) adds a second register (newserv QuestScript.cc:1719-1720). psolib models the single-register form for all versions since the param difference is minor. (newserv QuestScript.cc:1719)"
     params:
       - type: reg
         registers:
           - type: int
             read: true
             name: "time in seconds"
-      - type: reg
-        registers:
-          - type: int
-            read: true
 
   - code: 0xf88e
     mnemonic: chl_get_timerecord
@@ -3914,7 +4587,23 @@ opcodes:
 
   - code: 0xf8b0
     mnemonic: read1
-    doc: Reads a 1-byte value from an arbitrary location.
+    doc: "Reads a 1-byte value from an arbitrary location. V2 inline form: result register + address in a second register. (newserv QuestScript.cc:1873)"
+    params:
+      - type: reg
+        doc: Register to store the result to.
+        registers:
+          - type: byte
+            write: true
+      - type: reg
+        doc: Register holding address to read from.
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b0
+    mnemonic: read1
+    doc: "Reads a 1-byte value from an arbitrary location. (newserv QuestScript.cc:1874)"
     params:
       - type: reg
         doc: Register to store the result to.
@@ -3924,10 +4613,27 @@ opcodes:
       - type: int
         doc: Address to read from.
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b1
     mnemonic: read2
-    doc: Reads a 2-byte value from an arbitrary location.
+    doc: "Reads a 2-byte value from an arbitrary location. V2 inline form: result register + address in a second register. (newserv QuestScript.cc:1875)"
+    params:
+      - type: reg
+        doc: Register to store the result to.
+        registers:
+          - type: short
+            write: true
+      - type: reg
+        doc: Register holding address to read from.
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b1
+    mnemonic: read2
+    doc: "Reads a 2-byte value from an arbitrary location. (newserv QuestScript.cc:1876)"
     params:
       - type: reg
         doc: Register to store the result to.
@@ -3937,10 +4643,27 @@ opcodes:
       - type: int
         doc: Address to read from.
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b2
     mnemonic: read4
-    doc: Reads a 4-byte value from an arbitrary location.
+    doc: "Reads a 4-byte value from an arbitrary location. V2 inline form: result register + address in a second register. (newserv QuestScript.cc:1877)"
+    params:
+      - type: reg
+        doc: Register to store the result to.
+        registers:
+          - type: int
+            write: true
+      - type: reg
+        doc: Register holding address to read from.
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b2
+    mnemonic: read4
+    doc: "Reads a 4-byte value from an arbitrary location. (newserv QuestScript.cc:1878)"
     params:
       - type: reg
         doc: Register to store the result to.
@@ -3950,36 +4673,88 @@ opcodes:
       - type: int
         doc: Address to read from.
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b3
     mnemonic: write1
-    doc: Writes a 1-byte value to an arbitrary location.
+    doc: "Writes a 1-byte value to an arbitrary location. V2 inline form: address in register + value in register. (newserv QuestScript.cc:1883)"
+    params:
+      - type: reg
+        doc: Register holding address to write to.
+        registers:
+          - type: int
+            read: true
+      - type: reg
+        doc: Register holding value to write (low byte used).
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b3
+    mnemonic: write1
+    doc: "Writes a 1-byte value to an arbitrary location. (newserv QuestScript.cc:1884)"
     params:
       - type: int
         doc: Address to write to.
       - type: int
         doc: Value to be written (low byte used).
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b4
     mnemonic: write2
-    doc: Writes a 2-byte value to an arbitrary location.
+    doc: "Writes a 2-byte value to an arbitrary location. V2 inline form: address in register + value in register. (newserv QuestScript.cc:1885)"
+    params:
+      - type: reg
+        doc: Register holding address to write to.
+        registers:
+          - type: int
+            read: true
+      - type: reg
+        doc: Register holding value to write (low 2 bytes used).
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b4
+    mnemonic: write2
+    doc: "Writes a 2-byte value to an arbitrary location. (newserv QuestScript.cc:1886)"
     params:
       - type: int
         doc: Address to write to.
       - type: int
         doc: Value to be written (low 2 bytes used).
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b5
     mnemonic: write4
-    doc: Writes a 4-byte value to an arbitrary location.
+    doc: "Writes a 4-byte value to an arbitrary location. V2 inline form: address in register + value in register. (newserv QuestScript.cc:1887)"
+    params:
+      - type: reg
+        doc: Register holding address to write to.
+        registers:
+          - type: int
+            read: true
+      - type: reg
+        doc: Register holding value to write.
+        registers:
+          - type: int
+            read: true
+    versions: V2
+
+  - code: 0xf8b5
+    mnemonic: write4
+    doc: "Writes a 4-byte value to an arbitrary location. (newserv QuestScript.cc:1888)"
     params:
       - type: int
         doc: Address to write to.
       - type: int
         doc: Value to be written.
     stack: pop
+    versions: V3_V4
 
   - code: 0xf8b6
     mnemonic: check_for_hacking
@@ -4024,10 +4799,27 @@ opcodes:
             read: true
 
   - code: 0xf8bc
+    mnemonic: get_player_guild_card_number
+    doc: "Returns (in regB) the Guild Card number of the player in the slot specified by regA. If there is no player in that slot, returns FFFFFFFF. This opcode is only implemented on PC v2 (not on DC v2 or other V2 versions). Modeled as V2 in psolib for lack of a PC_V2-only shortcut. (newserv QuestScript.cc:1920)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+            name: "client ID slot"
+      - type: reg
+        registers:
+          - type: int
+            write: true
+            name: "returned guild card number"
+    versions: V2
+
+  - code: 0xf8bc
     mnemonic: set_episode
-    doc: "Returns (in regB) the Guild Card number of the player in the slot specified by regA. If there is no player in that slot, returns FFFFFFFF. This opcode is only implemented on certain later versions of PC v2, and not on any v3 or later versions."
+    doc: "Sets the episode number for this quest. (newserv QuestScript.cc:1925)"
     params:
       - type: int
+    versions: V3_V4
 
   - code: 0xf8bd
     mnemonic: get_current_symbol_chat
@@ -4106,12 +4898,23 @@ opcodes:
 
   - code: 0xf8c1
     mnemonic: get_dl_status
-    doc: "Returns the status of the download requested with file_dl_req. Return values (in regA): 0 = failed (server sent a D7 command) 1 = pending 2 = complete"
+    doc: "Returns the status of the download requested with file_dl_req. Return values (in regA): 0 = failed (server sent a D7 command) 1 = pending 2 = complete. (newserv QuestScript.cc:1952)"
     params:
       - type: reg
         registers:
           - type: int
             write: true
+    versions: V3
+
+  - code: 0xf8c1
+    mnemonic: nop_f8c1
+    doc: "Does nothing on BB. (newserv QuestScript.cc:1953)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V4
 
   - code: 0xf8c2
     mnemonic: gba_unknown4
@@ -4140,12 +4943,23 @@ opcodes:
 
   - code: 0xf8c5
     mnemonic: stage_in_progress_multi_cm
-    doc: "Checks if the stage is done in offline challenge mode. Returns 1 if the stage is still in progress, or 0 if it's completed or failed."
+    doc: "Checks if the stage is done in offline challenge mode. Returns 1 if the stage is still in progress, or 0 if it's completed or failed. (newserv QuestScript.cc:1979)"
     params:
       - type: reg
         registers:
           - type: int
             write: true
+    versions: V3
+
+  - code: 0xf8c5
+    mnemonic: nop_f8c5
+    doc: "Does nothing on BB. (newserv QuestScript.cc:1980)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+    versions: V4
 
   - code: 0xf8c6
     mnemonic: qexit

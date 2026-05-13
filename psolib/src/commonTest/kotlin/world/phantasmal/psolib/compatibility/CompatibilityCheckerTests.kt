@@ -24,7 +24,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                         labels = mutableListOf(0),
                         instructions = mutableListOf(
                             Instruction(
-                                opcode = OP_SET_EPISODE,
+                                opcode = OP_SET_EPISODE_V3_V4,
                                 args = listOf(IntArg(0)),
                                 srcLoc = null,
                                 valid = true,
@@ -85,7 +85,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                         labels = mutableListOf(0),
                         instructions = mutableListOf(
                             Instruction(
-                                opcode = OP_SET_EPISODE,
+                                opcode = OP_SET_EPISODE_V3_V4,
                                 args = listOf(IntArg(1)), // Episode 2
                                 srcLoc = null,
                                 valid = true,
@@ -119,7 +119,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                         labels = mutableListOf(0),
                         instructions = mutableListOf(
                             Instruction(
-                                opcode = OP_SET_EPISODE,
+                                opcode = OP_SET_EPISODE_V3_V4,
                                 args = listOf(IntArg(2)), // Episode 4
                                 srcLoc = null,
                                 valid = true,
@@ -215,7 +215,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0, 999),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -344,7 +344,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -386,7 +386,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -464,7 +464,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -511,7 +511,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -551,7 +551,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_SET_EPISODE,
+                            opcode = OP_SET_EPISODE_V3_V4,
                             args = listOf(IntArg(0)),
                             srcLoc = null,
                             valid = true,
@@ -606,7 +606,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                 labels = mutableListOf(0),
                 instructions = mutableListOf(
                     Instruction(
-                        opcode = OP_SET_EPISODE,
+                        opcode = OP_SET_EPISODE_V3_V4,
                         args = listOf(IntArg(0)),
                         srcLoc = null,
                         valid = true,

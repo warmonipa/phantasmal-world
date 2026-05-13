@@ -11,8 +11,8 @@ import world.phantasmal.psolib.asm.OP_JMPI_E
 import world.phantasmal.psolib.asm.OP_JMPI_NE
 import world.phantasmal.psolib.asm.OP_LET
 import world.phantasmal.psolib.asm.OP_LETI
-import world.phantasmal.psolib.asm.OP_PARTICLE_V3
-import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
+import world.phantasmal.psolib.asm.OP_PARTICLE_V3_V3_V4
+import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER_V3_V4
 import world.phantasmal.psolib.asm.OP_SWITCH_CALL
 import world.phantasmal.psolib.asm.OP_SWITCH_JMP
 import world.phantasmal.psolib.asm.OP_THREAD
@@ -70,7 +70,7 @@ fun getParticleSpawns(
 
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
-            if (inst.opcode.code != OP_PARTICLE_V3.code) continue
+            if (inst.opcode.code != OP_PARTICLE_V3_V3_V4.code) continue
 
             if (cfg == null) cfg = createCfg()
             if (blockToFloors == null) blockToFloors = computeBlockToFloors(cfg, instructionSegments)
@@ -186,7 +186,7 @@ private fun computeBlockToFloors(
     val labelToFloors = mutableMapOf<Int, MutableSet<Int>>()
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
-            if (inst.opcode.code != OP_SET_FLOOR_HANDLER.code) continue
+            if (inst.opcode.code != OP_SET_FLOOR_HANDLER_V3_V4.code) continue
             val floorArg = inst.args.getOrNull(0) as? IntArg ?: continue
             val labelArg = inst.args.getOrNull(1) as? IntArg ?: continue
             labelToFloors.getOrPut(labelArg.value) { mutableSetOf() }.add(floorArg.value)
