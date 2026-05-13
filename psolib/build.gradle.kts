@@ -168,9 +168,8 @@ fun argsModeFor(opcode: Map<String, Any>): String {
 
 fun opcodeConstName(mnemonic: String, versionShortcut: String? = null): String {
     val suffix = when (versionShortcut) {
-        "V0_V2" -> "_V0_V2"
-        "V3_V4" -> "_V3_V4"
-        else -> ""
+        null, "V0_V4" -> ""  // default — no version constraint, no suffix
+        else -> "_$versionShortcut"
     }
     return "OP_" + mnemonic
         .replace("!=", "ne")

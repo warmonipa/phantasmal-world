@@ -4225,15 +4225,29 @@ opcodes:
           - type: int
             write: true
 
-  - code: 0xf88d
+  - code: 0xF88D
     mnemonic: chl_set_timerecord
-    doc: "Sets the local player's stage completion time in challenge mode. V2_V3 uses one register; BB (V4) adds a second register (newserv QuestScript.cc:1719-1720). psolib models the single-register form for all versions since the param difference is minor. (newserv QuestScript.cc:1719)"
+    doc: "Sets the challenge mode time record. (V2 + V3 form, 1 register; newserv QuestScript.cc:1719)"
     params:
       - type: reg
         registers:
           - type: int
             read: true
-            name: "time in seconds"
+    stack: pop
+    versions: V2_V3
+
+  - code: 0xF88D
+    mnemonic: chl_set_timerecord
+    doc: "Sets the challenge mode time record. (V4 form, 2 registers; newserv QuestScript.cc:1720)"
+    params:
+      - type: reg
+        registers:
+          - type: int
+            read: true
+          - type: int
+            read: true
+    stack: pop
+    versions: V4
 
   - code: 0xf88e
     mnemonic: chl_get_timerecord
