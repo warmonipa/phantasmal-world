@@ -364,7 +364,7 @@ class GenerateCityQst : LibTestSuite {
     }
 
     private fun writeQuest(quest: Quest, outputName: String) {
-        val qstBuf = writeQuestToQst(quest, outputName, Version.BB, online = true)
+        val qstBuf = writeQuestToQst(quest, outputName, Version.BB_V4, online = true)
 
         val projectRoot = File(System.getProperty("user.dir")).let {
             if (it.name == "psolib") it.parentFile else it

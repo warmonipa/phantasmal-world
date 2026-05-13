@@ -15,7 +15,7 @@ class QstTests : LibTestSuite {
         val cursor = readFile("/lost_heat_sword_gc.qst")
         val qst = parseQst(cursor).unwrap()
 
-        assertEquals(Version.GC, qst.version)
+        assertEquals(Version.GC_V3, qst.version)
         assertTrue(qst.online)
         assertEquals(2, qst.files.size)
         assertEquals(58, qst.files[0].id)

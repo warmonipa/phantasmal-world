@@ -425,9 +425,10 @@ fun writeQuestToBinDat(quest: Quest, version: Version): Pair<Buffer, Buffer> {
     ))
 
     val binFormat = when (version) {
-        Version.DC, Version.GC -> BinFormat.DC_GC
-        Version.PC -> BinFormat.PC
-        Version.BB -> BinFormat.BB
+        Version.DC_NTE, Version.DC_V1, Version.DC_V2,
+        Version.GC_NTE, Version.GC_V3 -> BinFormat.DC_GC
+        Version.PC_NTE, Version.PC_V2 -> BinFormat.PC
+        Version.BB_V4 -> BinFormat.BB
     }
 
     val (bytecode, labelOffsets) = writeBytecode(quest.bytecodeIr, binFormat.stringEncoding)
@@ -462,7 +463,7 @@ fun writeQuestToQst(
     val (bin, dat) = writeQuestToBinDat(quest, version)
 
     val baseFilename = (filenameBase(filename) ?: filename).take(11)
-    val questName = quest.name.take(if (version == Version.BB) 23 else 31)
+    val questName = quest.name.take(if (version == Version.BB_V4) 23 else 31)
 
     fun maybeCompress(buf: Buffer): Buffer =
         if (compressed) prsCompress(buf.cursor()).buffer() else buf

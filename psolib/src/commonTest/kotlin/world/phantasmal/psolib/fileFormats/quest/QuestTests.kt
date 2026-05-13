@@ -34,7 +34,7 @@ class QuestTests : LibTestSuite {
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
 
-        assertEquals(Version.BB, result.value.version)
+        assertEquals(Version.BB_V4, result.value.version)
         assertTrue(result.value.online)
 
         testTowardsTheFutureParseResult(result.value.quest)

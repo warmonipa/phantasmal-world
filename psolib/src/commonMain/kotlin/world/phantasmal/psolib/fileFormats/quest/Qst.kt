@@ -150,19 +150,19 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
         cursor.seek(-3)
 
         if (versionA == BB_HEADER_SIZE && versionB == ONLINE_QUEST) {
-            version = Version.BB
+            version = Version.BB_V4
             online = true
         } else if (versionA == DC_GC_PC_HEADER_SIZE && versionB == ONLINE_QUEST) {
-            version = Version.PC
+            version = Version.PC_V2
             online = true
         } else if (versionB == DC_GC_PC_HEADER_SIZE) {
             val pos = cursor.position
             cursor.seek(35)
 
             version = if (cursor.byte().toInt() == 0) {
-                Version.GC
+                Version.GC_V3
             } else {
-                Version.DC
+                Version.DC_V2
             }
 
             cursor.seekStart(pos)
@@ -184,7 +184,7 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
         val size: Int
 
         when (version) {
-            Version.DC -> {
+            Version.DC_NTE, Version.DC_V1, Version.DC_V2 -> {
                 cursor.seek(1) // Skip online/download.
                 questId = cursor.uByte().toInt()
                 headerSize = cursor.uShort().toInt()
@@ -195,7 +195,7 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
                 size = cursor.int()
             }
 
-            Version.GC -> {
+            Version.GC_NTE, Version.GC_V3 -> {
                 cursor.seek(1) // Skip online/download.
                 questId = cursor.uByte().toInt()
                 headerSize = cursor.uShort().toInt()
@@ -205,7 +205,7 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
                 size = cursor.int()
             }
 
-            Version.PC -> {
+            Version.PC_NTE, Version.PC_V2 -> {
                 headerSize = cursor.uShort().toInt()
                 cursor.seek(1) // Skip online/download.
                 questId = cursor.uByte().toInt()
@@ -215,7 +215,7 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
                 size = cursor.int()
             }
 
-            Version.BB -> {
+            Version.BB_V4 -> {
                 headerSize = cursor.uShort().toInt()
                 cursor.seek(2) // Skip online/download.
                 questId = cursor.uShort().toInt()
@@ -277,15 +277,15 @@ private fun parseFiles(
     val trailerSize: Int
 
     when (version) {
-        Version.DC,
-        Version.GC,
-        Version.PC,
+        Version.DC_NTE, Version.DC_V1, Version.DC_V2,
+        Version.GC_NTE, Version.GC_V3,
+        Version.PC_NTE, Version.PC_V2,
         -> {
             chunkSize = DC_GC_PC_CHUNK_SIZE
             trailerSize = DC_GC_PC_CHUNK_TRAILER_SIZE
         }
 
-        Version.BB -> {
+        Version.BB_V4 -> {
             chunkSize = BB_CHUNK_SIZE
             trailerSize = BB_CHUNK_TRAILER_SIZE
         }
@@ -298,20 +298,20 @@ private fun parseFiles(
         var chunkNo: Int
 
         when (version) {
-            Version.DC,
-            Version.GC,
+            Version.DC_NTE, Version.DC_V1, Version.DC_V2,
+            Version.GC_NTE, Version.GC_V3,
             -> {
                 cursor.seek(1)
                 chunkNo = cursor.uByte().toInt()
                 cursor.seek(2)
             }
 
-            Version.PC -> {
+            Version.PC_NTE, Version.PC_V2 -> {
                 cursor.seek(3)
                 chunkNo = cursor.uByte().toInt()
             }
 
-            Version.BB -> {
+            Version.BB_V4 -> {
                 cursor.seek(4)
                 chunkNo = cursor.int()
             }
@@ -419,11 +419,13 @@ fun writeQst(qst: QstContent): Buffer {
     val chunkSize: Int
 
     when (qst.version) {
-        Version.DC, Version.GC, Version.PC -> {
+        Version.DC_NTE, Version.DC_V1, Version.DC_V2,
+        Version.GC_NTE, Version.GC_V3,
+        Version.PC_NTE, Version.PC_V2 -> {
             fileHeaderSize = DC_GC_PC_HEADER_SIZE
             chunkSize = DC_GC_PC_CHUNK_SIZE
         }
-        Version.BB -> {
+        Version.BB_V4 -> {
             fileHeaderSize = BB_HEADER_SIZE
             chunkSize = BB_CHUNK_SIZE
         }
@@ -456,7 +458,7 @@ private fun writeFileHeaders(
     val maxId: Int
     val maxQuestNameLength: Int
 
-    if (version == Version.BB) {
+    if (version == Version.BB_V4) {
         maxId = 0xffff
         maxQuestNameLength = 23
     } else {
@@ -483,7 +485,7 @@ private fun writeFileHeaders(
         }
 
         when (version) {
-            Version.DC -> {
+            Version.DC_NTE, Version.DC_V1, Version.DC_V2 -> {
                 cursor.writeUByte((if (online) ONLINE_QUEST else DOWNLOAD_QUEST).toUByte())
                 cursor.writeUByte(fileId?.toUByte() ?: 0u)
                 cursor.writeUShort(headerSize.toUShort())
@@ -496,7 +498,7 @@ private fun writeFileHeaders(
                 cursor.writeInt(file.data.size)
             }
 
-            Version.GC -> {
+            Version.GC_NTE, Version.GC_V3 -> {
                 cursor.writeUByte((if (online) ONLINE_QUEST else DOWNLOAD_QUEST).toUByte())
                 cursor.writeUByte(fileId?.toUByte() ?: 0u)
                 cursor.writeUShort(headerSize.toUShort())
@@ -506,7 +508,7 @@ private fun writeFileHeaders(
                 cursor.writeInt(file.data.size)
             }
 
-            Version.PC -> {
+            Version.PC_NTE, Version.PC_V2 -> {
                 cursor.writeUShort(headerSize.toUShort())
                 cursor.writeUByte((if (online) ONLINE_QUEST else DOWNLOAD_QUEST).toUByte())
                 cursor.writeUByte(fileId?.toUByte() ?: 0u)
@@ -516,7 +518,7 @@ private fun writeFileHeaders(
                 cursor.writeInt(file.data.size)
             }
 
-            Version.BB -> {
+            Version.BB_V4 -> {
                 cursor.writeUShort(headerSize.toUShort())
                 cursor.writeUShort((if (online) ONLINE_QUEST else DOWNLOAD_QUEST).toUShort())
                 cursor.writeUShort(fileId?.toUShort() ?: 0u)
@@ -591,22 +593,22 @@ private fun writeFileChunk(
     version: Version,
 ): Boolean {
     when (version) {
-        Version.DC,
-        Version.GC,
+        Version.DC_NTE, Version.DC_V1, Version.DC_V2,
+        Version.GC_NTE, Version.GC_V3,
         -> {
             cursor.writeByte(0)
             cursor.writeUByte(chunkNo.toUByte())
             cursor.writeShort(0)
         }
 
-        Version.PC -> {
+        Version.PC_NTE, Version.PC_V2 -> {
             cursor.writeByte(0)
             cursor.writeByte(0)
             cursor.writeByte(0)
             cursor.writeUByte(chunkNo.toUByte())
         }
 
-        Version.BB -> {
+        Version.BB_V4 -> {
             cursor.writeByte(28)
             cursor.writeByte(4)
             cursor.writeByte(19)
@@ -627,7 +629,7 @@ private fun writeFileChunk(
 
     cursor.writeInt(size)
 
-    if (version == Version.BB) {
+    if (version == Version.BB_V4) {
         cursor.writeInt(0)
     }
 

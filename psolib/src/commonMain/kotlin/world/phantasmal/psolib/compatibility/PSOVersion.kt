@@ -21,13 +21,15 @@ enum class PSOVersion(
 
         /**
          * Convert from file format [Version] to compatibility [PSOVersion].
-         * DC maps to DC_V2 by default since V1 is rare.
+         * NTE variants collapse into the nearest retail sub-version for compatibility
+         * purposes (e.g. [Version.GC_NTE] → [GC_EP12]).
          */
         fun fromVersion(version: Version): PSOVersion = when (version) {
-            Version.DC -> DC_V2
-            Version.GC -> GC_EP12
-            Version.PC -> PC
-            Version.BB -> BLUE_BURST
+            Version.DC_NTE, Version.DC_V1 -> DC_V1
+            Version.DC_V2 -> DC_V2
+            Version.PC_NTE, Version.PC_V2 -> PC
+            Version.GC_NTE, Version.GC_V3 -> GC_EP12
+            Version.BB_V4 -> BLUE_BURST
         }
     }
 }
