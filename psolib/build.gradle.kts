@@ -132,6 +132,8 @@ val VERSION_SHORTCUTS = mapOf(
     "V3"    to setOf("GC_V3"),
     "V4"    to setOf("BB_V4"),
 )
+// Must match the Version enum declaration order exactly:
+// index N → Version.entries[N].bit = 1 shl N. Reorder both together.
 val VERSION_ORDINALS = listOf(
     "DC_NTE", "DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3", "BB_V4"
 )
