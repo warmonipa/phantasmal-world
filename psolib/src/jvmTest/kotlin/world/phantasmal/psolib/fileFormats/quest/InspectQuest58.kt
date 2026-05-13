@@ -3,6 +3,8 @@ package world.phantasmal.psolib.fileFormats.quest
 import world.phantasmal.core.Failure
 import world.phantasmal.core.Severity
 import world.phantasmal.core.Success
+import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.test.LibTestSuite
@@ -78,5 +80,51 @@ class InspectQuest58 : LibTestSuite {
         val invalid = r.value.quest.bytecodeIr.instructionSegments()
             .sumOf { seg -> seg.instructions.count { !it.valid } }
         assertEquals(0, invalid, "expected zero invalid instructions on explicit GC_NTE path")
+    }
+
+    @Test
+    fun nte_and_v3_quest58_produce_equivalent_analysis() = testAsync {
+        val nte = parseBinDatToQuestAutoDetect(
+            Buffer.fromByteArray(
+                this::class.java.classLoader.getResource("quest58_j_nte.bin")!!.readBytes()
+            ).cursor(),
+            Buffer.fromByteArray(
+                this::class.java.classLoader.getResource("quest58_j_nte.dat")!!.readBytes()
+            ).cursor(),
+            lenient = false, shiftJis = true,
+            version = Version.GC_NTE,
+        )
+        val v3 = parseBinDatToQuestAutoDetect(
+            Buffer.fromByteArray(
+                this::class.java.classLoader.getResource("quest58_j.bin")!!.readBytes()
+            ).cursor(),
+            Buffer.fromByteArray(
+                this::class.java.classLoader.getResource("quest58_j.dat")!!.readBytes()
+            ).cursor(),
+            lenient = false, shiftJis = true,
+        )
+        assertTrue(nte is Success, "NTE parse: $nte")
+        assertTrue(v3 is Success, "V3 parse: $v3")
+        assertEquals(Version.GC_NTE, nte.value.quest.version)
+        assertEquals(Version.GC_V3, v3.value.quest.version)
+
+        val nteQ = nte.value.quest
+        val v3Q = v3.value.quest
+
+        // FloorMapping is a pure-semantic data class (floorId, mapId, areaId, variantId,
+        // mapEpisode) with no offset-dependent fields — use full set equality.
+        assertEquals(
+            nteQ.floorMappings.toSet(),
+            v3Q.floorMappings.toSet(),
+            "floorMappings differ NTE vs V3",
+        )
+
+        // ParticleSpawn is likewise pure-semantic (x, y, z, particleId, frames, floorIds)
+        // with no offset-dependent fields — use full set equality.
+        assertEquals(
+            nteQ.particleSpawns.toSet(),
+            v3Q.particleSpawns.toSet(),
+            "particleSpawns differ NTE vs V3",
+        )
     }
 }
