@@ -406,6 +406,8 @@ class BytecodeTests : LibTestSuite {
             stack = null,
             varargs = false,
             known = true,
+            versionMask = 0xFF,
+            argsMode = ArgsMode.None,
         )
 
         val testStr = "Hi"

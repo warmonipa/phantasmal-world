@@ -128,6 +128,15 @@ enum class StackInteraction {
     Pop,
 }
 
+enum class ArgsMode {
+    /** Arguments pushed onto the arg stack by `arg_push*` opcodes; consumed by this opcode. (V3_V4 only.) */
+    Stack,
+    /** Arguments encoded inline immediately after the opcode byte. */
+    Inline,
+    /** Opcode takes no arguments. */
+    None,
+}
+
 /**
  * Opcode for script byte code. Invoked by instructions.
  * Don't directly instantiate this class, use the global constants and lookup functions.
@@ -161,6 +170,15 @@ class Opcode internal constructor(
      * Whether or not the working of this opcode is known.
      */
     val known: Boolean,
+    /**
+     * Bitmask of [world.phantasmal.psolib.fileFormats.quest.Version] bits indicating which game
+     * versions support this opcode.
+     */
+    val versionMask: Int,
+    /**
+     * How arguments are passed to this opcode.
+     */
+    val argsMode: ArgsMode,
 ) {
     /**
      * Byte size of the opcode, either 1 or 2.
@@ -207,6 +225,8 @@ private fun getOpcode(code: Int, index: Int, opcodes: Array<Opcode?>): Opcode {
             stack = null,
             varargs = false,
             known = false,
+            versionMask = 0xFF,
+            argsMode = ArgsMode.None,
         )
         opcodes[index] = opcode
     }

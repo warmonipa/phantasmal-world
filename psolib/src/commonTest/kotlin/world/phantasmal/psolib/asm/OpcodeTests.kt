@@ -1,5 +1,6 @@
 package world.phantasmal.psolib.asm
 
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.test.LibTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -51,5 +52,14 @@ class OpcodeTests : LibTestSuite {
                 }
             }
         }
+    }
+
+    @Test
+    fun opcode_carries_version_mask_and_args_mode() = test {
+        val opcode = codeToOpcode(0x00) // nop
+        // Default: nop is in all versions, has no args.
+        assertEquals(ArgsMode.None, opcode.argsMode)
+        // Mask should have at least BB_V4's bit set.
+        assertEquals(Version.BB_V4.bit, opcode.versionMask and Version.BB_V4.bit)
     }
 }

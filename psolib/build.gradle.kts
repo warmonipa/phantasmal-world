@@ -136,6 +136,8 @@ fun opcodeToCode(writer: PrintWriter, opcode: Map<String, Any>) {
         |    stack = $stackInteraction,
         |    varargs = $varargs,
         |    known = $known,
+        |    versionMask = 0xFF,
+        |    argsMode = ArgsMode.None,
         |).also { ${array}[0x$indexStr] = it }""".trimMargin()
     )
 }
