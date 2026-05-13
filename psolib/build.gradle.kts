@@ -52,7 +52,6 @@ val generateOpcodes = tasks.register("generateOpcodes") {
     inputs.file(opcodesFile)
     outputs.file(outputFile)
 
-    @Suppress("UNCHECKED_CAST")
     doLast {
         val root = Load(LoadSettings.builder().build())
             .loadFromInputStream(opcodesFile.inputStream()) as Map<String, Any>
@@ -63,13 +62,49 @@ val generateOpcodes = tasks.register("generateOpcodes") {
                 writer.println()
                 writer.println("package $packageName")
                 writer.println()
-                writer.println("val OPCODES: Array<Opcode?> = Array(256) { null }")
-                writer.println("val OPCODES_F8: Array<Opcode?> = Array(256) { null }")
-                writer.println("val OPCODES_F9: Array<Opcode?> = Array(256) { null }")
-
-                (root["opcodes"] as List<Map<String, Any>>).forEach { opcode ->
-                    opcodeToCode(writer, opcode)
+                writer.println("import world.phantasmal.psolib.fileFormats.quest.Version")
+                writer.println()
+                // 1. OpcodeTables class
+                writer.println("class OpcodeTables(")
+                writer.println("    val byCode: Array<Opcode?>,")
+                writer.println("    val byCodeF8: Array<Opcode?>,")
+                writer.println("    val byCodeF9: Array<Opcode?>,")
+                writer.println(")")
+                writer.println()
+                @Suppress("UNCHECKED_CAST")
+                val opcodes = root["opcodes"] as List<Map<String, Any>>
+                // 2. Per-opcode OP_* constants (must come before ALL_OPCODES to avoid forward refs)
+                opcodes.forEach { opcode -> writeOpcodeConstant(writer, opcode) }
+                // 3. ALL_OPCODES flat list (references the constants declared above)
+                writer.println("val ALL_OPCODES: List<Opcode> = listOf(")
+                opcodes.forEachIndexed { idx, opcode ->
+                    writeOpcodeListEntry(writer, opcode, idx == opcodes.lastIndex)
                 }
+                writer.println(")")
+                writer.println()
+                // 4. opcodesFor() lazy per-version lookup
+                writer.println("private val OPCODES_FOR: MutableMap<Version, OpcodeTables> = mutableMapOf()")
+                writer.println()
+                writer.println("fun opcodesFor(version: Version): OpcodeTables = OPCODES_FOR.getOrPut(version) {")
+                writer.println("    val byCode = arrayOfNulls<Opcode>(256)")
+                writer.println("    val byCodeF8 = arrayOfNulls<Opcode>(256)")
+                writer.println("    val byCodeF9 = arrayOfNulls<Opcode>(256)")
+                writer.println("    val bit = version.bit")
+                writer.println("    for (op in ALL_OPCODES) {")
+                writer.println("        if (op.versionMask and bit == 0) continue")
+                writer.println("        val idx = op.code and 0xFF")
+                writer.println("        val target = when {")
+                writer.println("            op.code <= 0xFF -> byCode")
+                writer.println("            op.code <= 0xF8FF -> byCodeF8")
+                writer.println("            else -> byCodeF9")
+                writer.println("        }")
+                writer.println("        check(target[idx] == null) {")
+                writer.println("            \"duplicate (version=\$version, code=0x\${op.code.toString(16)}) for \${op.mnemonic}\"")
+                writer.println("        }")
+                writer.println("        target[idx] = op")
+                writer.println("    }")
+                writer.println("    OpcodeTables(byCode, byCodeF8, byCodeF9)")
+                writer.println("}")
             }
     }
 }
@@ -84,50 +119,102 @@ fun escapeKotlinString(s: String): String =
         .replace("\$", "\\\$")
         .replace("\n", "\\n")
 
-fun opcodeToCode(writer: PrintWriter, opcode: Map<String, Any>) {
+// Mirror of newserv's F_* version shortcuts.
+val VERSION_SHORTCUTS = mapOf(
+    "V0_V2" to setOf("DC_NTE", "DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE"),
+    "V3_V4" to setOf("GC_V3", "BB_V4"),
+    "V0_V4" to setOf("DC_NTE", "DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3", "BB_V4"),
+    "V1_V2" to setOf("DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE"),
+    "V1_V4" to setOf("DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3", "BB_V4"),
+    "V2"    to setOf("DC_V2", "PC_NTE", "PC_V2", "GC_NTE"),
+    "V2_V3" to setOf("DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3"),
+    "V2_V4" to setOf("DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3", "BB_V4"),
+    "V3"    to setOf("GC_V3"),
+    "V4"    to setOf("BB_V4"),
+)
+val VERSION_ORDINALS = listOf(
+    "DC_NTE", "DC_V1", "DC_V2", "PC_NTE", "PC_V2", "GC_NTE", "GC_V3", "BB_V4"
+)
+
+fun versionMaskFor(shortcut: String): Int {
+    val members = VERSION_SHORTCUTS[shortcut]
+        ?: error("Unknown versions shortcut: $shortcut")
+    return members.fold(0) { acc, name ->
+        acc or (1 shl VERSION_ORDINALS.indexOf(name))
+    }
+}
+
+fun argsModeFor(opcode: Map<String, Any>): String {
+    val explicit = opcode["args"] as String?
+    if (explicit != null) {
+        return when (explicit) {
+            "stack" -> "ArgsMode.Stack"
+            "inline" -> "ArgsMode.Inline"
+            "none" -> "ArgsMode.None"
+            else -> error("Unknown args value: $explicit")
+        }
+    }
+    @Suppress("UNCHECKED_CAST")
+    val params = opcode["params"] as List<Map<String, Any>>
+    val stack = opcode["stack"] as String?
+    return when {
+        params.isEmpty() -> "ArgsMode.None"
+        stack == "pop" -> "ArgsMode.Stack"
+        else -> "ArgsMode.Inline"
+    }
+}
+
+fun opcodeConstName(mnemonic: String, versionShortcut: String? = null): String {
+    val suffix = when (versionShortcut) {
+        "V0_V2" -> "_V0_V2"
+        "V3_V4" -> "_V3_V4"
+        else -> ""
+    }
+    return "OP_" + mnemonic
+        .replace("!=", "ne")
+        .replace("=", "e")
+        .replace("<", "l")
+        .replace(">", "g")
+        .uppercase() + suffix
+}
+
+fun writeOpcodeListEntry(writer: PrintWriter, opcode: Map<String, Any>, isLast: Boolean) {
+    val code = (opcode["code"] as String).drop(2).toInt(16)
+    val codeStr = code.toString(16).uppercase().padStart(2, '0')
+    val mnemonic = opcode["mnemonic"] as String? ?: "unknown_${codeStr.lowercase()}"
+    val versionShortcut = opcode["versions"] as String?
+    val valName = opcodeConstName(mnemonic, versionShortcut)
+    val suffix = if (isLast) "" else ","
+    writer.println("    $valName$suffix")
+}
+
+fun writeOpcodeConstant(writer: PrintWriter, opcode: Map<String, Any>) {
     val code = (opcode["code"] as String).drop(2).toInt(16)
     val codeStr = code.toString(16).uppercase().padStart(2, '0')
     val mnemonic = opcode["mnemonic"] as String? ?: "unknown_${codeStr.lowercase()}"
     val doc = (opcode["doc"] as String?)?.let { "\"${escapeKotlinString(it)}\"" }
     val stack = opcode["stack"] as String?
-
-    val valName = "OP_" + mnemonic
-        .replace("!=", "ne")
-        .replace("=", "e")
-        .replace("<", "l")
-        .replace(">", "g")
-        .uppercase()
-
     val stackInteraction = when (stack) {
         "push" -> "StackInteraction.Push"
         "pop" -> "StackInteraction.Pop"
         else -> "null"
     }
-
     @Suppress("UNCHECKED_CAST")
     val params = opcode["params"] as List<Map<String, Any>>
     val paramsStr = paramsToCode(params, 4)
-
     val lastParam = params.lastOrNull()
     val varargs = lastParam != null && when (lastParam["type"]) {
         null -> error("No type for last parameter of $mnemonic opcode.")
         "ilabel_var", "reg_var" -> true
         else -> false
     }
-
     val known = "mnemonic" in opcode
-
-    val array = when (code) {
-        in 0x00..0xFF -> "OPCODES"
-        in 0xF800..0xF8FF -> "OPCODES_F8"
-        in 0xF900..0xF9FF -> "OPCODES_F9"
-        else -> error("Invalid opcode $codeStr ($mnemonic).")
-    }
-    val indexStr = (code and 0xFF).toString(16).uppercase().padStart(2, '0')
-
+    val versionShortcut = (opcode["versions"] as String?) ?: "V0_V4"
+    val versionMask = versionMaskFor(versionShortcut)
+    val argsMode = argsModeFor(opcode)
+    val valName = opcodeConstName(mnemonic, opcode["versions"] as String?)
     writer.println(
         """
-        |
         |val $valName = Opcode(
         |    code = 0x$codeStr,
         |    mnemonic = "$mnemonic",
@@ -136,9 +223,10 @@ fun opcodeToCode(writer: PrintWriter, opcode: Map<String, Any>) {
         |    stack = $stackInteraction,
         |    varargs = $varargs,
         |    known = $known,
-        |    versionMask = 0xFF,
-        |    argsMode = ArgsMode.None,
-        |).also { ${array}[0x$indexStr] = it }""".trimMargin()
+        |    versionMask = 0x${versionMask.toString(16).uppercase()},
+        |    argsMode = $argsMode,
+        |)
+        """.trimMargin()
     )
 }
 

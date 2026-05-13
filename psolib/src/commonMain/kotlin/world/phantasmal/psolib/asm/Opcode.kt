@@ -1,16 +1,21 @@
 package world.phantasmal.psolib.asm
 
 import world.phantasmal.core.unsafe.UnsafeMap
+import world.phantasmal.psolib.fileFormats.quest.Version
 
-private val MNEMONIC_TO_OPCODES: UnsafeMap<String, Opcode> by lazy {
-    val map = UnsafeMap<String, Opcode>()
-
-    OPCODES.forEach { if (it != null) map.set(it.mnemonic, it) }
-    OPCODES_F8.forEach { if (it != null) map.set(it.mnemonic, it) }
-    OPCODES_F9.forEach { if (it != null) map.set(it.mnemonic, it) }
-
-    map
+private val MNEMONIC_TO_OPCODES_BY_VERSION: UnsafeMap<Version, UnsafeMap<String, Opcode>> by lazy {
+    val outer = UnsafeMap<Version, UnsafeMap<String, Opcode>>()
+    for (v in Version.entries) {
+        val inner = UnsafeMap<String, Opcode>()
+        val tables = opcodesFor(v)
+        tables.byCode.forEach { if (it != null) inner.set(it.mnemonic, it) }
+        tables.byCodeF8.forEach { if (it != null) inner.set(it.mnemonic, it) }
+        tables.byCodeF9.forEach { if (it != null) inner.set(it.mnemonic, it) }
+        outer.set(v, inner)
+    }
+    outer
 }
+
 private val UNKNOWN_OPCODE_MNEMONIC_REGEX = Regex("""^unknown_((f8|f9)?[0-9a-f]{2})$""")
 
 /**
@@ -192,24 +197,25 @@ class Opcode internal constructor(
     override fun toString(): String = mnemonic
 }
 
-fun codeToOpcode(code: Int): Opcode =
-    when {
-        code <= 0xFF -> getOpcode(code, code, OPCODES)
-        code <= 0xF8FF -> getOpcode(code, code and 0xFF, OPCODES_F8)
-        else -> getOpcode(code, code and 0xFF, OPCODES_F9)
+fun codeToOpcode(code: Int, version: Version = Version.BB_V4): Opcode {
+    val tables = opcodesFor(version)
+    return when {
+        code <= 0xFF -> getOpcode(code, code, tables.byCode)
+        code <= 0xF8FF -> getOpcode(code, code and 0xFF, tables.byCodeF8)
+        else -> getOpcode(code, code and 0xFF, tables.byCodeF9)
     }
+}
 
-fun mnemonicToOpcode(mnemonic: String): Opcode? {
-    var opcode = MNEMONIC_TO_OPCODES.get(mnemonic)
-
+fun mnemonicToOpcode(mnemonic: String, version: Version = Version.BB_V4): Opcode? {
+    val map = MNEMONIC_TO_OPCODES_BY_VERSION.get(version) ?: return null
+    var opcode = map.get(mnemonic)
     if (opcode == null) {
         UNKNOWN_OPCODE_MNEMONIC_REGEX.matchEntire(mnemonic)?.destructured?.let { (codeStr) ->
             val code = codeStr.toInt(16)
-            opcode = codeToOpcode(code)
-            MNEMONIC_TO_OPCODES.set(mnemonic, opcode!!)
+            opcode = codeToOpcode(code, version)
+            map.set(mnemonic, opcode!!)
         }
     }
-
     return opcode
 }
 
