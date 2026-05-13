@@ -250,13 +250,17 @@ class BinDatQuestData(
 
 /**
  * Detects whether the BIN data is PRS-compressed or raw by checking the first 4 bytes.
- * An uncompressed BIN starts with its bytecode offset (468, 920, or 4652).
+ * An uncompressed BIN starts with its bytecode offset:
+ *   468  = DC/GC (V0_V2 and V3)
+ *   916  = PC NTE (shorter header variant — 4 bytes less than standard PC)
+ *   920  = PC V2 (standard)
+ *   4652 = Blue Burst
  */
 private fun looksLikeUncompressedBin(binCursor: Cursor): Boolean {
     if (binCursor.bytesLeft < 4) return false
     val firstInt = binCursor.int()
     binCursor.seekStart(0)
-    return firstInt == 468 || firstInt == 920 || firstInt == 4652
+    return firstInt == 468 || firstInt == 916 || firstInt == 920 || firstInt == 4652
 }
 
 /**
@@ -415,7 +419,7 @@ fun parseBinDatToQuestAutoDetect(
         val c = binBuffer.cursor()
         if (c.bytesLeft < 4) BinFormat.BB else when (c.int()) {
             468 -> BinFormat.DC_GC
-            920 -> BinFormat.PC
+            916, 920 -> BinFormat.PC  // 916 = PC NTE (shorter header variant)
             else -> BinFormat.BB
         }
     }

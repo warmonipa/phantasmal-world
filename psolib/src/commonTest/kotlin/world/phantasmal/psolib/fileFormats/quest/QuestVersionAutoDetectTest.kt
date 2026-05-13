@@ -57,4 +57,71 @@ class QuestVersionAutoDetectTest : LibTestSuite {
         assertTrue(lenientRun.problems.none { it.message?.contains("falling back to lenient") == true },
             "lenient=true should not trigger the strict-fallback path for a clean quest")
     }
+
+    @Test
+    fun auto_detect_dc_v2_quest58() = testAsync {
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/q058-dc-e.bin"), readFile("/q058-dc.dat"),
+            lenient = false, shiftJis = false,
+        )
+        assertTrue(r is Success, "$r")
+        assertEquals(Version.DC_V2, r.value.quest.version)
+        assertNoInvalid(r.value.quest)
+    }
+
+    @Test
+    fun auto_detect_pc_v2_quest58() = testAsync {
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/q058-pc-e.bin"), readFile("/q058-pc.dat"),
+            lenient = false, shiftJis = false,
+        )
+        assertTrue(r is Success, "$r")
+        assertEquals(Version.PC_V2, r.value.quest.version)
+        assertNoInvalid(r.value.quest)
+    }
+
+    @Test
+    fun auto_detect_dc_v1_quest58_resolves_to_v0_v2_dialect() = testAsync {
+        // DC_V1 bytes are V0_V2 dialect but indistinguishable from DC_V2 from bytes alone.
+        // Auto-detect picks the bin.format default (DC_V2). Strongest byte-level guarantee
+        // is dialect == V0_V2.
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/q058-d1-e.bin"), readFile("/q058-d1.dat"),
+            lenient = false, shiftJis = false,
+        )
+        assertTrue(r is Success, "$r")
+        assertEquals(Dialect.V0_V2, r.value.quest.version.dialect)
+        assertNoInvalid(r.value.quest)
+    }
+
+    @Test
+    fun auto_detect_gc_nte_en_quest58_resolves_to_v0_v2_dialect() = testAsync {
+        // GC_NTE bytes are byte-identical to DC_V2 (newserv symlinks them). Same situation as DC_V1.
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/q058-gcn-e.bin"), readFile("/q058-gcn.dat"),
+            lenient = false, shiftJis = false,
+        )
+        assertTrue(r is Success, "$r")
+        assertEquals(Dialect.V0_V2, r.value.quest.version.dialect)
+        assertNoInvalid(r.value.quest)
+    }
+
+    @Test
+    fun explicit_version_gc_nte_en_quest58() = testAsync {
+        // With explicit version, the GC_NTE code path strict-parses cleanly.
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/q058-gcn-e.bin"), readFile("/q058-gcn.dat"),
+            lenient = false, shiftJis = false,
+            version = Version.GC_NTE,
+        )
+        assertTrue(r is Success, "$r")
+        assertEquals(Version.GC_NTE, r.value.quest.version)
+        assertNoInvalid(r.value.quest)
+    }
+
+    private fun assertNoInvalid(quest: Quest) {
+        val invalid = quest.bytecodeIr.instructionSegments()
+            .sumOf { seg -> seg.instructions.count { !it.valid } }
+        assertEquals(0, invalid, "expected zero invalid instructions in ${quest.version} quest")
+    }
 }
