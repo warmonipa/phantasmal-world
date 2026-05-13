@@ -289,6 +289,7 @@ private data class CandidateScore(
 private fun scoreCandidate(
     binBuffer: Buffer,
     datBuffer: Buffer,
+    lenient: Boolean,
     shiftJis: Boolean,
     version: Version,
     rankIndex: Int,
@@ -297,7 +298,7 @@ private fun scoreCandidate(
         val r = parseBinDatFromDecompressed(
             binBuffer.cursor(),
             datBuffer.cursor(),
-            lenient = false,
+            lenient,
             shiftJis,
             version,
         )
@@ -423,7 +424,7 @@ fun parseBinDatToQuestAutoDetect(
     val candidates = if (version != null) listOf(version) else versionsFor(binFormat)
 
     val scores = candidates.mapIndexed { idx, v ->
-        scoreCandidate(binBuffer, datBuffer, shiftJis, v, idx)
+        scoreCandidate(binBuffer, datBuffer, lenient, shiftJis, v, idx)
     }
 
     val winner = scores.minWithOrNull(CANDIDATE_COMPARATOR)!!
@@ -435,6 +436,16 @@ fun parseBinDatToQuestAutoDetect(
         for (p in decompressProblems) result.addProblem(p)
         result.addResult(winnerResult)
         return result.success(BinDatQuestData(winnerResult.value, compressed))
+    }
+
+    // All candidates failed.
+    if (lenient) {
+        // Caller already requested lenient; scoring already used it. If all candidates still
+        // threw, this is a genuine parse failure — do not retry.
+        val result = PwResult.build<BinDatQuestData>(logger)
+        for (p in decompressProblems) result.addProblem(p)
+        if (winnerResult != null) result.addResult(winnerResult)
+        return result.failure()
     }
 
     // All candidates failed strict — fall back to lenient with the format default.

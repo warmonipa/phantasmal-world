@@ -37,4 +37,24 @@ class QuestVersionAutoDetectTest : LibTestSuite {
         assertTrue(r is Success)
         assertEquals(Version.BB_V4, r.value.quest.version)
     }
+
+    @Test
+    fun lenient_flag_is_threaded_to_candidate_scoring() = testAsync {
+        // Use towards_the_future (BB_V4); lenient should produce the same Success as strict for a clean quest.
+        val strict = parseBinDatToQuestAutoDetect(
+            readFile("/towards_the_future.bin"),
+            readFile("/towards_the_future.dat"),
+            lenient = false,
+        )
+        val lenientRun = parseBinDatToQuestAutoDetect(
+            readFile("/towards_the_future.bin"),
+            readFile("/towards_the_future.dat"),
+            lenient = true,
+        )
+        assertTrue(strict is Success)
+        assertTrue(lenientRun is Success)
+        // Lenient must NOT add the fallback-warning problem for a clean quest.
+        assertTrue(lenientRun.problems.none { it.message?.contains("falling back to lenient") == true },
+            "lenient=true should not trigger the strict-fallback path for a clean quest")
+    }
 }
