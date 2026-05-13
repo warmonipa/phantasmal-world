@@ -54,6 +54,19 @@ val BinFormat.stringEncoding: BytecodeStringEncoding
     }
 
 /**
+ * Encoding for bytecode strings, taking the Japanese flag into account.
+ * Only DC/GC distinguishes ASCII vs Shift-JIS; PC/BB always use UTF-16.
+ */
+fun binStringEncoding(format: BinFormat, shiftJis: Boolean): BytecodeStringEncoding =
+    when (format) {
+        BinFormat.DC_GC -> if (shiftJis) BytecodeStringEncoding.SHIFT_JIS else BytecodeStringEncoding.ASCII
+        BinFormat.PC, BinFormat.BB -> BytecodeStringEncoding.UTF16
+    }
+
+val BinFile.stringEncoding: BytecodeStringEncoding
+    get() = binStringEncoding(format, shiftJis)
+
+/**
  * @param shiftJis hint that the file may use Shift-JIS encoding (e.g., from filename `_j` suffix).
  *                 For DC/GC format, Shift-JIS is used when this hint is true OR the language field
  *                 in the header is 0 (Japanese). Has no effect on PC/BB formats which use UTF-16.

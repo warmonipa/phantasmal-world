@@ -375,6 +375,8 @@ class BytecodeTests : LibTestSuite {
             val expectedStringSize = when (encoding) {
                 // "Test" = 4 chars + 1 null = 5 bytes, rounded to 8 (multiple of 4).
                 BytecodeStringEncoding.ASCII -> 8
+                // ASCII "Test" round-trips through Shift-JIS as 4 bytes + null = 5, rounded to 8.
+                BytecodeStringEncoding.SHIFT_JIS -> 8
                 // "Test" = 4 chars * 2 + 2 null = 10 bytes, rounded to 12 (multiple of 4).
                 BytecodeStringEncoding.UTF16 -> 12
             }
@@ -423,6 +425,8 @@ class BytecodeTests : LibTestSuite {
             val expectedSize = when (encoding) {
                 // opcode(1) + "Hi\0" ASCII = 1 + 3 = 4
                 BytecodeStringEncoding.ASCII -> 1 + testStr.length + 1
+                // opcode(1) + "Hi\0" Shift-JIS = 1 + 3 = 4 (ASCII chars are 1 byte in SJIS).
+                BytecodeStringEncoding.SHIFT_JIS -> 1 + testStr.length + 1
                 // opcode(1) + "Hi\0" UTF-16LE = 1 + 6 = 7
                 BytecodeStringEncoding.UTF16 -> 1 + 2 * testStr.length + 2
             }

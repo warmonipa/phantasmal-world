@@ -116,7 +116,7 @@ fun parseBinDatToQuest(
         bin.bytecode,
         bin.labelOffsets,
         extractScriptEntryPoints(objects, npcs),
-        bin.format.stringEncoding,
+        bin.stringEncoding,
         lenient,
     )
 
@@ -430,7 +430,10 @@ fun writeQuestToBinDat(quest: Quest, version: Version): Pair<Buffer, Buffer> {
         Version.BB -> BinFormat.BB
     }
 
-    val (bytecode, labelOffsets) = writeBytecode(quest.bytecodeIr, binFormat.stringEncoding)
+    val (bytecode, labelOffsets) = writeBytecode(
+        quest.bytecodeIr,
+        binStringEncoding(binFormat, quest.shiftJis),
+    )
 
     val bin = writeBin(BinFile(
         binFormat,

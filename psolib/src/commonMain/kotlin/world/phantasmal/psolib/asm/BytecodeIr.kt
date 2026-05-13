@@ -2,6 +2,7 @@ package world.phantasmal.psolib.asm
 
 import world.phantasmal.core.unsafe.unsafeAssertNotNull
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.encoding.encodeShiftJis
 import kotlin.math.ceil
 
 /**
@@ -11,12 +12,26 @@ import kotlin.math.ceil
  * versions.
  */
 enum class BytecodeStringEncoding {
-    /** DC/GC: 1-byte-per-char ASCII (or Shift-JIS). */
+    /** DC/GC non-Japanese: 1-byte-per-char ASCII. */
     ASCII,
+
+    /** DC/GC Japanese: 1- or 2-byte-per-char Shift-JIS. */
+    SHIFT_JIS,
 
     /** PC/BB: 2-bytes-per-char UTF-16LE. */
     UTF16,
 }
+
+/**
+ * Byte length a string occupies in the bytecode, including its null terminator(s).
+ * For Shift-JIS the size depends on the actual code points, so we re-encode to count.
+ */
+fun BytecodeStringEncoding.bytecodeByteLength(value: String): Int =
+    when (this) {
+        BytecodeStringEncoding.ASCII -> value.length + 1
+        BytecodeStringEncoding.SHIFT_JIS -> encodeShiftJis(value).size + 1
+        BytecodeStringEncoding.UTF16 -> 2 * value.length + 2
+    }
 
 /**
  * Intermediate representation of PSO bytecode. Used by most ASM/bytecode analysis code.
@@ -101,6 +116,9 @@ class StringSegment(
             ?: when (stringEncoding) {
                 BytecodeStringEncoding.ASCII ->
                     4 * ceil((value.length + 1) / 4.0).toInt()
+
+                BytecodeStringEncoding.SHIFT_JIS ->
+                    4 * ceil((encodeShiftJis(value).size + 1) / 4.0).toInt()
 
                 BytecodeStringEncoding.UTF16 ->
                     4 * ceil((value.length + 1) / 2.0).toInt()
@@ -204,10 +222,7 @@ class Instruction(
 
                 StringType -> {
                     val str = (args[0] as StringArg).value
-                    when (stringEncoding) {
-                        BytecodeStringEncoding.ASCII -> str.length + 1
-                        BytecodeStringEncoding.UTF16 -> 2 * str.length + 2
-                    }
+                    stringEncoding.bytecodeByteLength(str)
                 }
 
                 RegVarType -> 1 + args.size
@@ -260,10 +275,7 @@ fun pushInstructionSize(arg: Arg, paramType: AnyType, stringEncoding: BytecodeSt
         StringType -> {
             val str = (arg as StringArg).value
             // arg_pushs: 1 opcode + null-terminated string
-            when (stringEncoding) {
-                BytecodeStringEncoding.ASCII -> 1 + str.length + 1
-                BytecodeStringEncoding.UTF16 -> 1 + 2 * str.length + 2
-            }
+            1 + stringEncoding.bytecodeByteLength(str)
         }
         else -> error("Cannot compute push instruction size for type ${paramType::class.simpleName}.")
     }
