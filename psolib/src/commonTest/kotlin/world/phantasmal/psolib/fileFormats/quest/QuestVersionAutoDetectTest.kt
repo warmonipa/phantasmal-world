@@ -4,6 +4,7 @@ import world.phantasmal.core.Success
 import world.phantasmal.psolib.asm.BytecodeStringEncoding
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.test.LibTestSuite
+import world.phantasmal.psolib.test.readFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -23,5 +24,17 @@ class QuestVersionAutoDetectTest : LibTestSuite {
         )
         assertTrue(r is Success)
         assertEquals(0, r.value.segments.size)
+    }
+
+    @Test
+    fun auto_detect_picks_bb_v4_for_towards_the_future() = testAsync {
+        val r = parseBinDatToQuestAutoDetect(
+            readFile("/towards_the_future.bin"),
+            readFile("/towards_the_future.dat"),
+            lenient = false,
+            shiftJis = false,
+        )
+        assertTrue(r is Success)
+        assertEquals(Version.BB_V4, r.value.quest.version)
     }
 }

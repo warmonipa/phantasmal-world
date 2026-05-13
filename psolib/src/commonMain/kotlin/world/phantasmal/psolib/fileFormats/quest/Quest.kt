@@ -60,50 +60,22 @@ class Quest(
 )
 
 /**
- * High level quest parsing function that delegates to [parseBin] and [parseDat].
+ * Core quest parsing from already-decompressed BIN/DAT cursors.
+ *
+ * Both cursors must be positioned at offset 0 and must not be shared across
+ * concurrent calls.  The caller is responsible for creating fresh cursors for
+ * each invocation (e.g. via [Buffer.cursor]).
  */
-fun parseBinDatToQuest(
-    binCursor: Cursor,
-    datCursor: Cursor,
-    lenient: Boolean = false,
-    compressed: Boolean = true,
-    shiftJis: Boolean = false,
-    version: Version = Version.BB_V4,
+private fun parseBinDatFromDecompressed(
+    binData: Cursor,
+    datData: Cursor,
+    lenient: Boolean,
+    shiftJis: Boolean,
+    version: Version,
 ): PwResult<Quest> {
     val result = PwResult.build<Quest>(logger)
 
-    // Decompress and parse files.
-    val binData: Cursor
-
-    if (compressed) {
-        val binDecompressed = prsDecompress(binCursor)
-        result.addResult(binDecompressed)
-
-        if (binDecompressed !is Success) {
-            return result.failure()
-        }
-
-        binData = binDecompressed.value
-    } else {
-        binData = binCursor
-    }
-
     val bin = parseBin(binData, shiftJis)
-
-    val datData: Cursor
-
-    if (compressed) {
-        val datDecompressed = prsDecompress(datCursor)
-        result.addResult(datDecompressed)
-
-        if (datDecompressed !is Success) {
-            return result.failure()
-        }
-
-        datData = datDecompressed.value
-    } else {
-        datData = datCursor
-    }
 
     val dat = parseDat(datData)
     val objects = dat.objs.mapTo(mutableListOf()) { QuestObject(it.areaId, it.data) }
@@ -114,6 +86,7 @@ fun parseBinDatToQuest(
     var episode = Episode.I
     var floorMappings = emptyList<FloorMapping>()
     var particleSpawns: List<ParticleSpawn> = emptyList()
+
 
     val parseBytecodeResult = parseBytecode(
         bin.bytecode,
@@ -220,6 +193,56 @@ fun parseBinDatToQuest(
     ))
 }
 
+/**
+ * High level quest parsing function that delegates to [parseBin] and [parseDat].
+ */
+fun parseBinDatToQuest(
+    binCursor: Cursor,
+    datCursor: Cursor,
+    lenient: Boolean = false,
+    compressed: Boolean = true,
+    shiftJis: Boolean = false,
+    version: Version = Version.BB_V4,
+): PwResult<Quest> {
+    val result = PwResult.build<Quest>(logger)
+
+    // Decompress and parse files.
+    val binData: Cursor
+
+    if (compressed) {
+        val binDecompressed = prsDecompress(binCursor)
+        result.addResult(binDecompressed)
+
+        if (binDecompressed !is Success) {
+            return result.failure()
+        }
+
+        binData = binDecompressed.value
+    } else {
+        binData = binCursor
+    }
+
+    val datData: Cursor
+
+    if (compressed) {
+        val datDecompressed = prsDecompress(datCursor)
+        result.addResult(datDecompressed)
+
+        if (datDecompressed !is Success) {
+            return result.failure()
+        }
+
+        datData = datDecompressed.value
+    } else {
+        datData = datCursor
+    }
+
+    val innerResult = parseBinDatFromDecompressed(binData, datData, lenient, shiftJis, version)
+    result.addResult(innerResult)
+
+    return if (innerResult is Success) result.success(innerResult.value) else result.failure()
+}
+
 class BinDatQuestData(
     val quest: Quest,
     val compressed: Boolean,
@@ -235,6 +258,71 @@ private fun looksLikeUncompressedBin(binCursor: Cursor): Boolean {
     binCursor.seekStart(0)
     return firstInt == 468 || firstInt == 920 || firstInt == 4652
 }
+
+/**
+ * Ordered list of [Version] candidates for a given [BinFormat].
+ *
+ * The first entry is the most-likely version and acts as the tie-breaking
+ * rank: when two candidates produce identical parse quality scores the one
+ * that appears earlier in this list wins.
+ */
+private fun versionsFor(format: BinFormat): List<Version> = when (format) {
+    BinFormat.DC_GC -> listOf(Version.GC_V3, Version.DC_V2, Version.GC_NTE, Version.DC_V1, Version.DC_NTE)
+    BinFormat.PC -> listOf(Version.PC_V2, Version.PC_NTE)
+    BinFormat.BB -> listOf(Version.BB_V4)
+}
+
+private data class CandidateScore(
+    val version: Version,
+    val rankIndex: Int,
+    val threw: Boolean,
+    val invalidCount: Int,
+    val unknownCount: Int,
+    val totalNops: Int,
+    val parseResult: PwResult<Quest>?,
+)
+
+/**
+ * Attempts to parse already-decompressed BIN/DAT data for [version], converting any thrown
+ * exception to a failed score.
+ */
+private fun scoreCandidate(
+    binBuffer: Buffer,
+    datBuffer: Buffer,
+    shiftJis: Boolean,
+    version: Version,
+    rankIndex: Int,
+): CandidateScore {
+    return try {
+        val r = parseBinDatFromDecompressed(
+            binBuffer.cursor(),
+            datBuffer.cursor(),
+            lenient = false,
+            shiftJis,
+            version,
+        )
+        if (r is Success) {
+            val segs = r.value.bytecodeIr.instructionSegments()
+            val invalidCount = segs.sumOf { seg -> seg.instructions.count { !it.valid } }
+            val unknownCount = segs.sumOf { seg -> seg.instructions.count { it.opcode.mnemonic.startsWith("unknown_") } }
+            val totalNops = segs.sumOf { seg -> seg.instructions.count { it.opcode.mnemonic == "nop" } }
+            CandidateScore(version, rankIndex, threw = false, invalidCount, unknownCount, totalNops, r)
+        } else {
+            CandidateScore(version, rankIndex, threw = false, Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, r)
+        }
+    } catch (e: Exception) {
+        CandidateScore(version, rankIndex, threw = true, Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, null)
+    }
+}
+
+/**
+ * Comparator that picks the candidate with the best (lowest) quality score.
+ *
+ * Priority: did not throw > fewest invalid instructions > fewest unknown opcodes >
+ * fewest nop instructions > lowest rank index (i.e. position in [versionsFor]).
+ */
+private val CANDIDATE_COMPARATOR: Comparator<CandidateScore> =
+    compareBy({ if (it.threw) 1 else 0 }, { it.invalidCount }, { it.unknownCount }, { it.totalNops }, { it.rankIndex })
 
 /**
  * Attempts to parse BIN/DAT data, catching any exceptions and converting them to a [Failure].
@@ -262,37 +350,123 @@ private fun tryParseBinDat(
 
 /**
  * Auto-detects whether BIN/DAT files are PRS-compressed or raw, then parses.
+ *
+ * When [version] is null the function tries all candidate versions for the detected
+ * [BinFormat] (or [binFormatHint] if provided) and picks the one that produces the
+ * fewest parse errors (strict mode). If every candidate fails strict parsing the
+ * default candidate for the format is retried with [lenient] = true and a warning
+ * is added.
+ *
+ * When [version] is non-null only that version is attempted (no ranking).
+ *
+ * [binFormatHint] overrides the BIN-header-based format detection when the caller
+ * already knows the platform from an outer container (e.g. the QST header).  This
+ * prevents a mis-match when a BIN file has an unexpected bytecode offset
+ * (e.g. a PC-format BIN shipped inside a BB QST).
  */
 fun parseBinDatToQuestAutoDetect(
     binCursor: Cursor,
     datCursor: Cursor,
     lenient: Boolean = false,
     shiftJis: Boolean = false,
+    version: Version? = null,
+    binFormatHint: BinFormat? = null,
 ): PwResult<BinDatQuestData> {
     val compressed = !looksLikeUncompressedBin(binCursor)
 
-    val result = tryParseBinDat(binCursor, datCursor, lenient, compressed, shiftJis)
+    // --- Decompress once ---
+    val binBuffer: Buffer
+    val datBuffer: Buffer
+    val decompressProblems = mutableListOf<Problem>()
 
-    if (result is Success) return result
+    if (compressed) {
+        val binDecompressed = prsDecompress(binCursor)
+        decompressProblems.addAll(binDecompressed.problems)
+        if (binDecompressed !is Success) {
+            // Compression detection may be wrong — try the other mode with the original cursors.
+            binCursor.seekStart(0)
+            datCursor.seekStart(0)
+            val retryResult = tryParseBinDat(binCursor, datCursor, lenient, compressed = false, shiftJis)
+            if (retryResult is Success) return retryResult
 
-    // If detection was wrong, try the other mode.
-    binCursor.seekStart(0)
-    datCursor.seekStart(0)
+            return PwResult.build<BinDatQuestData>(logger)
+                .addProblem(Severity.Error, "Parsing as compressed (auto-detected) failed: decompression error.")
+                .addResult(retryResult)
+                .failure()
+        }
+        binBuffer = binDecompressed.value.buffer()
 
-    val retryResult = tryParseBinDat(binCursor, datCursor, lenient, !compressed, shiftJis)
+        val datDecompressed = prsDecompress(datCursor)
+        decompressProblems.addAll(datDecompressed.problems)
+        if (datDecompressed !is Success) {
+            return PwResult.build<BinDatQuestData>(logger)
+                .addProblem(Severity.Error, "DAT decompression failed.")
+                .failure()
+        }
+        datBuffer = datDecompressed.value.buffer()
+    } else {
+        binBuffer = binCursor.buffer()
+        datBuffer = datCursor.buffer()
+    }
 
-    if (retryResult is Success) return retryResult
+    // --- Determine BinFormat: prefer the caller-supplied hint, else detect from bytes ---
+    val binFormat = binFormatHint ?: run {
+        val c = binBuffer.cursor()
+        if (c.bytesLeft < 4) BinFormat.BB else when (c.int()) {
+            468 -> BinFormat.DC_GC
+            920 -> BinFormat.PC
+            else -> BinFormat.BB
+        }
+    }
 
-    // Both attempts failed. Report each attempt's errors with labels so the user
-    // can tell which compression assumption failed and why.
-    val firstLabel = if (compressed) "compressed" else "uncompressed"
-    val retryLabel = if (compressed) "uncompressed" else "compressed"
-    return PwResult.build<BinDatQuestData>(logger)
-        .addProblem(Severity.Error, "Parsing as $firstLabel (auto-detected) failed:")
-        .addResult(result)
-        .addProblem(Severity.Error, "Retry as $retryLabel also failed:")
-        .addResult(retryResult)
-        .failure()
+    // --- Version candidates ---
+    val candidates = if (version != null) listOf(version) else versionsFor(binFormat)
+
+    val scores = candidates.mapIndexed { idx, v ->
+        scoreCandidate(binBuffer, datBuffer, shiftJis, v, idx)
+    }
+
+    val winner = scores.minWithOrNull(CANDIDATE_COMPARATOR)!!
+
+    val winnerResult = winner.parseResult
+
+    if (!winner.threw && winnerResult is Success) {
+        val result = PwResult.build<BinDatQuestData>(logger)
+        for (p in decompressProblems) result.addProblem(p)
+        result.addResult(winnerResult)
+        return result.success(BinDatQuestData(winnerResult.value, compressed))
+    }
+
+    // All candidates failed strict — fall back to lenient with the format default.
+    val fallbackVersion = candidates.first()
+    val fallbackResult = try {
+        parseBinDatFromDecompressed(
+            binBuffer.cursor(),
+            datBuffer.cursor(),
+            lenient = true,
+            shiftJis,
+            fallbackVersion,
+        )
+    } catch (e: Exception) {
+        PwResult.build<Quest>(logger)
+            .addProblem(Severity.Error, "Couldn't parse file.", cause = e)
+            .failure()
+    }
+
+    val result = PwResult.build<BinDatQuestData>(logger)
+    for (p in decompressProblems) result.addProblem(p)
+    result.addProblem(
+        Severity.Warning,
+        "No version candidate strict-parsed; falling back to lenient $fallbackVersion.",
+    )
+
+    if (fallbackResult !is Success) {
+        result.addResult(fallbackResult)
+        return result.failure()
+    }
+
+    result.addResult(fallbackResult)
+    return result.success(BinDatQuestData(fallbackResult.value, compressed))
 }
 
 class QuestData(
@@ -346,11 +520,22 @@ fun parseQstToQuest(cursor: Cursor, lenient: Boolean = false): PwResult<QuestDat
     val binBase = binFile.filename.trim().substringBeforeLast('.')
     val shiftJis = binBase.endsWith("_j")
 
+    // Derive the expected BinFormat from the QST header version so that the
+    // candidate-ranking in parseBinDatToQuestAutoDetect is constrained to the
+    // right platform.  This prevents a PC-format BIN embedded in a BB QST from
+    // being mis-detected as PC_V2 instead of BB_V4.
+    val binFormatFromVersion = when (version) {
+        Version.BB_V4 -> BinFormat.BB
+        Version.PC_NTE, Version.PC_V2 -> BinFormat.PC
+        else -> BinFormat.DC_GC
+    }
+
     val questResult = parseBinDatToQuestAutoDetect(
         binFile.data.cursor(),
         datFile.data.cursor(),
         lenient,
         shiftJis = shiftJis,
+        binFormatHint = binFormatFromVersion,
     )
     result.addResult(questResult)
 
