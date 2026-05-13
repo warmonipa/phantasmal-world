@@ -303,14 +303,18 @@ class QuestEditorToolbarWidget(
 
                         val versionSelect = Select(
                             label = "Version:",
-                            items = listCell(Version.GC, Version.BB),
+                            items = listCell(Version.GC_V3, Version.BB_V4),
                             selected = ctrl.version,
                             itemToString = {
                                 when (it) {
-                                    Version.DC -> "Dreamcast"
-                                    Version.GC -> "GameCube"
-                                    Version.PC -> "PC"
-                                    Version.BB -> "BlueBurst"
+                                    Version.DC_NTE -> "Dreamcast NTE"
+                                    Version.DC_V1 -> "Dreamcast V1"
+                                    Version.DC_V2 -> "Dreamcast"
+                                    Version.PC_NTE -> "PC NTE"
+                                    Version.PC_V2 -> "PC"
+                                    Version.GC_NTE -> "GameCube NTE"
+                                    Version.GC_V3 -> "GameCube"
+                                    Version.BB_V4 -> "BlueBurst"
                                 }
                             },
                             onSelect = ctrl::setVersion,

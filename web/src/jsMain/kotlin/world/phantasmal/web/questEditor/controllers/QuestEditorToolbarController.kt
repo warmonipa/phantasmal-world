@@ -83,7 +83,7 @@ class QuestEditorToolbarController(
     private val _saveAsDialogVisible = mutableCell(false)
     private val fileHolder = mutableCell<FileHolder?>(null)
     private val _filename = mutableCell("")
-    private val _version = mutableCell(Version.BB)
+    private val _version = mutableCell(Version.BB_V4)
     private val _compressed = mutableCell(true)
     private val _saveFormat = mutableCell(SaveFormat.QST)
 
@@ -392,19 +392,19 @@ class QuestEditorToolbarController(
         } else {
             questEditorStore.getDefaultQuest(episode)
         }
-        setCurrentQuest(fileHolder = null, Version.BB, quest)
+        setCurrentQuest(fileHolder = null, Version.BB_V4, quest)
     }
 
     suspend fun loadCityQuest(episode: Episode) {
         freeRoam.clearFreeRoamState()
         _showCityMap.value = true
-        setCurrentQuest(fileHolder = null, Version.BB, questEditorStore.getCityQuest(episode))
+        setCurrentQuest(fileHolder = null, Version.BB_V4, questEditorStore.getCityQuest(episode))
     }
 
     suspend fun loadLobbyQuest(variant: Int) {
         freeRoam.clearFreeRoamState()
         _showCityMap.value = false
-        setCurrentQuest(fileHolder = null, Version.BB, questEditorStore.getLobbyQuest(variant))
+        setCurrentQuest(fileHolder = null, Version.BB_V4, questEditorStore.getLobbyQuest(variant))
     }
 
     suspend fun setShowCityMap(show: Boolean) {
@@ -491,9 +491,9 @@ class QuestEditorToolbarController(
 
         if (parseResult is Success) {
             val version = when (parseResult.value.quest.binFormat) {
-                BinFormat.DC_GC -> Version.GC  // Can't distinguish DC from GC; default to GC
-                BinFormat.PC -> Version.PC
-                BinFormat.BB -> Version.BB
+                BinFormat.DC_GC -> Version.GC_V3  // Can't distinguish DC from GC; default to GC
+                BinFormat.PC -> Version.PC_V2
+                BinFormat.BB -> Version.BB_V4
             }
             setCurrentQuest(
                 FileHolder.BinDat(strategy.binFile, strategy.datFile, parseResult.value.compressed),
@@ -539,7 +539,7 @@ class QuestEditorToolbarController(
 
         setCurrentQuest(
             FileHolder.FreeRoamDir(dirHandle, result.binName, result.datFilesByFloor),
-            Version.BB,
+            Version.BB_V4,
             result.questModel,
         )
     }
@@ -965,7 +965,7 @@ class QuestEditorToolbarController(
             )
             setCurrentQuest(
                 FileHolder.FreeRoamDir(params.gameDirHandle, result.binName, result.datFilesByFloor),
-                Version.BB,
+                Version.BB_V4,
                 result.questModel,
             )
 
