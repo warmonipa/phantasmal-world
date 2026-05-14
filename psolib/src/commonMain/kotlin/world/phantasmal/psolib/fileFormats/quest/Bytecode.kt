@@ -166,9 +166,6 @@ fun parseBytecode(
     // First pass: parse from hard entry points. This establishes correct Data/String
     // classifications for labels referenced by dlabel/slabel instructions.
     val filteredEntryLabels = entryLabels.filter { labelHolder.hasLabel(it) }.associateWith { SegmentType.Instructions }
-    if (filteredEntryLabels.containsKey(76)) {
-        println("DEBUG: label 76 is in hard entryLabels! entryLabels contains 76")
-    }
     findAndParseSegments(
         cursor,
         labelHolder,
@@ -229,6 +226,25 @@ fun parseBytecode(
                 }
             }
         }
+    }
+
+    // Final narrow demote: any tiny InstructionSegment (< 16 bytes) whose VERY FIRST
+    // instruction is unknown_xx (newserv also can't decode it) is reclassified as data.
+    // Catches event-quest data blobs reached via stale or coincidental label values
+    // (e.g. q312-bb-{e,j}). Narrow enough to avoid regressing legitimate code segments.
+    val createdOffsets = offsetToSegment.keys.toList()
+    for (off in createdOffsets) {
+        val segment = offsetToSegment[off] as? InstructionSegment ?: continue
+        val firstInsn = segment.instructions.firstOrNull() ?: continue
+        val firstIsUnknown = !firstInsn.opcode.known ||
+            (firstInsn.opcode.mnemonic.startsWith("unknown_") &&
+                firstInsn.opcode.code != 0xDE && firstInsn.opcode.code != 0xFB)
+        if (!firstIsUnknown) continue
+        val firstLabel = segment.labels.firstOrNull() ?: continue
+        val endOffset = labelHolder.getInfo(firstLabel)?.next?.offset ?: cursor.size
+        if (endOffset - off >= 16) continue
+        cursor.seekStart(off)
+        parseDataSegment(offsetToSegment, cursor, endOffset, segment.labels)
     }
 
     val segments: MutableList<Segment> = mutableListOf()
