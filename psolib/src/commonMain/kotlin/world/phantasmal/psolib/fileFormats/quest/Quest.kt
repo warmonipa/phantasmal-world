@@ -88,13 +88,15 @@ private fun parseBinDatFromDecompressed(
     var particleSpawns: List<ParticleSpawn> = emptyList()
 
 
+    val (hardEntryLabels, npcEntryLabels) = extractScriptEntryPoints(objects, npcs)
     val parseBytecodeResult = parseBytecode(
         bin.bytecode,
         bin.labelOffsets,
-        extractScriptEntryPoints(objects, npcs),
+        hardEntryLabels,
         bin.stringEncoding,
         lenient,
         version,
+        npcEntryLabels = npcEntryLabels,
     )
 
     result.addResult(parseBytecodeResult)
@@ -602,22 +604,37 @@ private fun getEpisode(rb: PwResultBuilder<*>, func0Segment: InstructionSegment)
     }
 }
 
+/**
+ * Returns a pair of (hardEntryLabels, npcEntryLabels).
+ *
+ * Hard entry labels are unconditional instruction entry points: label 0 and any script labels
+ * embedded in objects.
+ *
+ * NPC entry labels come from friendly NPC scriptLabel fields. They are treated as instruction
+ * entry points only when they do not coincide with a data or string segment already discovered
+ * via the hard entry labels (see [parseBytecode]).
+ */
 private fun extractScriptEntryPoints(
     objects: List<QuestObject>,
     npcs: List<QuestNpc>,
-): Set<Int> {
-    val entryPoints = mutableSetOf(0)
+): Pair<Set<Int>, Set<Int>> {
+    val hardEntryPoints = mutableSetOf(0)
+    val npcEntryPoints = mutableSetOf<Int>()
 
     objects.forEach { obj ->
-        obj.scriptLabel?.let(entryPoints::add)
-        obj.scriptLabel2?.let(entryPoints::add)
+        obj.scriptLabel?.let(hardEntryPoints::add)
+        obj.scriptLabel2?.let(hardEntryPoints::add)
     }
 
     npcs.forEach { npc ->
-        entryPoints.add(npc.scriptLabel)
+        // Enemy NPCs store unrelated data at the scriptLabel field offset (it is a combat
+        // parameter, not a code label). Only add scriptLabel for non-enemy (friendly) NPCs.
+        if (!npc.type.enemy) {
+            npcEntryPoints.add(npc.scriptLabel)
+        }
     }
 
-    return entryPoints
+    return hardEntryPoints to npcEntryPoints
 }
 
 /**

@@ -36,6 +36,88 @@ class _InspectFailures : LibTestSuite {
     }
 
     @Test
+    fun q026_bb_e() = testAsync {
+        val bin = File("/Users/wangzhen/study/newserv/system/quests/solo-story/q026-bb-e.bin")
+        val dat = File("/Users/wangzhen/study/newserv/system/quests/solo-story/q026-bb.dat")
+        val r = parseBinDatToQuestAutoDetect(
+            Buffer.fromByteArray(bin.readBytes()).cursor(),
+            Buffer.fromByteArray(dat.readBytes()).cursor(),
+            lenient = false, shiftJis = false,
+        )
+        if (r is Success) {
+            val q = r.value.quest
+            println("version: ${q.version}")
+            for (seg in q.bytecodeIr.instructionSegments()) {
+                val unknownInstructions = seg.instructions.filter { it.opcode.mnemonic.startsWith("unknown_") }
+                if (unknownInstructions.isNotEmpty()) {
+                    println("Segment labels=${seg.labels}: ${unknownInstructions.size} unknown opcodes:")
+                    for (inst in unknownInstructions) {
+                        println("  ${inst.opcode.mnemonic} (${inst.opcode.code})")
+                    }
+                }
+            }
+        } else {
+            println("Parse failed: ${r.problems}")
+        }
+    }
+
+    @Test
+    fun q312_bb_e() = testAsync {
+        val bin = File("/Users/wangzhen/study/newserv/system/quests/events/q312-bb-e.bin")
+        val dat = File("/Users/wangzhen/study/newserv/system/quests/events/q312-bb.dat")
+        val r = parseBinDatToQuestAutoDetect(
+            Buffer.fromByteArray(bin.readBytes()).cursor(),
+            Buffer.fromByteArray(dat.readBytes()).cursor(),
+            lenient = false, shiftJis = false,
+        )
+        if (r is Success) {
+            val q = r.value.quest
+            println("version: ${q.version}")
+            for (seg in q.bytecodeIr.instructionSegments()) {
+                val unknownInstructions = seg.instructions.filter { it.opcode.mnemonic.startsWith("unknown_") }
+                if (unknownInstructions.isNotEmpty()) {
+                    println("Segment labels=${seg.labels}: ${unknownInstructions.size} unknown opcodes:")
+                    for (inst in unknownInstructions) {
+                        println("  ${inst.opcode.mnemonic} (${inst.opcode.code})")
+                    }
+                }
+            }
+            for (p in r.problems) {
+                println("[${p.severity}] ${p.uiMessage}")
+                println("   ${p.message}")
+            }
+        } else {
+            println("Parse failed: ${r.problems}")
+        }
+    }
+
+    @Test
+    fun q230_bb_e() = testAsync {
+        val bin = File("/Users/wangzhen/study/newserv/system/quests/vr/q230-bb-e.bin")
+        val dat = File("/Users/wangzhen/study/newserv/system/quests/vr/q230-bb.dat")
+        val r = parseBinDatToQuestAutoDetect(
+            Buffer.fromByteArray(bin.readBytes()).cursor(),
+            Buffer.fromByteArray(dat.readBytes()).cursor(),
+            lenient = false, shiftJis = false,
+        )
+        if (r is Success) {
+            val q = r.value.quest
+            println("version: ${q.version}")
+            for (seg in q.bytecodeIr.instructionSegments()) {
+                val unknownInstructions = seg.instructions.filter { it.opcode.mnemonic.startsWith("unknown_") }
+                if (unknownInstructions.isNotEmpty()) {
+                    println("Segment labels=${seg.labels}: ${unknownInstructions.size} unknown opcodes:")
+                    for (inst in unknownInstructions) {
+                        println("  ${inst.opcode.mnemonic} (${inst.opcode.code})")
+                    }
+                }
+            }
+        } else {
+            println("Parse failed: ${r.problems}")
+        }
+    }
+
+    @Test
     fun q230_vr_warnings() = testAsync {
         for (variant in listOf("q230-gc", "q230-xb")) {
             val bin = File("/Users/wangzhen/study/newserv/system/quests/vr/$variant-e.bin")
@@ -71,6 +153,46 @@ class _InspectFailures : LibTestSuite {
             File("/tmp/q072-pc.dat.dec").writeBytes(bytes)
         }
     }
+
+    @Test
+    fun q026_bb_dat_analysis() = testAsync {
+        for (datName in listOf("q026-bb.dat")) {
+            val datFile = File("/Users/wangzhen/study/newserv/system/quests/solo-story/$datName")
+            val r = prsDecompress(Buffer.fromByteArray(datFile.readBytes()).cursor())
+            if (r is Success) {
+                val bytes = r.value.byteArray(r.value.size)
+                println("$datName decompressed: ${bytes.size} bytes")
+                File("/tmp/$datName.dec").writeBytes(bytes)
+            }
+        }
+    }
+
+    @Test
+    fun q312_bb_dat_analysis() = testAsync {
+        for (datName in listOf("q312-bb.dat")) {
+            val datFile = File("/Users/wangzhen/study/newserv/system/quests/events/$datName")
+            val r = prsDecompress(Buffer.fromByteArray(datFile.readBytes()).cursor())
+            if (r is Success) {
+                val bytes = r.value.byteArray(r.value.size)
+                println("$datName decompressed: ${bytes.size} bytes")
+                File("/tmp/$datName.dec").writeBytes(bytes)
+            }
+        }
+    }
+
+    @Test
+    fun q230_bb_dat_analysis() = testAsync {
+        for (datName in listOf("q230-bb.dat")) {
+            val datFile = File("/Users/wangzhen/study/newserv/system/quests/vr/$datName")
+            val r = prsDecompress(Buffer.fromByteArray(datFile.readBytes()).cursor())
+            if (r is Success) {
+                val bytes = r.value.byteArray(r.value.size)
+                println("$datName decompressed: ${bytes.size} bytes")
+                File("/tmp/$datName.dec").writeBytes(bytes)
+            }
+        }
+    }
+
 
     @Test
     fun warn_unknown_opcode_distribution() = testAsync {

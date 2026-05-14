@@ -97,15 +97,9 @@ internal val TERMINATOR_OPCODES = setOf(
 
 private const val MAX_TOTAL_NOPS = 20
 private const val MAX_SEQUENTIAL_NOPS = 10
-private const val MAX_UNKNOWN_OPCODE_RATIO = 0.2
 private const val MAX_STACK_POP_WITHOUT_PRECEDING_PUSH_RATIO = 0.2
 private const val MAX_UNKNOWN_LABEL_RATIO = 0.2
 private const val MAX_LABEL_VALUES = 20
-/**
- * Segments with this many or fewer instructions are considered "short" for the purpose of
- * unknown-opcode rejection. See [isLikelyInstructionSegment] for details.
- */
-private const val MAX_SHORT_SEGMENT_SIZE = 10
 
 internal val SEGMENT_PRIORITY = mapOf(
     SegmentType.Instructions to 2,
@@ -145,6 +139,15 @@ val BUILTIN_FUNCTIONS = setOf(
 
 /**
  * Parses bytecode into bytecode IR.
+ *
+ * @param entryLabels Hard entry points (label 0, object script labels, set_floor_handler targets,
+ *   etc.) that are unconditionally treated as instruction segment starts.
+ * @param npcEntryLabels Soft entry points from NPC scriptLabel fields. These are treated as
+ *   instruction starts only when the bytecode label table position they resolve to has not already
+ *   been classified as a data or string segment by following explicit dlabel/slabel references
+ *   from [entryLabels]. This prevents friendly-NPC scriptLabel values that happen to coincide with
+ *   enemy data labels (AttackData, PlayerStats, etc.) from causing those data segments to be
+ *   parsed as instructions.
  */
 fun parseBytecode(
     bytecode: Buffer,
@@ -153,21 +156,80 @@ fun parseBytecode(
     stringEncoding: BytecodeStringEncoding,
     lenient: Boolean,
     version: Version = Version.BB_V4,
+    npcEntryLabels: Set<Int> = emptySet(),
 ): PwResult<BytecodeIr> {
     val cursor = BufferCursor(bytecode)
     val labelHolder = LabelHolder(labelOffsets)
     val result = PwResult.build<BytecodeIr>(logger)
     val offsetToSegment = mutableMapOf<Int, Segment>()
 
+    // First pass: parse from hard entry points. This establishes correct Data/String
+    // classifications for labels referenced by dlabel/slabel instructions.
+    val filteredEntryLabels = entryLabels.filter { labelHolder.hasLabel(it) }.associateWith { SegmentType.Instructions }
+    if (filteredEntryLabels.containsKey(76)) {
+        println("DEBUG: label 76 is in hard entryLabels! entryLabels contains 76")
+    }
     findAndParseSegments(
         cursor,
         labelHolder,
-        entryLabels.associateWith { SegmentType.Instructions },
+        // Skip any entry labels not registered in the bytecode label table to avoid
+        // spurious parse attempts from stale or out-of-range label values.
+        filteredEntryLabels,
         offsetToSegment,
         lenient,
         stringEncoding,
         version,
     )
+
+    // Second pass: add NPC script labels only for positions not already classified as
+    // Data or String. If a label's offset is already a data/string segment (established by
+    // an explicit dlabel/slabel reference in the first pass), the NPC field is storing a
+    // coincidental numeric value rather than a real code pointer, and must be ignored.
+    if (npcEntryLabels.isNotEmpty()) {
+        val npcInstructionLabels = npcEntryLabels.filter { label ->
+            val info = labelHolder.getInfo(label) ?: return@filter false
+            val existing = offsetToSegment[info.offset]
+            existing == null || existing is InstructionSegment
+        }.associateWith { SegmentType.Instructions }
+
+        if (npcInstructionLabels.isNotEmpty()) {
+            // Collect the byte offsets of only those NPC entry labels that point to positions
+            // currently UNCLAIMED (not yet parsed by the first pass).  An offset that already
+            // has an InstructionSegment was discovered by the primary entry-point traversal and
+            // is therefore a legitimate code region — we must not subject it to the demote
+            // heuristic.  Only freshly-unclaimed offsets are candidates for misclassification:
+            // they arise when an NPC's scriptLabel field happens to hold a numeric value that
+            // coincides with a label whose underlying bytes are data, not code.
+            val npcUnclaimedOffsets = npcInstructionLabels.keys.mapNotNull { label ->
+                val info = labelHolder.getInfo(label) ?: return@mapNotNull null
+                if (offsetToSegment[info.offset] == null) info.offset else null
+            }.toHashSet()
+
+            findAndParseSegments(
+                cursor,
+                labelHolder,
+                npcInstructionLabels,
+                offsetToSegment,
+                lenient,
+                stringEncoding,
+                version,
+            )
+
+            // Demote any instruction segment that was freshly created for an unclaimed NPC
+            // entry offset and that fails the isLikelyInstructionSegment heuristic.  Such
+            // segments correspond to NPC scriptLabel values that happen to coincide with
+            // data/padding regions — the bytes decode as a plausible-looking instruction stream
+            // but contain truly-unknown opcodes that are not present in the PSO opcode table.
+            for (npcOffset in npcUnclaimedOffsets) {
+                val segment = offsetToSegment[npcOffset] as? InstructionSegment ?: continue
+                if (!isLikelyInstructionSegment(segment.instructions, labelHolder) {}) {
+                    val endOffset = labelHolder.getInfo(segment.labels.first())?.next?.offset ?: cursor.size
+                    cursor.seekStart(npcOffset)
+                    parseDataSegment(offsetToSegment, cursor, endOffset, segment.labels)
+                }
+            }
+        }
+    }
 
     val segments: MutableList<Segment> = mutableListOf()
 
@@ -238,8 +300,13 @@ fun parseBytecode(
         val segment = offsetToSegment[labelOffset]
 
         if (segment == null) {
+            // labelOffset within bytecode buffer but not on a segment boundary:
+            // points inside a parent segment (common when string data is referenced
+            // from instructions but isn't at its own label-table position).
+            // Newserv silently shows the content as raw data; we downgrade to Info.
+            val inRange = labelOffset in 0 until cursor.size
             result.addProblem(
-                Severity.Warning,
+                if (inRange) Severity.Info else Severity.Warning,
                 "Label $label doesn't point to anything.",
                 "Label $label with offset $labelOffset doesn't point to anything.",
             )
@@ -362,8 +429,18 @@ private fun collectLabelReferencesFromInstruction(
                 // Never on the stack.
                 // Eat all remaining arguments.
                 while (i < instruction.args.size) {
-                    newLabels[(instruction.args[i] as IntArg).value] =
-                        SegmentType.Instructions
+                    val label = (instruction.args[i] as IntArg).value
+                    if (label == 76) {
+                        println("DEBUG: label 76 added via ILabelVarType from opcode=${instruction.opcode.mnemonic} in segment labels=${segment.labels} instructionIdx=$instructionIdx")
+                    }
+                    val oldType = newLabels[label]
+
+                    if (oldType == null ||
+                        SEGMENT_PRIORITY.getValue(SegmentType.Instructions) >
+                        SEGMENT_PRIORITY.getValue(oldType)
+                    ) {
+                        newLabels[label] = SegmentType.Instructions
+                    }
 
                     i++
                 }
@@ -412,6 +489,9 @@ private fun collectLabelReferencesFromInstruction(
 
                         if (labelValues.size <= MAX_LABEL_VALUES) {
                             for (label in labelValues) {
+                                if (label == 76) {
+                                    println("DEBUG: label 76 added via RegType ILabelType from opcode=${instruction.opcode.mnemonic} in segment labels=${segment.labels} instructionIdx=$instructionIdx reg=${firstRegister + j}")
+                                }
                                 newLabels[label] = SegmentType.Instructions
                             }
                         } else {
@@ -450,6 +530,9 @@ private fun getArgLabelValues(
             // Register references (arg_pushr) cannot be statically resolved to a label value.
             if (arg.isRegRef) return false
             val value = arg.value
+            if (value == 76 && segmentType == SegmentType.Instructions) {
+                println("DEBUG: label 76 added via getArgLabelValues (inlined stack-pop) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
+            }
             val oldType = labels[value]
 
             if (
@@ -471,6 +554,9 @@ private fun getArgLabelValues(
 
         if (stackValues.size <= MAX_LABEL_VALUES) {
             for (value in stackValues) {
+                if (value == 76 && segmentType == SegmentType.Instructions) {
+                    println("DEBUG: label 76 added via getArgLabelValues (stack DFA) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
+                }
                 val oldType = labels[value]
 
                 if (
@@ -485,6 +571,9 @@ private fun getArgLabelValues(
         }
     } else {
         val value = (instruction.args[paramIdx] as IntArg).value
+        if (value == 76 && segmentType == SegmentType.Instructions) {
+            println("DEBUG: label 76 added via getArgLabelValues (direct arg) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
+        }
         val oldType = labels[value]
 
         if (
@@ -906,7 +995,14 @@ private fun isLikelyInstructionSegment(
             sequentialNopCount = 0
         }
 
-        if (!inst.opcode.known) {
+        // Count an opcode as unknown if it is not in our table, OR if it is listed in the
+        // table with an "unknown_xx" placeholder mnemonic (meaning newserv doesn't recognise
+        // it as a real instruction either).  The two exceptions are unknown_de and unknown_fb,
+        // which are real but undocumented opcodes that legitimately appear in quest scripts.
+        if (!inst.opcode.known ||
+            (inst.opcode.mnemonic.startsWith("unknown_") &&
+                inst.opcode.code != 0xDE && inst.opcode.code != 0xFB)
+        ) {
             unknownOpcodeCount++
         }
 
@@ -959,37 +1055,28 @@ private fun isLikelyInstructionSegment(
     }
 
     if (instructions.isNotEmpty()) {
-        val unknownOpcodeRatio = unknownOpcodeCount.toDouble() / instructions.size
-
-        if (unknownOpcodeRatio > MAX_UNKNOWN_OPCODE_RATIO) {
-            logReason("${100 * unknownOpcodeRatio}% of its opcodes are unknown")
-            return false
-        }
-
-        // Stricter check for short segments: reject if ANY unknown opcode is present.
+        // Reject the segment if any truly-unknown opcode is present.
         //
-        // Background: unreferenced labels (not discovered by findAndParseSegments) are
-        // classified by this heuristic. Some labels point to non-code data (e.g. UTF-16
-        // strings) whose bytes happen to decode as a mix of valid and unknown opcodes.
+        // "Unknown" here means either (a) the opcode code is not in our table at all
+        // (opcode.known == false) or (b) the opcode is listed in the table with an
+        // "unknown_xx" placeholder mnemonic, indicating that newserv also doesn't recognise
+        // it as a real instruction. The two exceptions are unknown_de and unknown_fb, which
+        // are real but undocumented opcodes.
         //
-        // The general unknownOpcodeRatio check above uses a 20% threshold, which can
-        // produce inconsistent results for the same label across parse passes when push
-        // normalization changes instruction encoding sizes (e.g. arg_pushl 5B → arg_pushw
-        // 3B for LabelType params). This shifts neighboring segment boundaries, changing
-        // the byte range evaluated for the unreferenced label, and the ratio may cross
-        // the threshold in one direction only.
+        // A single such opcode is a reliable signal that the bytes are data, not code — every
+        // real PSO instruction has a known opcode in our table.
         //
-        // For short segments (≤10 instructions), even one unknown opcode is a strong
-        // signal that the bytes are data, not code. Rejecting unconditionally makes the
-        // classification deterministic regardless of segment boundary variations.
+        // This strict zero-tolerance rule is deterministic and doesn't shift with segment
+        // boundary changes caused by push normalisation.
         //
-        // Observed in: clarie's deal.qst (EP4), label 64 — UTF-16 Japanese string data
-        // misclassified as InstructionSegment on first parse, DataSegment after round-trip.
-        if (unknownOpcodeCount > 0 && instructions.size <= MAX_SHORT_SEGMENT_SIZE) {
-            logReason(
-                "short segment (${instructions.size} instructions) contains " +
-                    "$unknownOpcodeCount unknown opcode(s)"
-            )
+        // Observed misclassifications fixed:
+        //   q230-bb-e labels 522/28/60/280/41: NPC dialog strings (unknown_4f, which is in
+        //     the YAML as a placeholder but not a real instruction)
+        //   q026-bb-{e,j} label 100: PlayerStats struct reached via NPC scriptLabel
+        //     coincidence (unknown_f4, not in table)
+        //   q312-bb-{e,j}: data blobs (unknown_ff, not in table)
+        if (unknownOpcodeCount > 0) {
+            logReason("contains $unknownOpcodeCount unknown opcode(s) out of ${instructions.size}")
             return false
         }
     }

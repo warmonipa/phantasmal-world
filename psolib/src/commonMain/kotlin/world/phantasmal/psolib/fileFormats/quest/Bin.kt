@@ -154,6 +154,10 @@ fun parseBin(cursor: Cursor, shiftJis: Boolean = false): BinFile {
 
     val labelOffsetCount = (effectiveSize - labelOffsetTableOffset) / 4
     val bytecodeSize = labelOffsetTableOffset - bytecodeOffset
+    // Debug: print layout for quest 312
+    if (labelOffsetCount > 76 && effectiveSize > 60000) {
+        println("DEBUG BIN: bytecodeOffset=$bytecodeOffset labelOffsetTableOffset=$labelOffsetTableOffset effectiveSize=$effectiveSize bytecodeSize=$bytecodeSize labelOffsetCount=$labelOffsetCount")
+    }
     val labelOffsets = cursor
         .seekStart(labelOffsetTableOffset)
         .intArray(labelOffsetCount)
