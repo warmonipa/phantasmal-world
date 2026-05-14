@@ -324,10 +324,15 @@ private fun scoreCandidate(
  * Comparator that picks the candidate with the best (lowest) quality score.
  *
  * Priority: did not throw > fewest invalid instructions > fewest unknown opcodes >
- * fewest nop instructions > lowest rank index (i.e. position in [versionsFor]).
+ * lowest rank index (i.e. position in [versionsFor]).
+ *
+ * totalNops was intentionally removed as a tiebreaker: misaligned V0_V2 parses can
+ * produce zero nops by accident, causing DC_V1 to beat GC_V3 even for GC quests.
+ * rankIndex is a deterministic tiebreaker — versionsFor() puts GC_V3 first for
+ * BinFormat.DC_GC, so when (threw, invalidCount, unknownCount) tie, GC_V3 wins.
  */
 private val CANDIDATE_COMPARATOR: Comparator<CandidateScore> =
-    compareBy({ if (it.threw) 1 else 0 }, { it.invalidCount }, { it.unknownCount }, { it.totalNops }, { it.rankIndex })
+    compareBy({ if (it.threw) 1 else 0 }, { it.invalidCount }, { it.unknownCount }, { it.rankIndex })
 
 /**
  * Attempts to parse BIN/DAT data, catching any exceptions and converting them to a [Failure].
