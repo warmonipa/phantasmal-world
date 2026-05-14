@@ -10,6 +10,7 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
+import world.phantasmal.psolib.fileFormats.quest.BinFormat
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
@@ -50,6 +51,12 @@ class QuestModel(
      */
     val particleSpawns: List<ParticleSpawn>,
     private val getVariant: (Episode, areaId: Int, variantId: Int) -> AreaVariantModel?,
+    /** Whether DC/GC text fields use Shift-JIS encoding (Japanese). */
+    val shiftJis: Boolean = false,
+    /** Non-standard bytecode offset preserved from the original BIN, or null for the default. */
+    val bytecodeOffset: Int? = null,
+    /** Original BIN format from the loaded file, used to restore the correct version on save. */
+    val binFormat: BinFormat = BinFormat.BB,
 ) {
     private val _id = mutableCell(0)
     private val _language = mutableCell(0)

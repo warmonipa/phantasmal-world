@@ -59,6 +59,9 @@ fun convertQuestToModel(
         quest.floorMappings,
         quest.particleSpawns,
         getVariant,
+        shiftJis = quest.shiftJis,
+        bytecodeOffset = quest.bytecodeOffset,
+        binFormat = quest.binFormat,
     )
 
 /**
@@ -117,4 +120,7 @@ fun convertQuestFromModel(quest: QuestModel, bytecodeIrOverride: BytecodeIr? = n
         quest.shopItems,
         quest.floorMappings,
         particleSpawns = quest.particleSpawns,
+        bytecodeOffset = quest.bytecodeOffset,
+        shiftJis = quest.shiftJis,
+        binFormat = quest.binFormat,
     )

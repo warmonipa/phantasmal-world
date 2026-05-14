@@ -13,7 +13,64 @@ import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.cursor.BufferCursor
 import world.phantasmal.psolib.cursor.Cursor
 import world.phantasmal.psolib.cursor.cursor
+import world.phantasmal.psolib.encoding.decodeShiftJis
+import world.phantasmal.psolib.encoding.encodeShiftJis
 import kotlin.math.min
+
+private fun readShiftJisFromCursor(
+    cursor: Cursor,
+    byteLength: Int,
+    nullTerminated: Boolean,
+    dropRemaining: Boolean,
+): String {
+    val available = min(byteLength, cursor.bytesLeft)
+    if (available <= 0) return ""
+    val bytes = cursor.byteArray(available)
+    val end = if (nullTerminated) {
+        val idx = bytes.indexOf(0)
+        if (idx >= 0) idx else bytes.size
+    } else {
+        bytes.size
+    }
+    val decoded = decodeShiftJis(bytes.copyOf(end))
+    if (!dropRemaining && nullTerminated && end < bytes.size) {
+        // Rewind to just past the null terminator so the caller sees the remaining bytes.
+        val consumed = end + 1
+        cursor.seek(consumed - bytes.size)
+    }
+    return decoded
+}
+
+/**
+ * Encode [str] as Shift-JIS, write up to `byteLength` bytes (always null-terminated when there's
+ * room), and pad with zeros to exactly `byteLength`. Never splits a multi-byte Shift-JIS sequence.
+ */
+private fun writeShiftJisInto(
+    cursor: world.phantasmal.psolib.cursor.WritableCursor,
+    str: String,
+    byteLength: Int,
+) {
+    if (byteLength <= 0) return
+    val encoded = encodeShiftJis(str)
+    var len = min(byteLength - 1, encoded.size)
+    // Avoid an orphaned Shift-JIS lead byte at the boundary.
+    if (len > 0) {
+        val lead = encoded[len - 1].toInt() and 0xFF
+        val isLead = lead in 0x81..0x9F || lead in 0xE0..0xFC
+        if (isLead) {
+            // Count consecutive lead bytes preceding position to determine parity.
+            var leadRun = 0
+            var i = len - 1
+            while (i >= 0) {
+                val b = encoded[i].toInt() and 0xFF
+                if (b in 0x81..0x9F || b in 0xE0..0xFC) { leadRun++; i-- } else break
+            }
+            if (leadRun % 2 == 1) len--
+        }
+    }
+    for (i in 0 until len) cursor.writeByte(encoded[i])
+    for (i in 0 until (byteLength - len)) cursor.writeByte(0)
+}
 
 private val logger = KotlinLogging.logger {}
 
@@ -603,6 +660,13 @@ private fun parseStringSegment(
                 dropRemaining = true,
             )
 
+            BytecodeStringEncoding.SHIFT_JIS -> readShiftJisFromCursor(
+                cursor,
+                byteLength,
+                nullTerminated = true,
+                dropRemaining = true,
+            )
+
             BytecodeStringEncoding.UTF16 -> cursor.stringUtf16(
                 byteLength,
                 nullTerminated = true,
@@ -659,6 +723,13 @@ private fun parseInstructionArguments(
                         StringArg(
                             when (stringEncoding) {
                                 BytecodeStringEncoding.ASCII -> cursor.stringAscii(
+                                    maxBytes,
+                                    nullTerminated = true,
+                                    dropRemaining = false,
+                                )
+
+                                BytecodeStringEncoding.SHIFT_JIS -> readShiftJisFromCursor(
+                                    cursor,
                                     maxBytes,
                                     nullTerminated = true,
                                     dropRemaining = false,
@@ -931,6 +1002,9 @@ fun writeBytecode(
                     BytecodeStringEncoding.ASCII ->
                         cursor.writeStringAscii(segment.value, size)
 
+                    BytecodeStringEncoding.SHIFT_JIS ->
+                        writeShiftJisInto(cursor, segment.value, size)
+
                     BytecodeStringEncoding.UTF16 ->
                         cursor.writeStringUtf16(segment.value, size)
                 }
@@ -1000,6 +1074,9 @@ private fun writeInlineArgs(
                 when (stringEncoding) {
                     BytecodeStringEncoding.ASCII ->
                         cursor.writeStringAscii(str, str.length + 1)
+
+                    BytecodeStringEncoding.SHIFT_JIS ->
+                        writeShiftJisInto(cursor, str, encodeShiftJis(str).size + 1)
 
                     BytecodeStringEncoding.UTF16 ->
                         cursor.writeStringUtf16(str, 2 * str.length + 2)
@@ -1074,6 +1151,9 @@ private fun writePushInstructions(
                     when (stringEncoding) {
                         BytecodeStringEncoding.ASCII ->
                             cursor.writeStringAscii(str, str.length + 1)
+
+                        BytecodeStringEncoding.SHIFT_JIS ->
+                            writeShiftJisInto(cursor, str, encodeShiftJis(str).size + 1)
 
                         BytecodeStringEncoding.UTF16 ->
                             cursor.writeStringUtf16(str, 2 * str.length + 2)
