@@ -208,7 +208,7 @@ private fun createBasicBlocks(cfg: ControlFlowGraphBuilder, segment: Instruction
 
             // Calls.
             OP_CALL.code,
-            OP_VA_CALL.code,
+            OP_VA_CALL_V3_V4.code,
             -> {
                 branchType = BranchType.Call
                 branchLabels = listOfNotNull((inst.args[0] as? IntArg)?.value)

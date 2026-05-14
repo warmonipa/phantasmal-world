@@ -54,7 +54,7 @@ private class StackValueFinder {
             val args = instruction.args
 
             when (instruction.opcode.code) {
-                OP_ARG_PUSHR.code -> {
+                OP_ARG_PUSHR_V3_V4.code -> {
                     if (pos == 0) {
                         val arg = args[0]
 
@@ -68,9 +68,9 @@ private class StackValueFinder {
                     }
                 }
 
-                OP_ARG_PUSHL.code,
-                OP_ARG_PUSHB.code,
-                OP_ARG_PUSHW.code,
+                OP_ARG_PUSHL_V3_V4.code,
+                OP_ARG_PUSHB_V3_V4.code,
+                OP_ARG_PUSHW_V3_V4.code,
                 -> {
                     if (pos == 0) {
                         val arg = args[0]
@@ -85,9 +85,9 @@ private class StackValueFinder {
                     }
                 }
 
-                OP_ARG_PUSHA.code,
-                OP_ARG_PUSHO.code,
-                OP_ARG_PUSHS.code,
+                OP_ARG_PUSHA_V3_V4.code,
+                OP_ARG_PUSHO_V3_V4.code,
+                OP_ARG_PUSHS_V3_V4.code,
                 -> {
                     if (pos == 0) {
                         return Pair(ValueSet.all(), instruction)

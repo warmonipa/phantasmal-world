@@ -1039,36 +1039,36 @@ private fun writePushInstructions(
         for (arg in args) {
             if (arg is IntArg && arg.isRegRef) {
                 // arg_pushr
-                cursor.writeByte(OP_ARG_PUSHR.code.toByte())
+                cursor.writeByte(OP_ARG_PUSHR_V3_V4.code.toByte())
                 cursor.writeByte(arg.value.toByte())
             } else when (paramType) {
                 ByteType, is RegType, RegVarType -> {
                     // arg_pushb
-                    cursor.writeByte(OP_ARG_PUSHB.code.toByte())
+                    cursor.writeByte(OP_ARG_PUSHB_V3_V4.code.toByte())
                     cursor.writeByte(arg.coerceInt().toByte())
                 }
 
                 ShortType, ILabelVarType, is LabelType -> {
                     // arg_pushw
-                    cursor.writeByte(OP_ARG_PUSHW.code.toByte())
+                    cursor.writeByte(OP_ARG_PUSHW_V3_V4.code.toByte())
                     cursor.writeShort(arg.coerceInt().toShort())
                 }
 
                 IntType -> {
                     // arg_pushl
-                    cursor.writeByte(OP_ARG_PUSHL.code.toByte())
+                    cursor.writeByte(OP_ARG_PUSHL_V3_V4.code.toByte())
                     cursor.writeInt(arg.coerceInt())
                 }
 
                 FloatType -> {
                     // arg_pushl (floats are pushed as int bits)
-                    cursor.writeByte(OP_ARG_PUSHL.code.toByte())
+                    cursor.writeByte(OP_ARG_PUSHL_V3_V4.code.toByte())
                     cursor.writeInt(arg.coerceFloat().toRawBits())
                 }
 
                 StringType -> {
                     // arg_pushs
-                    cursor.writeByte(OP_ARG_PUSHS.code.toByte())
+                    cursor.writeByte(OP_ARG_PUSHS_V3_V4.code.toByte())
                     val str = arg.coerceString()
 
                     when (stringEncoding) {
@@ -1161,11 +1161,11 @@ private fun identifyPushPopRelationships(
             val opcode = inst.opcode
 
             when {
-                opcode.code == OP_VA_START.code -> {
+                opcode.code == OP_VA_START_V3_V4.code -> {
                     inVaBlock = true
                 }
 
-                opcode.code == OP_VA_END.code -> {
+                opcode.code == OP_VA_END_V3_V4.code -> {
                     inVaBlock = false
                     stack.clear()
                 }
@@ -1252,7 +1252,7 @@ private fun identifyPushPopRelationships(
                 opcode.code == OP_JMPI_LE.code ||
                 opcode.code == OP_SWITCH_JMP.code ||
                 opcode.code == OP_CALL.code ||
-                opcode.code == OP_VA_CALL.code ||
+                opcode.code == OP_VA_CALL_V3_V4.code ||
                 opcode.code == OP_SWITCH_CALL.code -> {
                     stack.clear()
                 }
@@ -1318,17 +1318,17 @@ private fun applyNormalizations(
 private fun normalizeArg(arg: Arg, pushOpcode: Opcode, paramType: AnyType): Arg {
     return when {
         // arg_pushr targeting a non-register parameter → mark as register reference.
-        pushOpcode.code == OP_ARG_PUSHR.code && paramType !is RegType -> {
+        pushOpcode.code == OP_ARG_PUSHR_V3_V4.code && paramType !is RegType -> {
             IntArg(arg.coerceInt(), isRegRef = true)
         }
         // arg_pushl targeting a float parameter → reinterpret int bits as float.
         // arg_pushb/arg_pushw paths are kept for robustness; in practice PSO always uses
         // arg_pushl for floats. Byte/short values produce denormalized (near-zero) floats,
         // which is almost certainly a sign of malformed bytecode.
-        (pushOpcode.code == OP_ARG_PUSHL.code ||
-                pushOpcode.code == OP_ARG_PUSHB.code ||
-                pushOpcode.code == OP_ARG_PUSHW.code) && paramType == FloatType -> {
-            if (pushOpcode.code == OP_ARG_PUSHB.code || pushOpcode.code == OP_ARG_PUSHW.code) {
+        (pushOpcode.code == OP_ARG_PUSHL_V3_V4.code ||
+                pushOpcode.code == OP_ARG_PUSHB_V3_V4.code ||
+                pushOpcode.code == OP_ARG_PUSHW_V3_V4.code) && paramType == FloatType -> {
+            if (pushOpcode.code == OP_ARG_PUSHB_V3_V4.code || pushOpcode.code == OP_ARG_PUSHW_V3_V4.code) {
                 logger.warn {
                     "Float parameter pushed via ${pushOpcode.mnemonic} (value=${arg.coerceInt()}); " +
                         "byte/short values produce denormalized floats. Malformed bytecode?"

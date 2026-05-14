@@ -52,7 +52,7 @@ private class RegisterValueFinder {
                     return ValueSet.all()
                 }
 
-                OP_VA_CALL.code -> {
+                OP_VA_CALL_V3_V4.code -> {
                     val value = vaCall(path, block, i, register)
                     if (value.isNotEmpty()) return value
                 }
@@ -173,8 +173,8 @@ private class RegisterValueFinder {
                     }
                 }
 
-                OP_STACK_PUSHM.code,
-                OP_STACK_POPM.code,
+                OP_STACK_PUSHM_V3_V4.code,
+                OP_STACK_POPM_V3_V4.code,
                 -> {
                     val minReg = (args[0] as IntArg).value
                     val maxReg = (args[0] as IntArg).value + (args[1] as IntArg).value
@@ -258,17 +258,17 @@ private class RegisterValueFinder {
             val instruction = block.segment.instructions[i]
             val opcode = instruction.opcode
 
-            if (opcode.code == OP_VA_START.code) {
+            if (opcode.code == OP_VA_START_V3_V4.code) {
                 vaStartIdx = i
             } else if (vaStartIdx != -1) {
                 when (opcode.code) {
-                    OP_ARG_PUSHR.code,
-                    OP_ARG_PUSHL.code,
-                    OP_ARG_PUSHB.code,
-                    OP_ARG_PUSHW.code,
-                    OP_ARG_PUSHA.code,
-                    OP_ARG_PUSHO.code,
-                    OP_ARG_PUSHS.code,
+                    OP_ARG_PUSHR_V3_V4.code,
+                    OP_ARG_PUSHL_V3_V4.code,
+                    OP_ARG_PUSHB_V3_V4.code,
+                    OP_ARG_PUSHW_V3_V4.code,
+                    OP_ARG_PUSHA_V3_V4.code,
+                    OP_ARG_PUSHO_V3_V4.code,
+                    OP_ARG_PUSHS_V3_V4.code,
                     -> stack.add(instruction)
                 }
             }
@@ -279,12 +279,12 @@ private class RegisterValueFinder {
             val arg = instruction.args.first()
 
             when (instruction.opcode.code) {
-                OP_ARG_PUSHR.code ->
+                OP_ARG_PUSHR_V3_V4.code ->
                     find(LinkedHashSet(path), block, vaStartIdx, (arg as IntArg).value)
 
-                OP_ARG_PUSHL.code,
-                OP_ARG_PUSHB.code,
-                OP_ARG_PUSHW.code,
+                OP_ARG_PUSHL_V3_V4.code,
+                OP_ARG_PUSHB_V3_V4.code,
+                OP_ARG_PUSHW_V3_V4.code,
                 -> ValueSet.of((arg as IntArg).value)
 
                 // TODO: Deal with strings.

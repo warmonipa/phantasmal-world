@@ -57,25 +57,25 @@ class DisassemblyTests : LibTestSuite {
                     labels = mutableListOf(0),
                     instructions = mutableListOf(
                         Instruction(
-                            opcode = OP_VA_START,
+                            opcode = OP_VA_START_V3_V4,
                             args = emptyList(),
                             srcLoc = null,
                             valid = true,
                         ),
                         Instruction(
-                            opcode = OP_ARG_PUSHW,
+                            opcode = OP_ARG_PUSHW_V3_V4,
                             args = listOf(IntArg(1337)),
                             srcLoc = null,
                             valid = true,
                         ),
                         Instruction(
-                            opcode = OP_VA_CALL,
+                            opcode = OP_VA_CALL_V3_V4,
                             args = listOf(IntArg(100)),
                             srcLoc = null,
                             valid = true,
                         ),
                         Instruction(
-                            opcode = OP_VA_END,
+                            opcode = OP_VA_END_V3_V4,
                             args = emptyList(),
                             srcLoc = null,
                             valid = true,

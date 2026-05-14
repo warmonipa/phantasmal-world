@@ -35,6 +35,7 @@ opcodes:
         Initializes a variable argument list.
         Make sure to call va_end after va_start and va_call.
     params: []
+    versions: V3_V4
 
   - code: 0x06
     mnemonic: va_end
@@ -42,6 +43,7 @@ opcodes:
         Restores the registers overwritten by arg_push* instructions.
         Called after va_call.
     params: []
+    versions: V3_V4
 
   - code: 0x07
     mnemonic: va_call
@@ -50,6 +52,7 @@ opcodes:
         Called after initializing the argument list with va_start and pushing arguments onto the stack with arg_push* instructions. Make sure to call va_end afterwards.
     params:
       - type: ilabel
+    versions: V3_V4
 
   - code: 0x08
     mnemonic: let
@@ -714,6 +717,7 @@ opcodes:
         registers:
           - type: any
             write: true
+    versions: V3_V4
 
   - code: 0x44
     mnemonic: stack_pushm
@@ -722,6 +726,7 @@ opcodes:
       - type: reg
         read: true
       - type: int
+    versions: V3_V4
 
   - code: 0x45
     mnemonic: stack_popm
@@ -730,6 +735,7 @@ opcodes:
       - type: reg
         write: true
       - type: int
+    versions: V3_V4
 
   - code: 0x48
     mnemonic: arg_pushr
@@ -740,6 +746,7 @@ opcodes:
           - type: any
             read: true
     stack: push
+    versions: V3_V4
 
   - code: 0x49
     mnemonic: arg_pushl
@@ -747,6 +754,7 @@ opcodes:
     params:
       - type: int
     stack: push
+    versions: V3_V4
 
   - code: 0x4a
     mnemonic: arg_pushb
@@ -754,6 +762,7 @@ opcodes:
     params:
       - type: byte
     stack: push
+    versions: V3_V4
 
   - code: 0x4b
     mnemonic: arg_pushw
@@ -761,6 +770,7 @@ opcodes:
     params:
       - type: short
     stack: push
+    versions: V3_V4
 
   - code: 0x4c
     mnemonic: arg_pusha
@@ -771,6 +781,7 @@ opcodes:
           - type: any
             read: true
     stack: push
+    versions: V3_V4
 
   - code: 0x4d
     mnemonic: arg_pusho
@@ -778,6 +789,7 @@ opcodes:
     params:
       - type: label
     stack: push
+    versions: V3_V4
 
   - code: 0x4e
     mnemonic: arg_pushs
@@ -785,6 +797,7 @@ opcodes:
     params:
       - type: string
     stack: push
+    versions: V3_V4
 
   - code: 0x4f
     mnemonic: unknown_4f
