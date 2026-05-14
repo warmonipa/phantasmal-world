@@ -167,7 +167,7 @@ private fun createBasicBlocks(cfg: ControlFlowGraphBuilder, segment: Instruction
             // Unconditional jump.
             OP_JMP.code -> {
                 branchType = BranchType.Jump
-                branchLabels = listOfNotNull((inst.args[0] as? IntArg)?.value)
+                branchLabels = listOfNotNull((inst.args.getOrNull(0) as? IntArg)?.value)
             }
 
             // Conditional jumps.
@@ -175,7 +175,7 @@ private fun createBasicBlocks(cfg: ControlFlowGraphBuilder, segment: Instruction
             OP_JMP_OFF.code,
             -> {
                 branchType = BranchType.ConditionalJump
-                branchLabels = listOfNotNull((inst.args[0] as? IntArg)?.value)
+                branchLabels = listOfNotNull((inst.args.getOrNull(0) as? IntArg)?.value)
             }
             OP_JMP_E.code,
             OP_JMPI_E.code,
@@ -199,7 +199,7 @@ private fun createBasicBlocks(cfg: ControlFlowGraphBuilder, segment: Instruction
             OP_JMPI_LE.code,
             -> {
                 branchType = BranchType.ConditionalJump
-                branchLabels = listOfNotNull((inst.args[2] as? IntArg)?.value)
+                branchLabels = listOfNotNull((inst.args.getOrNull(2) as? IntArg)?.value)
             }
             OP_SWITCH_JMP.code -> {
                 branchType = BranchType.ConditionalJump
@@ -211,7 +211,7 @@ private fun createBasicBlocks(cfg: ControlFlowGraphBuilder, segment: Instruction
             OP_VA_CALL_V3_V4.code,
             -> {
                 branchType = BranchType.Call
-                branchLabels = listOfNotNull((inst.args[0] as? IntArg)?.value)
+                branchLabels = listOfNotNull((inst.args.getOrNull(0) as? IntArg)?.value)
             }
             OP_SWITCH_CALL.code -> {
                 branchType = BranchType.Call
