@@ -316,10 +316,24 @@ fun parseBytecode(
         val segment = offsetToSegment[labelOffset]
 
         if (segment == null) {
-            // labelOffset within bytecode buffer but not on a segment boundary:
-            // points inside a parent segment (common when string data is referenced
-            // from instructions but isn't at its own label-table position).
-            // Newserv silently shows the content as raw data; we downgrade to Info.
+            // The label table entry is non-null but its offset doesn't coincide with the
+            // start of any segment we built. Two cases:
+            //
+            // 1. labelOffset is within the bytecode buffer — the label points INTO the
+            //    middle of a parent segment (typically string/dialog data referenced from
+            //    instructions). Example: quest 230 "Blue Star Memories" (Episode 2 VR)
+            //    has its dialog strings ("There's so many of them!", "We won't be beaten!")
+            //    referenced via labels 660 and 15, whose offsets land inside the
+            //    instruction segment that contains them rather than at their own segment
+            //    boundaries. Newserv handles this by detecting the label-points-into-data
+            //    pattern at disassembly time and rendering the bytes as raw string content
+            //    ("// As raw data: There's so many of them!"). We currently don't surface
+            //    the underlying bytes through this label — we just downgrade the noise to
+            //    Info severity. TODO(future): build a sub-segment at labelOffset so the
+            //    label can resolve to actual content the editor/UI can display.
+            //
+            // 2. labelOffset is out of range — genuinely corrupt label table entry. Keep
+            //    as Warning so it surfaces in normal use.
             val inRange = labelOffset in 0 until cursor.size
             result.addProblem(
                 if (inRange) Severity.Info else Severity.Warning,
