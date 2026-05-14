@@ -74,6 +74,27 @@ private fun writeShiftJisInto(
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Opcodes that unconditionally transfer control elsewhere and never fall through to the next
+ * instruction.  Mirrors newserv's F_TERMINATOR flag (ret=0x01, exit=0x03, jmp=0x28).
+ *
+ * For pre-BB versions (V0_V2 and GC_V3), the segment walker stops consuming bytes as soon as
+ * it has parsed one of these opcodes. Any trailing bytes before the next label boundary are
+ * typically padding or garbage bytes (e.g., 0x9F) that are not valid instructions and must not
+ * be interpreted as additional instructions — they produce spurious unknown_xx entries in the
+ * parsed IR that don't appear in newserv's disassembly.
+ *
+ * BB_V4 quests are excluded: in BB, bytes after terminators are valid (though unreachable) known
+ * opcodes such as ret/nop that serve as alignment padding. Stopping early in BB would break the
+ * byte-for-byte round-trip (parse → disassemble → assemble) because the assembler folds unlabeled
+ * trailing instructions back into the preceding labeled segment, producing a different IR.
+ */
+internal val TERMINATOR_OPCODES = setOf(
+    0x01, // ret
+    0x03, // exit
+    0x28, // jmp  (unconditional)
+)
+
 private const val MAX_TOTAL_NOPS = 20
 private const val MAX_SEQUENTIAL_NOPS = 10
 private const val MAX_UNKNOWN_OPCODE_RATIO = 0.2
@@ -583,9 +604,22 @@ private fun parseInstructionsSegment(
         val opcode = codeToOpcode(fullOpcode, version)
 
         // Parse the arguments.
+        var terminatorHit = false
         try {
             val args = parseInstructionArguments(cursor, opcode, version, stringEncoding)
             instructions.add(Instruction(opcode, args, srcLoc = null, valid = true))
+            // Stop consuming bytes once we've parsed an unconditional-terminator instruction
+            // (ret / exit / jmp) — but only for pre-BB versions.
+            //
+            // In DC/GC/PC quests, any bytes between the terminator and the next label boundary
+            // are alignment padding or garbage (e.g., 0x9F), and parsing them as instructions
+            // produces spurious unknown_xx entries that don't appear in newserv's disassembly.
+            //
+            // BB_V4 is excluded: in BB, post-terminator bytes are valid (though unreachable)
+            // known opcodes (ret, nop) used for alignment. Stopping early in BB breaks the
+            // byte-for-byte round-trip because the assembler folds unlabeled trailing instructions
+            // back into the preceding labeled segment, yielding a different IR.
+            if (version != Version.BB_V4 && opcode.code in TERMINATOR_OPCODES) terminatorHit = true
         } catch (e: Exception) {
             if (lenient) {
                 logger.error(e) {
@@ -596,19 +630,29 @@ private fun parseInstructionsSegment(
                 throw e
             }
         }
+        if (terminatorHit) break
     }
 
     // Recurse on label drop-through.
     if (nextLabel != null) {
-        // Find the last ret or jmp.
         var dropThrough = true
 
-        for (i in instructions.lastIndex downTo 0) {
-            val opcode = instructions[i].opcode.code
-
-            if (opcode == OP_RET.code || opcode == OP_JMP.code) {
+        if (version != Version.BB_V4) {
+            // For pre-BB versions, we stopped at the first terminator (if any), so the last
+            // instruction IS the terminator — no need to scan backwards.
+            if (instructions.isNotEmpty() &&
+                instructions.last().opcode.code in TERMINATOR_OPCODES
+            ) {
                 dropThrough = false
-                break
+            }
+        } else {
+            // For BB_V4, retain the original backward scan for ret or jmp.
+            for (i in instructions.lastIndex downTo 0) {
+                val code = instructions[i].opcode.code
+                if (code == OP_RET.code || code == OP_JMP.code) {
+                    dropThrough = false
+                    break
+                }
             }
         }
 
