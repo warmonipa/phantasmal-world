@@ -4241,18 +4241,17 @@ opcodes:
 
   - code: 0xF88D
     mnemonic: chl_set_timerecord
-    doc: "Sets the challenge mode time record. (V2 + V3 form, 1 register; newserv QuestScript.cc:1719)"
+    doc: "Sets the challenge mode time record. (V2 + V3 form, 1 register; newserv QuestScript.cc:1719) Inline read on V2_V3 (newserv: no F_ARGS)."
     params:
       - type: reg
         registers:
           - type: int
             read: true
-    stack: pop
     versions: V2_V3
 
   - code: 0xF88D
     mnemonic: chl_set_timerecord
-    doc: "Sets the challenge mode time record. (V4 form, 2 registers; newserv QuestScript.cc:1720)"
+    doc: "Sets the challenge mode time record. (V4 form, 2 registers; newserv QuestScript.cc:1720) Inline read on V4 (newserv: no F_ARGS)."
     params:
       - type: reg
         registers:
@@ -4260,7 +4259,6 @@ opcodes:
             read: true
           - type: int
             read: true
-    stack: pop
     versions: V4
 
   - code: 0xf88e
