@@ -2898,16 +2898,14 @@ opcodes:
 
   - code: 0xef
     mnemonic: sync_register2
-    doc: "Sets regA to regB's value, and sends 6x77. V1_V2 inline form: two register refs (4-byte encoding each). (newserv QuestScript.cc:1192)"
+    doc: "Sets regA to regB's value, and sends 6x77. V1_V2 inline form: two 4-byte register numbers (W_REG32 + R_REG32 encoding, confirmed in newserv for DC_V2 and PC_V2). Modeled as int+int to correctly consume 8 arg bytes. (newserv QuestScript.cc:1192)"
     params:
-      - type: reg
-        registers:
-          - type: int
-            write: true
-      - type: reg
-        registers:
-          - type: int
-            read: true
+      - type: int
+        name: dst_reg
+        doc: "Destination register number (4-byte little-endian encoding)."
+      - type: int
+        name: src_reg
+        doc: "Source register number (4-byte little-endian encoding)."
     versions: V1_V2
 
   - code: 0xef
