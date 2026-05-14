@@ -63,13 +63,17 @@ class _NewservCompatScan : LibTestSuite {
                 } else name to ""
             } else name to ""
 
-            val datFile = File(binFile.parentFile, "$stem.dat")
+            // Try lang-less dat first (common: q058-gc.dat), then lang-suffixed dat (q411-bb-e.dat).
+            val datFile = listOf(
+                File(binFile.parentFile, "$stem.dat"),
+                File(binFile.parentFile, "$stem${if (lang.isEmpty()) "" else "-$lang"}.dat"),
+            ).firstOrNull { it.exists() }
             val key = PairKey(binFile.parentFile, stem, lang)
 
-            if (!datFile.exists()) {
+            if (datFile == null) {
                 noPair++
                 outcomes.add(Outcome(key, binFile.length().toInt(), 0, "SKIP", null, 0, 0,
-                    "no matching .dat (looked for ${datFile.name})"))
+                    "no matching .dat (looked for $stem.dat and $stem-$lang.dat)"))
                 continue
             }
 
