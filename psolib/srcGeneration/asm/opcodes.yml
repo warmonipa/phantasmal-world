@@ -2850,14 +2850,15 @@ opcodes:
             read: true
 
   - code: 0xea
-    mnemonic: unknown_ea
-    doc: "regA %= valueB This is exactly the same as the modi opcode (including its quirk)."
+    mnemonic: modi2
+    doc: "modify register (newserv QuestScript.cc:1172, F_V1_V4) regA %= valueB This is exactly the same as the modi opcode (including its quirk)."
     params:
       - type: reg
         registers:
           - type: int
-            read: true
+            write: true
       - type: int
+    versions: V1_V4
 
   - code: 0xeb
     mnemonic: enable_bgmctrl
