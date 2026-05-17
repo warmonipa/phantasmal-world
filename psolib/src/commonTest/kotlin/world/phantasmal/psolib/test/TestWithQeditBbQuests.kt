@@ -42,7 +42,7 @@ val QEDIT_BB_QUESTS = listOf(
     "/solo/ep1/side/magnitude of metal.qst",
     "/solo/ep1/side/unsealed door.qst",
     "/solo/ep1/side/soul of steel.qst",
-    "/ep1/vr/maximum attack 1 ver2 (eng).qst",
+    "/ep1/event/maximum attack 1 ver2.qst",
     "/solo/ep2/side/seat of the heart (offline version).qst",
     "/solo/ep1/side/the value of money.qst",
     "/ep1/gov/1-1_planet ragol.qst",

@@ -55,7 +55,6 @@ val TETHEALLA_QUESTS = listOf(
     "/ep1/recovery/lost ice spinner.qst",
     "/ep1/recovery/lost soul blade.qst",
     "/ep1/recovery/rappy holiday.qst",
-    "/ep1/vr/labyrinthe trial.qst",
     "/ep1/vr/ttf.qst",
     "/ep2/event/beach laughter.qst",
     "/ep2/event/christmas.qst",
