@@ -20,7 +20,7 @@ class GenerateTestQst : LibTestSuite {
 
     @Test
     fun generate_quest_with_enemy_data() = testAsync {
-        val result = parseQstToQuest(readFile("/quests/ep2/seat_of_the_heart.qst"))
+        val result = parseQstToQuest(readFile("/quests/ep2/seat of the heart.qst"))
         assertTrue(result is Success)
 
         val quest = result.value.quest

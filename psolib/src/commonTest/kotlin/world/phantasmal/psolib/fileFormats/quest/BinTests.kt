@@ -29,7 +29,7 @@ class BinTests : LibTestSuite {
     fun parse_and_write_towards_the_future() = parseAndWriteQuest("/quests/ep1/vr/towards the future (decompressed).bin")
 
     @Test
-    fun parse_and_write_seat_of_the_heart() = parseAndWriteQuest("/quests/ep2/seat_of_the_heart_decompressed.bin")
+    fun parse_and_write_seat_of_the_heart() = parseAndWriteQuest("/quests/ep2/seat of the heart (decompressed).bin")
 
     /**
      * Verify DC/GC bin header reads language byte at offset 16 (before unknown_a3),

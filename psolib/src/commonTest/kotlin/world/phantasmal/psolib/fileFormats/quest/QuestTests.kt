@@ -170,7 +170,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun round_trip_test_with_seat_of_the_heart() = testAsync {
-        val filename = "seat_of_the_heart.qst"
+        val filename = "seat of the heart.qst"
         roundTripTest(filename, readFile("/quests/ep2/$filename"))
     }
 
@@ -318,7 +318,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun cross_episode_map_designate_should_set_mapEpisode() = testAsync {
-        val result = parseQstToQuest(readFile("/quests/ep4/lost_son_hopkins.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("/quests/ep4/lost son hopkins.qst"), lenient = true)
         assertTrue(result is Success, "Failed to parse quest: ${result.problems.joinToString()}")
 
         val quest = result.value.quest

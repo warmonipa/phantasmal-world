@@ -59,10 +59,8 @@ val TETHEALLA_QUESTS = listOf(
     "/ep2/event/dream messenger (jp).qst",
     "/ep2/event/ma2.qst",
     // ma4-a.qst seems corrupt, doesn't work in qedit either.
-//    "/ep2/event/ma4-a.qst",
     "/ep2/event/ma4-b.qst",
     "/ep2/event/ma4-c.qst",
-    "/ep2/event/quest239.qst",
     "/ep2/event/singing by the beach.qst",
     "/ep2/shop/gallon.qst",
     "/ep2/vr/reach for the dream.qst",
@@ -155,8 +153,8 @@ val TETHEALLA_QUESTS = listOf(
     "/solo/ep2/01.qst",
     "/solo/ep4/01-blackpaper.qst",
     "/solo/ep4/02-pioneer spirit.qst",
-    "/solo/ep4/03-Warrior Pride.qst",
-    "/solo/ep4/04-Restless Lion.qst",
+    "/solo/ep4/03-warrior pride.qst",
+    "/solo/ep4/04-restless lion.qst",
     "/solo/ep4/blackpaper2.qst",
     "/solo/ep4/wilderending.qst",
 )

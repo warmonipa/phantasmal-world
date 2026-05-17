@@ -17,7 +17,7 @@ private val BB = Version.BB_V4
 class DisassemblyAssemblyRoundTripTests : LibTestSuite {
     @Test
     fun assembling_disassembled_bytecode_should_result_in_the_same_IR() = testAsync {
-        val bin = parseBin(readFile("/quests/ep2/seat_of_the_heart_decompressed.bin"))
+        val bin = parseBin(readFile("/quests/ep2/seat of the heart (decompressed).bin"))
         val expectedIr = parseBytecode(
             bin.bytecode,
             bin.labelOffsets,
@@ -35,7 +35,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
 
     @Test
     fun disassembling_assembled_bytecode_should_result_in_the_same_ASM() = testAsync {
-        val bin = parseBin(readFile("/quests/ep2/seat_of_the_heart_decompressed.bin"))
+        val bin = parseBin(readFile("/quests/ep2/seat of the heart (decompressed).bin"))
         val ir = parseBytecode(
             bin.bytecode,
             bin.labelOffsets,
@@ -53,7 +53,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
     @Test
     fun assembling_disassembled_bytecode_results_in_the_same_bytecode() =
         testAsync {
-            val origBin = parseBin(readFile("/quests/ep2/seat_of_the_heart_decompressed.bin"))
+            val origBin = parseBin(readFile("/quests/ep2/seat of the heart (decompressed).bin"))
             val origBytecode = origBin.bytecode
             val result = assemble(
                 disassemble(
