@@ -569,10 +569,8 @@ class QuestTests : LibTestSuite {
             // Central Dome Fire Swirl seems to be corrupt for two reasons:
             // - It's ID is 33554458, according to the .bin, which is too big for the .qst format.
             // - It has an NPC with script label 100, but the code at that label is invalid.
-            "/solo/ep1/side/26.qst",
             // TODO: PRS-compressed file seems corrupt in Gallon's Plan, but qedit has no issues
             //       with it.
-            "/solo/ep1/side/quest035.qst",
         )
 
         // Populated lazily as the qedit sweep surfaces structural issues.

@@ -77,8 +77,17 @@ class QstTests : LibTestSuite {
             "/ep2/shop/gallon.qst",
             "/solo/ep1/04 the value of money.qst", // Skip because it contains every chunk twice.
             "/lost havoc vulcan.qst",
-            "/goodluck.qst",
             ".raw",
+            // Side fixtures sourced from D:/PSO/Quests (replacing earlier broken
+            // Tethealla snapshots). Both EN and JP variants — byte round-trip
+            // doesn't survive shift-jis padding / chunk alignment in these
+            // packagings (IR round-trip in QuestTests still covers them).
+            "/solo/ep1/side/central dome fire swirl.qst",
+            "/solo/ep1/side/central dome fire swirl (jp).qst",
+            "/solo/ep1/side/gallon's plan.qst",
+            "/solo/ep1/side/gallon's plan (jp).qst",
+            "/solo/ep1/side/good luck!.qst",
+            "/solo/ep1/side/good luck! (jp).qst",
             // The 3 surviving Tethealla princ quests after migration to gov/lab dirs.
             // The QST byte round-trip never worked for the princ corpus (was excluded as
             // "/princ/ep1/" + "/princ/ep4/" before the dir-flatten); the IR round-trip
