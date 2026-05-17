@@ -10,11 +10,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class RoundTripV0V2Test : LibTestSuite {
-    @Test fun dc_v1_round_trip() = roundTrip("/q058-d1-e.bin", "/q058-d1.dat")
-    @Test fun dc_v2_round_trip() = roundTrip("/q058-dc-e.bin", "/q058-dc.dat")
-    @Test fun pc_v2_round_trip() = roundTrip("/q058-pc-e.bin", "/q058-pc.dat")
-    @Test fun gc_nte_round_trip() = roundTrip("/q058-gcn-e.bin", "/q058-gcn.dat")
-    @Test fun gc_nte_jp_round_trip() = roundTripJp("/quest58_j_nte.bin", "/quest58_j_nte.dat")
+    @Test fun dc_v1_round_trip() = roundTrip("/quests/q058-d1-e.bin", "/quests/q058-d1.dat")
+    @Test fun dc_v2_round_trip() = roundTrip("/quests/q058-dc-e.bin", "/quests/q058-dc.dat")
+    @Test fun pc_v2_round_trip() = roundTrip("/quests/q058-pc-e.bin", "/quests/q058-pc.dat")
+    @Test fun gc_nte_round_trip() = roundTrip("/quests/q058-gcn-e.bin", "/quests/q058-gcn.dat")
+    @Test fun gc_nte_jp_round_trip() = roundTripJp("/quests/quest58_j_nte.bin", "/quests/quest58_j_nte.dat")
 
     private fun roundTrip(binPath: String, datPath: String) = testAsync {
         val r1 = parseBinDatToQuestAutoDetect(

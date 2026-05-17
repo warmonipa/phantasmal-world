@@ -3,15 +3,26 @@ package world.phantasmal.psolib.test
 /**
  * Applies [process] to all quest files provided with Tethealla version 0.143.
  * [process] is called with the path to the file and the file name.
+ *
+ * Files live alongside other corpora (e.g. qedit BB) under the shared
+ * [QUEST_RESOURCE_PREFIX] tree; the path layout below the prefix is the
+ * Tethealla snapshot's original (battle/, ep1/, princ/, solo/, ...).
+ * Challenge-mode entries were deduplicated against the qedit corpus
+ * (md5-equal) and removed from this list — see [QEDIT_BB_QUESTS] for
+ * `chl/ep1/1cN_e.qst` and `chl/ep2/2cN_e.qst`.
  */
 inline fun testWithTetheallaQuests(process: (path: String, filename: String) -> Unit) {
     for (file in TETHEALLA_QUESTS) {
         val lastSlashIdx = file.lastIndexOf('/')
-        process(TETHEALLA_QUEST_PATH_PREFIX + file, file.drop(lastSlashIdx + 1))
+        process(QUEST_RESOURCE_PREFIX + file, file.drop(lastSlashIdx + 1))
     }
 }
 
-const val TETHEALLA_QUEST_PATH_PREFIX = "/tethealla_v0.143_quests"
+/**
+ * Shared classpath prefix for all in-repo quest fixtures (Tethealla snapshot,
+ * qedit Wiki BB corpus, etc.). See `psolib/src/commonTest/resources/quests/`.
+ */
+const val QUEST_RESOURCE_PREFIX = "/quests"
 
 val TETHEALLA_QUESTS = listOf(
     "/battle/1.qst",
@@ -22,20 +33,6 @@ val TETHEALLA_QUESTS = listOf(
     "/battle/6.qst",
     "/battle/7.qst",
     "/battle/8.qst",
-    "/chl/ep1/1.qst",
-    "/chl/ep1/2.qst",
-    "/chl/ep1/3.qst",
-    "/chl/ep1/4.qst",
-    "/chl/ep1/5.qst",
-    "/chl/ep1/6.qst",
-    "/chl/ep1/7.qst",
-    "/chl/ep1/8.qst",
-    "/chl/ep1/9.qst",
-    "/chl/ep2/21.qst",
-    "/chl/ep2/22.qst",
-    "/chl/ep2/23.qst",
-    "/chl/ep2/24.qst",
-    "/chl/ep2/25.qst",
     "/ep1/event/ma1.qst",
     "/ep1/event/ma4-a.qst",
     "/ep1/event/ma4-b.qst",

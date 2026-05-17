@@ -17,7 +17,7 @@ private val BB = Version.BB_V4
 class DisassemblyAssemblyRoundTripTests : LibTestSuite {
     @Test
     fun assembling_disassembled_bytecode_should_result_in_the_same_IR() = testAsync {
-        val bin = parseBin(readFile("/seat_of_the_heart_decompressed.bin"))
+        val bin = parseBin(readFile("/quests/seat_of_the_heart_decompressed.bin"))
         val expectedIr = parseBytecode(
             bin.bytecode,
             bin.labelOffsets,
@@ -35,7 +35,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
 
     @Test
     fun disassembling_assembled_bytecode_should_result_in_the_same_ASM() = testAsync {
-        val bin = parseBin(readFile("/seat_of_the_heart_decompressed.bin"))
+        val bin = parseBin(readFile("/quests/seat_of_the_heart_decompressed.bin"))
         val ir = parseBytecode(
             bin.bytecode,
             bin.labelOffsets,
@@ -53,7 +53,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
     @Test
     fun assembling_disassembled_bytecode_results_in_the_same_bytecode() =
         testAsync {
-            val origBin = parseBin(readFile("/seat_of_the_heart_decompressed.bin"))
+            val origBin = parseBin(readFile("/quests/seat_of_the_heart_decompressed.bin"))
             val origBytecode = origBin.bytecode
             val result = assemble(
                 disassemble(
@@ -83,7 +83,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
      */
     @Test
     fun gc_quest_bytecode_round_trip() = testAsync {
-        val qst = parseQst(readFile("/lost_heat_sword_gc.qst")).unwrap()
+        val qst = parseQst(readFile("/quests/lost_heat_sword_gc.qst")).unwrap()
         val binFile = qst.files.first { it.filename.trim().lowercase().endsWith(".bin") }
         val origBin = parseBin(prsDecompress(binFile.data.cursor()).unwrap())
         assertEquals(BinFormat.DC_GC, origBin.format)
@@ -108,7 +108,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
      */
     @Test
     fun gc_quest_disassemble_assemble_bytecode_round_trip() = testAsync {
-        val qst = parseQst(readFile("/lost_heat_sword_gc.qst")).unwrap()
+        val qst = parseQst(readFile("/quests/lost_heat_sword_gc.qst")).unwrap()
         val binFile = qst.files.first { it.filename.trim().lowercase().endsWith(".bin") }
         val origBin = parseBin(prsDecompress(binFile.data.cursor()).unwrap())
 

@@ -2,13 +2,13 @@ package world.phantasmal.psolib.fileFormats.quest
 
 import world.phantasmal.core.Success
 import world.phantasmal.psolib.test.LibTestSuite
-import world.phantasmal.psolib.test.TETHEALLA_QUEST_PATH_PREFIX
+import world.phantasmal.psolib.test.QUEST_RESOURCE_PREFIX
 import world.phantasmal.psolib.test.readFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-private const val CHL_QST = "$TETHEALLA_QUEST_PATH_PREFIX/chl/ep1/1.qst"
+private const val CHL_QST = "$QUEST_RESOURCE_PREFIX/chl/ep1/1c1_e.qst"
 
 /**
  * Tests to verify challenge mode wave settings parsing.

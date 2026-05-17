@@ -9,7 +9,7 @@ import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.test.LibTestSuite
 import world.phantasmal.psolib.test.assertDeepEquals
 import world.phantasmal.psolib.test.readFile
-import world.phantasmal.psolib.test.TETHEALLA_QUEST_PATH_PREFIX
+import world.phantasmal.psolib.test.QUEST_RESOURCE_PREFIX
 import world.phantasmal.psolib.test.testWithQeditBbQuests
 import world.phantasmal.psolib.test.testWithTetheallaQuests
 import kotlin.test.Test
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class QuestTests : LibTestSuite {
     @Test
     fun parseBinDatToQuest_with_towards_the_future() = testAsync {
-        val result = parseBinDatToQuest(readFile("/towards_the_future.bin"), readFile("/towards_the_future.dat"))
+        val result = parseBinDatToQuest(readFile("/quests/towards_the_future.bin"), readFile("/quests/towards_the_future.dat"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -30,7 +30,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun parseQstToQuest_with_towards_the_future() = testAsync {
-        val result = parseQstToQuest(readFile("/towards_the_future.qst"))
+        val result = parseQstToQuest(readFile("/quests/towards_the_future.qst"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -98,7 +98,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun particle_v3_floor_attribution_in_pw4() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
         assertTrue(result is Success)
         val quest = result.value.quest
 
@@ -126,7 +126,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun parseQstToQuest_with_phantasmal_world_4_multi_floor() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
 
         assertTrue(result is Success)
 
@@ -165,24 +165,24 @@ class QuestTests : LibTestSuite {
     @Test
     fun round_trip_test_with_towards_the_future() = testAsync {
         val filename = "towards_the_future.qst"
-        roundTripTest(filename, readFile("/$filename"))
+        roundTripTest(filename, readFile("/quests/$filename"))
     }
 
     @Test
     fun round_trip_test_with_seat_of_the_heart() = testAsync {
         val filename = "seat_of_the_heart.qst"
-        roundTripTest(filename, readFile("/$filename"))
+        roundTripTest(filename, readFile("/quests/$filename"))
     }
 
     @Test
     fun round_trip_test_with_lost_head_sword_gc() = testAsync {
         val filename = "lost_heat_sword_gc.qst"
-        roundTripTest(filename, readFile("/$filename"))
+        roundTripTest(filename, readFile("/quests/$filename"))
     }
 
     @Test
     fun parseQstToQuest_with_challenge_mode_quest() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/chl/ep1/1.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/chl/ep1/1c1_e.qst"), lenient = true)
 
         assertTrue(result is Success, "Failed to parse challenge mode quest: ${result.problems.joinToString()}")
 
@@ -202,7 +202,7 @@ class QuestTests : LibTestSuite {
     @Test
     fun round_trip_test_with_challenge_mode_quest() = testAsync {
         // Just verify DAT parsing works correctly
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/chl/ep1/1.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/chl/ep1/1c1_e.qst"), lenient = true)
         assertTrue(result is Success)
 
         val quest = result.value.quest
@@ -318,7 +318,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun cross_episode_map_designate_should_set_mapEpisode() = testAsync {
-        val result = parseQstToQuest(readFile("/lost_son_hopkins.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("/quests/lost_son_hopkins.qst"), lenient = true)
         assertTrue(result is Success, "Failed to parse quest: ${result.problems.joinToString()}")
 
         val quest = result.value.quest
@@ -378,7 +378,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun parse_pw4_tower_floor_mappings() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
 
         assertTrue(result is Success, "Failed: ${result.problems.joinToString()}")
 
@@ -409,7 +409,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun round_trip_ephinea_pw4() = testAsync {
-        val path = "$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"
+        val path = "$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"
         roundTripTest("pw4.qst", readFile(path))
     }
 
@@ -419,7 +419,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun parse_ephinea_ep1_chl_1c1() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/chl/ep1/1.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/chl/ep1/1c1_e.qst"), lenient = true)
 
         assertTrue(result is Success, "Failed to parse 1c1_e: ${result.problems.joinToString()}")
 
@@ -460,7 +460,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun round_trip_ephinea_ep1_chl_1c1() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/chl/ep1/1.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/chl/ep1/1c1_e.qst"), lenient = true)
         assertTrue(result is Success, "Parse failed: ${result.problems.joinToString()}")
 
         val quest = result.value.quest
@@ -499,7 +499,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun round_trip_ephinea_ep4_claries_deal() = testAsync {
-        val path = "$TETHEALLA_QUEST_PATH_PREFIX/ep4/event/clarie's deal.qst"
+        val path = "$QUEST_RESOURCE_PREFIX/ep4/event/clarie's deal.qst"
         val result = parseQstToQuest(readFile(path))
 
         assertTrue(result is Success, "Parse failed: ${result.problems.joinToString()}")
@@ -531,7 +531,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun round_trip_ephinea_ep2_chl_2c1() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/chl/ep2/21.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/chl/ep2/2c1_e.qst"), lenient = true)
         assertTrue(result is Success, "Parse failed: ${result.problems.joinToString()}")
 
         val quest = result.value.quest
@@ -551,8 +551,8 @@ class QuestTests : LibTestSuite {
     @Test
     fun quest_carries_version() = testAsync {
         val result = parseBinDatToQuest(
-            readFile("/towards_the_future.bin"),
-            readFile("/towards_the_future.dat"),
+            readFile("/quests/towards_the_future.bin"),
+            readFile("/quests/towards_the_future.dat"),
         )
         assertTrue(result is Success)
         // towards_the_future is BB; default detection should land on BB_V4.

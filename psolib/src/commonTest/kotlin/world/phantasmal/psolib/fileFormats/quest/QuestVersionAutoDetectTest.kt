@@ -29,8 +29,8 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     @Test
     fun auto_detect_picks_bb_v4_for_towards_the_future() = testAsync {
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/towards_the_future.bin"),
-            readFile("/towards_the_future.dat"),
+            readFile("/quests/towards_the_future.bin"),
+            readFile("/quests/towards_the_future.dat"),
             lenient = false,
             shiftJis = false,
         )
@@ -42,13 +42,13 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     fun lenient_flag_is_threaded_to_candidate_scoring() = testAsync {
         // Use towards_the_future (BB_V4); lenient should produce the same Success as strict for a clean quest.
         val strict = parseBinDatToQuestAutoDetect(
-            readFile("/towards_the_future.bin"),
-            readFile("/towards_the_future.dat"),
+            readFile("/quests/towards_the_future.bin"),
+            readFile("/quests/towards_the_future.dat"),
             lenient = false,
         )
         val lenientRun = parseBinDatToQuestAutoDetect(
-            readFile("/towards_the_future.bin"),
-            readFile("/towards_the_future.dat"),
+            readFile("/quests/towards_the_future.bin"),
+            readFile("/quests/towards_the_future.dat"),
             lenient = true,
         )
         assertTrue(strict is Success)
@@ -61,7 +61,7 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     @Test
     fun auto_detect_dc_v2_quest58() = testAsync {
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/q058-dc-e.bin"), readFile("/q058-dc.dat"),
+            readFile("/quests/q058-dc-e.bin"), readFile("/quests/q058-dc.dat"),
             lenient = false, shiftJis = false,
         )
         assertTrue(r is Success, "$r")
@@ -72,7 +72,7 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     @Test
     fun auto_detect_pc_v2_quest58() = testAsync {
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/q058-pc-e.bin"), readFile("/q058-pc.dat"),
+            readFile("/quests/q058-pc-e.bin"), readFile("/quests/q058-pc.dat"),
             lenient = false, shiftJis = false,
         )
         assertTrue(r is Success, "$r")
@@ -86,7 +86,7 @@ class QuestVersionAutoDetectTest : LibTestSuite {
         // Auto-detect picks the bin.format default (DC_V2). Strongest byte-level guarantee
         // is dialect == V0_V2.
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/q058-d1-e.bin"), readFile("/q058-d1.dat"),
+            readFile("/quests/q058-d1-e.bin"), readFile("/quests/q058-d1.dat"),
             lenient = false, shiftJis = false,
         )
         assertTrue(r is Success, "$r")
@@ -98,7 +98,7 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     fun auto_detect_gc_nte_en_quest58_resolves_to_v0_v2_dialect() = testAsync {
         // GC_NTE bytes are byte-identical to DC_V2 (newserv symlinks them). Same situation as DC_V1.
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/q058-gcn-e.bin"), readFile("/q058-gcn.dat"),
+            readFile("/quests/q058-gcn-e.bin"), readFile("/quests/q058-gcn.dat"),
             lenient = false, shiftJis = false,
         )
         assertTrue(r is Success, "$r")
@@ -110,7 +110,7 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     fun explicit_version_gc_nte_en_quest58() = testAsync {
         // With explicit version, the GC_NTE code path strict-parses cleanly.
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/q058-gcn-e.bin"), readFile("/q058-gcn.dat"),
+            readFile("/quests/q058-gcn-e.bin"), readFile("/quests/q058-gcn.dat"),
             lenient = false, shiftJis = false,
             version = Version.GC_NTE,
         )
