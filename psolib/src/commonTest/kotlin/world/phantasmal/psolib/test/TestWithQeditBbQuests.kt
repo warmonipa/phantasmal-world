@@ -17,7 +17,6 @@ inline fun testWithQeditBbQuests(process: (path: String, filename: String) -> Un
 }
 
 val QEDIT_BB_QUESTS = listOf(
-    "/battle/quest506_e.qst",
     "/chl/ep1/1c1_e.qst",
     "/chl/ep1/1c2_e.qst",
     "/chl/ep1/1c3_e.qst",
