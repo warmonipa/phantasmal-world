@@ -4,6 +4,7 @@ import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.test.LibTestSuite
 import world.phantasmal.psolib.test.assertDeepEquals
 import world.phantasmal.psolib.test.readFile
+import world.phantasmal.psolib.test.testWithQeditBbQuests
 import world.phantasmal.psolib.test.testWithTetheallaQuests
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +49,28 @@ class QstTests : LibTestSuite {
         }
     }
 
+    /**
+     * Byte-for-byte parseQst -> writeQst round-trip across the qedit Wiki BB
+     * corpus (145 quests). Mirrors the Tethealla sweep above.
+     */
+    @Test
+    fun parseQst_and_writeQst_with_all_qedit_bb_quests() = testAsync {
+        testWithQeditBbQuests { path, _ ->
+            if (QEDIT_EXCLUDED.any { it in path }) return@testWithQeditBbQuests
+
+            try {
+                val origQst = readFile(path)
+                val parsedQst = parseQst(origQst).unwrap()
+                val newQst = writeQst(parsedQst)
+                origQst.seekStart(0)
+
+                assertDeepEquals(origQst, newQst.cursor())
+            } catch (e: Throwable) {
+                throw Exception("""Failed for "$path": ${e.message}""", e)
+            }
+        }
+    }
+
     companion object {
         // TODO: Figure out why we can't round-trip these quests.
         private val EXCLUDED = listOf(
@@ -60,5 +83,8 @@ class QstTests : LibTestSuite {
             "/goodluck.qst",
             ".raw",
         )
+
+        // Populated lazily as the qedit sweep surfaces structural issues.
+        private val QEDIT_EXCLUDED = listOf<String>()
     }
 }

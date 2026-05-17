@@ -10,6 +10,7 @@ import world.phantasmal.psolib.test.LibTestSuite
 import world.phantasmal.psolib.test.assertDeepEquals
 import world.phantasmal.psolib.test.readFile
 import world.phantasmal.psolib.test.TETHEALLA_QUEST_PATH_PREFIX
+import world.phantasmal.psolib.test.testWithQeditBbQuests
 import world.phantasmal.psolib.test.testWithTetheallaQuests
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -231,6 +232,24 @@ class QuestTests : LibTestSuite {
     fun round_trip_test_with_all_tethealla_quests() = testAsync(slow = true) {
         testWithTetheallaQuests { path, filename ->
             if (EXCLUDED.any { it in path }) return@testWithTetheallaQuests
+
+            try {
+                roundTripTest(filename, readFile(path))
+            } catch (e: Throwable) {
+                throw Exception("""Failed for "$path": ${e.message}""", e)
+            }
+        }
+    }
+
+    /**
+     * Full IR round-trip sweep over qedit Wiki BB corpus (145 quests).
+     * Mirrors the Tethealla sweep above; exercises the same parse/write code
+     * paths against a different fixture set sourced from qedit.info.
+     */
+    @Test
+    fun round_trip_test_with_all_qedit_bb_quests() = testAsync(slow = true) {
+        testWithQeditBbQuests { path, filename ->
+            if (QEDIT_EXCLUDED.any { it in path }) return@testWithQeditBbQuests
 
             try {
                 roundTripTest(filename, readFile(path))
@@ -555,5 +574,8 @@ class QuestTests : LibTestSuite {
             //       with it.
             "/solo/ep1/side/quest035.qst",
         )
+
+        // Populated lazily as the qedit sweep surfaces structural issues.
+        private val QEDIT_EXCLUDED = listOf<String>()
     }
 }
