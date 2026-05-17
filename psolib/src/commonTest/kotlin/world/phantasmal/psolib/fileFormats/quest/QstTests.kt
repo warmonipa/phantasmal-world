@@ -75,12 +75,17 @@ class QstTests : LibTestSuite {
         // TODO: Figure out why we can't round-trip these quests.
         private val EXCLUDED = listOf(
             "/ep2/shop/gallon.qst",
-            "/princ/ep1/",
-            "/princ/ep4/",
             "/solo/ep1/04.qst", // Skip because it contains every chunk twice.
             "/lost havoc vulcan.qst",
             "/goodluck.qst",
             ".raw",
+            // The 3 surviving Tethealla princ quests after migration to gov/lab dirs.
+            // The QST byte round-trip never worked for the princ corpus (was excluded as
+            // "/princ/ep1/" + "/princ/ep4/" before the dir-flatten); the IR round-trip
+            // in QuestTests does cover them.
+            "/ep1/gov/4-3 hero & daughter.qst",
+            "/ep2/lab/8-2 desire's end.qst",
+            "/ep4/gov/9-3 reality & truth.qst",
         )
 
         // Populated lazily as the qedit sweep surfaces structural issues.
