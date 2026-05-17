@@ -107,5 +107,4 @@ val QEDIT_BB_QUESTS = listOf(
     "/ep4/ext/new mop-up operation 3.qst",
     "/ep4/ext/new mop-up operation 4.qst",
     "/ep4/ext/new mop-up operation 5.qst",
-    "/ep2/event/ma4-a (jp).qst",
 )
