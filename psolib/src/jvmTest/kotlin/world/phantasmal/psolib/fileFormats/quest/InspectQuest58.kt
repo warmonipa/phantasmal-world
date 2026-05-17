@@ -39,9 +39,9 @@ class InspectQuest58 : LibTestSuite {
         // dialect parses cleanly. Sub-version disambiguation requires outer context (e.g.,
         // explicit `version` param or .qst wrapper) — see parseV0V2_gc_nte_explicit below.
         val binBytes = this::class.java.classLoader
-            .getResource("quests/quest58_j_nte.bin")!!.readBytes()
+            .getResource("quests/q058/quest58_j_nte.bin")!!.readBytes()
         val datBytes = this::class.java.classLoader
-            .getResource("quests/quest58_j_nte.dat")!!.readBytes()
+            .getResource("quests/q058/quest58_j_nte.dat")!!.readBytes()
 
         val r = parseBinDatToQuestAutoDetect(
             Buffer.fromByteArray(binBytes).cursor(),
@@ -64,9 +64,9 @@ class InspectQuest58 : LibTestSuite {
     fun parseV0V2_gc_nte_explicit() = testAsync {
         // When the caller knows the version, the GC_NTE code path strict-parses cleanly.
         val binBytes = this::class.java.classLoader
-            .getResource("quests/quest58_j_nte.bin")!!.readBytes()
+            .getResource("quests/q058/quest58_j_nte.bin")!!.readBytes()
         val datBytes = this::class.java.classLoader
-            .getResource("quests/quest58_j_nte.dat")!!.readBytes()
+            .getResource("quests/q058/quest58_j_nte.dat")!!.readBytes()
 
         val r = parseBinDatToQuestAutoDetect(
             Buffer.fromByteArray(binBytes).cursor(),
@@ -86,20 +86,20 @@ class InspectQuest58 : LibTestSuite {
     fun nte_and_v3_quest58_produce_equivalent_analysis() = testAsync {
         val nte = parseBinDatToQuestAutoDetect(
             Buffer.fromByteArray(
-                this::class.java.classLoader.getResource("quests/quest58_j_nte.bin")!!.readBytes()
+                this::class.java.classLoader.getResource("quests/q058/quest58_j_nte.bin")!!.readBytes()
             ).cursor(),
             Buffer.fromByteArray(
-                this::class.java.classLoader.getResource("quests/quest58_j_nte.dat")!!.readBytes()
+                this::class.java.classLoader.getResource("quests/q058/quest58_j_nte.dat")!!.readBytes()
             ).cursor(),
             lenient = false, shiftJis = true,
             version = Version.GC_NTE,
         )
         val v3 = parseBinDatToQuestAutoDetect(
             Buffer.fromByteArray(
-                this::class.java.classLoader.getResource("quests/quest58_j.bin")!!.readBytes()
+                this::class.java.classLoader.getResource("quests/q058/quest58_j.bin")!!.readBytes()
             ).cursor(),
             Buffer.fromByteArray(
-                this::class.java.classLoader.getResource("quests/quest58_j.dat")!!.readBytes()
+                this::class.java.classLoader.getResource("quests/q058/quest58_j.dat")!!.readBytes()
             ).cursor(),
             lenient = false, shiftJis = true,
         )

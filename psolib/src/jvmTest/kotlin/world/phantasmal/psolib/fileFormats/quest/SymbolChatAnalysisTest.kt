@@ -54,7 +54,7 @@ class SymbolChatAnalysisTest : LibTestSuite {
         val projectRoot = File(System.getProperty("user.dir")).let {
             if (it.name == "psolib") it.parentFile else it
         }
-        val file = File(projectRoot, "psolib/src/commonTest/resources/quests/symbol_chat_test.qst")
+        val file = File(projectRoot, "psolib/src/commonTest/resources/quests/symbolchat/symbol_chat_test.qst")
         assertTrue(file.exists(), "Test quest not found: ${file.absolutePath}")
         val result = parseQstToQuest(Buffer.fromByteArray(file.readBytes()).cursor(), lenient = true)
         assertTrue(result is Success, "Parse failed: ${result.problems}")

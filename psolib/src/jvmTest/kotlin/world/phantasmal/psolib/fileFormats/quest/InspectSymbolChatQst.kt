@@ -60,7 +60,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspectGeneratedTestQst() = testAsync {
-        val res = parseQstToQuest(readFile("/quests/symbol_chat_test.qst"), lenient = true)
+        val res = parseQstToQuest(readFile("/quests/symbolchat/symbol_chat_test.qst"), lenient = true)
         assertTrue(res is Success)
         val q = res.value.quest
 
@@ -117,7 +117,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspectFull() = testAsync {
-        val res = parseQstToQuest(readFile("/quests/symbol_chat_quest143_e.qst"), lenient = true)
+        val res = parseQstToQuest(readFile("/quests/symbolchat/symbol_chat_quest143_e.qst"), lenient = true)
         assertTrue(res is Success)
         val q = res.value.quest
 
@@ -156,7 +156,7 @@ class InspectSymbolChatQst : LibTestSuite {
 
     @Test
     fun inspect() = testAsync {
-        val parseResult = parseQstToQuest(readFile("/quests/symbol_chat_quest143_e.qst"), lenient = true)
+        val parseResult = parseQstToQuest(readFile("/quests/symbolchat/symbol_chat_quest143_e.qst"), lenient = true)
         assertTrue(parseResult is Success, "parse failed: ${parseResult.problems}")
         val quest = parseResult.value.quest
 

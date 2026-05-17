@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class QuestTests : LibTestSuite {
     @Test
     fun parseBinDatToQuest_with_towards_the_future() = testAsync {
-        val result = parseBinDatToQuest(readFile("/quests/towards_the_future.bin"), readFile("/quests/towards_the_future.dat"))
+        val result = parseBinDatToQuest(readFile("/quests/ep1/towards_the_future.bin"), readFile("/quests/ep1/towards_the_future.dat"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -30,7 +30,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun parseQstToQuest_with_towards_the_future() = testAsync {
-        val result = parseQstToQuest(readFile("/quests/towards_the_future.qst"))
+        val result = parseQstToQuest(readFile("/quests/ep1/towards_the_future.qst"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -165,19 +165,19 @@ class QuestTests : LibTestSuite {
     @Test
     fun round_trip_test_with_towards_the_future() = testAsync {
         val filename = "towards_the_future.qst"
-        roundTripTest(filename, readFile("/quests/$filename"))
+        roundTripTest(filename, readFile("/quests/ep1/$filename"))
     }
 
     @Test
     fun round_trip_test_with_seat_of_the_heart() = testAsync {
         val filename = "seat_of_the_heart.qst"
-        roundTripTest(filename, readFile("/quests/$filename"))
+        roundTripTest(filename, readFile("/quests/ep2/$filename"))
     }
 
     @Test
     fun round_trip_test_with_lost_head_sword_gc() = testAsync {
         val filename = "lost_heat_sword_gc.qst"
-        roundTripTest(filename, readFile("/quests/$filename"))
+        roundTripTest(filename, readFile("/quests/ep1/recovery/$filename"))
     }
 
     @Test
@@ -318,7 +318,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun cross_episode_map_designate_should_set_mapEpisode() = testAsync {
-        val result = parseQstToQuest(readFile("/quests/lost_son_hopkins.qst"), lenient = true)
+        val result = parseQstToQuest(readFile("/quests/ep4/lost_son_hopkins.qst"), lenient = true)
         assertTrue(result is Success, "Failed to parse quest: ${result.problems.joinToString()}")
 
         val quest = result.value.quest
@@ -551,8 +551,8 @@ class QuestTests : LibTestSuite {
     @Test
     fun quest_carries_version() = testAsync {
         val result = parseBinDatToQuest(
-            readFile("/quests/towards_the_future.bin"),
-            readFile("/quests/towards_the_future.dat"),
+            readFile("/quests/ep1/towards_the_future.bin"),
+            readFile("/quests/ep1/towards_the_future.dat"),
         )
         assertTrue(result is Success)
         // towards_the_future is BB; default detection should land on BB_V4.

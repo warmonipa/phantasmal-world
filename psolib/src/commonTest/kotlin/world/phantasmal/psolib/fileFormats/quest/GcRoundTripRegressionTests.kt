@@ -25,7 +25,7 @@ class GcRoundTripRegressionTests : LibTestSuite {
      */
     @Test
     fun parses_gc_quest_with_max_length_name_as_GC_V3() = testAsync {
-        val cursor = readFile("/quests/gc_long_qst_name_misdetect.qst")
+        val cursor = readFile("/quests/regression/gc_long_qst_name_misdetect.qst")
         val qst = parseQst(cursor).unwrap()
         assertEquals(Version.GC_V3, qst.version,
             "GC quest with 32-char header name must not be mis-detected as DC_V2")
@@ -33,7 +33,7 @@ class GcRoundTripRegressionTests : LibTestSuite {
 
     @Test
     fun gc_quest_with_max_length_name_round_trips_version() = testAsync {
-        val cursor = readFile("/quests/gc_long_qst_name_misdetect.qst")
+        val cursor = readFile("/quests/regression/gc_long_qst_name_misdetect.qst")
         val r1 = parseQstToQuest(cursor, lenient = true)
         assertTrue(r1 is Success, "first parse failed")
         val q1 = r1.value
@@ -55,7 +55,7 @@ class GcRoundTripRegressionTests : LibTestSuite {
      */
     @Test
     fun referenced_labels_survive_round_trip_in_doctors_vr() = testAsync {
-        val cursor = readFile("/quests/gc_label_loss_doctors_vr.qst")
+        val cursor = readFile("/quests/regression/gc_label_loss_doctors_vr.qst")
         val r1 = parseQstToQuest(cursor, lenient = true)
         assertTrue(r1 is Success, "first parse failed")
         val q1 = r1.value
