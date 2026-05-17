@@ -311,40 +311,54 @@ fun parseBytecode(
         offset += segment.size(stringEncoding, version)
     }
 
-    // Add unreferenced labels to their segment.
+    // Attach each label from the label table to a segment in the final IR.
+    //
+    // Three cases per label:
+    //
+    //   (a) Its offset is the start of a segment in `segments`. Just add the label.
+    //
+    //   (b) Its offset is inside a segment in `segments` (or its offset matches an
+    //       "orphan" segment in offsetToSegment that the linear walker overshot and
+    //       never added to `segments`). Split the parent at the offset so the label
+    //       anchors a real sub-segment in the IR. Without this the label is lost from
+    //       the IR — and on the next write, lost from the bytecode entirely: writeBytecode
+    //       iterates segment.labels to populate labelOffsets, so any unattached label
+    //       gets -1 and the next parse can't see it. Each round-trip then bleeds more
+    //       labels (case observed in 博士のVR: labels 252/278/404 dropped on trip 1,
+    //       380/412 on trip 2, with thread_stg(278) becoming a dangling reference).
+    //
+    //   (c) Split fails: either the offset is out of range (corrupt label table entry),
+    //       or it lands mid-instruction, or the parent is a StringSegment (atomic by
+    //       design — splitting mid-character corrupts the value; newserv handles this
+    //       case by rendering the bytes as raw string content but we currently don't).
+    //       Fall back to recording a problem; the label is still lost from the IR but
+    //       at least surfaces in problems. Severity is Info when in-range (the historical
+    //       "label-into-data" pattern, e.g. quest 230 dialog strings reached via labels
+    //       660/15 whose offsets land inside an instruction segment) and Warning when
+    //       out-of-range (genuinely corrupt).
+    val finalSegments = segments.toHashSet()
     for ((label, labelOffset) in labelHolder.labels) {
-        val segment = offsetToSegment[labelOffset]
+        val existing = offsetToSegment[labelOffset]
 
-        if (segment == null) {
-            // The label table entry is non-null but its offset doesn't coincide with the
-            // start of any segment we built. Two cases:
-            //
-            // 1. labelOffset is within the bytecode buffer — the label points INTO the
-            //    middle of a parent segment (typically string/dialog data referenced from
-            //    instructions). Example: quest 230 "Blue Star Memories" (Episode 2 VR)
-            //    has its dialog strings ("There's so many of them!", "We won't be beaten!")
-            //    referenced via labels 660 and 15, whose offsets land inside the
-            //    instruction segment that contains them rather than at their own segment
-            //    boundaries. Newserv handles this by detecting the label-points-into-data
-            //    pattern at disassembly time and rendering the bytes as raw string content
-            //    ("// As raw data: There's so many of them!"). We currently don't surface
-            //    the underlying bytes through this label — we just downgrade the noise to
-            //    Info severity. TODO(future): build a sub-segment at labelOffset so the
-            //    label can resolve to actual content the editor/UI can display.
-            //
-            // 2. labelOffset is out of range — genuinely corrupt label table entry. Keep
-            //    as Warning so it surfaces in normal use.
-            val inRange = labelOffset in 0 until cursor.size
+        if (existing != null && existing in finalSegments) {
+            if (label !in existing.labels) {
+                existing.labels.add(label)
+                existing.labels.sort()
+            }
+            continue
+        }
+
+        val inRange = labelOffset in 0 until cursor.size
+        val didSplit = inRange && trySplitSegmentForLabel(
+            segments, offsetToSegment, finalSegments, labelOffset, label, stringEncoding, version,
+        )
+
+        if (!didSplit) {
             result.addProblem(
                 if (inRange) Severity.Info else Severity.Warning,
                 "Label $label doesn't point to anything.",
                 "Label $label with offset $labelOffset doesn't point to anything.",
             )
-        } else {
-            if (label !in segment.labels) {
-                segment.labels.add(label)
-                segment.labels.sort()
-            }
         }
     }
 
@@ -364,6 +378,110 @@ fun parseBytecode(
     val ir = BytecodeIr(segments)
     normalizeStackArgs(ir)
     return result.success(ir)
+}
+
+/**
+ * Splits the segment in [segments] containing [labelOffset] so that [label] anchors a
+ * sub-segment. On success, replaces the parent in [segments] with two halves, updates
+ * [offsetToSegment] and [finalSegments], and returns true.
+ *
+ * Returns false (caller's responsibility to log the lost label) when:
+ *   - no segment in [segments] contains [labelOffset] (shouldn't happen for in-range
+ *     offsets after the linear walker has filled the buffer, but kept for safety);
+ *   - the parent is an [InstructionSegment] and [labelOffset] doesn't align with any
+ *     instruction's start (the label points into the middle of an opcode's args, which
+ *     can't be split without corrupting the instruction);
+ *   - the parent is a [StringSegment] (atomic — splitting mid-character corrupts the
+ *     decoded value).
+ *
+ * The split preserves the parent's original [Segment.labels] on the "before" half and
+ * gives the "after" half a fresh labels list containing just [label]; any further labels
+ * pointing into the same range will be re-processed by the caller and may split the
+ * "after" half again.
+ */
+private fun trySplitSegmentForLabel(
+    segments: MutableList<Segment>,
+    offsetToSegment: MutableMap<Int, Segment>,
+    finalSegments: MutableSet<Segment>,
+    labelOffset: Int,
+    label: Int,
+    stringEncoding: BytecodeStringEncoding,
+    version: Version,
+): Boolean {
+    // Locate the parent: walk segments accumulating start offsets until labelOffset
+    // falls within [start, start+size).
+    var start = 0
+    var parentIdx = -1
+    var parent: Segment? = null
+    for ((i, s) in segments.withIndex()) {
+        val end = start + s.size(stringEncoding, version)
+        if (labelOffset in start until end) {
+            parentIdx = i
+            parent = s
+            break
+        }
+        start = end
+    }
+    if (parent == null || parentIdx < 0) return false
+
+    val splitWithinParent = labelOffset - start
+    if (splitWithinParent == 0) {
+        // Already at the parent's start — just attach the label.
+        if (label !in parent.labels) {
+            parent.labels.add(label)
+            parent.labels.sort()
+        }
+        offsetToSegment[labelOffset] = parent
+        return true
+    }
+
+    fun replaceParent(before: Segment, after: Segment): Boolean {
+        segments[parentIdx] = before
+        segments.add(parentIdx + 1, after)
+        finalSegments.remove(parent)
+        finalSegments.add(before)
+        finalSegments.add(after)
+        offsetToSegment[start] = before
+        offsetToSegment[labelOffset] = after
+        return true
+    }
+
+    return when (parent) {
+        is InstructionSegment -> {
+            // Find the instruction whose start aligns with the labelOffset.
+            var acc = 0
+            var splitIdx = -1
+            for ((i, ins) in parent.instructions.withIndex()) {
+                if (acc == splitWithinParent) {
+                    splitIdx = i
+                    break
+                }
+                if (acc > splitWithinParent) break
+                acc += ins.getSize(stringEncoding, version)
+            }
+            if (splitIdx <= 0) return false // label points mid-instruction or before first
+
+            val before = InstructionSegment(
+                parent.labels,
+                parent.instructions.subList(0, splitIdx).toMutableList(),
+                parent.srcLoc,
+            )
+            val after = InstructionSegment(
+                mutableListOf(label),
+                parent.instructions.subList(splitIdx, parent.instructions.size).toMutableList(),
+                SegmentSrcLoc(),
+            )
+            replaceParent(before, after)
+        }
+        is DataSegment -> {
+            val beforeBuf = parent.data.copy(0, splitWithinParent)
+            val afterBuf = parent.data.copy(splitWithinParent, parent.data.size - splitWithinParent)
+            val before = DataSegment(parent.labels, beforeBuf, parent.srcLoc)
+            val after = DataSegment(mutableListOf(label), afterBuf, SegmentSrcLoc())
+            replaceParent(before, after)
+        }
+        is StringSegment -> false
+    }
 }
 
 private fun findAndParseSegments(

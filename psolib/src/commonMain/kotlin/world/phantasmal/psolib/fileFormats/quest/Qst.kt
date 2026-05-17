@@ -157,9 +157,19 @@ private fun parseHeaders(cursor: Cursor): List<QstHeader> {
             online = true
         } else if (versionB == DC_GC_PC_HEADER_SIZE) {
             val pos = cursor.position
-            cursor.seek(35)
-
-            version = if (cursor.byte().toInt() == 0) {
+            // Distinguish DC_V2 vs GC_V3 layout by the byte at offset 39 of the header.
+            // The two layouts agree on name(32) at bytes 4..35 but differ in what
+            // follows: GC writes a 4-byte zero pad then filename(16) at offset 40, while
+            // DC writes a 3-byte zero pad then filename(16) at offset 39. So byte 39 is
+            // structurally either the last byte of GC's zero pad (always 0) or the first
+            // char of DC's filename (always >= 0x21 for any real ".bin"/".dat" name).
+            //
+            // qedit uses the same disambiguator (main.pas:4394-4408). The earlier check
+            // of byte 35 was content-dependent — it relied on the header name being
+            // shorter than 32 chars — and mis-detected GC quests like "PSO/Maximum
+            // Attack 4th Stage -1B-" (name fills byte 35) as DC_V2.
+            cursor.seek(39)
+            version = if ((cursor.byte().toInt() and 0xff) < 3) {
                 Version.GC_V3
             } else {
                 Version.DC_V2
