@@ -98,7 +98,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun particle_v3_floor_attribution_in_pw4() = testAsync {
-        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/phantasmal world 4.qst"))
         assertTrue(result is Success)
         val quest = result.value.quest
 
@@ -126,7 +126,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun parseQstToQuest_with_phantasmal_world_4_multi_floor() = testAsync {
-        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/phantasmal world 4.qst"))
 
         assertTrue(result is Success)
 
@@ -378,7 +378,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun parse_pw4_tower_floor_mappings() = testAsync {
-        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/phantasmal world 4.qst"))
 
         assertTrue(result is Success, "Failed: ${result.problems.joinToString()}")
 
@@ -409,7 +409,7 @@ class QuestTests : LibTestSuite {
      */
     @Test
     fun round_trip_ephinea_pw4() = testAsync {
-        val path = "$QUEST_RESOURCE_PREFIX/ep2/ext/pw4.qst"
+        val path = "$QUEST_RESOURCE_PREFIX/ep2/ext/phantasmal world 4.qst"
         roundTripTest("pw4.qst", readFile(path))
     }
 
