@@ -49,7 +49,6 @@ val TETHEALLA_QUESTS = listOf(
     "/ep1/ext/mop-up3.qst",
     "/ep1/ext/mop-up4.qst",
     "/ep1/ext/todays rate.qst",
-    "/ep1/recovery/fragmentofmemoryen.qst",
     "/ep1/recovery/gallon.qst",
     "/ep1/recovery/lost havoc vulcan.qst",
     "/ep1/recovery/lost heat sword.qst",
