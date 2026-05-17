@@ -51,8 +51,8 @@ Total: 179 files across 30 directories.
 | `ma4-b.qst` | BB_V4 | EP1 | 145 | Maximum Attack 4th Stage -B- |
 | `ma4-c.qst` | BB_V4 | EP1 | 146 | Maximum Attack 4th Stage -C- |
 | `maximum attack 1 ver2.qst` | BB_V4 | EP1 | 237 | MAXIMUM ATTACK 1 Ver2 |
-| `princgift.qst` | BB_V4 | EP1 | 220 | 総督の贈り物 |
 | `sugoroku (unofficial).qst` | BB_V4 | EP1 | 127 | Sugoroku |
+| `the principal's gift.qst` | BB_V4 | EP1 | 124 | St. Valentine's Day |
 | `white day.qst` | BB_V4 | EP1 | 125 | White Day |
 
 ## `ep1/ext/` (9)
@@ -200,7 +200,7 @@ Total: 179 files across 30 directories.
 | `ma4-a.qst` | BB_V4 | EP4 | 303 | Maximum Attack 4th Stage -A- |
 | `ma4-b.qst` | BB_V4 | EP4 | 304 | Maximum Attack 4th Stage -B- |
 | `ma4-c.qst` | BB_V4 | EP4 | 305 | Maximum Attack 4th Stage -C- |
-| `wildhouse.qst` | BB_V4 | EP4 | 315 | 荒野のくちばし亭 Ver2 |
+| `the beak's cafe ver.2.qst` | BB_V4 | EP4 | 315 | The Beak's Cafe Ver.2 |
 
 ## `ep4/ext/` (10)
 
@@ -316,7 +316,7 @@ Total: 179 files across 30 directories.
 | `02-pioneer spirit.qst` | BB_V4 | EP4 | 33 | Pioneer Spirit |
 | `03-warrior pride.qst` | BB_V4 | EP4 | 30 | Warrior's Pride |
 | `04-restless lion.qst` | BB_V4 | EP4 | 32 | The Restless Lion |
-| `blackpaper2.qst` | BB_V4 | EP4 | 34 | ブラックペーパーのもっと危険な取引 |
+| `black paper's dangerous deal 2.qst` | BB_V4 | EP4 | 34 | Black Paper's Dangerous Deal 2 |
 | `wilderending.qst` | BB_V4 | EP4 | 36 | 荒野の果てに |
 
 ## `solo/ep4/side/` (2)
