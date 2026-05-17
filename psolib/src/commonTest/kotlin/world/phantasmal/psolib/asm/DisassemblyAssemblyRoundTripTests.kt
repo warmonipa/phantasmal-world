@@ -83,7 +83,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
      */
     @Test
     fun gc_quest_bytecode_round_trip() = testAsync {
-        val qst = parseQst(readFile("/quests/ep1/recovery/lost_heat_sword_gc.qst")).unwrap()
+        val qst = parseQst(readFile("/quests/ep1/recovery/lost heat sword (gc).qst")).unwrap()
         val binFile = qst.files.first { it.filename.trim().lowercase().endsWith(".bin") }
         val origBin = parseBin(prsDecompress(binFile.data.cursor()).unwrap())
         assertEquals(BinFormat.DC_GC, origBin.format)
@@ -108,7 +108,7 @@ class DisassemblyAssemblyRoundTripTests : LibTestSuite {
      */
     @Test
     fun gc_quest_disassemble_assemble_bytecode_round_trip() = testAsync {
-        val qst = parseQst(readFile("/quests/ep1/recovery/lost_heat_sword_gc.qst")).unwrap()
+        val qst = parseQst(readFile("/quests/ep1/recovery/lost heat sword (gc).qst")).unwrap()
         val binFile = qst.files.first { it.filename.trim().lowercase().endsWith(".bin") }
         val origBin = parseBin(prsDecompress(binFile.data.cursor()).unwrap())
 

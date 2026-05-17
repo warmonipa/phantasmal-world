@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class QstTests : LibTestSuite {
     @Test
     fun parse_a_GC_quest() = testAsync {
-        val cursor = readFile("/quests/ep1/recovery/lost_heat_sword_gc.qst")
+        val cursor = readFile("/quests/ep1/recovery/lost heat sword (gc).qst")
         val qst = parseQst(cursor).unwrap()
 
         assertEquals(Version.GC_V3, qst.version)

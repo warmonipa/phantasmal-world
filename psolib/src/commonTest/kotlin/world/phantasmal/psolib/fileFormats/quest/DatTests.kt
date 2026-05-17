@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class DatTests : LibTestSuite {
     @Test
     fun parse_quest_towards_the_future() = testAsync {
-        val dat = parseDat(readFile("/quests/ep1/towards_the_future_decompressed.dat"))
+        val dat = parseDat(readFile("/quests/ep1/vr/towards the future (decompressed).dat"))
 
         assertEquals(277, dat.objs.size)
         assertEquals(216, dat.npcs.size)
@@ -25,7 +25,7 @@ class DatTests : LibTestSuite {
      */
     @Test
     fun parse_dat_and_write_dat() = testAsync {
-        val origDat = readFile("/quests/ep1/towards_the_future_decompressed.dat")
+        val origDat = readFile("/quests/ep1/vr/towards the future (decompressed).dat")
         val newDat = writeDat(parseDat(origDat)).cursor()
         origDat.seekStart(0)
 
@@ -39,7 +39,7 @@ class DatTests : LibTestSuite {
      */
     @Test
     fun parse_modify_write_dat() = testAsync {
-        val origDat = readFile("/quests/ep1/towards_the_future_decompressed.dat")
+        val origDat = readFile("/quests/ep1/vr/towards the future (decompressed).dat")
         val parsedDat = parseDat(origDat)
         origDat.seekStart(0)
 

@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class QuestTests : LibTestSuite {
     @Test
     fun parseBinDatToQuest_with_towards_the_future() = testAsync {
-        val result = parseBinDatToQuest(readFile("/quests/ep1/towards_the_future.bin"), readFile("/quests/ep1/towards_the_future.dat"))
+        val result = parseBinDatToQuest(readFile("/quests/ep1/vr/towards the future.bin"), readFile("/quests/ep1/vr/towards the future.dat"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -30,7 +30,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun parseQstToQuest_with_towards_the_future() = testAsync {
-        val result = parseQstToQuest(readFile("/quests/ep1/towards_the_future.qst"))
+        val result = parseQstToQuest(readFile("/quests/ep1/vr/towards the future.qst"))
 
         assertTrue(result is Success)
         assertTrue(result.problems.isEmpty())
@@ -164,8 +164,8 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun round_trip_test_with_towards_the_future() = testAsync {
-        val filename = "towards_the_future.qst"
-        roundTripTest(filename, readFile("/quests/ep1/$filename"))
+        val filename = "towards the future.qst"
+        roundTripTest(filename, readFile("/quests/ep1/vr/$filename"))
     }
 
     @Test
@@ -176,7 +176,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun round_trip_test_with_lost_head_sword_gc() = testAsync {
-        val filename = "lost_heat_sword_gc.qst"
+        val filename = "lost heat sword (gc).qst"
         roundTripTest(filename, readFile("/quests/ep1/recovery/$filename"))
     }
 
@@ -551,8 +551,8 @@ class QuestTests : LibTestSuite {
     @Test
     fun quest_carries_version() = testAsync {
         val result = parseBinDatToQuest(
-            readFile("/quests/ep1/towards_the_future.bin"),
-            readFile("/quests/ep1/towards_the_future.dat"),
+            readFile("/quests/ep1/vr/towards the future.bin"),
+            readFile("/quests/ep1/vr/towards the future.dat"),
         )
         assertTrue(result is Success)
         // towards_the_future is BB; default detection should land on BB_V4.

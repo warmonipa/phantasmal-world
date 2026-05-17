@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class BinTests : LibTestSuite {
     @Test
     fun parse_quest_towards_the_future() = testAsync {
-        val bin = parseBin(readFile("/quests/ep1/towards_the_future_decompressed.bin"))
+        val bin = parseBin(readFile("/quests/ep1/vr/towards the future (decompressed).bin"))
 
         assertEquals(BinFormat.BB, bin.format)
         assertEquals(118, bin.questId)
@@ -26,7 +26,7 @@ class BinTests : LibTestSuite {
     }
 
     @Test
-    fun parse_and_write_towards_the_future() = parseAndWriteQuest("/quests/ep1/towards_the_future_decompressed.bin")
+    fun parse_and_write_towards_the_future() = parseAndWriteQuest("/quests/ep1/vr/towards the future (decompressed).bin")
 
     @Test
     fun parse_and_write_seat_of_the_heart() = parseAndWriteQuest("/quests/ep2/seat_of_the_heart_decompressed.bin")

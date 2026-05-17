@@ -29,8 +29,8 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     @Test
     fun auto_detect_picks_bb_v4_for_towards_the_future() = testAsync {
         val r = parseBinDatToQuestAutoDetect(
-            readFile("/quests/ep1/towards_the_future.bin"),
-            readFile("/quests/ep1/towards_the_future.dat"),
+            readFile("/quests/ep1/vr/towards the future.bin"),
+            readFile("/quests/ep1/vr/towards the future.dat"),
             lenient = false,
             shiftJis = false,
         )
@@ -42,13 +42,13 @@ class QuestVersionAutoDetectTest : LibTestSuite {
     fun lenient_flag_is_threaded_to_candidate_scoring() = testAsync {
         // Use towards_the_future (BB_V4); lenient should produce the same Success as strict for a clean quest.
         val strict = parseBinDatToQuestAutoDetect(
-            readFile("/quests/ep1/towards_the_future.bin"),
-            readFile("/quests/ep1/towards_the_future.dat"),
+            readFile("/quests/ep1/vr/towards the future.bin"),
+            readFile("/quests/ep1/vr/towards the future.dat"),
             lenient = false,
         )
         val lenientRun = parseBinDatToQuestAutoDetect(
-            readFile("/quests/ep1/towards_the_future.bin"),
-            readFile("/quests/ep1/towards_the_future.dat"),
+            readFile("/quests/ep1/vr/towards the future.bin"),
+            readFile("/quests/ep1/vr/towards the future.dat"),
             lenient = true,
         )
         assertTrue(strict is Success)
