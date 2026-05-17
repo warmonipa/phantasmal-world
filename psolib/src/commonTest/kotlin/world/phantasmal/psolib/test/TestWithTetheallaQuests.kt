@@ -116,4 +116,6 @@ val TETHEALLA_QUESTS = listOf(
     "/ep1/gov/4-3 hero & daughter.qst",
     "/ep2/lab/8-2 desire's end.qst",
     "/ep4/gov/9-3 reality & truth.qst",
+    "/ep2/seat of the heart.qst",
+    "/ep4/lost son hopkins.qst",
 )
