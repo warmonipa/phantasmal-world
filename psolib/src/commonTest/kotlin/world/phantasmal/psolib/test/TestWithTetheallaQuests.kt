@@ -121,4 +121,5 @@ val TETHEALLA_QUESTS = listOf(
     "/solo/ep1/side/gallon's plan (jp).qst",
     "/solo/ep1/side/good luck!.qst",
     "/solo/ep1/side/good luck! (jp).qst",
+    "/ep2/event/ma4-a.qst",
 )
