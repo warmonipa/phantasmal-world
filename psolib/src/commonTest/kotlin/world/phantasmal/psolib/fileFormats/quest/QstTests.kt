@@ -75,7 +75,7 @@ class QstTests : LibTestSuite {
         // TODO: Figure out why we can't round-trip these quests.
         private val EXCLUDED = listOf(
             "/ep2/shop/gallon.qst",
-            "/solo/ep1/04.qst", // Skip because it contains every chunk twice.
+            "/solo/ep1/04 the value of money.qst", // Skip because it contains every chunk twice.
             "/lost havoc vulcan.qst",
             "/goodluck.qst",
             ".raw",
