@@ -110,11 +110,11 @@ class QuestObject(override var areaId: Int, override val data: Buffer) : QuestEn
     var model: Int
         get() = when (type) {
             ObjectType.Probe,
-            -> data.getFloat(40).roundToInt()
+            -> data.getFloat(40).safeRoundToInt()
 
             ObjectType.Saw,
             ObjectType.LaserDetect,
-            -> data.getFloat(48).roundToInt()
+            -> data.getFloat(48).safeRoundToInt()
 
             ObjectType.Sonic,
             ObjectType.LittleCryotube,

@@ -115,7 +115,7 @@ class QuestNpc(
      * Only seems to be valid for non-enemies.
      */
     var id: Int
-        get() = data.getFloat(56).roundToInt()
+        get() = data.getFloat(56).safeRoundToInt()
         set(value) {
             data.setFloat(56, value.toFloat())
         }
@@ -124,7 +124,7 @@ class QuestNpc(
      * Only seems to be valid for non-enemies.
      */
     var scriptLabel: Int
-        get() = data.getFloat(60).roundToInt()
+        get() = data.getFloat(60).safeRoundToInt()
         set(value) {
             data.setFloat(60, value.toFloat())
         }
@@ -136,7 +136,7 @@ class QuestNpc(
         }
 
     var special: Boolean
-        get() = data.getFloat(48).roundToInt() == 1
+        get() = data.getFloat(48).safeRoundToInt() == 1
         set(value) {
             data.setFloat(48, if (value) 1f else 0f)
         }

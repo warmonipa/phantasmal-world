@@ -207,4 +207,47 @@ class FreeRoamLoadingTests {
         assertEquals(Episode.II, info.episode)
         assertEquals(3..4, info.floorRange)
     }
+
+    // --- V3 GC dat filename parsing ---
+
+    @Test
+    fun parse_v3_forest_dat_bare() {
+        // V3 GC NTE/GJAM disc: single variant → no _NN middle
+        val info = parseFreeRoamFilename("map_forest01d.dat")
+        assertNotNull(info)
+        assertEquals(Episode.I, info.episode)
+        assertEquals(1..2, info.floorRange)
+        assertEquals("forest", info.tokenBase)
+    }
+
+    @Test
+    fun parse_v3_forest_alt_dat() {
+        val info = parseFreeRoamFilename("map_forest02ad.dat")
+        assertNotNull(info)
+        assertEquals(Episode.I, info.episode)
+        assertEquals("forest", info.tokenBase)
+    }
+
+    @Test
+    fun parse_v3_cave_dat_with_variant() {
+        val info = parseFreeRoamFilename("map_cave01_00d.dat")
+        assertNotNull(info)
+        assertEquals(Episode.I, info.episode)
+        assertEquals(3..5, info.floorRange)
+    }
+
+    @Test
+    fun parse_v3_cave_alt_dat_with_variant() {
+        val info = parseFreeRoamFilename("map_cave02_03ad.dat")
+        assertNotNull(info)
+        assertEquals(Episode.I, info.episode)
+    }
+
+    @Test
+    fun parse_v3_city_dat_bare() {
+        val info = parseFreeRoamFilename("map_city00d.dat")
+        assertNotNull(info)
+        assertEquals(Episode.I, info.episode)
+        assertEquals(true, info.isCity)
+    }
 }

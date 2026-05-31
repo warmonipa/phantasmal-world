@@ -130,4 +130,56 @@ class SetDataTableTests {
         assertNull(getFloorFileInfo(Episode.I, 20))
         assertNull(getFloorFileInfo(Episode.IV, 15))
     }
+
+    // --- V3 GC filename style ---
+
+    @Test
+    fun resolve_v3_city_dat_filenames() {
+        val info = getFloorFileInfo(Episode.I, 0)!!
+        assertEquals("map_city00_00d.dat",
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.V3))
+        assertEquals("map_city00_00ad.dat",
+            resolveDatFilename(info, 0, 0, DatFileType.ENEMIES, DatFilenameStyle.V3))
+    }
+
+    @Test
+    fun resolve_v3_forest_dat_filenames() {
+        val info = getFloorFileInfo(Episode.I, 1)!!
+        assertEquals("map_forest01_00d.dat",
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.V3))
+        assertEquals("map_forest01_04ad.dat",
+            resolveDatFilename(info, 0, 4, DatFileType.ENEMIES, DatFilenameStyle.V3))
+    }
+
+    @Test
+    fun resolve_v3_cave_dat_filenames() {
+        val info = getFloorFileInfo(Episode.I, 3)!!
+        assertEquals("map_cave01_00_00d.dat",
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.V3))
+        assertEquals("map_cave01_02_01ad.dat",
+            resolveDatFilename(info, 2, 1, DatFileType.ENEMIES, DatFilenameStyle.V3))
+    }
+
+    @Test
+    fun resolve_v3_bare_token_when_no_variants() {
+        // Synthetic FloorFileInfo with no variants — used by QuestLoader's V3 fallback when
+        // a disc has stripped variant suffixes (e.g., `map_forest01d.dat` instead of `..._00d.dat`).
+        val bare = FloorFileInfo("forest01", emptyList(), emptyList())
+        assertEquals("map_forest01d.dat",
+            resolveDatFilename(bare, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.V3))
+        assertEquals("map_forest01ad.dat",
+            resolveDatFilename(bare, 0, 0, DatFileType.ENEMIES, DatFilenameStyle.V3))
+    }
+
+    @Test
+    fun bb_style_is_default_and_unchanged() {
+        val info = getFloorFileInfo(Episode.I, 3)!!
+        // No style arg = BB (backwards compatible).
+        assertEquals("map_cave01_00_00o.dat",
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS))
+        assertEquals(
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS),
+            resolveDatFilename(info, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.BB),
+        )
+    }
 }

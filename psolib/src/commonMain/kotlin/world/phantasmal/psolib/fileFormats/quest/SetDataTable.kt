@@ -5,13 +5,27 @@ import world.phantasmal.psolib.Episode
 /**
  * Dat file type for free roam area data files.
  */
-enum class DatFileType(val suffix: String) {
+enum class DatFileType {
     /** Object data (doors, switches, decorative objects, etc.) */
-    OBJECTS("o"),
+    OBJECTS,
     /** Enemy/NPC data */
-    ENEMIES("e"),
-    /** Event data (EP4 only) */
-    EVENTS(""),
+    ENEMIES,
+    /** Event data (EP4 only on BB; absent on V3 GC where events live in OBJECTS/ENEMIES files). */
+    EVENTS,
+}
+
+/**
+ * Naming convention used by a given PSO data directory.
+ *
+ * BB online (and Ephinea loose-file overrides) uses split obj/npc/evt files; V3 GC discs
+ * combine entity data into `<basename>d.dat` (primary) + `<basename>ad.dat` (alternate /
+ * NPCs) with no separate `.evt`.
+ */
+enum class DatFilenameStyle {
+    /** BB: `_o.dat` / `_e.dat` / `.evt` */
+    BB,
+    /** V3 GC: `d.dat` / `ad.dat`, no `.evt` */
+    V3,
 }
 
 /**
@@ -36,13 +50,15 @@ class FloorFileInfo(
  * - v1 absent, v2 present:  `map_{token}_{v2:02d}{type}.dat`
  * - both absent:             `map_{token}{type}.dat`
  *
- * Where {type} is "o" (objects), "e" (enemies), or "" (events, uses .evt extension).
+ * For [DatFilenameStyle.BB] the `{type}` token is `o` / `e` / `` (with `.evt` for EVENTS).
+ * For [DatFilenameStyle.V3] it is `d` / `ad` / (no EVENTS — caller should skip).
  */
 fun resolveDatFilename(
     info: FloorFileInfo,
     v1: Int,
     v2: Int,
     type: DatFileType,
+    style: DatFilenameStyle = DatFilenameStyle.BB,
 ): String = buildString {
     append("map_")
     append(info.token)
@@ -54,8 +70,22 @@ fun resolveDatFilename(
         append("_")
         append(v2.toString().padStart(2, '0'))
     }
-    append(type.suffix)
-    if (type == DatFileType.EVENTS) append(".evt") else append(".dat")
+    append(suffixFor(type, style))
+    if (style == DatFilenameStyle.BB && type == DatFileType.EVENTS) append(".evt")
+    else append(".dat")
+}
+
+private fun suffixFor(type: DatFileType, style: DatFilenameStyle): String = when (style) {
+    DatFilenameStyle.BB -> when (type) {
+        DatFileType.OBJECTS -> "o"
+        DatFileType.ENEMIES -> "e"
+        DatFileType.EVENTS -> ""
+    }
+    DatFilenameStyle.V3 -> when (type) {
+        DatFileType.OBJECTS -> "d"
+        DatFileType.ENEMIES -> "ad"
+        DatFileType.EVENTS -> "d" // events inline in OBJECTS file on V3 — caller should not request
+    }
 }
 
 /**

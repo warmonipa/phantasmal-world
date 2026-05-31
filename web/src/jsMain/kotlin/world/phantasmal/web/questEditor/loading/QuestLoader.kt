@@ -36,7 +36,7 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         try {
             return dataDir.getFileHandle(fileName).await()
                 .getFile().await().arrayBuffer().await()
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             // Fall through to GSL.
         }
         // Fall back to data.gsl archive.
@@ -73,7 +73,7 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         // Support both: user picked game root (has data/ subdir) or data/ directly.
         val dataDir = try {
             gameDirHandle.getDirectoryHandle("data").await()
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             gameDirHandle
         }
 
@@ -83,12 +83,19 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         // Load the bin file.
         val (binBuf, binName) = findBinFile(dataDir, gsl, info)
 
-        // Offline city dat files have a "_s" suffix before the extension.
-        val offlineSuffix = if (info.isCity && info.offline) "_s" else ""
+        // Try to load V3 GC `SetDataTable*.rel` first — it tells us the exact filenames per
+        // (area, layout, entities). If present we're definitely on a V3 disc and use the
+        // rel-driven path; otherwise probe between BB and V3 naming styles.
+        val relTable = loadSetDataTableRel(dataDir, info)
+        val datStyle = if (relTable != null) DatFilenameStyle.V3
+            else detectDatStyle(dataDir, gsl, info)
+
+        // Offline city dat files have a "_s" suffix before the extension (BB only — V3 has no `_s`).
+        val offlineSuffix = if (datStyle == DatFilenameStyle.BB && info.isCity && info.offline) "_s" else ""
 
         // Load per-floor dat/evt files.
         val (sections, datFilesByFloor) = loadFloorSections(
-            dataDir, gsl, info, offlineSuffix, selectedV1, selectedV2,
+            dataDir, gsl, info, offlineSuffix, selectedV1, selectedV2, datStyle, relTable,
         )
 
         val datCursor = synthesizeDat(sections)
@@ -139,7 +146,10 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
 
     /**
      * Loads per-floor dat (obj + npc) and evt files for each floor in the area's floor range.
-     * Returns the list of [DatFloorSection]s and a map of floorId to (objDatName, npcDatName).
+     * Returns the list of [DatFloorSection]s and a map of floorId to (objDatName, npcDatName, evtName).
+     *
+     * On V3 GC there is no separate `.evt` file — events are inline in the object/npc dat,
+     * so [DatFloorSection.eventData] is left empty and the third triple element is "".
      */
     private suspend fun loadFloorSections(
         dataDir: FileSystemDirectoryHandle,
@@ -148,6 +158,8 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         offlineSuffix: String,
         selectedV1: Int,
         selectedV2: Int,
+        datStyle: DatFilenameStyle,
+        relTable: SetDataTableRel?,
     ): Pair<List<DatFloorSection>, Map<Int, Triple<String, String, String>>> {
         val sections = mutableListOf<DatFloorSection>()
         val datFilesByFloor = mutableMapOf<Int, Triple<String, String, String>>()
@@ -158,19 +170,37 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
             val v1 = resolveVariant(selectedV1, floorInfo.v1Values)
             val v2 = resolveVariant(selectedV2, floorInfo.v2Values)
 
-            val objDatBase = resolveDatFilename(floorInfo, v1, v2, DatFileType.OBJECTS)
-            val npcDatBase = resolveDatFilename(floorInfo, v1, v2, DatFileType.ENEMIES)
-            val evtName = resolveDatFilename(floorInfo, v1, v2, DatFileType.EVENTS)
+            val objCandidates: List<String>
+            val npcCandidates: List<String>
+            val evtName: String
+            val relEntry = relTable?.get(floor, v1, v2)
+            if (relEntry != null) {
+                // V3 GC REL-driven path. On this disc:
+                //   `<setup>d.dat`  = primary entity list (main data)
+                //   `<setup>ad.dat` = holiday-decoration overlay used only during seasonal
+                //                     events (Halloween / Easter / Christmas — see
+                //                     `bm_ene_lappy_ap_hw.bml` etc. on the same disc).
+                // Both files share the 68-byte stride and the same entity-type numbering;
+                // most areas have byte-identical d/ad (no decoration), only a few differ.
+                //
+                // We load `d.dat` only — treating `ad.dat` as if it were a BB-style 72-byte
+                // NPC array caused misalignment and rendered Halloween entities on top of
+                // the main scene. NPCs come either from this list (by type ID) or from
+                // `npc_act` calls in the bin script.
+                objCandidates = listOf("${relEntry.areaSetupBasename}d.dat")
+                npcCandidates = emptyList()
+                evtName = ""
+            } else {
+                objCandidates = datCandidates(floorInfo, v1, v2, DatFileType.OBJECTS, datStyle, offlineSuffix)
+                npcCandidates = datCandidates(floorInfo, v1, v2, DatFileType.ENEMIES, datStyle, offlineSuffix)
+                evtName = if (datStyle == DatFilenameStyle.BB)
+                    resolveDatFilename(floorInfo, v1, v2, DatFileType.EVENTS, datStyle)
+                else ""
+            }
 
-            // Apply offline suffix if needed (e.g., map_city00_00o.dat -> map_city00_00o_s.dat).
-            val objDatName = if (offlineSuffix.isNotEmpty())
-                objDatBase.replace(".dat", "${offlineSuffix}.dat") else objDatBase
-            val npcDatName = if (offlineSuffix.isNotEmpty())
-                npcDatBase.replace(".dat", "${offlineSuffix}.dat") else npcDatBase
-
-            val objBuf = readDataFile(dataDir, gsl, objDatName)
-            val npcBuf = readDataFile(dataDir, gsl, npcDatName)
-            val evtBuf = readDataFile(dataDir, gsl, evtName)
+            val (objDatName, objBuf) = readFirstExisting(dataDir, gsl, objCandidates)
+            val (npcDatName, npcBuf) = readFirstExisting(dataDir, gsl, npcCandidates)
+            val evtBuf = if (evtName.isNotEmpty()) readDataFile(dataDir, gsl, evtName) else null
 
             sections.add(
                 DatFloorSection(
@@ -188,6 +218,105 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         }
 
         return Pair(sections, datFilesByFloor)
+    }
+
+    /**
+     * Try to load the appropriate `SetDataTable*.rel` for this area's mode (online/offline,
+     * normal/ultimate). Returns null if no rel is found — caller falls back to filename probing.
+     *
+     * The rel is big-endian (GC PowerPC) and contains per-(area, layout, entities) basenames.
+     */
+    private suspend fun loadSetDataTableRel(
+        dataDir: FileSystemDirectoryHandle,
+        info: FreeRoamAreaInfo,
+    ): SetDataTableRel? {
+        val candidates = buildList {
+            val ulti = if (info.ultimate) "Ulti" else ""
+            val onOff = if (info.offline) "Off" else "On"
+            // Primary: matches mode (e.g., SetDataTableOnUlti.rel)
+            add("SetDataTable${onOff}${ulti}.rel")
+            // Non-ultimate as fallback
+            if (ulti.isNotEmpty()) add("SetDataTable${onOff}.rel")
+            // Online as last resort
+            if (info.offline) add("SetDataTableOn.rel")
+        }
+        for (name in candidates) {
+            val buf = readDataFile(dataDir, null, name) ?: continue
+            return try {
+                val beBuf = Buffer.fromArrayBuffer(buf, Endianness.Big)
+                parseSetDataTableRel(beBuf.cursor())
+            } catch (_: Throwable) {
+                null
+            }
+        }
+        return null
+    }
+
+    /**
+     * Probe the data directory to determine which dat-filename style it uses.
+     * Tries BB-style first; falls back to V3-style. Defaults to BB if nothing matches.
+     */
+    private suspend fun detectDatStyle(
+        dataDir: FileSystemDirectoryHandle,
+        gsl: GslArchive?,
+        info: FreeRoamAreaInfo,
+    ): DatFilenameStyle {
+        for (floor in info.floorRange) {
+            val floorInfo = getFloorFileInfo(info.episode, floor) ?: continue
+            val v1 = floorInfo.v1Values.firstOrNull() ?: 0
+            val v2 = floorInfo.v2Values.firstOrNull() ?: 0
+            for (name in datCandidates(floorInfo, v1, v2, DatFileType.OBJECTS, DatFilenameStyle.BB, "")) {
+                if (readDataFile(dataDir, gsl, name) != null) return DatFilenameStyle.BB
+            }
+            for (name in datCandidates(floorInfo, v1, v2, DatFileType.OBJECTS, DatFilenameStyle.V3, "")) {
+                if (readDataFile(dataDir, gsl, name) != null) return DatFilenameStyle.V3
+            }
+        }
+        return DatFilenameStyle.BB
+    }
+
+    /**
+     * Build ordered list of candidate filenames for a given floor/style/type.
+     *
+     * V3 GC discs sometimes drop the variant indices when only one variant exists
+     * (e.g., `map_forest01d.dat` instead of `map_forest01_00d.dat`). We try the
+     * variant-numbered form first, then fall back to a bare form using a synthetic
+     * [FloorFileInfo] with empty v1/v2 lists.
+     */
+    private fun datCandidates(
+        floorInfo: FloorFileInfo,
+        v1: Int,
+        v2: Int,
+        type: DatFileType,
+        style: DatFilenameStyle,
+        offlineSuffix: String,
+    ): List<String> {
+        val primary = resolveDatFilename(floorInfo, v1, v2, type, style)
+        val candidates = mutableListOf(primary)
+        if (style == DatFilenameStyle.V3 &&
+            (floorInfo.v1Values.isNotEmpty() || floorInfo.v2Values.isNotEmpty())) {
+            // Fall back to bare token (no _v1_v2) — discs with stripped variants.
+            val bareInfo = FloorFileInfo(floorInfo.token, emptyList(), emptyList())
+            candidates += resolveDatFilename(bareInfo, v1, v2, type, style)
+        }
+        return if (offlineSuffix.isEmpty()) candidates
+        else candidates.map { it.replace(".dat", "${offlineSuffix}.dat") }
+    }
+
+    /**
+     * Try each candidate filename in order; return the first that exists with its bytes.
+     * If none exist, returns the primary name with null buffer.
+     */
+    private suspend fun readFirstExisting(
+        dataDir: FileSystemDirectoryHandle,
+        gsl: GslArchive?,
+        candidates: List<String>,
+    ): Pair<String, ArrayBuffer?> {
+        for (name in candidates) {
+            val buf = readDataFile(dataDir, gsl, name)
+            if (buf != null) return name to buf
+        }
+        return (candidates.firstOrNull() ?: "") to null
     }
 
     /**

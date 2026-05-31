@@ -7,8 +7,17 @@ import world.phantasmal.psolib.cursor.Cursor
 import world.phantasmal.psolib.cursor.WritableCursor
 import world.phantasmal.psolib.cursor.cursor
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Round to Int safely. Returns 0 for NaN / infinite values instead of throwing.
+ * Used by entity getters that read float-encoded integer fields — when a foreign-format
+ * dat (e.g., V3 GC) misaligns and a field reads as NaN, this avoids crashing the UI.
+ */
+internal fun Float.safeRoundToInt(): Int =
+    if (isNaN() || isInfinite()) 0 else roundToInt()
 
 private const val EVENT_ACTION_SPAWN_NPCS: Byte = 0x8
 private const val EVENT_ACTION_UNLOCK: Byte = 0xA

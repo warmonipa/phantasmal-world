@@ -45,9 +45,15 @@ private val FIELD_BIN_REGEX =
 
 /**
  * Captures the full dat token including digits, e.g. "forest01", "city00", "city02", "wilds01".
+ *
+ * Accepts both:
+ *   - BB style: `map_<token>(_NN)*[oe](_s)?.dat`     (separate obj/npc/event files)
+ *   - V3 style: `map_<token>(_NN)*a?d.dat`            (combined d.dat + alt ad.dat)
+ *
+ * Group 1 = token, group 2 = "_s" offline marker or empty (V3 has no `_s`).
  */
 private val FREE_ROAM_DAT_REGEX =
-    Regex("""^map_([a-z]+\d*)_.*[oe](_s)?\.dat$""")
+    Regex("""^map_([a-z]+\d*)(?:_\d+)*(?:[oe]|a?d)(_s)?\.dat$""")
 
 /**
  * Single source of truth for all free roam area definitions.
