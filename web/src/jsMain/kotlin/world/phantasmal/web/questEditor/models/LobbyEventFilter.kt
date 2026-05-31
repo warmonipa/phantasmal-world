@@ -18,8 +18,11 @@ sealed interface LobbyEventFilter {
 }
 
 /**
- * Whether an object with the given [objectEvent] (its `ObjectType.lobbyEvent`) should render
- * under the current [filter].
+ * Returns `true` if an object should be shown under [filter].
+ *
+ * Objects whose `ObjectType.lobbyEvent` is `null` (non-seasonal) always pass. Seasonal objects
+ * (non-null [objectEvent]) pass only when [filter] is [LobbyEventFilter.All] or matches their
+ * specific event.
  */
 fun lobbyEventSeasonOk(objectEvent: LobbyEvent?, filter: LobbyEventFilter): Boolean =
     when (filter) {

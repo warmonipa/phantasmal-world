@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+// Pure-function tests — no WebTestSuite needed (no coroutines, no components).
 class LobbyEventFilterTests {
     @Test
     fun none_hides_all_season_objects_but_keeps_non_season() {
@@ -34,6 +35,10 @@ class LobbyEventFilterTests {
         assertEquals("None", lobbyEventFilterLabel(LobbyEventFilter.None))
         assertEquals("All", lobbyEventFilterLabel(LobbyEventFilter.All))
         assertEquals("Christmas", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.Christmas)))
+        assertEquals("Valentine", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.Valentine)))
+        assertEquals("Easter", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.Easter)))
+        assertEquals("Halloween", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.Halloween)))
+        assertEquals("Sonic", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.Sonic)))
         assertEquals("New Year", lobbyEventFilterLabel(LobbyEventFilter.Event(LobbyEvent.NewYear)))
     }
 }
