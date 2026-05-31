@@ -85,6 +85,8 @@ private fun parseVertexInfoTable(cursor: Cursor, vertexInfoTableOffset: Int): Li
             }
             7 -> {
                 normal = cursor.vec3Float()
+                // Skip 4-byte vertex color.
+                cursor.seek(4)
                 uv = cursor.vec2Float()
             }
             else -> {
