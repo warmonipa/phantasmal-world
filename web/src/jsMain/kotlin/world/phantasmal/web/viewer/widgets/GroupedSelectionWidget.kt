@@ -20,6 +20,7 @@ class GroupedSelectionWidget(
     private val onSelect: (ViewerModel) -> Unit,
 ) : Widget() {
     private val collapsedGroups = mutableSetOf<String>()
+    private val expandedGroups = mutableSetOf<String>()
 
     override fun Node.createElement() =
         ul {
@@ -27,7 +28,9 @@ class GroupedSelectionWidget(
 
             bindDisposableChildrenTo(groups) { group, _ ->
                 val disposable = Disposer()
-                val initiallyCollapsed = group.label in collapsedGroups
+                val initiallyCollapsed =
+                    group.label in collapsedGroups ||
+                        (group.label != DEFAULT_EXPANDED_GROUP && group.label !in expandedGroups)
 
                 val node = li {
                     className = "pw-viewer-selection-group"
@@ -64,8 +67,10 @@ class GroupedSelectionWidget(
 
                         if (collapsed) {
                             collapsedGroups.add(group.label)
+                            expandedGroups.remove(group.label)
                         } else {
                             collapsedGroups.remove(group.label)
+                            expandedGroups.add(group.label)
                         }
                     }
 
@@ -95,6 +100,8 @@ class GroupedSelectionWidget(
         }
 
     companion object {
+        private const val DEFAULT_EXPANDED_GROUP = "Characters"
+
         init {
             @Suppress("CssUnusedSymbol")
             // language=css
