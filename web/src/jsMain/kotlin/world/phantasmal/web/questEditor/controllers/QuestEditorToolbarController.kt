@@ -23,6 +23,7 @@ import world.phantasmal.web.core.files.writeBuffer
 import world.phantasmal.web.core.stores.UiStore
 import world.phantasmal.web.questEditor.models.AreaModel
 import world.phantasmal.web.questEditor.models.AreaVariantModel
+import world.phantasmal.web.questEditor.models.LobbyEventFilter
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.SectionModel
 import world.phantasmal.web.questEditor.stores.AreaStore
@@ -302,6 +303,51 @@ class QuestEditorToolbarController(
     val showOriginPoint: Cell<Boolean> = questEditorUiStore.showOriginPoint
     val showScriptParticles: Cell<Boolean> = questEditorUiStore.showScriptParticles
 
+    // Lobby event (Pioneer 2 / city seasonal decoration) filter.
+    //
+    // Dynamic options: "None" is always first; then one entry per lobby event that actually has
+    // decoration objects in the current area; then "All" if at least one event is present.
+    val lobbyEventOptions: Cell<List<LobbyEventFilter>> =
+        questEditorStore.currentQuest.flatMap { quest ->
+            if (quest == null) {
+                cell(listOf<LobbyEventFilter>(LobbyEventFilter.None))
+            } else {
+                map(
+                    quest.objects,
+                    questEditorStore.currentArea,
+                    questEditorStore.currentFloorIds,
+                ) { objects, area, floorIds ->
+                    if (area == null) {
+                        listOf(LobbyEventFilter.None)
+                    } else {
+                        val present = objects
+                            .filter {
+                                if (floorIds != null) it.areaId in floorIds else it.areaId == area.id
+                            }
+                            .mapNotNull { it.type.lobbyEvent }
+                            .distinct()
+                            .sortedBy { it.ordinal }
+                        buildList {
+                            add(LobbyEventFilter.None)
+                            present.forEach { add(LobbyEventFilter.Event(it)) }
+                            if (present.isNotEmpty()) add(LobbyEventFilter.All)
+                        }
+                    }
+                }
+            }
+        }
+
+    // Only show the dropdown when there is at least one event to choose (size > 1 means more
+    // than just "None").
+    val showLobbyEventSelect: Cell<Boolean> = lobbyEventOptions.map { it.size > 1 }
+
+    // Cell<out T> is covariant, so a Cell<LobbyEventFilter> is usable as Cell<LobbyEventFilter?>.
+    val selectedLobbyEvent: Cell<LobbyEventFilter> = questEditorUiStore.selectedLobbyEvent
+
+    fun setSelectedLobbyEvent(filter: LobbyEventFilter) {
+        questEditorUiStore.setSelectedLobbyEvent(filter)
+    }
+
     // Free roam variant controls (delegated)
 
     val freeRoamV1Options: ListCell<Int> get() = freeRoam.freeRoamV1Options
@@ -345,6 +391,14 @@ class QuestEditorToolbarController(
         observe(questEditorStore.currentArea) {
             if (!settingAreaFromDropdown) {
                 _selectedAreaAndLabel.value = null
+            }
+        }
+
+        // When the area (and thus its available events) changes, drop a selection that is no
+        // longer valid so a stale event doesn't silently filter the new area.
+        observe(lobbyEventOptions) { options ->
+            if (questEditorUiStore.selectedLobbyEvent.value !in options) {
+                questEditorUiStore.setSelectedLobbyEvent(LobbyEventFilter.None)
             }
         }
 
