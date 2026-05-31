@@ -254,7 +254,7 @@ class QuestEditorToolbarWidget(
                         onSelect = { scope.launch { ctrl.setFreeRoamV2(it) } },
                     ),
                     Select(
-                        className = "pw-free-roam-select",
+                        className = "pw-lobby-event-select",
                         label = "Lobby Event:",
                         visible = ctrl.showLobbyEventSelect,
                         items = ctrl.lobbyEventOptions,
@@ -409,6 +409,10 @@ class QuestEditorToolbarWidget(
 
                 .pw-free-roam-select {
                     width: 60px;
+                }
+
+                .pw-lobby-event-select {
+                    width: 120px;
                 }
 
                 .pw-quest-editor-toolbar-save-as {
