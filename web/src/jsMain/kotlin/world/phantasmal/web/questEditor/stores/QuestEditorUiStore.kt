@@ -5,6 +5,7 @@ import world.phantasmal.cell.Cell
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.stores.UiStore
+import world.phantasmal.web.questEditor.models.LobbyEventFilter
 import world.phantasmal.web.questEditor.models.NpcDisplaySettings
 import world.phantasmal.webui.stores.Store
 
@@ -21,6 +22,7 @@ class QuestEditorUiStore(
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
     private val _showScriptParticles = mutableCell(false)
+    private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
 
     val devMode: Cell<Boolean> = _devMode
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
@@ -30,6 +32,7 @@ class QuestEditorUiStore(
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
     val showScriptParticles: Cell<Boolean> = _showScriptParticles
+    val selectedLobbyEvent: Cell<LobbyEventFilter> = _selectedLobbyEvent
 
     init {
         addDisposables(
@@ -68,5 +71,9 @@ class QuestEditorUiStore(
 
     fun setShowScriptParticles(show: Boolean) {
         _showScriptParticles.value = show
+    }
+
+    fun setSelectedLobbyEvent(filter: LobbyEventFilter) {
+        _selectedLobbyEvent.value = filter
     }
 }
