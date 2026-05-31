@@ -26,6 +26,7 @@ import world.phantasmal.web.viewer.ViewerUrls
 import world.phantasmal.web.viewer.loading.AnimationAssetLoader
 import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.web.viewer.loading.NpcAssetLoader
+import world.phantasmal.web.viewer.loading.ObjectAssetLoader
 import world.phantasmal.web.viewer.models.AnimationModel
 import world.phantasmal.web.viewer.models.CharacterClass
 import world.phantasmal.web.viewer.models.ViewerModel
@@ -42,6 +43,7 @@ sealed class NinjaGeometry {
 class ViewerStore(
     private val characterClassAssetLoader: CharacterClassAssetLoader,
     private val npcAssetLoader: NpcAssetLoader,
+    private val objectAssetLoader: ObjectAssetLoader,
     private val animationAssetLoader: AnimationAssetLoader,
     uiStore: UiStore,
 ) : Store() {
@@ -95,6 +97,7 @@ class ViewerStore(
         when (model) {
             is ViewerModel.Character -> playerAnimations
             is ViewerModel.Npc -> NpcAssetLoader.getAnimations(model.npcType)
+            is ViewerModel.Object -> emptyList()
             null -> emptyList()
         }
     }
@@ -288,6 +291,7 @@ class ViewerStore(
         when (_currentModel.value) {
             is ViewerModel.Character -> loadCharacterClassNinjaObject(clearAnimation)
             is ViewerModel.Npc -> loadNpcNinjaObject(clearAnimation)
+            is ViewerModel.Object -> loadObjectNinjaObject(clearAnimation)
             null -> {
                 mutate {
                     _currentNinjaGeometry.value = null
@@ -352,6 +356,35 @@ class ViewerStore(
             }
         } catch (e: Exception) {
             logger.error(e) { "Couldn't load Ninja model for ${npcType.uniqueName}." }
+
+            mutate {
+                _currentAnimation.value = null
+                _currentNinjaMotion.value = null
+                _currentNinjaGeometry.value = null
+                _currentTextures.clear()
+            }
+        }
+    }
+
+    private suspend fun loadObjectNinjaObject(clearAnimation: Boolean) {
+        val model = _currentModel.value as? ViewerModel.Object ?: return
+        val objectType = model.objectType
+
+        try {
+            val ninjaObject = objectAssetLoader.loadNinjaObject(objectType)
+            val textures = objectAssetLoader.loadXvrTextures(objectType)
+
+            mutate {
+                if (clearAnimation) {
+                    _currentAnimation.value = null
+                    _currentNinjaMotion.value = null
+                }
+
+                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
+                _currentTextures.replaceAll(textures)
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Couldn't load Ninja model for ${objectType.uniqueName}." }
 
             mutate {
                 _currentAnimation.value = null

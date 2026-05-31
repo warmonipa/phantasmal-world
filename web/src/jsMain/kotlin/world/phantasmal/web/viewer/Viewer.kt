@@ -13,6 +13,7 @@ import world.phantasmal.web.viewer.controllers.ViewerToolbarController
 import world.phantasmal.web.viewer.loading.AnimationAssetLoader
 import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.web.viewer.loading.NpcAssetLoader
+import world.phantasmal.web.viewer.loading.ObjectAssetLoader
 import world.phantasmal.web.viewer.rendering.MeshRenderer
 import world.phantasmal.web.viewer.rendering.TextureRenderer
 import world.phantasmal.web.viewer.stores.ViewerStore
@@ -33,11 +34,19 @@ class Viewer(
         // Asset Loaders
         val characterClassAssetLoader = addDisposable(CharacterClassAssetLoader(assetLoader))
         val npcAssetLoader = addDisposable(NpcAssetLoader(assetLoader))
+        val objectAssetLoader = addDisposable(ObjectAssetLoader(assetLoader))
         val animationAssetLoader = addDisposable(AnimationAssetLoader(assetLoader))
 
         // Stores
-        val viewerStore =
-            addDisposable(ViewerStore(characterClassAssetLoader, npcAssetLoader, animationAssetLoader, uiStore))
+        val viewerStore = addDisposable(
+            ViewerStore(
+                characterClassAssetLoader,
+                npcAssetLoader,
+                objectAssetLoader,
+                animationAssetLoader,
+                uiStore,
+            )
+        )
 
         // Controllers
         val viewerController = addDisposable(ViewerController(uiStore, viewerStore))
@@ -56,6 +65,7 @@ class Viewer(
         // Main Widget
         return ViewerWidget(
             viewerController,
+            viewerToolbarController::openFiles,
             { ViewerToolbarWidget(viewerToolbarController) },
             { CharacterClassOptionsWidget(characterClassOptionsController) },
             { RendererWidget(meshRenderer) },
