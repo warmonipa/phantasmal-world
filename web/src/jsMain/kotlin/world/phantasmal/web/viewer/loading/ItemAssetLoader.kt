@@ -4,6 +4,7 @@ import world.phantasmal.core.Success
 import mu.KotlinLogging
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.compression.prs.prsDecompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.ninja.NinjaObject
 import world.phantasmal.psolib.fileFormats.ninja.XvrTexture
@@ -28,21 +29,21 @@ class ItemAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         val buffer = modelAfsCache.get(Unit).getOrNull(index)
             ?: throw IllegalArgumentException("Invalid item model index: $index")
 
-        val cursor = buffer.littleEndianCursor()
+        val cursor = decompress(buffer)
         val njResult = parseNj(cursor)
 
         if (njResult is Success && njResult.value.isNotEmpty()) {
             return njResult.value.first()
         }
 
-        return parseXj(buffer.littleEndianCursor()).unwrap().first()
+        return parseXj(decompress(buffer)).unwrap().first()
     }
 
     suspend fun loadXvrTextures(index: Int): List<XvrTexture> {
         val buffer = textureAfsCache.get(Unit).getOrNull(index)
             ?: return emptyList()
 
-        val result = parseXvm(buffer.littleEndianCursor())
+        val result = parseXvm(decompress(buffer))
         return if (result is Success) {
             result.value.textures
         } else {
@@ -55,6 +56,9 @@ class ItemAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         val buffer = assetLoader.loadArrayBuffer(path)
         return parseAfs(buffer.cursor(Endianness.Little)).unwrap()
     }
+
+    private fun decompress(buffer: Buffer) =
+        prsDecompress(buffer.littleEndianCursor()).unwrap()
 
     private fun Buffer.littleEndianCursor() =
         apply { endianness = Endianness.Little }.cursor()
