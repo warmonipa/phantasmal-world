@@ -37,6 +37,10 @@ sealed class ViewerModel {
 
     data class Group(val label: String, val items: List<ViewerModel>)
 
+    data class Category(val label: String, val groups: List<Group>) {
+        val count: Int = groups.sumOf { it.items.size }
+    }
+
     companion object {
         val CHARACTERS: List<ViewerModel> = CharacterClass.VALUES_LIST.map(::Character)
 
@@ -251,13 +255,29 @@ sealed class ViewerModel {
         val ALL: List<ViewerModel> =
             CHARACTERS + EP1_ENEMIES + EP2_ENEMIES + EP4_ENEMIES + BOSSES + ITEMS + OBJECTS
 
-        val GROUPS: List<Group> = listOf(
+        private val CHARACTER_GROUPS: List<Group> = listOf(
             Group("Characters", CHARACTERS),
+        )
+
+        private val ENEMY_GROUPS: List<Group> = listOf(
             Group("EP1 Enemies", EP1_ENEMIES),
             Group("EP2 Enemies", EP2_ENEMIES),
             Group("EP4 Enemies", EP4_ENEMIES),
+        )
+
+        private val BOSS_GROUPS: List<Group> = listOf(
             Group("Bosses", BOSSES),
-        ) + ITEM_GROUPS + OBJECT_GROUPS
+        )
+
+        val CATEGORIES: List<Category> = listOf(
+            Category("Characters", CHARACTER_GROUPS),
+            Category("Enemies", ENEMY_GROUPS),
+            Category("Bosses", BOSS_GROUPS),
+            Category("Items", ITEM_GROUPS),
+            Category("Objects", OBJECT_GROUPS),
+        )
+
+        val GROUPS: List<Group> = CATEGORIES.flatMap { it.groups }
 
         fun findBySlug(slug: String): ViewerModel? = ALL.find { it.slug == slug }
 

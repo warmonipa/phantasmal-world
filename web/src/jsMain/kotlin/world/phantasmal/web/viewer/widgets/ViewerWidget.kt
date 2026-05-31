@@ -5,16 +5,13 @@ import kotlinx.browser.document
 import org.w3c.dom.DragEvent
 import org.w3c.dom.Node
 import org.w3c.dom.asList
-import world.phantasmal.cell.cell
 import world.phantasmal.web.viewer.controllers.ViewerController
 import world.phantasmal.web.viewer.controllers.ViewerTab
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.disposableListener
 import world.phantasmal.webui.files.FileHandle
-import world.phantasmal.webui.dom.Icon
 import world.phantasmal.webui.widgets.TabContainer
 import world.phantasmal.webui.widgets.TextInput
-import world.phantasmal.webui.widgets.Button
 import world.phantasmal.webui.widgets.Widget
 
 class ViewerWidget(
@@ -47,6 +44,12 @@ class ViewerWidget(
                     className = "pw-viewer-asset-library"
                     style.width = "${assetLibraryWidth}px"
 
+                    addChild(AssetCategorySelectionWidget(
+                        categories = ctrl.assetCategories,
+                        selected = ctrl.activeAssetCategory,
+                        onSelect = ctrl::setActiveAssetCategory,
+                    ))
+
                     div {
                         className = "pw-viewer-asset-toolbar"
 
@@ -55,20 +58,6 @@ class ViewerWidget(
                             onChange = ctrl::setAssetSearch,
                             placeholder = "Search assets",
                             extraClassName = "pw-viewer-asset-search",
-                        ))
-
-                        addChild(Button(
-                            tooltip = cell("Expand all asset groups"),
-                            iconLeft = Icon.TriangleDown,
-                            className = "pw-viewer-asset-tool-button",
-                            onClick = { ctrl.expandAllAssetGroups() },
-                        ))
-
-                        addChild(Button(
-                            tooltip = cell("Collapse all asset groups"),
-                            iconLeft = Icon.ArrowRight,
-                            className = "pw-viewer-asset-tool-button",
-                            onClick = { ctrl.collapseAllAssetGroups() },
                         ))
                     }
 
@@ -244,10 +233,8 @@ class ViewerWidget(
                 }
 
                 .pw-viewer-asset-toolbar {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) 24px 24px;
-                    gap: 4px;
                     padding: 4px;
+                    border-bottom: var(--pw-border);
                 }
 
                 .pw-viewer-asset-library > .pw-viewer-selection {
@@ -258,16 +245,6 @@ class ViewerWidget(
                 .pw-viewer-asset-search {
                     box-sizing: border-box;
                     width: 100%;
-                }
-
-                .pw-viewer-asset-tool-button {
-                    width: 24px;
-                }
-
-                .pw-viewer-asset-tool-button .pw-button-inner {
-                    justify-content: center;
-                    padding-left: 0;
-                    padding-right: 0;
                 }
             """.trimIndent())
         }

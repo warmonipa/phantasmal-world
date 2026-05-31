@@ -1,6 +1,7 @@
 package world.phantasmal.web.viewer.controllers
 
 import world.phantasmal.cell.Cell
+import world.phantasmal.cell.cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.web.core.PwToolType
@@ -29,30 +30,41 @@ class ViewerController(
     tabs = listOf(ViewerTab.Mesh, ViewerTab.Texture),
 ) {
     private val _assetSearch = mutableCell("")
-    private val _expandedAssetGroups = mutableCell(setOf(DEFAULT_EXPANDED_ASSET_GROUP))
+    private val initialAssetCategory =
+        categoryForModel(store.currentModel.value) ?: ViewerModel.CATEGORIES.first()
+    private val _activeAssetCategory = mutableCell(initialAssetCategory)
+    private val _expandedAssetGroups = mutableCell(
+        expandedGroupsForModel(store.currentModel.value, initialAssetCategory)
+            ?.let { setOf(it.label) }
+            ?: defaultExpandedGroups(initialAssetCategory)
+    )
 
     val assetSearch: Cell<String> = _assetSearch
+    val assetCategories: Cell<List<ViewerModel.Category>> = cell(ViewerModel.CATEGORIES)
+    val activeAssetCategory: Cell<ViewerModel.Category> = _activeAssetCategory
     val expandedAssetGroups: Cell<Set<String>> = _expandedAssetGroups
-    val modelGroups: Cell<List<ViewerModel.Group>> = _assetSearch.map { query ->
-        val normalizedQuery = query.trim().lowercase()
-
-        if (normalizedQuery.isEmpty()) {
-            ViewerModel.GROUPS
-        } else {
-            ViewerModel.GROUPS.mapNotNull { group ->
-                val items = group.items.filter {
-                    it.uiName.lowercase().contains(normalizedQuery) ||
-                            it.slug.lowercase().contains(normalizedQuery)
-                }
-
-                if (items.isEmpty()) null else group.copy(items = items)
-            }
-        }
-    }
+    val modelGroups: Cell<List<ViewerModel.Group>> =
+        map(_assetSearch, _activeAssetCategory, ::filterGroups)
     val currentModel: Cell<ViewerModel?> = store.currentModel
 
     val animations: Cell<List<AnimationModel>> = store.animations
     val currentAnimation: Cell<AnimationModel?> = store.currentAnimation
+
+    init {
+        observe(store.currentModel) { model ->
+            val category = categoryForModel(model) ?: return@observe
+
+            if (_activeAssetCategory.value != category) {
+                _activeAssetCategory.value = category
+            }
+
+            if (_assetSearch.value.isBlank()) {
+                expandedGroupsForModel(model, category)?.let {
+                    _expandedAssetGroups.value = setOf(it.label)
+                }
+            }
+        }
+    }
 
     suspend fun setCurrentModel(model: ViewerModel?) {
         store.setCurrentModel(model)
@@ -62,7 +74,17 @@ class ViewerController(
         _assetSearch.value = query
         _expandedAssetGroups.value =
             if (query.isBlank()) {
-                setOf(DEFAULT_EXPANDED_ASSET_GROUP)
+                defaultExpandedGroups(_activeAssetCategory.value)
+            } else {
+                modelGroups.value.mapTo(mutableSetOf()) { it.label }
+            }
+    }
+
+    fun setActiveAssetCategory(category: ViewerModel.Category) {
+        _activeAssetCategory.value = category
+        _expandedAssetGroups.value =
+            if (_assetSearch.value.isBlank()) {
+                defaultExpandedGroups(category)
             } else {
                 modelGroups.value.mapTo(mutableSetOf()) { it.label }
             }
@@ -92,5 +114,47 @@ class ViewerController(
 
     companion object {
         private const val DEFAULT_EXPANDED_ASSET_GROUP = "Characters"
+
+        private fun filterGroups(
+            query: String,
+            category: ViewerModel.Category,
+        ): List<ViewerModel.Group> {
+            val normalizedQuery = query.trim().lowercase()
+
+            if (normalizedQuery.isEmpty()) {
+                return category.groups
+            }
+
+            return category.groups.mapNotNull { group ->
+                val items = group.items.filter {
+                    it.uiName.lowercase().contains(normalizedQuery) ||
+                            it.slug.lowercase().contains(normalizedQuery)
+                }
+
+                if (items.isEmpty()) null else group.copy(items = items)
+            }
+        }
+
+        private fun defaultExpandedGroups(category: ViewerModel.Category): Set<String> =
+            if (category.label == DEFAULT_EXPANDED_ASSET_GROUP) {
+                setOf(DEFAULT_EXPANDED_ASSET_GROUP)
+            } else {
+                emptySet()
+            }
+
+        private fun categoryForModel(model: ViewerModel?): ViewerModel.Category? =
+            model?.let { item ->
+                ViewerModel.CATEGORIES.find { category ->
+                    category.groups.any { group -> item in group.items }
+                }
+            }
+
+        private fun expandedGroupsForModel(
+            model: ViewerModel?,
+            category: ViewerModel.Category,
+        ): ViewerModel.Group? =
+            model?.let { item ->
+                category.groups.find { group -> item in group.items }
+            }
     }
 }
