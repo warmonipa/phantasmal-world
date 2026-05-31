@@ -30,6 +30,7 @@ import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.externals.three.SkeletonHelper
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.shared.Throttle
+import world.phantasmal.web.viewer.models.ViewerModel
 import world.phantasmal.web.viewer.stores.NinjaGeometry
 import world.phantasmal.web.viewer.stores.ViewerStore
 import kotlin.math.roundToInt
@@ -172,6 +173,8 @@ class MeshRenderer(
                 val cameraResetNecessary = !charClassActive || !this.charClassActive
                 this.charClassActive = charClassActive
 
+                applyPresentationTransform(obj3d)
+
                 if (resetCamera && cameraResetNecessary) {
                     // Compute camera position.
                     val bSphere = boundingSphere(obj3d)
@@ -204,6 +207,18 @@ class MeshRenderer(
                     }
                 }
             }
+        }
+    }
+
+    private fun applyPresentationTransform(obj3d: Object3D) {
+        if (viewerStore.currentModel.value is ViewerModel.Item) {
+            // Item models are authored upright with their long axis along Y.
+            // Rotate 90° about Z to lay them flat for a natural, human-eye view.
+            obj3d.rotation.set(
+                0.0,
+                0.0,
+                degToRad(90.0),
+            )
         }
     }
 
