@@ -5,13 +5,16 @@ import kotlinx.browser.document
 import org.w3c.dom.DragEvent
 import org.w3c.dom.Node
 import org.w3c.dom.asList
+import world.phantasmal.cell.cell
 import world.phantasmal.web.viewer.controllers.ViewerController
 import world.phantasmal.web.viewer.controllers.ViewerTab
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.disposableListener
 import world.phantasmal.webui.files.FileHandle
+import world.phantasmal.webui.dom.Icon
 import world.phantasmal.webui.widgets.TabContainer
 import world.phantasmal.webui.widgets.TextInput
+import world.phantasmal.webui.widgets.Button
 import world.phantasmal.webui.widgets.Widget
 
 class ViewerWidget(
@@ -44,15 +47,36 @@ class ViewerWidget(
                     className = "pw-viewer-asset-library"
                     style.width = "${assetLibraryWidth}px"
 
-                    addChild(TextInput(
-                        value = ctrl.assetSearch,
-                        onChange = ctrl::setAssetSearch,
-                        placeholder = "Search assets",
-                        extraClassName = "pw-viewer-asset-search",
-                    ))
+                    div {
+                        className = "pw-viewer-asset-toolbar"
+
+                        addChild(TextInput(
+                            value = ctrl.assetSearch,
+                            onChange = ctrl::setAssetSearch,
+                            placeholder = "Search assets",
+                            extraClassName = "pw-viewer-asset-search",
+                        ))
+
+                        addChild(Button(
+                            tooltip = cell("Expand all asset groups"),
+                            iconLeft = Icon.TriangleDown,
+                            className = "pw-viewer-asset-tool-button",
+                            onClick = { ctrl.expandAllAssetGroups() },
+                        ))
+
+                        addChild(Button(
+                            tooltip = cell("Collapse all asset groups"),
+                            iconLeft = Icon.ArrowRight,
+                            className = "pw-viewer-asset-tool-button",
+                            onClick = { ctrl.collapseAllAssetGroups() },
+                        ))
+                    }
+
                     addChild(GroupedSelectionWidget(
                         groups = ctrl.modelGroups,
+                        expandedGroups = ctrl.expandedAssetGroups,
                         selected = ctrl.currentModel,
+                        onToggleGroup = ctrl::toggleAssetGroup,
                         onSelect = { model ->
                             scope.launch { ctrl.setCurrentModel(model) }
                         },
@@ -188,9 +212,20 @@ class ViewerWidget(
                 }
 
                 .pw-viewer-asset-resizer {
-                    flex: 0 0 5px;
+                    flex: 0 0 7px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     border-left: var(--pw-border);
                     cursor: col-resize;
+                    background-color: hsl(0, 0%, 12%);
+                }
+
+                .pw-viewer-asset-resizer::after {
+                    content: "";
+                    width: 1px;
+                    height: 32px;
+                    background-color: hsl(0, 0%, 35%);
                 }
 
                 .pw-viewer-asset-resizer:hover,
@@ -198,12 +233,20 @@ class ViewerWidget(
                     background-color: hsl(195, 55%, 35%);
                 }
 
+                .pw-viewer-asset-resizer:hover::after,
+                .pw-viewer-asset-resizer.pw-active::after {
+                    background-color: hsl(195, 70%, 65%);
+                }
+
                 body.pw-viewer-resizing {
                     cursor: col-resize;
                     user-select: none;
                 }
 
-                .pw-viewer-asset-library > .pw-text-input {
+                .pw-viewer-asset-toolbar {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) 24px 24px;
+                    gap: 4px;
                     padding: 4px;
                 }
 
@@ -215,6 +258,16 @@ class ViewerWidget(
                 .pw-viewer-asset-search {
                     box-sizing: border-box;
                     width: 100%;
+                }
+
+                .pw-viewer-asset-tool-button {
+                    width: 24px;
+                }
+
+                .pw-viewer-asset-tool-button .pw-button-inner {
+                    justify-content: center;
+                    padding-left: 0;
+                    padding-right: 0;
                 }
             """.trimIndent())
         }

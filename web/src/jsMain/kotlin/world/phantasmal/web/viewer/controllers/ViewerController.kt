@@ -29,8 +29,10 @@ class ViewerController(
     tabs = listOf(ViewerTab.Mesh, ViewerTab.Texture),
 ) {
     private val _assetSearch = mutableCell("")
+    private val _expandedAssetGroups = mutableCell(setOf(DEFAULT_EXPANDED_ASSET_GROUP))
 
     val assetSearch: Cell<String> = _assetSearch
+    val expandedAssetGroups: Cell<Set<String>> = _expandedAssetGroups
     val modelGroups: Cell<List<ViewerModel.Group>> = _assetSearch.map { query ->
         val normalizedQuery = query.trim().lowercase()
 
@@ -58,9 +60,37 @@ class ViewerController(
 
     fun setAssetSearch(query: String) {
         _assetSearch.value = query
+        _expandedAssetGroups.value =
+            if (query.isBlank()) {
+                setOf(DEFAULT_EXPANDED_ASSET_GROUP)
+            } else {
+                modelGroups.value.mapTo(mutableSetOf()) { it.label }
+            }
+    }
+
+    fun toggleAssetGroup(label: String) {
+        val expanded = _expandedAssetGroups.value.toMutableSet()
+
+        if (!expanded.add(label)) {
+            expanded.remove(label)
+        }
+
+        _expandedAssetGroups.value = expanded
+    }
+
+    fun expandAllAssetGroups() {
+        _expandedAssetGroups.value = modelGroups.value.mapTo(mutableSetOf()) { it.label }
+    }
+
+    fun collapseAllAssetGroups() {
+        _expandedAssetGroups.value = emptySet()
     }
 
     suspend fun setCurrentAnimation(animation: AnimationModel) {
         store.setCurrentAnimation(animation)
+    }
+
+    companion object {
+        private const val DEFAULT_EXPANDED_ASSET_GROUP = "Characters"
     }
 }

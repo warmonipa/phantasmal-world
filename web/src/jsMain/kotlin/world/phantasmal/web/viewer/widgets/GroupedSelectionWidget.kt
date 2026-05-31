@@ -4,6 +4,7 @@ import org.w3c.dom.Node
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.eq
+import world.phantasmal.cell.map
 import world.phantasmal.web.viewer.models.ViewerModel
 import world.phantasmal.webui.dom.bindDisposableChildrenTo
 import world.phantasmal.webui.dom.div
@@ -16,33 +17,30 @@ import world.phantasmal.webui.widgets.Widget
 
 class GroupedSelectionWidget(
     private val groups: Cell<List<ViewerModel.Group>>,
+    private val expandedGroups: Cell<Set<String>>,
     private val selected: Cell<ViewerModel?>,
+    private val onToggleGroup: (String) -> Unit,
     private val onSelect: (ViewerModel) -> Unit,
 ) : Widget() {
-    private val collapsedGroups = mutableSetOf<String>()
-    private val expandedGroups = mutableSetOf<String>()
-
     override fun Node.createElement() =
         ul {
             className = "pw-viewer-selection"
 
             bindDisposableChildrenTo(groups) { group, _ ->
                 val disposable = Disposer()
-                val initiallyCollapsed =
-                    group.label in collapsedGroups ||
-                        (group.label != DEFAULT_EXPANDED_GROUP && group.label !in expandedGroups)
+                val expandedCell = expandedGroups.map { group.label in it }
 
                 val node = li {
                     className = "pw-viewer-selection-group"
 
                     val itemList = ul {
                         className = "pw-viewer-selection-group-items"
-                        hidden = initiallyCollapsed
+                        hidden = !expandedCell.value
                     }
 
                     val header = div {
                         className = "pw-viewer-selection-group-header"
-                        if (initiallyCollapsed) classList.add("pw-collapsed")
+                        if (!expandedCell.value) classList.add("pw-collapsed")
 
                         span {
                             className = "pw-viewer-selection-group-caret"
@@ -60,19 +58,14 @@ class GroupedSelectionWidget(
                         }
                     }
 
-                    header.onclick = {
-                        val collapsed = !itemList.hidden
-                        itemList.hidden = collapsed
-                        header.classList.toggle("pw-collapsed", collapsed)
+                    header.onclick = { onToggleGroup(group.label) }
 
-                        if (collapsed) {
-                            collapsedGroups.add(group.label)
-                            expandedGroups.remove(group.label)
-                        } else {
-                            collapsedGroups.remove(group.label)
-                            expandedGroups.add(group.label)
+                    disposable.add(
+                        expandedCell.observeChange {
+                            itemList.hidden = !it.value
+                            header.classList.toggle("pw-collapsed", !it.value)
                         }
-                    }
+                    )
 
                     insertBefore(header, itemList)
 
@@ -97,11 +90,9 @@ class GroupedSelectionWidget(
 
                 Pair(node, disposable)
             }
-        }
+    }
 
     companion object {
-        private const val DEFAULT_EXPANDED_GROUP = "Characters"
-
         init {
             @Suppress("CssUnusedSymbol")
             // language=css
