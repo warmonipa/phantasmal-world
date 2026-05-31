@@ -29,14 +29,19 @@ class ItemAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         val buffer = modelAfsCache.get(Unit).getOrNull(index)
             ?: throw IllegalArgumentException("Invalid item model index: $index")
 
-        val cursor = decompress(buffer)
-        val njResult = parseNj(cursor)
+        val xjResult = runCatching { parseXj(decompress(buffer)) }.getOrNull()
+
+        if (xjResult is Success && xjResult.value.isNotEmpty()) {
+            return xjResult.value.first()
+        }
+
+        val njResult = runCatching { parseNj(decompress(buffer)) }.getOrNull()
 
         if (njResult is Success && njResult.value.isNotEmpty()) {
             return njResult.value.first()
         }
 
-        return parseXj(decompress(buffer)).unwrap().first()
+        throw IllegalArgumentException("Couldn't parse item model $index.")
     }
 
     suspend fun loadXvrTextures(index: Int): List<XvrTexture> {
