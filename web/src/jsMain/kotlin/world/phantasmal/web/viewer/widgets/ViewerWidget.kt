@@ -44,12 +44,6 @@ class ViewerWidget(
                     className = "pw-viewer-asset-library"
                     style.width = "${assetLibraryWidth}px"
 
-                    addChild(AssetCategorySelectionWidget(
-                        categories = ctrl.assetCategories,
-                        selected = ctrl.activeAssetCategory,
-                        onSelect = ctrl::setActiveAssetCategory,
-                    ))
-
                     div {
                         className = "pw-viewer-asset-toolbar"
 
@@ -60,6 +54,12 @@ class ViewerWidget(
                             extraClassName = "pw-viewer-asset-search",
                         ))
                     }
+
+                    addChild(AssetCategorySelectionWidget(
+                        categories = ctrl.assetCategories,
+                        selected = ctrl.activeAssetCategory,
+                        onSelect = ctrl::setActiveAssetCategory,
+                    ))
 
                     addChild(GroupedSelectionWidget(
                         groups = ctrl.modelGroups,

@@ -55,10 +55,10 @@ class AssetCategorySelectionWidget(
             style("""
                 .pw-viewer-asset-categories {
                     display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 4px;
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 1px;
                     margin: 0;
-                    padding: 6px;
+                    padding: 4px;
                     list-style: none;
                     border-bottom: var(--pw-border);
                 }
@@ -67,12 +67,10 @@ class AssetCategorySelectionWidget(
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) auto;
                     align-items: center;
-                    gap: 4px;
+                    gap: 8px;
                     min-width: 0;
-                    padding: 5px 6px;
-                    border: 1px solid hsl(0, 0%, 20%);
-                    border-radius: 2px;
-                    background-color: hsl(0, 0%, 14%);
+                    padding: 5px 8px 5px 10px;
+                    border-left: 2px solid transparent;
                     color: hsl(0, 0%, 64%);
                     cursor: pointer;
                     user-select: none;
@@ -80,12 +78,12 @@ class AssetCategorySelectionWidget(
 
                 .pw-viewer-asset-category:hover {
                     color: hsl(0, 0%, 86%);
-                    background-color: hsl(0, 0%, 18%);
+                    background-color: hsl(0, 0%, 15%);
                 }
 
                 .pw-viewer-asset-category.pw-active {
-                    border-color: hsl(195, 55%, 45%);
-                    background-color: hsl(195, 40%, 20%);
+                    border-left-color: hsl(195, 65%, 55%);
+                    background-color: hsl(195, 38%, 18%);
                     color: hsl(0, 0%, 90%);
                 }
 
