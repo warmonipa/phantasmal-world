@@ -37,7 +37,13 @@ class SelectionVisualizationManager(
     fun updateForSelectedEntity(entity: QuestEntityModel<*, *>?) {
         clearAll()
 
-        if (entity is QuestObjectModel && (entity.type == ObjectType.EventCollision || entity.type == ObjectType.ScriptCollision)) {
+        if (entity is QuestObjectModel && (
+                entity.type == ObjectType.EventCollision ||
+                entity.type == ObjectType.ScriptCollision ||
+                entity.type == ObjectType.FogCollision ||
+                entity.type == ObjectType.FogCollisionSW
+            )
+        ) {
             createRangeCircleForEntity(entity)
         }
 
@@ -83,7 +89,7 @@ class SelectionVisualizationManager(
         rangeCircleObserverDisposer.disposeAll()
     }
 
-    // ---- Range circle (EventCollision / ScriptCollision) ----
+    // ---- Range circle (EventCollision / ScriptCollision / FogCollision / FogCollisionSW) ----
 
     private fun createRangeCircleForEntity(entity: QuestObjectModel) {
         val radiusProp = entity.properties.value.find { it.name == "Radius" }
