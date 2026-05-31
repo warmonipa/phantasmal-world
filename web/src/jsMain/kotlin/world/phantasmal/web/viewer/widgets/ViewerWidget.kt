@@ -1,6 +1,7 @@
 package world.phantasmal.web.viewer.widgets
 
 import kotlinx.coroutines.launch
+import kotlinx.browser.document
 import org.w3c.dom.DragEvent
 import org.w3c.dom.Node
 import org.w3c.dom.asList
@@ -21,6 +22,8 @@ class ViewerWidget(
     private val createMeshWidget: () -> Widget,
     private val createTextureWidget: () -> Widget,
 ) : Widget() {
+    private var assetLibraryWidth = ASSET_LIBRARY_DEFAULT_WIDTH
+
     override fun Node.createElement() =
         div {
             className = "pw-viewer-viewer"
@@ -37,8 +40,9 @@ class ViewerWidget(
             div {
                 className = "pw-viewer-viewer-content"
 
-                div {
+                val assetLibrary = div {
                     className = "pw-viewer-asset-library"
+                    style.width = "${assetLibraryWidth}px"
 
                     addChild(TextInput(
                         value = ctrl.assetSearch,
@@ -54,6 +58,33 @@ class ViewerWidget(
                         },
                     ))
                 }
+
+                div {
+                    className = "pw-viewer-asset-resizer"
+
+                    onDrag(
+                        onPointerDown = {
+                            document.body?.classList?.add("pw-viewer-resizing")
+                            classList.add("pw-active")
+                            true
+                        },
+                        onPointerMove = { movedX, _, e ->
+                            e.preventDefault()
+                            assetLibraryWidth =
+                                (assetLibraryWidth + movedX).coerceIn(
+                                    ASSET_LIBRARY_MIN_WIDTH,
+                                    ASSET_LIBRARY_MAX_WIDTH,
+                                )
+                            assetLibrary.style.width = "${assetLibraryWidth}px"
+                            true
+                        },
+                        onPointerUp = {
+                            document.body?.classList?.remove("pw-viewer-resizing")
+                            classList.remove("pw-active")
+                        },
+                    )
+                }
+
                 addChild(createCharacterClassOptionsWidget())
                 addChild(TabContainer(ctrl = ctrl, createWidget = { tab ->
                     when (tab) {
@@ -117,6 +148,10 @@ class ViewerWidget(
     }
 
     companion object {
+        private const val ASSET_LIBRARY_DEFAULT_WIDTH = 220
+        private const val ASSET_LIBRARY_MIN_WIDTH = 160
+        private const val ASSET_LIBRARY_MAX_WIDTH = 420
+
         init {
             @Suppress("CssUnusedSymbol")
             // language=css
@@ -148,8 +183,24 @@ class ViewerWidget(
                     display: flex;
                     flex-direction: column;
                     min-height: 0;
-                    width: 220px;
+                    flex: 0 0 auto;
                     overflow: hidden;
+                }
+
+                .pw-viewer-asset-resizer {
+                    flex: 0 0 5px;
+                    border-left: var(--pw-border);
+                    cursor: col-resize;
+                }
+
+                .pw-viewer-asset-resizer:hover,
+                .pw-viewer-asset-resizer.pw-active {
+                    background-color: hsl(195, 55%, 35%);
+                }
+
+                body.pw-viewer-resizing {
+                    cursor: col-resize;
+                    user-select: none;
                 }
 
                 .pw-viewer-asset-library > .pw-text-input {
