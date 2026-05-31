@@ -396,7 +396,7 @@ class QuestEditorToolbarController(
 
         // When the area (and thus its available events) changes, drop a selection that is no
         // longer valid so a stale event doesn't silently filter the new area.
-        observe(lobbyEventOptions) { options ->
+        observeNow(lobbyEventOptions) { options ->
             if (questEditorUiStore.selectedLobbyEvent.value !in options) {
                 questEditorUiStore.setSelectedLobbyEvent(LobbyEventFilter.None)
             }
