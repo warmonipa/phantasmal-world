@@ -19,10 +19,23 @@ class ObjectTypeTests : LibTestSuite {
     }
 
     @Test
-    fun welcome_board_and_non_season_types_have_no_lobby_event() {
+    fun welcome_board_has_no_lobby_event_because_its_event_is_unknown() {
+        // WelcomeBoard is a city-lobby object but its event ID is not known, so it is
+        // treated as always-visible (lobbyEvent = null).
         assertNull(ObjectType.WelcomeBoard.lobbyEvent)
+    }
+
+    @Test
+    fun non_season_object_types_have_no_lobby_event() {
         assertNull(ObjectType.PlayerSet.lobbyEvent)
         assertNull(ObjectType.Teleporter.lobbyEvent)
         assertNull(ObjectType.Unknown.lobbyEvent)
+    }
+
+    @Test
+    fun exactly_eight_object_types_are_seasonal() {
+        // Guard: if a TObjCity_Season_* type is added/removed, update the mapping test above.
+        val seasonal = ObjectType.entries.filter { it.lobbyEvent != null }
+        assertEquals(8, seasonal.size, "Update the seasonal mapping test when this changes.")
     }
 }
