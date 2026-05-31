@@ -22,9 +22,17 @@ sealed class ViewerModel {
         override val slug: String = "Object_${objectType.name}"
     }
 
-    data class Item(val index: Int) : ViewerModel() {
-        override val uiName: String = "Item Model ${index.toString().padStart(3, '0')}"
+    data class Item(val index: Int, private val displayName: String, val kind: ItemKind) :
+        ViewerModel() {
+        override val uiName: String = displayName
         override val slug: String = "ItemModel_$index"
+    }
+
+    enum class ItemKind {
+        Weapon,
+        Barrier,
+        Tool,
+        Other,
     }
 
     data class Group(val label: String, val items: List<ViewerModel>)
@@ -231,15 +239,13 @@ sealed class ViewerModel {
             .groupBy { objectGroupLabel(it.objectType) }
             .map { (label, items) -> Group(label, items.sortedBy { it.objectType.typeId }) }
 
-        val ITEMS: List<ViewerModel> = (0 until ITEM_MODEL_COUNT).map(::Item)
+        val ITEMS: List<ViewerModel> = (0 until ITEM_MODEL_COUNT).map(::itemModel)
 
         val ITEM_GROUPS: List<Group> = ITEMS
             .filterIsInstance<Item>()
-            .chunked(100)
-            .map { items ->
-                val start = items.first().index.toString().padStart(3, '0')
-                val end = items.last().index.toString().padStart(3, '0')
-                Group("Item Models $start-$end", items)
+            .groupBy { it.kind }
+            .map { (kind, items) ->
+                Group(itemGroupLabel(kind), items)
             }
 
         val ALL: List<ViewerModel> =
@@ -279,5 +285,233 @@ sealed class ViewerModel {
             type.typeId != null && type !in OBJECTS_WITHOUT_VIEWER_ASSET
 
         private const val ITEM_MODEL_COUNT = 408
+        private const val BARRIER_MODEL_OFFSET = 295
+        private const val TOOL_MODEL_OFFSET = 362
+        private const val OTHER_ITEM_MODEL_OFFSET = 368
+
+        private fun itemModel(index: Int): Item {
+            val id = index.toString().padStart(3, '0')
+
+            return when {
+                index < BARRIER_MODEL_OFFSET -> {
+                    val name = weaponModelLabel(index)
+                    Item(index, "Weapon $id - $name", ItemKind.Weapon)
+                }
+
+                index < TOOL_MODEL_OFFSET -> {
+                    val skin = index - BARRIER_MODEL_OFFSET
+                    val name = barrierModelLabel(skin)
+                    Item(index, "Barrier $id - $name", ItemKind.Barrier)
+                }
+
+                index < OTHER_ITEM_MODEL_OFFSET -> {
+                    val skin = index - TOOL_MODEL_OFFSET
+                    val name = toolModelLabel(skin)
+                    Item(index, "Tool $id - $name", ItemKind.Tool)
+                }
+
+                else -> Item(index, "Item Model $id", ItemKind.Other)
+            }
+        }
+
+        private fun itemGroupLabel(kind: ItemKind): String =
+            when (kind) {
+                ItemKind.Weapon -> "Item Models - Weapons"
+                ItemKind.Barrier -> "Item Models - Barriers"
+                ItemKind.Tool -> "Item Models - Tools"
+                ItemKind.Other -> "Item Models - Other"
+            }
+
+        private fun weaponModelLabel(skin: Int): String =
+            when (skin) {
+                0 -> "Saber family"
+                1 -> "Sword family"
+                2 -> "Dagger family"
+                3 -> "Partisan family"
+                4 -> "Slicer family"
+                5 -> "Handgun family"
+                6 -> "Rifle family"
+                7 -> "Mechgun family"
+                8 -> "Shot family"
+                9 -> "Cane family"
+                10 -> "Rod family"
+                11 -> "Wand family"
+                12 -> "Photon Claw"
+                13 -> "Double Saber"
+                14 -> "Sonic Knuckle"
+                15 -> "Orotiagito"
+                16 -> "Soul Eater"
+                17 -> "Spread Needle"
+                18 -> "Holy Ray"
+                19 -> "Inferno Bazooka"
+                20 -> "Flame Visit"
+                21 -> "Akiko's Frying Pan"
+                22 -> "Sorcerer's Cane"
+                23 -> "S-Beat's Blade"
+                24 -> "P-Arms's Blade"
+                25 -> "Delsaber's Buster"
+                26 -> "Bringer's Rifle"
+                27 -> "Egg Blaster"
+                28 -> "Psycho Wand"
+                29 -> "Heaven Punisher"
+                30 -> "Lavis Cannon"
+                31 -> "Victor Axe"
+                32 -> "Chain Sawd"
+                33 -> "Caduceus"
+                34 -> "Sting Tip"
+                35 -> "Magical Piece"
+                36 -> "Technical Crozier"
+                37 -> "Suppressed Gun"
+                38 -> "Ancient Saber"
+                39 -> "Harisen Battle Fan"
+                40 -> "Yamigarasu"
+                41 -> "Akiko's Wok"
+                42 -> "Toy Hammer"
+                43 -> "Elysion"
+                44 -> "Red Saber"
+                45 -> "Meteor Cudgel"
+                46 -> "Monkey King Bar"
+                47 -> "Black King Bar"
+                48 -> "Double Cannon"
+                49 -> "Tsumikiri J-Sword"
+                50 -> "Sealed J-Sword"
+                51 -> "Red Sword"
+                52 -> "Crazy Tune"
+                53 -> "Twin Chakram"
+                54 -> "Wok of Akiko's Shop"
+                55 -> "Lavis Blade"
+                56 -> "Red Dagger"
+                57 -> "Madam's Umbrella"
+                58 -> "Madam's Parasol"
+                59 -> "Imperial Pick"
+                60 -> "Berdysh"
+                61 -> "Red Partisan"
+                62 -> "Flight Cutter"
+                63 -> "Flight Fan"
+                64 -> "Red Slicer"
+                65 -> "Handgun: Guld"
+                66 -> "Handgun: Milla"
+                67 -> "Red Handgun"
+                68 -> "Frozen Shooter"
+                69 -> "Snow Queen"
+                70 -> "Anti Android Rifle"
+                71 -> "Rocket Punch"
+                72 -> "Samba Maracas"
+                73 -> "Twin Psychogun"
+                74 -> "Drill Launcher"
+                75 -> "Guld Milla"
+                76 -> "Red Mechgun"
+                77 -> "Belra Cannon"
+                78 -> "Panzer Faust"
+                79 -> "Iron Faust"
+                80 -> "Summit Moon"
+                81 -> "Windmill"
+                82 -> "Evil Curst"
+                83 -> "Flower Cane"
+                84 -> "Hildebear's Cane"
+                85 -> "Hildeblue's Cane"
+                86 -> "Rabbit Wand"
+                87 -> "Plantain Leaf"
+                88 -> "Fatsia"
+                89 -> "Demonic Fork"
+                90 -> "Striker of Chao"
+                91 -> "Broom"
+                92 -> "Prophets of Motav"
+                93 -> "The Sigh of a God"
+                94 -> "Twinkle Star"
+                95 -> "Plantain Fan"
+                96 -> "Twin Blaze"
+                97 -> "Marina's Bag"
+                98 -> "Dragon's Claw"
+                99 -> "Panther's Claw"
+                100 -> "S-Red's Blade"
+                101 -> "Plantain Huge Fan"
+                102 -> "Chameleon Scythe"
+                103 -> "Yasminkov 3000R"
+                104 -> "Ano Rifle"
+                105 -> "Baranz Launcher"
+                106 -> "Branch of Pakupaku"
+                107 -> "Heart of Poumn"
+                108 -> "Yasminkov 2000H"
+                109 -> "Yasminkov 7000V"
+                110 -> "Yasminkov 9000M"
+                in 126..294 -> "Rare weapon skin $skin"
+                else -> "Weapon skin $skin"
+            }
+
+        private fun barrierModelLabel(skin: Int): String =
+            when (skin) {
+                0 -> "Red Ring"
+                1 -> "Tripolic Shield"
+                2 -> "Standstill Shield"
+                3 -> "Safety Heart"
+                4 -> "Kasami Bracer"
+                5 -> "Gods Shield Suzaku"
+                6 -> "Gods Shield Genbu"
+                7 -> "Gods Shield Byakko"
+                8 -> "Gods Shield Seiryu"
+                9 -> "Hunter's Shell"
+                10 -> "Rico's Glasses"
+                11 -> "Rico's Earring"
+                12 -> "Blue Ring"
+                13 -> "Yellow Ring"
+                14 -> "Secure Feet"
+                15 -> "Purple Ring"
+                16 -> "Green Ring"
+                17 -> "Black Ring"
+                18 -> "White Ring"
+                19 -> "Weapons Gold Shield"
+                20 -> "Black Gear"
+                21 -> "Works Guard"
+                22 -> "Ragol Ring"
+                23 -> "Blue Ring"
+                24 -> "Blue Ring"
+                25 -> "Blue Ring"
+                26 -> "Blue Ring"
+                27 -> "Blue Ring"
+                28 -> "Blue Ring"
+                29 -> "Blue Ring"
+                30 -> "Green Ring"
+                31 -> "Green Ring"
+                32 -> "Green Ring"
+                33 -> "Green Ring"
+                34 -> "Green Ring"
+                35 -> "Green Ring"
+                36 -> "Green Ring"
+                37 -> "Yellow Ring"
+                38 -> "Yellow Ring"
+                39 -> "Yellow Ring"
+                40 -> "Yellow Ring"
+                41 -> "Yellow Ring"
+                42 -> "Yellow Ring"
+                43 -> "Yellow Ring"
+                44 -> "Purple Ring"
+                45 -> "Purple Ring"
+                46 -> "Purple Ring"
+                47 -> "DF Shield"
+                48 -> "From the Depths"
+                49 -> "De Rol Le Shield"
+                50 -> "Honeycomb Reflector"
+                51 -> "Epsiguard"
+                52 -> "Angel Ring"
+                53 -> "Union Guard"
+                54 -> "Gods Shield Kouryu"
+                55 -> "Union Guard"
+                56 -> "Union Guard"
+                57 -> "Union Guard"
+                in 58..66 -> "Genpei"
+                else -> "Barrier skin $skin"
+            }
+
+        private fun toolModelLabel(skin: Int): String =
+            when (skin) {
+                0 -> "Mate / Fluid / Atomizer"
+                1 -> "Event consumables"
+                2 -> "Present"
+                3 -> "Christmas Present"
+                4 -> "Easter Egg"
+                5 -> "Jack-O-Lantern"
+                else -> "Tool skin $skin"
+            }
     }
 }
