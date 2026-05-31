@@ -17,7 +17,7 @@ shows only the decorations matching the **current lobby event** (a value the ser
 the `DA` command); each `TObjCity_Season_*` object self-gates on that event in its constructor.
 The editor has no lobby-event concept, so it renders every object unconditionally.
 
-Verified by parsing real data files (`InspectCityObjects` jvmTest, `D:/PSO`):
+Verified by parsing real data files from a local PSO data directory (one-off jvmTest):
 
 | File | Bytes | Objects | Season decorations |
 |------|-------|---------|--------------------|

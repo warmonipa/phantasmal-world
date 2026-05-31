@@ -675,7 +675,7 @@ git commit -m "feat(web): add Lobby Event dropdown to the quest editor toolbar"
 
 - [ ] **Step 1: Open a city/Pioneer 2 area**
 
-Load a GC V3 city (e.g. `D:/PSO/jpppz/root`, EP1 city) or BB EP4 city02. Confirm:
+Load a GC V3 city (from a local V3 GC data dir, EP1 city) or BB EP4 city02. Confirm:
 - The city renders **without** stacked decorations by default (no Christmas trees + pumpkins + eggs at once).
 - A "Lobby Event:" dropdown appears in the toolbar next to "Layout:" / "Monsters:".
 
