@@ -13,6 +13,7 @@ import world.phantasmal.web.questEditor.controllers.QuestEditorToolbarController
 import world.phantasmal.web.questEditor.controllers.SaveFormat
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.files.showOpenFilePicker
+import world.phantasmal.web.questEditor.models.lobbyEventFilterLabel
 import world.phantasmal.webui.widgets.*
 
 class QuestEditorToolbarWidget(
@@ -251,6 +252,15 @@ class QuestEditorToolbarWidget(
                         itemToString = { it.toString() },
                         selected = ctrl.freeRoamV2,
                         onSelect = { scope.launch { ctrl.setFreeRoamV2(it) } },
+                    ),
+                    Select(
+                        className = "pw-free-roam-select",
+                        label = "Lobby Event:",
+                        visible = ctrl.showLobbyEventSelect,
+                        items = ctrl.lobbyEventOptions,
+                        itemToString = { lobbyEventFilterLabel(it) },
+                        selected = ctrl.selectedLobbyEvent,
+                        onSelect = { ctrl.setSelectedLobbyEvent(it) },
                     ),
                     Checkbox(
                         label = "Offline",
