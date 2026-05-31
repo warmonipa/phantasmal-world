@@ -9,6 +9,7 @@ import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
+import world.phantasmal.web.questEditor.models.lobbyEventSeasonOk
 import world.phantasmal.web.questEditor.stores.*
 
 class QuestEditorMeshManager(
@@ -91,7 +92,8 @@ class QuestEditorMeshManager(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
-        ) { quest, area, floorIds ->
+            questEditorUiStore.selectedLobbyEvent,
+        ) { quest, area, floorIds, selectedLobbyEvent ->
             loadObjectMeshes(
                 if (quest != null && area != null) {
                     quest.objects.filteredCell {
@@ -100,7 +102,8 @@ class QuestEditorMeshManager(
                         } else {
                             it.areaId == area.id
                         }
-                        it.sectionInitialized and areaMatch
+                        val seasonOk = lobbyEventSeasonOk(it.type.lobbyEvent, selectedLobbyEvent)
+                        it.sectionInitialized and (areaMatch && seasonOk)
                     }
                 } else {
                     emptyListCell()
