@@ -12,6 +12,7 @@ import world.phantasmal.web.viewer.controllers.ViewerController
 import world.phantasmal.web.viewer.controllers.ViewerToolbarController
 import world.phantasmal.web.viewer.loading.AnimationAssetLoader
 import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
+import world.phantasmal.web.viewer.loading.ItemAssetLoader
 import world.phantasmal.web.viewer.loading.NpcAssetLoader
 import world.phantasmal.web.viewer.loading.ObjectAssetLoader
 import world.phantasmal.web.viewer.rendering.MeshRenderer
@@ -34,6 +35,7 @@ class Viewer(
         // Asset Loaders
         val characterClassAssetLoader = addDisposable(CharacterClassAssetLoader(assetLoader))
         val npcAssetLoader = addDisposable(NpcAssetLoader(assetLoader))
+        val itemAssetLoader = addDisposable(ItemAssetLoader(assetLoader))
         val objectAssetLoader = addDisposable(ObjectAssetLoader(assetLoader))
         val animationAssetLoader = addDisposable(AnimationAssetLoader(assetLoader))
 
@@ -42,6 +44,7 @@ class Viewer(
             ViewerStore(
                 characterClassAssetLoader,
                 npcAssetLoader,
+                itemAssetLoader,
                 objectAssetLoader,
                 animationAssetLoader,
                 uiStore,

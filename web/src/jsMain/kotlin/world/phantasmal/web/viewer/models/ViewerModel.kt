@@ -22,6 +22,11 @@ sealed class ViewerModel {
         override val slug: String = "Object_${objectType.name}"
     }
 
+    data class Item(val index: Int) : ViewerModel() {
+        override val uiName: String = "Item Model ${index.toString().padStart(3, '0')}"
+        override val slug: String = "ItemModel_$index"
+    }
+
     data class Group(val label: String, val items: List<ViewerModel>)
 
     companion object {
@@ -226,8 +231,19 @@ sealed class ViewerModel {
             .groupBy { objectGroupLabel(it.objectType) }
             .map { (label, items) -> Group(label, items.sortedBy { it.objectType.typeId }) }
 
+        val ITEMS: List<ViewerModel> = (0 until ITEM_MODEL_COUNT).map(::Item)
+
+        val ITEM_GROUPS: List<Group> = ITEMS
+            .filterIsInstance<Item>()
+            .chunked(100)
+            .map { items ->
+                val start = items.first().index.toString().padStart(3, '0')
+                val end = items.last().index.toString().padStart(3, '0')
+                Group("Item Models $start-$end", items)
+            }
+
         val ALL: List<ViewerModel> =
-            CHARACTERS + EP1_ENEMIES + EP2_ENEMIES + EP4_ENEMIES + BOSSES + OBJECTS
+            CHARACTERS + EP1_ENEMIES + EP2_ENEMIES + EP4_ENEMIES + BOSSES + ITEMS + OBJECTS
 
         val GROUPS: List<Group> = listOf(
             Group("Characters", CHARACTERS),
@@ -235,7 +251,7 @@ sealed class ViewerModel {
             Group("EP2 Enemies", EP2_ENEMIES),
             Group("EP4 Enemies", EP4_ENEMIES),
             Group("Bosses", BOSSES),
-        ) + OBJECT_GROUPS
+        ) + ITEM_GROUPS + OBJECT_GROUPS
 
         fun findBySlug(slug: String): ViewerModel? = ALL.find { it.slug == slug }
 
@@ -261,5 +277,7 @@ sealed class ViewerModel {
 
         private fun objectTypeHasViewerAsset(type: ObjectType): Boolean =
             type.typeId != null && type !in OBJECTS_WITHOUT_VIEWER_ASSET
+
+        private const val ITEM_MODEL_COUNT = 408
     }
 }
