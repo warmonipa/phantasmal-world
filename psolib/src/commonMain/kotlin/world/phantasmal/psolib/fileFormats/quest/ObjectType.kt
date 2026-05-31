@@ -13,6 +13,12 @@ enum class ObjectType(
      * Default object-specific properties.
      */
     override val properties: List<EntityProp> = emptyList(),
+    /**
+     * For `TObjCity_Season_*` decoration objects, the lobby event during which the game shows
+     * this object. `null` for ordinary objects (always shown) and for `WelcomeBoard`, whose
+     * event is unknown so it is treated as always-visible.
+     */
+    val lobbyEvent: LobbyEvent? = null,
 ) : EntityType {
     Unknown(
         uniqueName = "Unknown",
@@ -681,6 +687,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 75,
+        lobbyEvent = LobbyEvent.Easter,
         properties = listOf(
             EntityProp(name = "Model index", offset = 52, type = EntityPropType.I32),
         ),
@@ -693,6 +700,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 76,
+        lobbyEvent = LobbyEvent.Valentine,
     ),
     ChristmasTree(
         uniqueName = "Christmas Tree",
@@ -702,6 +710,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 77,
+        lobbyEvent = LobbyEvent.Christmas,
     ),
     ChristmasWreath(
         uniqueName = "Christmas Wreath",
@@ -711,6 +720,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 78,
+        lobbyEvent = LobbyEvent.Christmas,
     ),
     HalloweenPumpkin(
         uniqueName = "Halloween Pumpkin",
@@ -720,6 +730,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 79,
+        lobbyEvent = LobbyEvent.Halloween,
     ),
     TwentyFirstCentury(
         uniqueName = "21st Century",
@@ -729,6 +740,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 80,
+        lobbyEvent = LobbyEvent.NewYear,
     ),
     Sonic(
         uniqueName = "Sonic",
@@ -738,6 +750,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 81,
+        lobbyEvent = LobbyEvent.Sonic,
         properties = listOf(
             EntityProp(name = "Model", offset = 52, type = EntityPropType.I32),
         ),
@@ -759,6 +772,7 @@ enum class ObjectType(
             Episode.IV to listOf(0),
         ),
         typeId = 83,
+        lobbyEvent = LobbyEvent.NewYear,
         properties = listOf(
             EntityProp(name = "Mdl IDX", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Area width", offset = 44, type = EntityPropType.F32),
