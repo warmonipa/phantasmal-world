@@ -43,6 +43,8 @@ class ViewerController(
     val assetCategories: Cell<List<ViewerModel.Category>> = cell(ViewerModel.CATEGORIES)
     val activeAssetCategory: Cell<ViewerModel.Category> = _activeAssetCategory
     val expandedAssetGroups: Cell<Set<String>> = _expandedAssetGroups
+    val assetSearchSuggestions: Cell<List<ViewerModel>> =
+        _assetSearch.map(::searchSuggestions)
     val modelGroups: Cell<List<ViewerModel.Group>> =
         map(_assetSearch, _activeAssetCategory, ::filterGroups)
     val currentModel: Cell<ViewerModel?> = store.currentModel
@@ -90,6 +92,20 @@ class ViewerController(
             }
     }
 
+    suspend fun selectAssetSearchSuggestion(model: ViewerModel) {
+        _assetSearch.value = model.uiName
+
+        val category = categoryForModel(model)
+        if (category != null) {
+            _activeAssetCategory.value = category
+            expandedGroupsForModel(model, category)?.let {
+                _expandedAssetGroups.value = setOf(it.label)
+            }
+        }
+
+        store.setCurrentModel(model)
+    }
+
     fun toggleAssetGroup(label: String) {
         val expanded = _expandedAssetGroups.value.toMutableSet()
 
@@ -133,6 +149,28 @@ class ViewerController(
 
                 if (items.isEmpty()) null else group.copy(items = items)
             }
+        }
+
+        private fun searchSuggestions(query: String): List<ViewerModel> {
+            val normalizedQuery = query.trim().lowercase()
+
+            if (normalizedQuery.isEmpty()) {
+                return emptyList()
+            }
+
+            return ViewerModel.ALL
+                .asSequence()
+                .filter {
+                    it.uiName.lowercase().contains(normalizedQuery) ||
+                            it.slug.lowercase().contains(normalizedQuery)
+                }
+                .sortedWith(
+                    compareBy<ViewerModel> {
+                        !it.uiName.lowercase().startsWith(normalizedQuery)
+                    }.thenBy { it.uiName }
+                )
+                .take(8)
+                .toList()
         }
 
         private fun defaultExpandedGroups(category: ViewerModel.Category): Set<String> =

@@ -11,7 +11,6 @@ import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.disposableListener
 import world.phantasmal.webui.files.FileHandle
 import world.phantasmal.webui.widgets.TabContainer
-import world.phantasmal.webui.widgets.TextInput
 import world.phantasmal.webui.widgets.Widget
 
 class ViewerWidget(
@@ -47,11 +46,13 @@ class ViewerWidget(
                     div {
                         className = "pw-viewer-asset-toolbar"
 
-                        addChild(TextInput(
-                            value = ctrl.assetSearch,
+                        addChild(AssetSearchWidget(
+                            query = ctrl.assetSearch,
+                            suggestions = ctrl.assetSearchSuggestions,
                             onChange = ctrl::setAssetSearch,
-                            placeholder = "Search assets",
-                            extraClassName = "pw-viewer-asset-search",
+                            onSelect = { model ->
+                                scope.launch { ctrl.selectAssetSearchSuggestion(model) }
+                            },
                         ))
                     }
 
@@ -242,10 +243,6 @@ class ViewerWidget(
                     min-height: 0;
                 }
 
-                .pw-viewer-asset-search {
-                    box-sizing: border-box;
-                    width: 100%;
-                }
             """.trimIndent())
         }
     }
