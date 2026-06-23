@@ -810,6 +810,18 @@ enum class NpcType(
         skin = 1,
         special = true,
     ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces normal (Poison) Lily regardless of area.
+    // Shared type 97 is area-gated; haven.dll registers 228 to force this side.
+    PoisonLilyOmni(
+        uniqueName = "Poison Lily (Omnispawn)",
+        ultimateName = "Ob Lily (Omnispawn)",
+        episode = Episode.I,
+        enemy = true,
+        areaIds = listOf(3, 4, 5),
+        typeId = 228,
+        skin = 0,
+        special = false,
+    ),
     NanoDragon(
         uniqueName = "Nano Dragon",
         episode = Episode.I,
@@ -1786,12 +1798,35 @@ enum class NpcType(
         skin = 0,
         special = false,
     ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Del Lily regardless of area.
+    // Shared type 97 is area-gated; haven.dll registers 229 to force this side.
+    DelLilyOmni(
+        uniqueName = "Del Lily (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(17),
+        typeId = 229,
+        skin = 0,
+        special = false,
+    ),
     Epsilon(
         uniqueName = "Epsilon",
         episode = Episode.II,
         enemy = true,
         areaIds = listOf(17),
         typeId = 224,
+        skin = 0,
+        special = false,
+        properties = ENEMY_PROPERTIES_6,
+    ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Epsilon regardless of area.
+    // Shared type 224 is area/skin-gated; haven.dll registers 227 to force this side.
+    EpsilonOmni(
+        uniqueName = "Epsilon (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(17),
+        typeId = 227,
         skin = 0,
         special = false,
         properties = ENEMY_PROPERTIES_6,
@@ -1901,6 +1936,18 @@ enum class NpcType(
         areaIds = listOf(10, 11),
         typeId = 224,
         skin = 1,
+        special = false,
+        properties = ENEMY_PROPERTIES_6,
+    ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Sinow Zoa regardless of area.
+    // Shared type 224 is area/skin-gated; haven.dll registers 226 to force this side.
+    SinowZoaOmni(
+        uniqueName = "Sinow Zoa (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(10, 11),
+        typeId = 226,
+        skin = 0,
         special = false,
         properties = ENEMY_PROPERTIES_6,
     ),

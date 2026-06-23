@@ -60,7 +60,7 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
          * Values determined empirically by comparing editor placement with in-game appearance.
          */
         private fun computeYOffset(npcType: NpcType): Double = when (npcType) {
-            NpcType.Epsilon -> 20.0
+            NpcType.Epsilon, NpcType.EpsilonOmni -> 20.0
             NpcType.GiGue -> 25.0
             NpcType.ChaosSorcerer, NpcType.ChaosSorcerer2 -> 25.0
             NpcType.Bulclaw -> 25.0

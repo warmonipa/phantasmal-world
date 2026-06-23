@@ -168,6 +168,12 @@ fun npcTypeFromQuestNpc(npc: QuestNpc): NpcType {
             else -> NpcType.SinowZele
         }
         0x0E1 -> NpcType.IllGill
+        // Omnispawn explicit (Ephinea) pseudo-types that force one side of an area/skin-gated
+        // shared family. The type itself is the discriminator, so skin/area are ignored here.
+        0x0E2 -> NpcType.SinowZoaOmni      // shared 0xE0 forced to the Sinow Zoa side
+        0x0E3 -> NpcType.EpsilonOmni       // shared 0xE0 forced to the Epsilon side
+        0x0E4 -> NpcType.PoisonLilyOmni    // shared 0x61 forced to normal (Poison) Lily
+        0x0E5 -> NpcType.DelLilyOmni       // shared 0x61 forced to Del Lily
         0x0F0 -> NpcType.Hosa2
         0x0F1 -> NpcType.ItemShop
         0x0F2 -> NpcType.DefaultFomar

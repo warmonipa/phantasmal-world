@@ -369,6 +369,19 @@ private fun entityTypeToPath(
                 NpcType.NarLily2 ->
                     entityTypeToPath(NpcType.NarLily, assetType, suffix, model, geomFormat)
 
+                // Omnispawn pseudo-types share their stock sibling's model.
+                NpcType.PoisonLilyOmni ->
+                    entityTypeToPath(NpcType.PoisonLily, assetType, suffix, model, geomFormat)
+
+                NpcType.DelLilyOmni ->
+                    entityTypeToPath(NpcType.DelLily, assetType, suffix, model, geomFormat)
+
+                NpcType.EpsilonOmni ->
+                    entityTypeToPath(NpcType.Epsilon, assetType, suffix, model, geomFormat)
+
+                NpcType.SinowZoaOmni ->
+                    entityTypeToPath(NpcType.SinowZoa, assetType, suffix, model, geomFormat)
+
                 NpcType.GrassAssassin2 ->
                     entityTypeToPath(NpcType.GrassAssassin, assetType, suffix, model, geomFormat)
 
