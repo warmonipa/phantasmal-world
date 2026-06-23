@@ -183,8 +183,13 @@ class EntityInfoController(
     val typeIdEnabled: Cell<Boolean> =
         map(enabled, questEditorStore.selectedEntity) { en, entity -> en && entity is QuestNpcModel }
 
-    val type: Cell<String> = questEditorStore.selectedEntity.map {
-        it?.let { if (it is QuestNpcModel) "NPC" else "Object" } ?: ""
+    val type: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
+        when (entity) {
+            // Re-resolve the kind when an NPC's type ID changes (enemy vs. friendly NPC).
+            is QuestNpcModel -> entity.typeId.map { if (entity.type.enemy) "Enemy" else "NPC" }
+            null -> cell("")
+            else -> cell("Object")
+        }
     }
 
     val name: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
