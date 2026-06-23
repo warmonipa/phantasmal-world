@@ -168,8 +168,8 @@ class EntityInfoController(
     val enabled: Cell<Boolean> = questEditorStore.questEditingEnabled
 
     /**
-     * Raw type ID at offset 0 of the entity data (qedit calls this "Skin"). Editable for NPCs;
-     * editing it changes the resolved [world.phantasmal.psolib.fileFormats.quest.NpcType].
+     * Raw type ID at offset 0 of the entity data. Editable for NPCs; editing it changes the
+     * resolved [world.phantasmal.psolib.fileFormats.quest.NpcType].
      */
     val typeId: Cell<Int> = questEditorStore.selectedEntity.flatMap { entity ->
         when (entity) {

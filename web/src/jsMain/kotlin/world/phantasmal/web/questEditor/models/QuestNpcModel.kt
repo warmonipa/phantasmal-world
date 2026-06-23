@@ -13,9 +13,8 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
     private val _typeId = mutableCell(npc.typeId.toInt())
 
     /**
-     * The raw type ID stored at offset 0 of the NPC data (qedit calls this "Skin"). Editing it
-     * changes which [NpcType] the NPC resolves to. Exposed as a cell so the 3D mesh and the info
-     * panel can react to changes.
+     * The raw type ID stored at offset 0 of the NPC data. Editing it changes which [NpcType] the
+     * NPC resolves to. Exposed as a cell so the 3D mesh and the info panel can react to changes.
      */
     val typeId: Cell<Int> = _typeId
 
