@@ -953,7 +953,7 @@ enum class NpcType(
         typeId = 128,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Gilchic(
         uniqueName = "Gilchic",
@@ -964,7 +964,7 @@ enum class NpcType(
         typeId = 128,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Garanz(
         uniqueName = "Garanz",
@@ -1568,7 +1568,7 @@ enum class NpcType(
         typeId = 128,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Gilchic2(
         uniqueName = "Gilchic (Ep. II)",
@@ -1580,7 +1580,7 @@ enum class NpcType(
         typeId = 128,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Garanz2(
         uniqueName = "Garanz (Ep. II)",
@@ -1653,7 +1653,7 @@ enum class NpcType(
         typeId = 212,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SinowSpigell(
         uniqueName = "Sinow Spigell",
@@ -1663,7 +1663,7 @@ enum class NpcType(
         typeId = 212,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Merillia(
         uniqueName = "Merillia",
@@ -1673,7 +1673,7 @@ enum class NpcType(
         typeId = 213,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Meriltas(
         uniqueName = "Meriltas",
@@ -1683,7 +1683,7 @@ enum class NpcType(
         typeId = 213,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Mericarol(
         uniqueName = "Mericarol",
@@ -1693,7 +1693,7 @@ enum class NpcType(
         typeId = 214,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Merikle(
         uniqueName = "Merikle",
@@ -1703,7 +1703,7 @@ enum class NpcType(
         typeId = 214,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Mericus(
         uniqueName = "Mericus",
@@ -1713,7 +1713,7 @@ enum class NpcType(
         typeId = 214,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     UlGibbon(
         uniqueName = "Ul Gibbon",
@@ -1817,7 +1817,7 @@ enum class NpcType(
         typeId = 224,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     // Omnispawn explicit (Ephinea) pseudo-type: forces Epsilon regardless of area.
     // Shared type 224 is area/skin-gated; haven.dll registers 227 to force this side.
@@ -1880,7 +1880,7 @@ enum class NpcType(
         typeId = 221,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Dolmdarl(
         uniqueName = "Dolmdarl",
@@ -1890,7 +1890,7 @@ enum class NpcType(
         typeId = 221,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Morfos(
         uniqueName = "Morfos",
@@ -1927,7 +1927,7 @@ enum class NpcType(
         typeId = 224,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SinowZele(
         uniqueName = "Sinow Zele",
@@ -1937,7 +1937,7 @@ enum class NpcType(
         typeId = 224,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     // Omnispawn explicit (Ephinea) pseudo-type: forces Sinow Zoa regardless of area.
     // Shared type 224 is area/skin-gated; haven.dll registers 226 to force this side.
@@ -2025,7 +2025,7 @@ enum class NpcType(
         typeId = 274,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     MerissaAA(
         uniqueName = "Merissa AA",
@@ -2035,7 +2035,7 @@ enum class NpcType(
         typeId = 274,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Girtablulu(
         uniqueName = "Girtablulu",
@@ -2056,7 +2056,7 @@ enum class NpcType(
         typeId = 276,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Pazuzu(
         uniqueName = "Pazuzu",
@@ -2066,7 +2066,7 @@ enum class NpcType(
         typeId = 276,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Boota(
         uniqueName = "Boota",
@@ -2076,7 +2076,7 @@ enum class NpcType(
         typeId = 277,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     ZeBoota(
         uniqueName = "Ze Boota",
@@ -2086,7 +2086,7 @@ enum class NpcType(
         typeId = 277,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     BaBoota(
         uniqueName = "Ba Boota",
@@ -2096,7 +2096,7 @@ enum class NpcType(
         typeId = 277,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Dorphon(
         uniqueName = "Dorphon",
@@ -2107,7 +2107,7 @@ enum class NpcType(
         typeId = 278,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     DorphonEclair(
         uniqueName = "Dorphon Eclair",
@@ -2117,7 +2117,7 @@ enum class NpcType(
         typeId = 278,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Goran(
         uniqueName = "Goran",
@@ -2127,7 +2127,7 @@ enum class NpcType(
         typeId = 279,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     PyroGoran(
         uniqueName = "Pyro Goran",
@@ -2137,7 +2137,7 @@ enum class NpcType(
         typeId = 279,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     GoranDetonator(
         uniqueName = "Goran Detonator",
@@ -2147,7 +2147,7 @@ enum class NpcType(
         typeId = 279,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SaintMilion(
         uniqueName = "Saint-Milion",
@@ -2159,7 +2159,7 @@ enum class NpcType(
         typeId = 281,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Shambertin(
         uniqueName = "Shambertin",
@@ -2171,7 +2171,7 @@ enum class NpcType(
         typeId = 281,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Kondrieu(
         uniqueName = "Kondrieu",
@@ -2182,7 +2182,7 @@ enum class NpcType(
         typeId = 281,
         skin = 0,
         special = true,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     );
 
     /**
