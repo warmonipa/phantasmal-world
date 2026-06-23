@@ -17,5 +17,5 @@ karma.config.generated.js
 # Kotlin
 /.kotlin
 
-# Override global gitignore
-!docs/
+# Local-only docs (plans, specs, format notes) — kept on disk, not tracked
+/docs/
