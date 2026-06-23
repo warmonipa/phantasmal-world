@@ -10,6 +10,23 @@ import world.phantasmal.web.externals.three.Vector3
 class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, QuestNpc>(npc) {
     private val _waveId = mutableCell(waveId)
 
+    private val _typeId = mutableCell(npc.typeId.toInt())
+
+    /**
+     * The raw type ID stored at offset 0 of the NPC data (qedit calls this "Skin"). Editing it
+     * changes which [NpcType] the NPC resolves to. Exposed as a cell so the 3D mesh and the info
+     * panel can react to changes.
+     */
+    val typeId: Cell<Int> = _typeId
+
+    /**
+     * Sets the raw type ID. The resolved [type] (and thus the model/properties) changes with it.
+     */
+    fun setTypeId(typeId: Int) {
+        entity.typeId = typeId.toShort()
+        _typeId.value = typeId
+    }
+
     /**
      * Whether this NPC is a StageNPC (typeId=0x33).
      *

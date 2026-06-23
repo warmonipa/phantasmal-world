@@ -27,11 +27,19 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                 hidden(ctrl.unavailable)
 
                 tr {
-                    th { textContent = "Skin:" }
-                    td { text(ctrl.id) }
+                    val typeIdInput = IntInput(
+                        enabled = ctrl.typeIdEnabled,
+                        value = ctrl.typeId,
+                        onChange = ctrl::setTypeId,
+                        label = "Type:",
+                        min = 0,
+                        step = 0,
+                    )
+                    th { addChild(typeIdInput.label!!) }
+                    td { addChild(typeIdInput) }
                 }
                 tr {
-                    th { textContent = "Type:" }
+                    th { textContent = "Kind:" }
                     td { text(ctrl.type) }
                 }
                 tr {

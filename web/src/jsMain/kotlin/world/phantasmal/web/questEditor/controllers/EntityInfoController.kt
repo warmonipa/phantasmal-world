@@ -5,6 +5,7 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.cell.list.listMap
+import world.phantasmal.cell.list.mapToList
 import world.phantasmal.core.math.degToRad
 import world.phantasmal.core.math.radToDeg
 import world.phantasmal.psolib.fileFormats.quest.EntityPropType
@@ -166,19 +167,34 @@ class EntityInfoController(
     val unavailable: Cell<Boolean> = questEditorStore.selectedEntity.isNull()
     val enabled: Cell<Boolean> = questEditorStore.questEditingEnabled
 
-    val id: Cell<String> = questEditorStore.selectedEntity.map {
-        when (it) {
-            is QuestNpcModel -> it.entity.typeId.toString()
-            is QuestObjectModel -> it.entity.typeId.toString()
-            else -> ""
+    /**
+     * Raw type ID at offset 0 of the entity data (qedit calls this "Skin"). Editable for NPCs;
+     * editing it changes the resolved [world.phantasmal.psolib.fileFormats.quest.NpcType].
+     */
+    val typeId: Cell<Int> = questEditorStore.selectedEntity.flatMap { entity ->
+        when (entity) {
+            is QuestNpcModel -> entity.typeId
+            is QuestObjectModel -> cell(entity.entity.typeId.toInt())
+            else -> zeroIntCell()
         }
     }
+
+    /** Only NPC type IDs are editable; object type IDs stay read-only. */
+    val typeIdEnabled: Cell<Boolean> =
+        map(enabled, questEditorStore.selectedEntity) { en, entity -> en && entity is QuestNpcModel }
 
     val type: Cell<String> = questEditorStore.selectedEntity.map {
         it?.let { if (it is QuestNpcModel) "NPC" else "Object" } ?: ""
     }
 
-    val name: Cell<String> = questEditorStore.selectedEntity.map { it?.type?.simpleName ?: "" }
+    val name: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
+        when (entity) {
+            // Re-resolve the name when an NPC's type ID changes.
+            is QuestNpcModel -> entity.typeId.map { entity.type.simpleName }
+            null -> cell("")
+            else -> cell(entity.type.simpleName)
+        }
+    }
 
     val appearFlag: Cell<String> = questEditorStore.selectedEntity
         .map { entity ->
@@ -221,14 +237,25 @@ class EntityInfoController(
 
     val props: ListCell<EntityInfoPropModel> =
         questEditorStore.selectedEntity.flatMapToList { entity ->
-            entity?.properties?.listMap { prop ->
-                when (prop.type) {
-                    EntityPropType.I32 -> EntityInfoPropModel.I32(questEditorStore, prop)
-                    EntityPropType.U16 -> EntityInfoPropModel.I32(questEditorStore, prop)
-                    EntityPropType.F32 -> EntityInfoPropModel.F32(questEditorStore, prop)
-                    EntityPropType.Angle -> EntityInfoPropModel.Angle(questEditorStore, prop)
+            when (entity) {
+                // Rebuild the property models when an NPC's type ID changes, so the panel reflects
+                // the newly resolved type's properties.
+                is QuestNpcModel -> entity.typeId.mapToList { _ ->
+                    entity.type.properties.map { prop ->
+                        toInfoPropModel(QuestEntityPropModel(entity, prop))
+                    }
                 }
-            } ?: emptyListCell()
+                null -> emptyListCell()
+                else -> entity.properties.listMap(::toInfoPropModel)
+            }
+        }
+
+    private fun toInfoPropModel(prop: QuestEntityPropModel): EntityInfoPropModel =
+        when (prop.type) {
+            EntityPropType.I32 -> EntityInfoPropModel.I32(questEditorStore, prop)
+            EntityPropType.U16 -> EntityInfoPropModel.I32(questEditorStore, prop)
+            EntityPropType.F32 -> EntityInfoPropModel.F32(questEditorStore, prop)
+            EntityPropType.Angle -> EntityInfoPropModel.Angle(questEditorStore, prop)
         }
 
     fun focused() {
@@ -276,6 +303,21 @@ class EntityInfoController(
                     QuestNpcModel::setWaveId,
                     waveId,
                     npc.wave.value.id,
+                )
+            )
+        }
+    }
+
+    fun setTypeId(typeId: Int) {
+        (questEditorStore.selectedEntity.value as? QuestNpcModel)?.let { npc ->
+            questEditorStore.executeAction(
+                EditEntityPropertyCommand(
+                    questEditorStore,
+                    "Edit ${npc.type.simpleName} type ID",
+                    npc,
+                    QuestNpcModel::setTypeId,
+                    typeId,
+                    npc.typeId.value,
                 )
             )
         }
