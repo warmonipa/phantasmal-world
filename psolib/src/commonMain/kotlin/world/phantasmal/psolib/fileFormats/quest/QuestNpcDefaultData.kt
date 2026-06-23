@@ -196,7 +196,7 @@ internal fun setNpcDefaultData(type: NpcType, view: Buffer) {
         }
 
         NpcType.GrassAssassin -> view.setShort(8, 4)
-        NpcType.PoisonLily -> view.setShort(8, 4)
+        NpcType.PoisonLily, NpcType.PoisonLilyOmni -> view.setShort(8, 4)
         NpcType.NanoDragon -> view.setShort(8, 3)
         NpcType.EvilShark -> view.setShort(8, 3)
         NpcType.PalShark -> view.setShort(8, 3)
@@ -573,7 +573,7 @@ internal fun setNpcDefaultData(type: NpcType, view: Buffer) {
             view.setShort(70, 24639)
         }
 
-        NpcType.DelLily -> {
+        NpcType.DelLily, NpcType.DelLilyOmni -> {
             view.setShort(4, -1)
             view.setShort(8, 17)
             view.setShort(10, 6388)
@@ -581,7 +581,7 @@ internal fun setNpcDefaultData(type: NpcType, view: Buffer) {
             view.setShort(70, 564)
         }
 
-        NpcType.Epsilon -> {
+        NpcType.Epsilon, NpcType.EpsilonOmni -> {
             view.setShort(4, -1)
             view.setShort(8, 17)
             view.setShort(10, -7914)
@@ -651,7 +651,7 @@ internal fun setNpcDefaultData(type: NpcType, view: Buffer) {
             view.setShort(70, 686)
         }
 
-        NpcType.SinowZoa -> {
+        NpcType.SinowZoa, NpcType.SinowZoaOmni -> {
             view.setShort(4, 2634)
             view.setShort(8, 11)
             view.setShort(10, 6999)

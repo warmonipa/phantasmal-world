@@ -810,6 +810,18 @@ enum class NpcType(
         skin = 1,
         special = true,
     ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces normal (Poison) Lily regardless of area.
+    // Shared type 97 is area-gated; haven.dll registers 228 to force this side.
+    PoisonLilyOmni(
+        uniqueName = "Poison Lily (Omnispawn)",
+        ultimateName = "Ob Lily (Omnispawn)",
+        episode = Episode.I,
+        enemy = true,
+        areaIds = listOf(3, 4, 5),
+        typeId = 228,
+        skin = 0,
+        special = false,
+    ),
     NanoDragon(
         uniqueName = "Nano Dragon",
         episode = Episode.I,
@@ -941,7 +953,7 @@ enum class NpcType(
         typeId = 128,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Gilchic(
         uniqueName = "Gilchic",
@@ -952,7 +964,7 @@ enum class NpcType(
         typeId = 128,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Garanz(
         uniqueName = "Garanz",
@@ -1556,7 +1568,7 @@ enum class NpcType(
         typeId = 128,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Gilchic2(
         uniqueName = "Gilchic (Ep. II)",
@@ -1568,7 +1580,7 @@ enum class NpcType(
         typeId = 128,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Garanz2(
         uniqueName = "Garanz (Ep. II)",
@@ -1641,7 +1653,7 @@ enum class NpcType(
         typeId = 212,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SinowSpigell(
         uniqueName = "Sinow Spigell",
@@ -1651,7 +1663,7 @@ enum class NpcType(
         typeId = 212,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Merillia(
         uniqueName = "Merillia",
@@ -1661,7 +1673,7 @@ enum class NpcType(
         typeId = 213,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Meriltas(
         uniqueName = "Meriltas",
@@ -1671,7 +1683,7 @@ enum class NpcType(
         typeId = 213,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Mericarol(
         uniqueName = "Mericarol",
@@ -1681,7 +1693,7 @@ enum class NpcType(
         typeId = 214,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Merikle(
         uniqueName = "Merikle",
@@ -1691,7 +1703,7 @@ enum class NpcType(
         typeId = 214,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Mericus(
         uniqueName = "Mericus",
@@ -1701,7 +1713,7 @@ enum class NpcType(
         typeId = 214,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     UlGibbon(
         uniqueName = "Ul Gibbon",
@@ -1786,12 +1798,35 @@ enum class NpcType(
         skin = 0,
         special = false,
     ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Del Lily regardless of area.
+    // Shared type 97 is area-gated; haven.dll registers 229 to force this side.
+    DelLilyOmni(
+        uniqueName = "Del Lily (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(17),
+        typeId = 229,
+        skin = 0,
+        special = false,
+    ),
     Epsilon(
         uniqueName = "Epsilon",
         episode = Episode.II,
         enemy = true,
         areaIds = listOf(17),
         typeId = 224,
+        skin = 0,
+        special = false,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
+    ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Epsilon regardless of area.
+    // Shared type 224 is area/skin-gated; haven.dll registers 227 to force this side.
+    EpsilonOmni(
+        uniqueName = "Epsilon (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(17),
+        typeId = 227,
         skin = 0,
         special = false,
         properties = ENEMY_PROPERTIES_6,
@@ -1845,7 +1880,7 @@ enum class NpcType(
         typeId = 221,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Dolmdarl(
         uniqueName = "Dolmdarl",
@@ -1855,7 +1890,7 @@ enum class NpcType(
         typeId = 221,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Morfos(
         uniqueName = "Morfos",
@@ -1892,7 +1927,7 @@ enum class NpcType(
         typeId = 224,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SinowZele(
         uniqueName = "Sinow Zele",
@@ -1901,6 +1936,18 @@ enum class NpcType(
         areaIds = listOf(10, 11),
         typeId = 224,
         skin = 1,
+        special = false,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
+    ),
+    // Omnispawn explicit (Ephinea) pseudo-type: forces Sinow Zoa regardless of area.
+    // Shared type 224 is area/skin-gated; haven.dll registers 226 to force this side.
+    SinowZoaOmni(
+        uniqueName = "Sinow Zoa (Omnispawn)",
+        episode = Episode.II,
+        enemy = true,
+        areaIds = listOf(10, 11),
+        typeId = 226,
+        skin = 0,
         special = false,
         properties = ENEMY_PROPERTIES_6,
     ),
@@ -1978,7 +2025,7 @@ enum class NpcType(
         typeId = 274,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     MerissaAA(
         uniqueName = "Merissa AA",
@@ -1988,7 +2035,7 @@ enum class NpcType(
         typeId = 274,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Girtablulu(
         uniqueName = "Girtablulu",
@@ -2009,7 +2056,7 @@ enum class NpcType(
         typeId = 276,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Pazuzu(
         uniqueName = "Pazuzu",
@@ -2019,7 +2066,7 @@ enum class NpcType(
         typeId = 276,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Boota(
         uniqueName = "Boota",
@@ -2029,7 +2076,7 @@ enum class NpcType(
         typeId = 277,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     ZeBoota(
         uniqueName = "Ze Boota",
@@ -2039,7 +2086,7 @@ enum class NpcType(
         typeId = 277,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     BaBoota(
         uniqueName = "Ba Boota",
@@ -2049,7 +2096,7 @@ enum class NpcType(
         typeId = 277,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Dorphon(
         uniqueName = "Dorphon",
@@ -2060,7 +2107,7 @@ enum class NpcType(
         typeId = 278,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     DorphonEclair(
         uniqueName = "Dorphon Eclair",
@@ -2070,7 +2117,7 @@ enum class NpcType(
         typeId = 278,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Goran(
         uniqueName = "Goran",
@@ -2080,7 +2127,7 @@ enum class NpcType(
         typeId = 279,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     PyroGoran(
         uniqueName = "Pyro Goran",
@@ -2090,7 +2137,7 @@ enum class NpcType(
         typeId = 279,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     GoranDetonator(
         uniqueName = "Goran Detonator",
@@ -2100,7 +2147,7 @@ enum class NpcType(
         typeId = 279,
         skin = 2,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     SaintMilion(
         uniqueName = "Saint-Milion",
@@ -2112,7 +2159,7 @@ enum class NpcType(
         typeId = 281,
         skin = 0,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Shambertin(
         uniqueName = "Shambertin",
@@ -2124,7 +2171,7 @@ enum class NpcType(
         typeId = 281,
         skin = 1,
         special = false,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     ),
     Kondrieu(
         uniqueName = "Kondrieu",
@@ -2135,7 +2182,7 @@ enum class NpcType(
         typeId = 281,
         skin = 0,
         special = true,
-        properties = ENEMY_PROPERTIES_6,
+        properties = ENEMY_PROPERTIES_SUBTYPE,
     );
 
     /**

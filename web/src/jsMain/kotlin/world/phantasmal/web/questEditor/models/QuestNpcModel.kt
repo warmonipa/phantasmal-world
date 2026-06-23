@@ -10,6 +10,22 @@ import world.phantasmal.web.externals.three.Vector3
 class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, QuestNpc>(npc) {
     private val _waveId = mutableCell(waveId)
 
+    private val _typeId = mutableCell(npc.typeId.toInt())
+
+    /**
+     * The raw type ID stored at offset 0 of the NPC data. Editing it changes which [NpcType] the
+     * NPC resolves to. Exposed as a cell so the 3D mesh and the info panel can react to changes.
+     */
+    val typeId: Cell<Int> = _typeId
+
+    /**
+     * Sets the raw type ID. The resolved [type] (and thus the model/properties) changes with it.
+     */
+    fun setTypeId(typeId: Int) {
+        entity.typeId = typeId.toShort()
+        _typeId.value = typeId
+    }
+
     /**
      * Whether this NPC is a StageNPC (typeId=0x33).
      *
@@ -60,7 +76,7 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
          * Values determined empirically by comparing editor placement with in-game appearance.
          */
         private fun computeYOffset(npcType: NpcType): Double = when (npcType) {
-            NpcType.Epsilon -> 20.0
+            NpcType.Epsilon, NpcType.EpsilonOmni -> 20.0
             NpcType.GiGue -> 25.0
             NpcType.ChaosSorcerer, NpcType.ChaosSorcerer2 -> 25.0
             NpcType.Bulclaw -> 25.0
