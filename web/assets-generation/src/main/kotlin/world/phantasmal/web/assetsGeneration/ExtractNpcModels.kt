@@ -79,6 +79,71 @@ private val MODEL_MAPPINGS = listOf(
 )
 
 /**
+ * Ultimate-difficulty enemy skins. PSO ships recolored Ultimate variants of some enemies in
+ * `_a` / `_u` suffixed BML archives in data.gsl. Each is extracted as `<Name>.ult.nj` +
+ * `<Name>.ult.xvm`, loaded by the quest editor when the Ultimate toggle is on (entities not
+ * listed here keep their normal skin).
+ *
+ * Each (BML, entry index) was determined by fingerprinting the normal extracted `<Name>.xvm`
+ * texture-id set against the matching normal BML entry; the parallel `_a`/`_u` BML reuses the
+ * same entry index. Several enemies share a source entry (e.g. Poison/Nar Lily, the Sinows).
+ */
+private val ULTIMATE_MODEL_MAPPINGS = listOf(
+    // Sharks — bm_ene_bm1_shark_a.bml
+    BmlModelMapping("bm_ene_bm1_shark_a.bml", 0, "PalShark.ult"),
+    BmlModelMapping("bm_ene_bm1_shark_a.bml", 1, "GuilShark.ult"),
+    BmlModelMapping("bm_ene_bm1_shark_a.bml", 2, "EvilShark.ult"),
+
+    // Hildebear family — bm_ene_bm2_moja_a.bml
+    BmlModelMapping("bm_ene_bm2_moja_a.bml", 1, "Hildebear.ult"),
+    BmlModelMapping("bm_ene_bm2_moja_a.bml", 2, "Hildeblue.ult"),
+
+    // Mothmant — bm_ene_bm3_fly_a.bml (entry 1, the Monest nest, has no texture in the Ultimate
+    // archive, so Monest keeps its normal skin).
+    BmlModelMapping("bm_ene_bm3_fly_a.bml", 0, "Mothmant.ult"),
+
+    // Grass Assassin — bm_ene_grass_a.bml
+    BmlModelMapping("bm_ene_grass_a.bml", 0, "GrassAssassin.ult"),
+
+    // Chaos Bringer — bm_ene_df2_bringer_a.bml
+    BmlModelMapping("bm_ene_df2_bringer_a.bml", 0, "ChaosBringer.ult"),
+
+    // Dimenian family — bm_ene_df3_dimedian_a.bml
+    BmlModelMapping("bm_ene_df3_dimedian_a.bml", 0, "SoDimenian.ult"),
+    BmlModelMapping("bm_ene_df3_dimedian_a.bml", 1, "LaDimenian.ult"),
+    BmlModelMapping("bm_ene_df3_dimedian_a.bml", 2, "Dimenian.ult"),
+
+    // Dubchic — bm_ene_dubchik_a.bml
+    BmlModelMapping("bm_ene_dubchik_a.bml", 0, "Dubchic.ult"),
+
+    // Garanz — bm_ene_gyaranzo_a.bml (entry 3 is the body; others are fragments/projectiles)
+    BmlModelMapping("bm_ene_gyaranzo_a.bml", 3, "Garanz.ult"),
+
+    // Canadine — bm_ene_me1_mb_a.bml (entry 0 'me1n' is a textureless variant; entry 1 carries
+    // the recolored body+texture).
+    BmlModelMapping("bm_ene_me1_mb_a.bml", 1, "Canadine.ult"),
+
+    // Sinow Berill / Spigell share the EP2 sinow body — bm_ene_me3_shinowa_a.bml
+    BmlModelMapping("bm_ene_me3_shinowa_a.bml", 0, "SinowBerill.ult"),
+    BmlModelMapping("bm_ene_me3_shinowa_a.bml", 0, "SinowSpigell.ult"),
+
+    // Poison Lily / Nar Lily share the flower body — bm_ene_re2_flower_a.bml
+    BmlModelMapping("bm_ene_re2_flower_a.bml", 0, "PoisonLily.ult"),
+    BmlModelMapping("bm_ene_re2_flower_a.bml", 0, "NarLily.ult"),
+
+    // Chaos Sorcerer — bm_ene_re4_sorcerer_a.bml
+    BmlModelMapping("bm_ene_re4_sorcerer_a.bml", 0, "ChaosSorcerer.ult"),
+
+    // Dark Belra — bm_ene_re7_berura_a.bml
+    BmlModelMapping("bm_ene_re7_berura_a.bml", 0, "DarkBelra.ult"),
+
+    // Booma family — bm_ene_re8_b_beast_a.bml
+    BmlModelMapping("bm_ene_re8_b_beast_a.bml", 0, "Booma.ult"),
+    BmlModelMapping("bm_ene_re8_b_beast_a.bml", 1, "Gigobooma.ult"),
+    BmlModelMapping("bm_ene_re8_b_beast_a.bml", 2, "Gobooma.ult"),
+)
+
+/**
  * Animation mappings. BML animation entries contain only model data (PRS-compressed NJM),
  * no texture data.
  */
@@ -144,7 +209,7 @@ fun main(args: Array<String>) {
     val gslEntryByName = gslEntries.associateBy { it.name }
 
     // Group mappings by GSL entry name to avoid parsing the same BML multiple times.
-    val mappingsByGslEntry = MODEL_MAPPINGS.groupBy { it.gslEntryName }
+    val mappingsByGslEntry = (MODEL_MAPPINGS + ULTIMATE_MODEL_MAPPINGS).groupBy { it.gslEntryName }
 
     var extracted = 0
     var failed = 0

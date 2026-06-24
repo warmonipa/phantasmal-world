@@ -234,7 +234,6 @@ private val ULTIMATE_NPCS: Set<NpcType> = setOf(
     NpcType.Hildebear,
     NpcType.Hildeblue,
     NpcType.Mothmant,
-    NpcType.Monest,
     NpcType.GrassAssassin,
     NpcType.ChaosBringer,
     NpcType.Dimenian,
