@@ -32,3 +32,13 @@ tasks.register<JavaExec>("extractNpcModels") {
     // Usage: ./gradlew :web:assets-generation:extractNpcModels --args="<pso-data-dir> <output-dir>"
     // Example: --args="D:/PSO/EphineaPSO2/data web/src/jsMain/resources/assets/npcs"
 }
+
+tasks.register<JavaExec>("extractUltimateAreas") {
+    description = "Copy Ultimate-difficulty area assets (Episode I) from PSO BB game data"
+
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.ExtractUltimateAreasKt")
+
+    // Usage: ./gradlew :web:assets-generation:extractUltimateAreas --args="<pso-data-dir> <areas-dir>"
+    // Example: --args="D:/PSO/EphineaPSO2/data web/src/jsMain/resources/assets/areas"
+}
