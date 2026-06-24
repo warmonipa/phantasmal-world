@@ -34,6 +34,8 @@ class ViewerToolbarController(private val store: ViewerStore) : Controller() {
     val applyTextures: Cell<Boolean> = store.applyTextures
     val showSkeletonEnabled: Cell<Boolean> = store.showSkeletonEnabled
     val showSkeleton: Cell<Boolean> = store.showSkeleton
+    val ultimateEnabled: Cell<Boolean> = store.ultimateEnabled
+    val ultimate: Cell<Boolean> = store.ultimate
     val playAnimation: Cell<Boolean> = store.animationPlaying
     val frameRate: Cell<Int> = store.frameRate
     val frame: Cell<Int> = store.frame
@@ -54,6 +56,10 @@ class ViewerToolbarController(private val store: ViewerStore) : Controller() {
 
     fun setShowSkeleton(show: Boolean) {
         store.setShowSkeleton(show)
+    }
+
+    suspend fun setUltimate(ultimate: Boolean) {
+        store.setUltimate(ultimate)
     }
 
     fun setPlayAnimation(play: Boolean) {

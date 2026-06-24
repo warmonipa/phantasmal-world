@@ -3,8 +3,10 @@ package world.phantasmal.web.questEditor.widgets
 import kotlinx.coroutines.launch
 import org.w3c.dom.Node
 import world.phantasmal.cell.map
+import world.phantasmal.cell.observeNow
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.fileFormats.quest.EntityType
+import world.phantasmal.psolib.fileFormats.quest.displayName
 import world.phantasmal.psolib.fileFormats.quest.isBossArea
 import world.phantasmal.psolib.fileFormats.quest.isPioneer2OrLab
 import world.phantasmal.web.questEditor.controllers.EntityListController
@@ -116,7 +118,13 @@ class EntityListWidget(
                 }
 
                 span {
-                    textContent = entityType.simpleName
+                    if (uiStore != null) {
+                        addDisposable(uiStore.ultimate.observeNow { ult ->
+                            textContent = entityType.displayName(ult)
+                        })
+                    } else {
+                        textContent = entityType.simpleName
+                    }
                 }
             }
     }

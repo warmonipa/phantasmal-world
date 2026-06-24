@@ -2,6 +2,7 @@ package world.phantasmal.web.viewer.widgets
 
 import kotlinx.coroutines.launch
 import org.w3c.dom.Node
+import world.phantasmal.cell.cell
 import world.phantasmal.web.viewer.controllers.ViewerToolbarController
 import world.phantasmal.webui.dom.Icon
 import world.phantasmal.webui.dom.div
@@ -42,6 +43,13 @@ class ViewerToolbarWidget(private val ctrl: ViewerToolbarController) : Widget() 
                         enabled = ctrl.applyTexturesEnabled,
                         checked = ctrl.applyTextures,
                         onChange = ctrl::setApplyTextures,
+                    ),
+                    Checkbox(
+                        label = "Ultimate",
+                        tooltip = cell("Show the Ultimate-difficulty skin of the current enemy"),
+                        enabled = ctrl.ultimateEnabled,
+                        checked = ctrl.ultimate,
+                        onChange = { ultimate -> scope.launch { ctrl.setUltimate(ultimate) } },
                     ),
                     Checkbox(
                         label = "Play animation",

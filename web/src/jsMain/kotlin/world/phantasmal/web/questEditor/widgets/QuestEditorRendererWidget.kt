@@ -15,6 +15,7 @@ import world.phantasmal.cell.observeNow
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.displayName
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.controllers.AreaNpcListController
 import world.phantasmal.web.questEditor.controllers.AreaObjectListController
@@ -355,7 +356,9 @@ class QuestEditorRendererWidget(
                                 appendChild(idxSpan)
                                 span {
                                     className = "pw-quest-editor-overlay-entity-name"
-                                    textContent = npc.type.simpleName
+                                    disposer.add(questEditorUiStore.ultimate.observeNow { ult ->
+                                        textContent = npc.type.displayName(ult)
+                                    })
                                 }
                                 appendChild(secSpan)
                                 appendChild(waveSpan)
@@ -419,7 +422,9 @@ class QuestEditorRendererWidget(
                                 appendChild(idxSpan)
                                 span {
                                     className = "pw-quest-editor-overlay-entity-name"
-                                    textContent = obj.type.simpleName
+                                    disposer.add(questEditorUiStore.ultimate.observeNow { ult ->
+                                        textContent = obj.type.displayName(ult)
+                                    })
                                 }
                                 appendChild(secSpan)
                             }

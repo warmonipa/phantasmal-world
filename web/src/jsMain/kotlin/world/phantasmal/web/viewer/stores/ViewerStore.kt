@@ -73,6 +73,7 @@ class ViewerStore(
     // Settings.
     private val _applyTextures = mutableCell(true)
     private val _showSkeleton = mutableCell(false)
+    private val _ultimate = mutableCell(false)
     private val _animationPlaying = mutableCell(true)
     private val _frameRate = mutableCell(PSO_FRAME_RATE)
     private val _frame = mutableCell(0)
@@ -115,6 +116,10 @@ class ViewerStore(
         it is NinjaGeometry.Object && it.obj is NjObject
     }
     val showSkeleton: Cell<Boolean> = showSkeletonEnabled and _showSkeleton
+
+    /** Only NPCs have Ultimate skins, so the toggle is only meaningful for an NPC model. */
+    val ultimateEnabled: Cell<Boolean> = _currentModel.map { it is ViewerModel.Npc }
+    val ultimate: Cell<Boolean> = _ultimate
     val animationPlaying: Cell<Boolean> = _animationPlaying
     val frameRate: Cell<Int> = _frameRate
     val frame: Cell<Int> = _frame
@@ -272,6 +277,16 @@ class ViewerStore(
         _showSkeleton.value = show
     }
 
+    suspend fun setUltimate(ultimate: Boolean) {
+        if (_ultimate.value == ultimate) return
+        _ultimate.value = ultimate
+
+        // Only NPC skins change with difficulty; reload the current NPC so the new skin loads.
+        if (_currentModel.value is ViewerModel.Npc) {
+            loadNpcNinjaObject(clearAnimation = false)
+        }
+    }
+
     fun setAnimationPlaying(playing: Boolean) {
         _animationPlaying.value = playing
     }
@@ -346,8 +361,8 @@ class ViewerStore(
         val npcType = model.npcType
 
         try {
-            val ninjaObject = npcAssetLoader.loadNinjaObject(npcType)
-            val textures = npcAssetLoader.loadXvrTextures(npcType)
+            val ninjaObject = npcAssetLoader.loadNinjaObject(npcType, _ultimate.value)
+            val textures = npcAssetLoader.loadXvrTextures(npcType, _ultimate.value)
 
             mutate {
                 if (clearAnimation) {

@@ -17,3 +17,12 @@ private val EP_AND_NAME_TO_NPC_TYPE: Map<Pair<String, Episode>, NpcType> =
  */
 fun NpcType.Companion.fromNameAndEpisode(name: String, episode: Episode): NpcType? =
     EP_AND_NAME_TO_NPC_TYPE[Pair(name, episode)]
+
+/**
+ * Display name honoring the Ultimate-difficulty rename. NPCs that are renamed on Ultimate (e.g.
+ * Dubchic → Dubchich, Sinow Beat → Sinow Blue) return their [NpcType.ultimateName] when [ultimate]
+ * is true; everything else — objects, and NPCs without a distinct Ultimate name — falls back to
+ * [EntityType.simpleName].
+ */
+fun EntityType.displayName(ultimate: Boolean): String =
+    if (ultimate && this is NpcType) ultimateName else simpleName

@@ -181,6 +181,13 @@ class QuestEditorToolbarWidget(
                             ),
                         ),
                     ),
+                    // Ultimate skin/name toggle (also in the View menu).
+                    Checkbox(
+                        label = "Ultimate",
+                        tooltip = cell("Show Ultimate-difficulty skins and names of areas and enemies"),
+                        checked = ctrl.ultimate,
+                        onChange = ctrl::setUltimate,
+                    ),
                     // Undo
                     Button(
                         text = "Undo",

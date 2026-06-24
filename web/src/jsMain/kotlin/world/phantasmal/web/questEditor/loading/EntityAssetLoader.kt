@@ -13,6 +13,7 @@ import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.core.loading.AssetLoader
 import world.phantasmal.web.core.loading.LoadingCache
+import world.phantasmal.web.core.loading.NPCS_WITH_ULTIMATE_SKIN
 import world.phantasmal.web.core.rendering.conversion.ninjaObjectToInstancedMesh
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
@@ -222,36 +223,11 @@ private enum class GeomFormat {
 }
 
 /**
- * NPC types that have a distinct Ultimate-difficulty skin extracted as `<Name>.ult.nj` +
- * `<Name>.ult.xvm`. Any NPC not listed renders the same in Ultimate as on other difficulties,
- * so the Ultimate toggle uses its normal asset. Episode II "2" / omnispawn siblings redirect to
- * their stock type in [entityTypeToPath], so they inherit the Ultimate skin automatically.
+ * NPC types that have a distinct Ultimate-difficulty skin. Episode II "2" / omnispawn siblings
+ * redirect to their stock type in [entityTypeToPath], so they inherit the Ultimate skin
+ * automatically. The set itself lives in [NPCS_WITH_ULTIMATE_SKIN] so the viewer shares it.
  */
-private val ULTIMATE_NPCS: Set<NpcType> = setOf(
-    NpcType.EvilShark,
-    NpcType.PalShark,
-    NpcType.GuilShark,
-    NpcType.Hildebear,
-    NpcType.Hildeblue,
-    NpcType.Mothmant,
-    NpcType.GrassAssassin,
-    NpcType.ChaosBringer,
-    NpcType.Dimenian,
-    NpcType.LaDimenian,
-    NpcType.SoDimenian,
-    NpcType.Dubchic,
-    NpcType.Garanz,
-    NpcType.Canadine,
-    NpcType.SinowBerill,
-    NpcType.SinowSpigell,
-    NpcType.PoisonLily,
-    NpcType.NarLily,
-    NpcType.ChaosSorcerer,
-    NpcType.DarkBelra,
-    NpcType.Booma,
-    NpcType.Gobooma,
-    NpcType.Gigobooma,
-)
+private val ULTIMATE_NPCS: Set<NpcType> = NPCS_WITH_ULTIMATE_SKIN
 
 /** Object types that have a distinct Ultimate-difficulty skin (`<id>.ult.*`). */
 private val ULTIMATE_OBJECTS: Set<ObjectType> = emptySet()

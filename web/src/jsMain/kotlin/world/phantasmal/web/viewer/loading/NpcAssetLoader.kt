@@ -8,25 +8,35 @@ import world.phantasmal.psolib.fileFormats.ninja.*
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.web.core.loading.AssetLoader
 import world.phantasmal.web.core.loading.LoadingCache
+import world.phantasmal.web.core.loading.NPCS_WITH_ULTIMATE_SKIN
 import world.phantasmal.web.viewer.models.AnimationModel
 import world.phantasmal.webui.DisposableContainer
 
 private val logger = KotlinLogging.logger {}
 
 class NpcAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer() {
-    private val ninjaObjectCache: LoadingCache<NpcType, NinjaObject<*, *>> =
+    /** Cache key: an NPC plus whether its Ultimate-difficulty skin was requested. */
+    private data class NpcSkin(val npcType: NpcType, val ultimate: Boolean)
+
+    private val ninjaObjectCache: LoadingCache<NpcSkin, NinjaObject<*, *>> =
         addDisposable(LoadingCache(::loadGeometry) { /* Nothing to dispose. */ })
 
-    private val xvrTextureCache: LoadingCache<NpcType, List<XvrTexture>> =
+    private val xvrTextureCache: LoadingCache<NpcSkin, List<XvrTexture>> =
         addDisposable(LoadingCache(::loadTextures) { /* Nothing to dispose. */ })
 
-    suspend fun loadNinjaObject(npcType: NpcType): NinjaObject<*, *> =
-        ninjaObjectCache.get(npcType)
+    suspend fun loadNinjaObject(npcType: NpcType, ultimate: Boolean = false): NinjaObject<*, *> =
+        ninjaObjectCache.get(NpcSkin(npcType, ultimate))
 
-    suspend fun loadXvrTextures(npcType: NpcType): List<XvrTexture> =
-        xvrTextureCache.get(npcType)
+    suspend fun loadXvrTextures(npcType: NpcType, ultimate: Boolean = false): List<XvrTexture> =
+        xvrTextureCache.get(NpcSkin(npcType, ultimate))
 
-    private suspend fun loadGeometry(npcType: NpcType): NinjaObject<*, *> {
+    /**
+     * Geometry, like the textures, is recolored on Ultimate for some enemies, so the `.ult` skin
+     * loads its own `.nj`/`.xj`. XJ-format NPCs have no Ultimate variant, so they ignore the flag.
+     */
+    private suspend fun loadGeometry(key: NpcSkin): NinjaObject<*, *> {
+        val (npcType, ultimate) = key
+
         if (npcType in XJ_GEOMETRY_TYPES) {
             val buffer = assetLoader.loadArrayBuffer("/npcs/${npcType.name}.xj")
             val result = parseXj(buffer.cursor(Endianness.Little))
@@ -34,7 +44,8 @@ class NpcAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer
             return result.value.first()
         }
 
-        val buffer = assetLoader.loadArrayBuffer("/npcs/${npcType.name}.nj")
+        val ult = ultimateSuffix(npcType, ultimate)
+        val buffer = assetLoader.loadArrayBuffer("/npcs/${npcType.name}$ult.nj")
         val result = parseNj(buffer.cursor(Endianness.Little))
         if (result !is Success) error("Failed to load NJ geometry for ${npcType.uniqueName}.")
 
@@ -49,8 +60,10 @@ class NpcAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer
         return root
     }
 
-    private suspend fun loadTextures(npcType: NpcType): List<XvrTexture> {
-        val buffer = assetLoader.loadArrayBuffer("/npcs/${npcType.name}.xvm")
+    private suspend fun loadTextures(key: NpcSkin): List<XvrTexture> {
+        val (npcType, ultimate) = key
+        val ult = ultimateSuffix(npcType, ultimate)
+        val buffer = assetLoader.loadArrayBuffer("/npcs/${npcType.name}$ult.xvm")
         val result = parseXvm(buffer.cursor(Endianness.Little))
 
         return if (result is Success) {
@@ -60,6 +73,10 @@ class NpcAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer
             emptyList()
         }
     }
+
+    /** `.ult` when the Ultimate skin was requested and this NPC actually has one, else `""`. */
+    private fun ultimateSuffix(npcType: NpcType, ultimate: Boolean): String =
+        if (ultimate && npcType in NPCS_WITH_ULTIMATE_SKIN) ".ult" else ""
 
     companion object {
         /** NPC types whose geometry uses .xj format instead of the default .nj. */

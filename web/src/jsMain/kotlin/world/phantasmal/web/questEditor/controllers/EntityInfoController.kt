@@ -10,6 +10,7 @@ import world.phantasmal.core.math.degToRad
 import world.phantasmal.core.math.radToDeg
 import world.phantasmal.psolib.fileFormats.quest.EntityPropType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.displayName
 import world.phantasmal.web.core.euler
 import world.phantasmal.web.externals.three.Euler
 import world.phantasmal.web.externals.three.Vector3
@@ -21,6 +22,7 @@ import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.AsmStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.controllers.Controller
 
 sealed class EntityInfoPropModel(
@@ -161,6 +163,7 @@ sealed class EntityInfoPropModel(
 class EntityInfoController(
     private val areaStore: AreaStore,
     private val questEditorStore: QuestEditorStore,
+    private val questEditorUiStore: QuestEditorUiStore,
     private val asmStore: AsmStore,
     private val onActivateAsmEditor: () -> Unit = {},
 ) : Controller() {
@@ -194,10 +197,14 @@ class EntityInfoController(
 
     val name: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
         when (entity) {
-            // Re-resolve the name when an NPC's type ID changes.
-            is QuestNpcModel -> entity.typeId.map { entity.type.simpleName }
+            // Re-resolve the name when an NPC's type ID changes or the Ultimate toggle flips
+            // (NPCs like Sinow Beat → Sinow Blue are renamed on Ultimate).
+            is QuestNpcModel ->
+                map(entity.typeId, questEditorUiStore.ultimate) { _, ult ->
+                    entity.type.displayName(ult)
+                }
             null -> cell("")
-            else -> cell(entity.type.simpleName)
+            else -> questEditorUiStore.ultimate.map { ult -> entity.type.displayName(ult) }
         }
     }
 

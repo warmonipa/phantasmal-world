@@ -88,6 +88,7 @@ class QuestEditor(
         val entityInfoController = addDisposable(EntityInfoController(
             areaStore,
             questEditorStore,
+            questEditorUiStore,
             asmStore,
             onActivateAsmEditor = {
                 questEditorController.requestActivateWidget(
