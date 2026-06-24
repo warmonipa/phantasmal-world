@@ -22,6 +22,7 @@ class QuestEditorUiStore(
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
     private val _showScriptParticles = mutableCell(false)
+    private val _ultimate = mutableCell(true)
     private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
 
     val devMode: Cell<Boolean> = _devMode
@@ -32,6 +33,12 @@ class QuestEditorUiStore(
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
     val showScriptParticles: Cell<Boolean> = _showScriptParticles
+
+    /**
+     * Whether to render the Ultimate-difficulty visual skins of areas and entities.
+     * Independent of the free-roam layout difficulty; this only affects appearance.
+     */
+    val ultimate: Cell<Boolean> = _ultimate
     val selectedLobbyEvent: Cell<LobbyEventFilter> = _selectedLobbyEvent
 
     init {
@@ -71,6 +78,10 @@ class QuestEditorUiStore(
 
     fun setShowScriptParticles(show: Boolean) {
         _showScriptParticles.value = show
+    }
+
+    fun setUltimate(ultimate: Boolean) {
+        _ultimate.value = ultimate
     }
 
     fun setSelectedLobbyEvent(filter: LobbyEventFilter) {

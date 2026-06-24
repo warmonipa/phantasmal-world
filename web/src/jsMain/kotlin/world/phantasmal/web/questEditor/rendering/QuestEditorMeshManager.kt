@@ -43,19 +43,20 @@ class QuestEditorMeshManager(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
             questEditorStore.currentAreaVariant,
-        ) { quest, area, areaVariant ->
+            questEditorUiStore.ultimate,
+        ) { quest, area, areaVariant, ultimate ->
             if (quest != null && area != null) {
                 if (areaVariant != null) {
                     // Load the specific variant
                     // Use variant's episode to handle cross-episode maps (e.g., EP4 quest using EP2 Lab)
-                    loadAreaMeshes(areaVariant.episode, areaVariant)
+                    loadAreaMeshes(areaVariant.episode, areaVariant, ultimate)
                 } else {
                     // For areas without variants (like Lab, Pioneer2), load the default variant
                     val defaultVariant = area.areaVariants.firstOrNull()
-                    loadAreaMeshes(defaultVariant?.episode ?: quest.episode, defaultVariant)
+                    loadAreaMeshes(defaultVariant?.episode ?: quest.episode, defaultVariant, ultimate)
                 }
             } else {
-                loadAreaMeshes(null, null)
+                loadAreaMeshes(null, null, ultimate)
             }
         }
 
@@ -64,7 +65,10 @@ class QuestEditorMeshManager(
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
             questEditorStore.selectedEventsSectionWaves,
-        ) { quest, area, floorIds, selectedSectionWaves ->
+            // Re-add NPC meshes when the Ultimate skin toggles; EntityMeshManager reads the
+            // current ultimate value when it (re)loads each mesh.
+            questEditorUiStore.ultimate,
+        ) { quest, area, floorIds, selectedSectionWaves, _ ->
             loadNpcMeshes(
                 if (quest != null && area != null) {
                     quest.npcs.filteredCell {
@@ -93,7 +97,9 @@ class QuestEditorMeshManager(
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
             questEditorUiStore.selectedLobbyEvent,
-        ) { quest, area, floorIds, selectedLobbyEvent ->
+            // Re-add object meshes when the Ultimate skin toggles.
+            questEditorUiStore.ultimate,
+        ) { quest, area, floorIds, selectedLobbyEvent, _ ->
             loadObjectMeshes(
                 if (quest != null && area != null) {
                     quest.objects.filteredCell {

@@ -87,10 +87,14 @@ abstract class QuestMeshManager protected constructor(
         super.dispose()
     }
 
-    protected fun loadAreaMeshes(episode: Episode?, areaVariant: AreaVariantModel?) {
+    protected fun loadAreaMeshes(
+        episode: Episode?,
+        areaVariant: AreaVariantModel?,
+        ultimate: Boolean,
+    ) {
         areaLoadJob?.cancel()
         areaLoadJob = scope.launch {
-            areaMeshManager.load(episode, areaVariant)
+            areaMeshManager.load(episode, areaVariant, ultimate)
         }
     }
 

@@ -51,8 +51,8 @@ class EntityMeshManager(
      */
     private val entityMeshCache = addDisposable(
         LoadingCache<TypeAndModel, EntityInstanceContainer>(
-            { (type, model) ->
-                val mesh = entityAssetLoader.loadInstancedMesh(type, model)
+            { (type, model, ultimate) ->
+                val mesh = entityAssetLoader.loadInstancedMesh(type, model, ultimate)
                 renderContext.entities.add(mesh)
                 EntityInstanceContainer(mesh, modelChanged = { entity ->
                     // When an entity's model changes, add it again. At this point it has already
@@ -182,7 +182,8 @@ class EntityMeshManager(
                     val entityInstancedMesh = entityMeshCache.get(
                         TypeAndModel(
                             type = entity.type,
-                            model = (entity as? QuestObjectModel)?.model?.value
+                            model = (entity as? QuestObjectModel)?.model?.value,
+                            ultimate = questEditorUiStore.ultimate.value,
                         )
                     )
 
@@ -218,7 +219,8 @@ class EntityMeshManager(
         entityMeshCache.getIfPresentNow(
             TypeAndModel(
                 entity.type,
-                (entity as? QuestObjectModel)?.model?.value
+                (entity as? QuestObjectModel)?.model?.value,
+                questEditorUiStore.ultimate.value,
             )
         )?.removeInstance(entity)
 
@@ -314,7 +316,8 @@ class EntityMeshManager(
         entityMeshCache.getIfPresentNow(
             TypeAndModel(
                 entity.type,
-                (entity as? QuestObjectModel)?.model?.value
+                (entity as? QuestObjectModel)?.model?.value,
+                questEditorUiStore.ultimate.value,
             )
         )?.getInstance(entity)
 
@@ -408,5 +411,9 @@ class EntityMeshManager(
         labelManager?.beforeRender()
     }
 
-    private data class TypeAndModel(val type: EntityType, val model: Int?)
+    private data class TypeAndModel(
+        val type: EntityType,
+        val model: Int?,
+        val ultimate: Boolean,
+    )
 }

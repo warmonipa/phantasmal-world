@@ -23,31 +23,32 @@ private val logger = KotlinLogging.logger {}
 
 class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer() {
     private val instancedMeshCache = addDisposable(
-        LoadingCache<Pair<EntityType, Int?>, InstancedMesh>(
-            { (type, model) ->
+        LoadingCache<EntityMeshKey, InstancedMesh>(
+            { key ->
                 try {
-                    loadMesh(type, model)
-                        ?: if (type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
+                    loadMesh(key.type, key.model, key.ultimate)
+                        ?: if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
                 } catch (e: Exception) {
-                    logger.error(e) { "Couldn't load mesh for $type (model: $model)." }
-                    if (type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
+                    logger.error(e) { "Couldn't load mesh for ${key.type} (model: ${key.model})." }
+                    if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
                 }
             },
             ::disposeObject3DResources
         )
     )
 
-    suspend fun loadInstancedMesh(type: EntityType, model: Int?): InstancedMesh =
-        instancedMeshCache.get(Pair(type, model)).clone() as InstancedMesh
+    suspend fun loadInstancedMesh(
+        type: EntityType,
+        model: Int?,
+        ultimate: Boolean = false,
+    ): InstancedMesh =
+        instancedMeshCache.get(EntityMeshKey(type, model, ultimate)).clone() as InstancedMesh
 
-    private suspend fun loadMesh(type: EntityType, model: Int?): InstancedMesh? {
+    private suspend fun loadMesh(type: EntityType, model: Int?, ultimate: Boolean): InstancedMesh? {
         val geomFormat = entityTypeToGeometryFormat(type)
 
         val geomParts = geometryParts(type).mapNotNull { suffix ->
-            entityTypeToPath(type, AssetType.Geometry, suffix, model, geomFormat)?.let { path ->
-                val data = assetLoader.loadArrayBuffer(path)
-                Pair(path, data)
-            }
+            loadAssetBuffer(type, AssetType.Geometry, suffix, model, geomFormat, ultimate)
         }
 
         val ninjaObject = when (geomFormat) {
@@ -56,7 +57,7 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
             GeomFormat.Rel -> parseGeometry(type, geomParts, ::parseRelNj)
         } ?: return null
 
-        val textures = loadTextures(type, model)
+        val textures = loadTextures(type, model, ultimate)
 
         // TODO: Pass anisotropy parameter.
         return ninjaObjectToInstancedMesh(
@@ -75,7 +76,38 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
         }
     }
 
-    private suspend fun loadTextures(type: EntityType, model: Int?): List<XvrTexture> {
+    /**
+     * Loads an entity asset buffer. When [ultimate] is set the Ultimate-skin (`.ult`) asset is
+     * requested; if that asset is missing the normal-difficulty asset is loaded instead, so the
+     * toggle is a no-op for entities without an Ultimate variant.
+     */
+    private suspend fun loadAssetBuffer(
+        type: EntityType,
+        assetType: AssetType,
+        suffix: String?,
+        model: Int?,
+        geomFormat: GeomFormat,
+        ultimate: Boolean,
+    ): Pair<String, ArrayBuffer>? {
+        val path = entityTypeToPath(type, assetType, suffix, model, geomFormat, ultimate)
+            ?: return null
+
+        return try {
+            Pair(path, assetLoader.loadArrayBuffer(path))
+        } catch (e: Exception) {
+            if (!ultimate) throw e
+
+            val fallback = entityTypeToPath(type, assetType, suffix, model, geomFormat, false)
+                ?: return null
+            Pair(fallback, assetLoader.loadArrayBuffer(fallback))
+        }
+    }
+
+    private suspend fun loadTextures(
+        type: EntityType,
+        model: Int?,
+        ultimate: Boolean,
+    ): List<XvrTexture> {
         val suffix =
             if (
                 type === ObjectType.FloatingRocks ||
@@ -87,10 +119,10 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
             }
 
         // GeomFormat is irrelevant for textures.
-        val path = entityTypeToPath(type, AssetType.Texture, suffix, model, GeomFormat.Nj)
-            ?: return emptyList()
+        val (path, buffer) =
+            loadAssetBuffer(type, AssetType.Texture, suffix, model, GeomFormat.Nj, ultimate)
+                ?: return emptyList()
 
-        val buffer = assetLoader.loadArrayBuffer(path)
         val xvm = parseXvm(buffer.cursor(endianness = Endianness.Little))
 
         return if (xvm is Success) {
@@ -175,6 +207,12 @@ private fun InstancedMesh.applyEntityTypeScale(type: EntityType) {
     }
 }
 
+private data class EntityMeshKey(
+    val type: EntityType,
+    val model: Int?,
+    val ultimate: Boolean,
+)
+
 private enum class AssetType {
     Geometry, Texture
 }
@@ -182,6 +220,42 @@ private enum class AssetType {
 private enum class GeomFormat {
     Nj, Xj, Rel
 }
+
+/**
+ * NPC types that have a distinct Ultimate-difficulty skin extracted as `<Name>.ult.nj` +
+ * `<Name>.ult.xvm`. Any NPC not listed renders the same in Ultimate as on other difficulties,
+ * so the Ultimate toggle uses its normal asset. Episode II "2" / omnispawn siblings redirect to
+ * their stock type in [entityTypeToPath], so they inherit the Ultimate skin automatically.
+ */
+private val ULTIMATE_NPCS: Set<NpcType> = setOf(
+    NpcType.EvilShark,
+    NpcType.PalShark,
+    NpcType.GuilShark,
+    NpcType.Hildebear,
+    NpcType.Hildeblue,
+    NpcType.Mothmant,
+    NpcType.Monest,
+    NpcType.GrassAssassin,
+    NpcType.ChaosBringer,
+    NpcType.Dimenian,
+    NpcType.LaDimenian,
+    NpcType.SoDimenian,
+    NpcType.Dubchic,
+    NpcType.Garanz,
+    NpcType.Canadine,
+    NpcType.SinowBerill,
+    NpcType.SinowSpigell,
+    NpcType.PoisonLily,
+    NpcType.NarLily,
+    NpcType.ChaosSorcerer,
+    NpcType.DarkBelra,
+    NpcType.Booma,
+    NpcType.Gobooma,
+    NpcType.Gigobooma,
+)
+
+/** Object types that have a distinct Ultimate-difficulty skin (`<id>.ult.*`). */
+private val ULTIMATE_OBJECTS: Set<ObjectType> = emptySet()
 
 /**
  * Returns the suffix of each geometry part.
@@ -307,6 +381,7 @@ private fun entityTypeToPath(
     suffix: String?,
     model: Int?,
     geomFormat: GeomFormat,
+    ultimate: Boolean,
 ): String? {
     val fullSuffix = when {
         suffix != null -> suffix
@@ -334,105 +409,108 @@ private fun entityTypeToPath(
 
                 // Rupika is FOnewearl, share her model.
                 NpcType.Rupika ->
-                    entityTypeToPath(NpcType.NpcFOnewearl, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.NpcFOnewearl, assetType, suffix, model, geomFormat, ultimate)
 
                 // Friendly NPC versions of enemies share enemy models.
                 NpcType.NpcLappy ->
-                    entityTypeToPath(NpcType.RagRappy, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.RagRappy, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.NpcMoja ->
-                    entityTypeToPath(NpcType.Hildebear, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Hildebear, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.NpcBringer ->
-                    entityTypeToPath(NpcType.ChaosBringer, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.ChaosBringer, assetType, suffix, model, geomFormat, ultimate)
 
                 // Episode II VR Temple
 
                 NpcType.Hildebear2 ->
-                    entityTypeToPath(NpcType.Hildebear, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Hildebear, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Hildeblue2 ->
-                    entityTypeToPath(NpcType.Hildeblue, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Hildeblue, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.RagRappy2 ->
-                    entityTypeToPath(NpcType.RagRappy, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.RagRappy, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Monest2 ->
-                    entityTypeToPath(NpcType.Monest, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Monest, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Mothmant2 ->
-                    entityTypeToPath(NpcType.Mothmant, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Mothmant, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.PoisonLily2 ->
-                    entityTypeToPath(NpcType.PoisonLily, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.PoisonLily, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.NarLily2 ->
-                    entityTypeToPath(NpcType.NarLily, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.NarLily, assetType, suffix, model, geomFormat, ultimate)
 
                 // Omnispawn pseudo-types share their stock sibling's model.
                 NpcType.PoisonLilyOmni ->
-                    entityTypeToPath(NpcType.PoisonLily, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.PoisonLily, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.DelLilyOmni ->
-                    entityTypeToPath(NpcType.DelLily, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.DelLily, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.EpsilonOmni ->
-                    entityTypeToPath(NpcType.Epsilon, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Epsilon, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.SinowZoaOmni ->
-                    entityTypeToPath(NpcType.SinowZoa, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.SinowZoa, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.GrassAssassin2 ->
-                    entityTypeToPath(NpcType.GrassAssassin, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.GrassAssassin, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Dimenian2 ->
-                    entityTypeToPath(NpcType.Dimenian, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Dimenian, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.LaDimenian2 ->
-                    entityTypeToPath(NpcType.LaDimenian, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.LaDimenian, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.SoDimenian2 ->
-                    entityTypeToPath(NpcType.SoDimenian, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.SoDimenian, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.DarkBelra2 ->
-                    entityTypeToPath(NpcType.DarkBelra, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.DarkBelra, assetType, suffix, model, geomFormat, ultimate)
 
                 // Episode II VR Spaceship
 
                 NpcType.SavageWolf2 ->
-                    entityTypeToPath(NpcType.SavageWolf, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.SavageWolf, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.BarbarousWolf2 ->
-                    entityTypeToPath(NpcType.BarbarousWolf, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.BarbarousWolf, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.PanArms2 ->
-                    entityTypeToPath(NpcType.PanArms, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.PanArms, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Migium2 ->
-                    entityTypeToPath(NpcType.Migium, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Migium, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Hidoom2 ->
-                    entityTypeToPath(NpcType.Hidoom, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Hidoom, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Dubchic2 ->
-                    entityTypeToPath(NpcType.Dubchic, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Dubchic, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Gilchic2 ->
-                    entityTypeToPath(NpcType.Gilchic, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Gilchic, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Garanz2 ->
-                    entityTypeToPath(NpcType.Garanz, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Garanz, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Dubswitch2 ->
-                    entityTypeToPath(NpcType.Dubswitch, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Dubswitch, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.Delsaber2 ->
-                    entityTypeToPath(NpcType.Delsaber, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.Delsaber, assetType, suffix, model, geomFormat, ultimate)
 
                 NpcType.ChaosSorcerer2 ->
-                    entityTypeToPath(NpcType.ChaosSorcerer, assetType, suffix, model, geomFormat)
+                    entityTypeToPath(NpcType.ChaosSorcerer, assetType, suffix, model, geomFormat, ultimate)
 
-                else -> "/npcs/${type.name}${fullSuffix}.$extension"
+                else -> {
+                    val ult = if (ultimate && type in ULTIMATE_NPCS) ".ult" else ""
+                    "/npcs/${type.name}${fullSuffix}${ult}.$extension"
+                }
             }
         }
 
@@ -525,7 +603,8 @@ private fun entityTypeToPath(
 
                 else -> {
                     type.typeId?.let { typeId ->
-                        "/objects/${typeId}${fullSuffix}.$extension"
+                        val ult = if (ultimate && type in ULTIMATE_OBJECTS) ".ult" else ""
+                        "/objects/${typeId}${fullSuffix}${ult}.$extension"
                     }
                 }
             }

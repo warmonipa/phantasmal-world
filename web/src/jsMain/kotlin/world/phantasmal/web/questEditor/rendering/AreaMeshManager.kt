@@ -12,7 +12,7 @@ class AreaMeshManager(
     private val renderContext: QuestRenderContext,
     private val areaAssetLoader: AreaAssetLoader,
 ) {
-    suspend fun load(episode: Episode?, areaVariant: AreaVariantModel?) {
+    suspend fun load(episode: Episode?, areaVariant: AreaVariantModel?, ultimate: Boolean) {
         renderContext.clearCollisionGeometry()
         renderContext.clearRenderGeometry()
 
@@ -22,9 +22,9 @@ class AreaMeshManager(
 
         try {
             renderContext.collisionGeometry =
-                areaAssetLoader.loadCollisionGeometry(episode, areaVariant)
+                areaAssetLoader.loadCollisionGeometry(episode, areaVariant, ultimate)
             renderContext.renderGeometry =
-                areaAssetLoader.loadRenderGeometry(episode, areaVariant)
+                areaAssetLoader.loadRenderGeometry(episode, areaVariant, ultimate)
         } catch (e: CancellationException) {
             // Do nothing.
         } catch (e: Exception) {

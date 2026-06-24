@@ -33,12 +33,14 @@ class AreaUserData(val section: SectionModel?, val areaObject: AreaObject)
 class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer() {
     private val cache = addDisposable(
         LoadingCache<EpisodeAndAreaVariant, Geom>(
-            { (episode, areaVariant) ->
+            { (episode, areaVariant, ultimate) ->
                 val renderObj = parseAreaRenderGeometry(
-                    getAreaAsset(episode, areaVariant, AssetType.Render).cursor(Endianness.Little),
+                    getAreaAsset(episode, areaVariant, AssetType.Render, ultimate)
+                        .cursor(Endianness.Little),
                 )
                 val xvm = parseXvm(
-                    getAreaAsset(episode, areaVariant, AssetType.Texture).cursor(Endianness.Little),
+                    getAreaAsset(episode, areaVariant, AssetType.Texture, ultimate)
+                        .cursor(Endianness.Little),
                 ).unwrap()
                 val (renderObj3d, sections) = areaGeometryToObject3DAndSections(
                     renderObj,
@@ -48,7 +50,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
                 )
 
                 val collisionObj = parseAreaCollisionGeometry(
-                    getAreaAsset(episode, areaVariant, AssetType.Collision)
+                    getAreaAsset(episode, areaVariant, AssetType.Collision, ultimate)
                         .cursor(Endianness.Little)
                 )
                 val collisionObj3d =
@@ -65,29 +67,43 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         )
     )
 
-    suspend fun loadSections(episode: Episode, areaVariant: AreaVariantModel): List<SectionModel> =
-        cache.get(EpisodeAndAreaVariant(episode, areaVariant)).sections
+    suspend fun loadSections(
+        episode: Episode,
+        areaVariant: AreaVariantModel,
+        ultimate: Boolean = false,
+    ): List<SectionModel> =
+        cache.get(EpisodeAndAreaVariant(episode, areaVariant, ultimate)).sections
 
     /** The returned object is not copyable because it contains non-serializable user data. */
-    suspend fun loadRenderGeometry(episode: Episode, areaVariant: AreaVariantModel): Object3D =
-        cache.get(EpisodeAndAreaVariant(episode, areaVariant)).renderGeometry
+    suspend fun loadRenderGeometry(
+        episode: Episode,
+        areaVariant: AreaVariantModel,
+        ultimate: Boolean = false,
+    ): Object3D =
+        cache.get(EpisodeAndAreaVariant(episode, areaVariant, ultimate)).renderGeometry
 
     /** The returned object is not copyable because it contains non-serializable user data. */
     suspend fun loadCollisionGeometry(
         episode: Episode,
         areaVariant: AreaVariantModel,
+        ultimate: Boolean = false,
     ): Object3D =
-        cache.get(EpisodeAndAreaVariant(episode, areaVariant)).collisionGeometry
+        cache.get(EpisodeAndAreaVariant(episode, areaVariant, ultimate)).collisionGeometry
 
-    fun getCachedSections(episode: Episode, areaVariant: AreaVariantModel): List<SectionModel>? =
-        cache.getIfPresentNow(EpisodeAndAreaVariant(episode, areaVariant))?.sections
+    fun getCachedSections(
+        episode: Episode,
+        areaVariant: AreaVariantModel,
+        ultimate: Boolean = false,
+    ): List<SectionModel>? =
+        cache.getIfPresentNow(EpisodeAndAreaVariant(episode, areaVariant, ultimate))?.sections
 
     private suspend fun getAreaAsset(
         episode: Episode,
         areaVariant: AreaVariantModel,
         type: AssetType,
+        ultimate: Boolean,
     ): ArrayBuffer {
-        return assetLoader.loadArrayBuffer(areaAssetUrl(episode, areaVariant, type))
+        return assetLoader.loadArrayBuffer(areaAssetUrl(episode, areaVariant, type, ultimate))
     }
 
     private fun addSectionsToCollisionGeometry(collisionGeom: Object3D, renderGeom: Object3D) {
@@ -129,6 +145,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         episode: Episode,
         areaVariant: AreaVariantModel,
         type: AssetType,
+        ultimate: Boolean,
     ): String {
         val areaId = areaVariant.area.id
         var variantId = areaVariant.id
@@ -144,7 +161,15 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
             "Unknown episode $episode area $areaId."
         }
 
-        val (baseName, hasVariants) = episodeBaseNames[areaId]
+        val (rawBaseName, hasVariants) = episodeBaseNames[areaId]
+
+        // Ultimate areas are recolored only in Episode I; their assets use an "a" prefix
+        // (e.g. forest01 -> aforest01). Areas without an Ultimate variant keep the normal name.
+        val baseName = if (ultimate && episode == Episode.I && rawBaseName in ULTIMATE_AREA_BASE_NAMES) {
+            "a$rawBaseName"
+        } else {
+            rawBaseName
+        }
         val isLobby = areaVariant.area.name == "Lobby"
 
         // Lobby variant 0 has no dedicated texture; use variant 1 instead.
@@ -235,6 +260,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
     private data class EpisodeAndAreaVariant(
         val episode: Episode,
         val areaVariant: AreaVariantModel,
+        val ultimate: Boolean,
     )
 
     private class Geom(
@@ -283,6 +309,28 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         private val COS_75_DEG = cos(PI / 180 * 75)
         private val DOWN = Vector3(.0, -1.0, .0)
         private val UP = Vector3(.0, 1.0, .0)
+
+        /**
+         * Episode I area base names that have an Ultimate-difficulty recolor (`a`-prefixed assets,
+         * e.g. `aforest01`). Episodes II and IV reuse the same area textures across all
+         * difficulties, so they are absent here and always load the normal asset.
+         */
+        private val ULTIMATE_AREA_BASE_NAMES: Set<String> = setOf(
+            "city00",
+            "forest01",
+            "forest02",
+            "cave01",
+            "cave02",
+            "cave03",
+            "machine01",
+            "machine02",
+            "ancient01",
+            "ancient02",
+            "ancient03",
+            "boss01",
+            "boss02",
+            "boss03",
+        )
 
         private val AREA_BASE_NAMES: Map<Episode, List<Pair<String, Boolean>>> = mapOf(
             Episode.I to listOf(

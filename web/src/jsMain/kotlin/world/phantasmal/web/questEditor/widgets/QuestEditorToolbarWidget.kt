@@ -151,6 +151,12 @@ class QuestEditorToolbarWidget(
                                 checked = ctrl.showScriptParticles,
                                 onChange = ctrl::setShowScriptParticles,
                             ),
+                            MenuItem.Check(
+                                label = "Ultimate",
+                                tooltip = "Show the Ultimate-difficulty skins of areas and enemies",
+                                checked = ctrl.ultimate,
+                                onChange = ctrl::setUltimate,
+                            ),
                             MenuItem.Separator,
                             MenuItem.Check(
                                 label = "City Map",
