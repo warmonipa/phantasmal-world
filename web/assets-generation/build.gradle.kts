@@ -23,6 +23,15 @@ tasks.register<JavaExec>("generateAssets") {
     args = listOf(outputFile.absolutePath)
 }
 
+tasks.register<JavaExec>("synthesizeSinowRed") {
+    description = "Synthesize Sinow Red (Ultimate rare Sinow Gold) by recolor transfer"
+
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.SynthesizeSinowRedKt")
+
+    // Usage: ./gradlew :web:assets-generation:synthesizeSinowRed --args="<npcs-assets-dir>"
+}
+
 tasks.register<JavaExec>("extractNpcModels") {
     description = "Extract NPC models from PSO BB game data (data.gsl)"
 

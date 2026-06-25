@@ -113,10 +113,10 @@ private val ULTIMATE_MODEL_MAPPINGS = listOf(
     BmlModelMapping("bm_ene_df3_dimedian_a.bml", 1, "LaDimenian.ult"),
     BmlModelMapping("bm_ene_df3_dimedian_a.bml", 2, "Dimenian.ult"),
 
-    // Dubchic / Gilchic share the `me2` body — bm_ene_dubchik_a.bml. Entry [0] is Dubchic's
-    // Ultimate recolor (Dubchich), entry [1] the same model with Gilchic's recolor (Gilchich).
-    BmlModelMapping("bm_ene_dubchik_a.bml", 0, "Dubchic.ult"),
-    BmlModelMapping("bm_ene_dubchik_a.bml", 1, "Gilchic.ult"),
+    // Dubchic / Gilchic share the `me2` body — bm_ene_dubchik_a.bml. Same geometry, two recolours:
+    // entry [0] is the lighter skin (Gilchich) and entry [1] the darker skin (Dubchich).
+    BmlModelMapping("bm_ene_dubchik_a.bml", 1, "Dubchic.ult"),
+    BmlModelMapping("bm_ene_dubchik_a.bml", 0, "Gilchic.ult"),
 
     // Garanz — bm_ene_gyaranzo_a.bml (entry 3 is the body; others are fragments/projectiles)
     BmlModelMapping("bm_ene_gyaranzo_a.bml", 3, "Garanz.ult"),
@@ -125,11 +125,11 @@ private val ULTIMATE_MODEL_MAPPINGS = listOf(
     // the recolored body+texture).
     BmlModelMapping("bm_ene_me1_mb_a.bml", 1, "Canadine.ult"),
 
-    // Sinow Berill — bm_ene_me3_shinowa_a.bml holds the single Ultimate sinow recolor (entry 0).
-    // Sinow Spigell is the *stealth* sinow (bm_ene_me3_stelthshinowa.bml) and has NO Ultimate (`_a`)
-    // archive, so it has no distinct Ultimate skin — it keeps its normal recolor instead of being
-    // (wrongly) given Berill's. So only Berill is extracted here.
-    BmlModelMapping("bm_ene_me3_shinowa_a.bml", 0, "SinowBerill.ult"),
+    // The "shinowa" archive is the standard Sinow used by Sinow Beat (Ep1); bm_ene_me3_shinowa_a.bml
+    // is its Ultimate recolor — Sinow Blue (the purple skin), NOT a Berill recolor. Sinow Berill is
+    // a *different* model (bm_ene_me3_beril_low.bml, the green skin) and ships no Ultimate (`_a`)
+    // archive, so Berill keeps its normal green skin on Ultimate.
+    BmlModelMapping("bm_ene_me3_shinowa_a.bml", 0, "SinowBeat.ult"),
 
     // Poison Lily / Nar Lily share the flower body — bm_ene_re2_flower_a.bml
     BmlModelMapping("bm_ene_re2_flower_a.bml", 0, "PoisonLily.ult"),
