@@ -49,6 +49,7 @@ class ViewerWidget(
                         addChild(AssetSearchWidget(
                             query = ctrl.assetSearch,
                             suggestions = ctrl.assetSearchSuggestions,
+                            ultimate = ctrl.ultimate,
                             onChange = ctrl::setAssetSearch,
                             onSelect = { model ->
                                 scope.launch { ctrl.selectAssetSearchSuggestion(model) }
@@ -66,6 +67,7 @@ class ViewerWidget(
                         groups = ctrl.modelGroups,
                         expandedGroups = ctrl.expandedAssetGroups,
                         selected = ctrl.currentModel,
+                        ultimate = ctrl.ultimate,
                         onToggleGroup = ctrl::toggleAssetGroup,
                         onSelect = { model ->
                             scope.launch { ctrl.setCurrentModel(model) }

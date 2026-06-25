@@ -48,6 +48,7 @@ class ViewerController(
     val modelGroups: Cell<List<ViewerModel.Group>> =
         map(_assetSearch, _activeAssetCategory, ::filterGroups)
     val currentModel: Cell<ViewerModel?> = store.currentModel
+    val ultimate: Cell<Boolean> = store.ultimate
 
     val animations: Cell<List<AnimationModel>> = store.animations
     val currentAnimation: Cell<AnimationModel?> = store.currentAnimation
@@ -93,7 +94,7 @@ class ViewerController(
     }
 
     suspend fun selectAssetSearchSuggestion(model: ViewerModel) {
-        _assetSearch.value = model.uiName
+        _assetSearch.value = model.displayName(store.ultimate.value)
 
         val category = categoryForModel(model)
         if (category != null) {
@@ -131,6 +132,12 @@ class ViewerController(
     companion object {
         private const val DEFAULT_EXPANDED_ASSET_GROUP = "Characters"
 
+        /** Matches the normalized query against the normal name, slug and Ultimate name. */
+        private fun ViewerModel.matches(normalizedQuery: String): Boolean =
+            uiName.lowercase().contains(normalizedQuery) ||
+                    slug.lowercase().contains(normalizedQuery) ||
+                    displayName(ultimate = true).lowercase().contains(normalizedQuery)
+
         private fun filterGroups(
             query: String,
             category: ViewerModel.Category,
@@ -142,10 +149,7 @@ class ViewerController(
             }
 
             return category.groups.mapNotNull { group ->
-                val items = group.items.filter {
-                    it.uiName.lowercase().contains(normalizedQuery) ||
-                            it.slug.lowercase().contains(normalizedQuery)
-                }
+                val items = group.items.filter { it.matches(normalizedQuery) }
 
                 if (items.isEmpty()) null else group.copy(items = items)
             }
@@ -160,10 +164,7 @@ class ViewerController(
 
             return ViewerModel.ALL
                 .asSequence()
-                .filter {
-                    it.uiName.lowercase().contains(normalizedQuery) ||
-                            it.slug.lowercase().contains(normalizedQuery)
-                }
+                .filter { it.matches(normalizedQuery) }
                 .sortedWith(
                     compareBy<ViewerModel> {
                         !it.uiName.lowercase().startsWith(normalizedQuery)

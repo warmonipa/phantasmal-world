@@ -19,6 +19,7 @@ class GroupedSelectionWidget(
     private val groups: Cell<List<ViewerModel.Group>>,
     private val expandedGroups: Cell<Set<String>>,
     private val selected: Cell<ViewerModel?>,
+    private val ultimate: Cell<Boolean>,
     private val onToggleGroup: (String) -> Unit,
     private val onSelect: (ViewerModel) -> Unit,
 ) : Widget() {
@@ -72,7 +73,18 @@ class GroupedSelectionWidget(
                     for (item in group.items) {
                         itemList.li {
                             className = "pw-viewer-selection-item"
-                            textContent = item.uiName
+
+                            // Only NPCs are renamed on Ultimate, so bind reactively just for them
+                            // and keep the rest as a cheap static label.
+                            if (item is ViewerModel.Npc) {
+                                val nameCell = ultimate.map { item.displayName(it) }
+                                textContent = nameCell.value
+                                disposable.add(
+                                    nameCell.observeChange { textContent = it.value }
+                                )
+                            } else {
+                                textContent = item.uiName
+                            }
 
                             val activeCell = selected eq item
                             if (activeCell.value) classList.add("pw-active")

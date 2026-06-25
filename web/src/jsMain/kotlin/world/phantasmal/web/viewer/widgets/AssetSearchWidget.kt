@@ -2,7 +2,9 @@ package world.phantasmal.web.viewer.widgets
 
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.Node
+import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.cell.Cell
+import world.phantasmal.cell.map
 import world.phantasmal.web.viewer.models.ViewerModel
 import world.phantasmal.webui.dom.bindDisposableChildrenTo
 import world.phantasmal.webui.dom.div
@@ -14,6 +16,7 @@ import world.phantasmal.webui.widgets.Widget
 class AssetSearchWidget(
     private val query: Cell<String>,
     private val suggestions: Cell<List<ViewerModel>>,
+    private val ultimate: Cell<Boolean>,
     private val onChange: (String) -> Unit,
     private val onSelect: (ViewerModel) -> Unit,
 ) : Widget() {
@@ -37,9 +40,13 @@ class AssetSearchWidget(
                 hidden = suggestions.value.isEmpty()
 
                 bindDisposableChildrenTo(suggestions) { suggestion, _ ->
+                    val disposer = Disposer()
+                    val nameCell = ultimate.map { suggestion.displayName(it) }
+
                     val node = li {
                         className = "pw-viewer-asset-search-suggestion"
-                        textContent = suggestion.uiName
+                        textContent = nameCell.value
+                        disposer.add(nameCell.observeChange { textContent = it.value })
                         onmousedown = { event ->
                             event.preventDefault()
                             onSelect(suggestion)
@@ -48,7 +55,7 @@ class AssetSearchWidget(
                         }
                     }
 
-                    Pair(node, world.phantasmal.core.disposable.nopDisposable())
+                    Pair(node, disposer)
                 }
             }
 

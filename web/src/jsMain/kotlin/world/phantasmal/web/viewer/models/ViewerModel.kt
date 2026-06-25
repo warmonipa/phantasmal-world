@@ -2,10 +2,18 @@ package world.phantasmal.web.viewer.models
 
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.displayName
 
 sealed class ViewerModel {
     abstract val uiName: String
     abstract val slug: String
+
+    /**
+     * Label honoring the Ultimate-difficulty rename for NPCs (e.g. Sinow Beat → Sinow Blue).
+     * Everything else — and NPCs without a distinct Ultimate name — falls back to [uiName].
+     */
+    fun displayName(ultimate: Boolean): String =
+        if (this is Npc) npcType.displayName(ultimate) else uiName
 
     data class Character(val characterClass: CharacterClass) : ViewerModel() {
         override val uiName: String = characterClass.uiName
