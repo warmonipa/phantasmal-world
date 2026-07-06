@@ -46,4 +46,36 @@ class FreeRoamControllerTests : WebTestSuite {
         ctrl.setupFreeRoamState(Episode.II, 5..7, dir, binPrefix = null, isCity = false)
         assertEquals(0, ctrl.freeRoamV2.value, "different-area load resets to the default variant")
     }
+
+    @Test
+    fun reloading_the_same_area_preserves_the_selected_layout_variant() = testAsync {
+        val ctrl = disposer.add(FreeRoamController())
+        val dir = stubDirHandle()
+
+        // Episode I cave floors expose v1 (the layout variant) = [0, 1, 2].
+        ctrl.setupFreeRoamState(Episode.I, 3..5, dir, binPrefix = null, isCity = false)
+        assertEquals(0, ctrl.freeRoamV1.value, "loads with the first option selected")
+
+        ctrl.setFreeRoamV1(2) { }
+        assertEquals(2, ctrl.freeRoamV1.value)
+
+        // Re-loading the SAME area must keep the user's layout selection.
+        ctrl.setupFreeRoamState(Episode.I, 3..5, dir, binPrefix = null, isCity = false)
+        assertEquals(2, ctrl.freeRoamV1.value, "same-area reload keeps the selected layout")
+    }
+
+    @Test
+    fun loading_a_different_area_resets_the_selected_layout_variant() = testAsync {
+        val ctrl = disposer.add(FreeRoamController())
+        val dir = stubDirHandle()
+
+        ctrl.setupFreeRoamState(Episode.I, 3..5, dir, binPrefix = null, isCity = false)
+        ctrl.setFreeRoamV1(2) { }
+        assertEquals(2, ctrl.freeRoamV1.value)
+
+        // A different area resets to its own first option, even though 2 is also a valid layout
+        // there (Episode I Ruins floors expose v1 = [0, 1, 2]).
+        ctrl.setupFreeRoamState(Episode.I, 8..10, dir, binPrefix = null, isCity = false)
+        assertEquals(0, ctrl.freeRoamV1.value, "different-area load resets to the default layout")
+    }
 }
