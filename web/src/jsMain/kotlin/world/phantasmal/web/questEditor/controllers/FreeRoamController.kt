@@ -42,6 +42,21 @@ class FreeRoamController(
         tokenBase: String? = null,
     ) {
         val (v1Values, v2Values) = computeSelectableVariants(episode, floorRange)
+
+        // When we're re-loading the area that's already open (e.g. after a save, or re-opening the
+        // same files), keep the user's current variant selection instead of snapping it back to the
+        // first option. Loading a genuinely different area still resets to that area's defaults.
+        val previous = _freeRoamState.value
+        // floorRange is unique per episode across all area definitions, so these four fields
+        // identify the area; tokenBase is redundant here.
+        val sameArea = previous != null &&
+                previous.episode == episode &&
+                previous.floorRange == floorRange &&
+                previous.binPrefix == binPrefix &&
+                previous.isCity == isCity
+        val previousV1 = _freeRoamV1.value
+        val previousV2 = _freeRoamV2.value
+
         _freeRoamState.value = FreeRoamState(
             episode, floorRange, gameDirHandle,
             v1Values, v2Values,
@@ -50,10 +65,16 @@ class FreeRoamController(
             hasUltimate = episode == Episode.I || episode == Episode.II,
             tokenBase = tokenBase,
         )
-        _freeRoamV1.value = v1Values.firstOrNull()
-        _freeRoamV2.value = v2Values.firstOrNull()
+        _freeRoamV1.value =
+            if (sameArea && previousV1 != null && previousV1 in v1Values) previousV1
+            else v1Values.firstOrNull()
+        _freeRoamV2.value =
+            if (sameArea && previousV2 != null && previousV2 in v2Values) previousV2
+            else v2Values.firstOrNull()
         _freeRoamV1Options.value = v1Values
         _freeRoamV2Options.value = v2Values
+        // Offline/Ultimate are re-derived from the loaded filename, so they always reflect the
+        // files just opened; no need to preserve the previous values like V1/V2.
         _freeRoamOffline.value = initialOffline
         _freeRoamUltimate.value = initialUltimate
     }
