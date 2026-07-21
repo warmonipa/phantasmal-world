@@ -10,7 +10,8 @@ import world.phantasmal.web.externals.three.Vector3
  * These are visualized but not selectable/editable.
  */
 class ChallengeMonsterSpawnModel(
-    val areaId: Int,
+    /** Logical quest floor containing this Challenge Mode spawn. */
+    val floorId: Int,
     val entry: DatCmRandomSpawnEntry,
     section: SectionModel?,
 ) {

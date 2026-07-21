@@ -89,7 +89,7 @@ class EventsControllerTests : WebTestSuite {
             events = listOf(
                 QuestEventModel(
                     id = 100,
-                    areaId = 1,
+                    floorId = 1,
                     sectionId = 11,
                     waveId = 1,
                     delay = 50,
@@ -98,7 +98,7 @@ class EventsControllerTests : WebTestSuite {
                 ),
                 QuestEventModel(
                     id = 101,
-                    areaId = 1,
+                    floorId = 1,
                     sectionId = 11,
                     waveId = 2,
                     delay = 50,

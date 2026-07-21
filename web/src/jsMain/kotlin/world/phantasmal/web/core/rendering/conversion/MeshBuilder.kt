@@ -14,6 +14,7 @@ class MeshBuilder(
     private val textures: List<XvrTexture?> = emptyList(),
     private val textureCache: UnsafeMap<Int, Texture?> = UnsafeMap(),
     private val anisotropy: Int = 1,
+    private val textureIndexOverrides: Map<Int, Int> = emptyMap(),
 ) {
     private val positions = mutableListOf<Vector3>()
     private val normals = mutableListOf<Vector3>()
@@ -35,6 +36,7 @@ class MeshBuilder(
         alpha: Boolean,
         additiveBlending: Boolean,
     ): Int {
+        val textureIndex = textureIndex?.let { textureIndexOverrides[it] ?: it }
         val groupIndex = groups.indexOfFirst {
             it.textureIndex == textureIndex &&
                     it.alpha == alpha &&

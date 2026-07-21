@@ -32,6 +32,20 @@ class DatTests : LibTestSuite {
         assertDeepEquals(origDat, newDat)
     }
 
+    @Test
+    fun dat_section_floor_is_independent_from_raw_record_floor_bytes() = testAsync {
+        val dat = parseDat(readFile("/quests/ep1/vr/towards the future (decompressed).dat"))
+
+        // The client selects quest floors from dat_table.floor_num. Official DAT records may keep
+        // different values in ObjectSetEntry.floor (0x06) or EnemySetEntry.floor (0x08), so the
+        // editor must not treat either embedded field as the entity's logical floor.
+        assertTrue(
+            dat.objs.any { it.floorId != it.data.getUShort(0x06).toInt() } ||
+                dat.npcs.any { it.floorId != it.data.getUShort(0x08).toInt() },
+            "Fixture should demonstrate that DAT section floor and raw record floor can differ.",
+        )
+    }
+
     /**
      * Parse a file, modify the resulting structure, convert it to DAT again and check whether the
      * end result is byte-for-byte equal to the original except for the bytes that should be
@@ -71,8 +85,8 @@ class DatTests : LibTestSuite {
         val quest = qstResult.value.quest
 
         val dat = DatFile(
-            objs = quest.objects.map { DatEntity(it.areaId, it.data) },
-            npcs = quest.npcs.map { DatEntity(it.areaId, it.data) },
+            objs = quest.objects.map { DatEntity(it.floorId, it.data) },
+            npcs = quest.npcs.map { DatEntity(it.floorId, it.data) },
             events = quest.events,
             unknowns = quest.datUnknowns,
             cmRandomSpawns = quest.challengeData.cmRandomSpawns,
@@ -80,11 +94,11 @@ class DatTests : LibTestSuite {
             cmMonsterMappings = quest.challengeData.cmMonsterMappings,
         )
 
-        // Area 1 should have 8 rooms with specific room IDs and entry counts.
-        val area1Spawns = dat.cmRandomSpawns.filter { it.areaId == 1 }
-        assertEquals(8, area1Spawns.size)
-        assertEquals(listOf(2, 4, 5, 7, 8, 10, 11, 16), area1Spawns.map { it.roomId })
-        assertEquals(listOf(32, 32, 32, 32, 31, 23, 31, 27), area1Spawns.map { it.entries.size })
+        // Floor 1 should have 8 rooms with specific room IDs and entry counts.
+        val floor1Spawns = dat.cmRandomSpawns.filter { it.floorId == 1 }
+        assertEquals(8, floor1Spawns.size)
+        assertEquals(listOf(2, 4, 5, 7, 8, 10, 11, 16), floor1Spawns.map { it.roomId })
+        assertEquals(listOf(32, 32, 32, 32, 31, 23, 31, 27), floor1Spawns.map { it.entries.size })
 
         // Verify config pool is parsed (Table 5A).
         assertEquals(2, dat.cmConfigPool.size)
@@ -108,8 +122,8 @@ class DatTests : LibTestSuite {
         val quest = qstResult.value.quest
 
         val origDat = DatFile(
-            objs = quest.objects.map { DatEntity(it.areaId, it.data) },
-            npcs = quest.npcs.map { DatEntity(it.areaId, it.data) },
+            objs = quest.objects.map { DatEntity(it.floorId, it.data) },
+            npcs = quest.npcs.map { DatEntity(it.floorId, it.data) },
             events = quest.events,
             unknowns = quest.datUnknowns,
             cmRandomSpawns = quest.challengeData.cmRandomSpawns,

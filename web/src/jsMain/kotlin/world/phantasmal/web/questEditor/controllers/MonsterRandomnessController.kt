@@ -56,10 +56,15 @@ class MonsterRandomnessController(
         val area = store.currentArea.value ?: return emptySet()
         val areaVariant = store.currentAreaVariant.value
         return if (quest.floorMappings.isNotEmpty()) {
-            quest.floorMappings
-                .filter { it.areaId == area.id && (areaVariant == null || it.variantId == areaVariant.id) }
-                .map { it.floorId }
-                .toSet()
+            if (areaVariant == null) {
+                quest.getFloorIdsForArea(quest.episode, area.id).orEmpty()
+            } else {
+                quest.getFloorIdsForVariant(
+                    areaVariant.episode,
+                    area.id,
+                    areaVariant.id,
+                ).orEmpty()
+            }
         } else {
             setOf(area.id)
         }
@@ -85,7 +90,7 @@ class MonsterRandomnessController(
             if (quest == null || area == null) return@map emptyList()
             val floorIds = floorIdsForCurrentArea()
             quest.cmRandomSpawns.value.mapIndexedNotNull { globalIdx, spawn ->
-                if (spawn.areaId in floorIds) RoomInfo(globalIdx, spawn.roomId, spawn.entries.size) else null
+                if (spawn.floorId in floorIds) RoomInfo(globalIdx, spawn.roomId, spawn.entries.size) else null
             }
         }
 
@@ -109,7 +114,7 @@ class MonsterRandomnessController(
             if (quest == null || area == null) return@map emptyList()
             val floorIds = floorIdsForCurrentArea()
             quest.cmConfigPool.value
-                .filter { it.areaId in floorIds }
+                .filter { it.floorId in floorIds }
                 .flatMap { it.entries }
                 .mapIndexed { idx, entry -> IndexedConfigPoolEntry(idx, entry) }
         }
@@ -120,7 +125,7 @@ class MonsterRandomnessController(
             if (quest == null || area == null) return@map emptyList()
             val floorIds = floorIdsForCurrentArea()
             quest.cmMonsterMappings.value
-                .filter { it.areaId in floorIds }
+                .filter { it.floorId in floorIds }
                 .flatMap { it.entries }
                 .mapIndexed { idx, entry -> IndexedMappingEntry(idx, entry) }
         }
@@ -153,10 +158,10 @@ class MonsterRandomnessController(
         val quest = store.currentQuest.value ?: return
         val floorIds = floorIdsForCurrentArea()
         if (floorIds.isEmpty()) return
-        // Use the first matching floor ID as the areaId for the new spawn
+        // Place the new spawn on the first logical floor displayed by the current map area.
         val floorId = floorIds.first()
-        val areaSpawns = quest.cmRandomSpawns.value.filter { it.areaId in floorIds }
-        val newRoomId = if (areaSpawns.isEmpty()) 0 else areaSpawns.maxOf { it.roomId } + 1
+        val floorSpawns = quest.cmRandomSpawns.value.filter { it.floorId in floorIds }
+        val newRoomId = if (floorSpawns.isEmpty()) 0 else floorSpawns.maxOf { it.roomId } + 1
         quest.addCmRandomSpawn(DatCmRandomSpawn(floorId, newRoomId, mutableListOf()))
     }
 
@@ -216,13 +221,13 @@ class MonsterRandomnessController(
     private fun currentConfigPool(): DatCmConfigPool? {
         val quest = store.currentQuest.value ?: return null
         val floorIds = floorIdsForCurrentArea()
-        return quest.cmConfigPool.value.find { it.areaId in floorIds }
+        return quest.cmConfigPool.value.find { it.floorId in floorIds }
     }
 
     private fun currentMonsterMapping(): DatCmMonsterMapping? {
         val quest = store.currentQuest.value ?: return null
         val floorIds = floorIdsForCurrentArea()
-        return quest.cmMonsterMappings.value.find { it.areaId in floorIds }
+        return quest.cmMonsterMappings.value.find { it.floorId in floorIds }
     }
 
     fun setConfigPoolField(entryIndex: Int, setter: (DatCmConfigPoolEntry) -> Unit) {

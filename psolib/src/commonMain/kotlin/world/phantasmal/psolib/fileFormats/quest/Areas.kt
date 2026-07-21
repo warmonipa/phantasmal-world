@@ -82,6 +82,7 @@ private val AREAS by lazy {
         createArea(7, 0x2A, "Subterranean Desert 2", order++, 3),
         createArea(8, 0x2B, "Subterranean Desert 3", order++, 3),
         createArea(9, 0x2C, "Meteor Impact Site", order++, bossArea = true),
+        createArea(10, 0x2E, "Test Map", order++, 1),
     )
 
     mapOf(

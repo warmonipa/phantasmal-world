@@ -833,6 +833,8 @@ enum class ObjectType(
         ),
         typeId = 128,
         properties = listOf(
+            // The renderer uses the second-lowest byte as the door digit:
+            // ((value ushr 8) and 0xFF) % 10. The packed DAT field stays unchanged.
             EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Switch", offset = 56, type = EntityPropType.I32),
         ),

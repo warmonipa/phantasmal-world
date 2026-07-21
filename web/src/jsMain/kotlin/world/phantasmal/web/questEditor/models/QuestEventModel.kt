@@ -8,7 +8,8 @@ import world.phantasmal.cell.mutableCell
 
 class QuestEventModel(
     id: Int,
-    val areaId: Int,
+    /** Logical quest floor containing the event. */
+    val floorId: Int,
     sectionId: Int,
     waveId: Int,
     delay: Int,
@@ -26,7 +27,7 @@ class QuestEventModel(
     val id: Cell<Int> = _id
     val sectionId: Cell<Int> = _sectionId
     val wave: Cell<WaveModel> = map(_waveId, _sectionId) { id, sectionId ->
-        WaveModel(id, areaId, sectionId)
+        WaveModel(id, floorId, sectionId)
     }
     val delay: Cell<Int> = _delay
     val actions: ListCell<QuestEventActionModel> = _actions

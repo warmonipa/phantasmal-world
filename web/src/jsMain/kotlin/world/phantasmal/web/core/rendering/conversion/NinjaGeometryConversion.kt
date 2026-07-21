@@ -130,8 +130,13 @@ fun ninjaObjectToInstancedMesh(
     defaultMaterial: Material? = null,
     boundingVolumes: Boolean = false,
     anisotropy: Int = 1,
+    textureIndexOverrides: Map<Int, Int> = emptyMap(),
 ): InstancedMesh {
-    val builder = MeshBuilder(textures, anisotropy = anisotropy)
+    val builder = MeshBuilder(
+        textures,
+        anisotropy = anisotropy,
+        textureIndexOverrides = textureIndexOverrides,
+    )
     defaultMaterial?.let { builder.defaultMaterial(defaultMaterial) }
     ninjaObjectToMeshBuilder(ninjaObject, builder)
     return builder.buildInstancedMesh(maxInstances, boundingVolumes)

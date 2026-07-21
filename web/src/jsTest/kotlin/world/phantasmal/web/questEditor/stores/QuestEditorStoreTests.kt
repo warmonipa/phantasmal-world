@@ -4,6 +4,7 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.web.questEditor.controllers.EntityListController
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -11,8 +12,36 @@ import world.phantasmal.web.test.createQuestObjectModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class QuestEditorStoreTests : WebTestSuite {
+    @Test
+    fun cross_episode_floor_uses_effective_episode_for_area_and_entity_catalog() = testAsync {
+        val store = components.questEditorStore
+        val quest = createQuestModel(
+            episode = Episode.IV,
+            floorMappings = listOf(
+                FloorMapping(
+                    floorId = 0,
+                    mapId = 0x12,
+                    mapAreaId = 0,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        store.setCurrentQuest(quest)
+        val objectList = disposer.add(
+            EntityListController(store, components.questEditorUiStore, npcs = false),
+        )
+
+        assertEquals(Episode.II, store.currentMapEpisode.value)
+        assertEquals(Episode.II, store.currentAreaVariant.value?.episode)
+        assertEquals("Lab", store.currentArea.value?.name)
+        assertTrue(ObjectType.LabGlassWindowDoor in objectList.entities.value)
+    }
+
     @Test
     fun setCurrentQuest_selects_floor_0_area_for_multi_floor() = testAsync {
         val store = components.questEditorStore
@@ -20,9 +49,9 @@ class QuestEditorStoreTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
         )
         store.setCurrentQuest(quest)
@@ -42,13 +71,13 @@ class QuestEditorStoreTests : WebTestSuite {
         val store = components.questEditorStore
 
         // NPC on floor 16 (Tower variant 1)
-        val npc = createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 16)
+        val npc = createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 16)
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
             npcs = listOf(npc),
         )
@@ -67,15 +96,15 @@ class QuestEditorStoreTests : WebTestSuite {
     @Test
     fun convertQuestFromModel_preserves_floorMappings() = testAsync {
         val floorMappings = listOf(
-            FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-            FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-            FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+            FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+            FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+            FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
         )
         val model = createQuestModel(
             episode = Episode.II,
             floorMappings = floorMappings,
-            npcs = listOf(createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 17)),
-            objects = listOf(createQuestObjectModel(ObjectType.PlayerSet, areaId = 0)),
+            npcs = listOf(createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 17)),
+            objects = listOf(createQuestObjectModel(ObjectType.PlayerSet, floorId = 0)),
         )
 
         val quest = convertQuestFromModel(model)

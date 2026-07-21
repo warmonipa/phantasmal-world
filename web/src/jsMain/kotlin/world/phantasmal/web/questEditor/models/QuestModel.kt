@@ -50,7 +50,7 @@ class QuestModel(
      * `particle_v3` script invocations whose arguments could be statically resolved.
      */
     val particleSpawns: List<ParticleSpawn>,
-    private val getVariant: (Episode, areaId: Int, variantId: Int) -> AreaVariantModel?,
+    private val getVariant: (Episode, mapAreaId: Int, mapVariation: Int) -> AreaVariantModel?,
     /** Whether DC/GC text fields use Shift-JIS encoding (Japanese). */
     val shiftJis: Boolean = false,
     /** Non-standard bytecode offset preserved from the original BIN, or null for the default. */
@@ -87,10 +87,18 @@ class QuestModel(
      * Returns the set of floor IDs that map to the given area+variant, or null if this quest
      * has no floor mappings (i.e., a simple single-floor quest).
      */
-    fun getFloorIdsForVariant(areaId: Int, variantId: Int): Set<Int>? {
+    fun getFloorIdsForVariant(
+        mapEpisode: Episode,
+        mapAreaId: Int,
+        mapVariation: Int,
+    ): Set<Int>? {
         if (floorMappings.isEmpty()) return null
         return floorMappings
-            .filter { it.areaId == areaId && it.variantId == variantId }
+            .filter {
+                (it.mapEpisode ?: episode) == mapEpisode &&
+                    it.mapAreaId == mapAreaId &&
+                    it.mapVariation == mapVariation
+            }
             .map { it.floorId }
             .toSet()
     }
@@ -99,29 +107,36 @@ class QuestModel(
      * Returns the set of floor IDs that map to the given area (any variant), or null if this
      * quest has no floor mappings.
      */
-    fun getFloorIdsForArea(areaId: Int): Set<Int>? {
+    fun getFloorIdsForArea(mapEpisode: Episode, mapAreaId: Int): Set<Int>? {
         if (floorMappings.isEmpty()) return null
         return floorMappings
-            .filter { it.areaId == areaId }
+            .filter {
+                (it.mapEpisode ?: episode) == mapEpisode && it.mapAreaId == mapAreaId
+            }
             .map { it.floorId }
             .toSet()
     }
 
     /**
-     * Checks whether an entity (identified by its areaId, which is a floor ID in multi-floor
-     * quests) belongs to the given area and optional variant.
+     * Checks whether an entity's logical floor belongs to the given map and optional variation.
      *
      * Centralizes the floor-mapping lookup so callers don't need to branch on
      * [floorMappings].isEmpty() themselves.
      */
-    fun entityBelongsToArea(entityAreaId: Int, areaId: Int, variantId: Int? = null): Boolean {
+    fun entityBelongsToMap(
+        entityFloorId: Int,
+        mapEpisode: Episode,
+        mapAreaId: Int,
+        mapVariation: Int? = null,
+    ): Boolean {
         if (floorMappings.isEmpty()) {
-            return entityAreaId == areaId
+            return episode == mapEpisode && entityFloorId == mapAreaId
         }
         return floorMappings.any {
-            it.floorId == entityAreaId &&
-                it.areaId == areaId &&
-                (variantId == null || it.variantId == variantId)
+            it.floorId == entityFloorId &&
+                (it.mapEpisode ?: episode) == mapEpisode &&
+                it.mapAreaId == mapAreaId &&
+                (mapVariation == null || it.mapVariation == mapVariation)
         }
     }
 
@@ -172,18 +187,17 @@ class QuestModel(
         setLongDescription(longDescription)
 
         entitiesPerArea = map(this.npcs, this.objects, _floorMappingRevision) { ns, os, _ ->
-            val floorToAreaId = this.floorMappings.associate { it.floorId to it.areaId }
+            val floorToMapAreaId = this.floorMappings.associate { it.floorId to it.mapAreaId }
             val map = mutableMapOf<Int, Int>()
 
             for (npc in ns) {
-                // Map floor ID to area ID for correct counting
-                val areaId = floorToAreaId[npc.areaId] ?: npc.areaId
-                map[areaId] = (map[areaId] ?: 0) + 1
+                val mapAreaId = floorToMapAreaId[npc.floorId] ?: npc.floorId
+                map[mapAreaId] = (map[mapAreaId] ?: 0) + 1
             }
 
             for (obj in os) {
-                val areaId = floorToAreaId[obj.areaId] ?: obj.areaId
-                map[areaId] = (map[areaId] ?: 0) + 1
+                val mapAreaId = floorToMapAreaId[obj.floorId] ?: obj.floorId
+                map[mapAreaId] = (map[mapAreaId] ?: 0) + 1
             }
 
             map
@@ -208,7 +222,11 @@ class QuestModel(
 
         if (floorMappings.isNotEmpty()) {
             for (mapping in floorMappings) {
-                getVariant(mapping.mapEpisode ?: episode, mapping.areaId, mapping.variantId)?.let { variant ->
+                getVariant(
+                    mapping.mapEpisode ?: episode,
+                    mapping.mapAreaId,
+                    mapping.mapVariation,
+                )?.let { variant ->
                     variants[mapping.floorId] = variant
                 }
             }
@@ -280,10 +298,12 @@ class QuestModel(
 
     fun setFloorMappings(floorMappings: List<FloorMapping>) {
         this.floorMappings = floorMappings
-        // Re-propagate gameAreaId on all NPCs so NPC type detection stays accurate.
-        val floorToAreaId = floorMappings.associate { it.floorId to it.areaId }
+        // Re-propagate the effective map area and episode so NPC type detection stays accurate.
+        val mappingsByFloor = floorMappings.associateBy(FloorMapping::floorId)
         _npcs.value.forEach { npcModel ->
-            npcModel.entity.gameAreaId = floorToAreaId[npcModel.entity.areaId] ?: npcModel.entity.areaId
+            val mapping = mappingsByFloor[npcModel.entity.floorId]
+            npcModel.entity.mapAreaId = mapping?.mapAreaId ?: npcModel.entity.floorId
+            npcModel.entity.episode = mapping?.mapEpisode ?: episode
         }
         rebuildFloorVariants()
         _floorMappingRevision.value++

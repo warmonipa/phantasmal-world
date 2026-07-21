@@ -43,7 +43,7 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
     private val yOffset: Double = computeYOffset(type)
 
     val wave: Cell<WaveModel> = map(_waveId, sectionId) { id, sectionId ->
-        WaveModel(id, areaId, sectionId)
+        WaveModel(id, floorId, sectionId)
     }
 
     fun setWaveId(waveId: Int) {

@@ -55,8 +55,8 @@ class QuestTests : LibTestSuite {
         assertEquals(216, quest.npcs.size)
         // Derive variantsByArea view from floorMappings for assertion compatibility
         val variantsByArea = quest.floorMappings
-            .groupBy { it.areaId }
-            .mapValues { (_, mappings) -> mappings.map { it.variantId }.toSet() }
+            .groupBy { it.mapAreaId }
+            .mapValues { (_, mappings) -> mappings.map { it.mapVariation }.toSet() }
         assertEquals(10, variantsByArea.size)
         assertEquals(setOf(0), variantsByArea[0]!!)
         assertEquals(setOf(0), variantsByArea[2]!!)
@@ -134,9 +134,9 @@ class QuestTests : LibTestSuite {
         assertEquals(Episode.II, quest.episode)
 
         // PW4 has bb_map_designate instructions:
-        //   bb_map_designate 0, 18, 0, 0   -> floor 0, map 18 (Lab), areaId 0, variant 0
-        //   bb_map_designate 17, 35, 0, 0  -> floor 17, map 35 (Tower), areaId 17, variant 0
-        //   bb_map_designate 16, 35, 1, 0  -> floor 16, map 35 (Tower), areaId 17, variant 1
+        //   bb_map_designate 0, 18, 0, 0, 0   -> floor 0, map 18 (Lab), areaId 0, variation 0
+        //   bb_map_designate 17, 35, 0, 0, 0  -> floor 17, map 35 (Tower), areaId 17, variation 0
+        //   bb_map_designate 16, 35, 0, 1, 0  -> floor 16, map 35 (Tower), areaId 17, variation 1
         assertTrue(quest.floorMappings.isNotEmpty(), "PW4 should have floor mappings")
 
         // Verify that both tower floors map to area 17 (Tower), NOT area 16 (Seaside Night)
@@ -155,8 +155,8 @@ class QuestTests : LibTestSuite {
 
         // Verify variantsByArea view: area 17 should have variants {0, 1}
         val variantsByArea = quest.floorMappings
-            .groupBy { it.areaId }
-            .mapValues { (_, mappings) -> mappings.map { it.variantId }.toSet() }
+            .groupBy { it.mapAreaId }
+            .mapValues { (_, mappings) -> mappings.map { it.mapVariation }.toSet() }
         assertEquals(setOf(0, 1), variantsByArea[17], "Tower should have variants 0 and 1")
         // Area 16 (Seaside Night) should NOT appear
         assertTrue(16 !in variantsByArea, "Seaside Night should not appear in PW4 variantsByArea")
@@ -288,7 +288,7 @@ class QuestTests : LibTestSuite {
         for (i in origQuest.objects.indices) {
             val origObj = origQuest.objects[i]
             val newObj = newQuest.objects[i]
-            assertEquals(origObj.areaId, newObj.areaId)
+            assertEquals(origObj.floorId, newObj.floorId)
             assertEquals(origObj.sectionId, newObj.sectionId)
             assertEquals(origObj.position, newObj.position)
             assertEquals(origObj.type, newObj.type)
@@ -299,7 +299,7 @@ class QuestTests : LibTestSuite {
         for (i in origQuest.npcs.indices) {
             val origNpc = origQuest.npcs[i]
             val newNpc = newQuest.npcs[i]
-            assertEquals(origNpc.areaId, newNpc.areaId)
+            assertEquals(origNpc.floorId, newNpc.floorId)
             assertEquals(origNpc.sectionId, newNpc.sectionId)
             assertEquals(origNpc.position, newNpc.position)
             assertEquals(origNpc.type, newNpc.type)
@@ -307,11 +307,11 @@ class QuestTests : LibTestSuite {
 
         // Compare floorMappings-derived variantsByArea view
         val origVariantsByArea = origQuest.floorMappings
-            .groupBy { it.areaId }
-            .mapValues { (_, mappings) -> mappings.map { it.variantId }.toSet() }
+            .groupBy { it.mapAreaId }
+            .mapValues { (_, mappings) -> mappings.map { it.mapVariation }.toSet() }
         val newVariantsByArea = newQuest.floorMappings
-            .groupBy { it.areaId }
-            .mapValues { (_, mappings) -> mappings.map { it.variantId }.toSet() }
+            .groupBy { it.mapAreaId }
+            .mapValues { (_, mappings) -> mappings.map { it.mapVariation }.toSet() }
         assertEquals(origVariantsByArea, newVariantsByArea)
         assertDeepEquals(origQuest.bytecodeIr, newQuest.bytecodeIr, ignoreSrcLocs = true)
     }
@@ -333,11 +333,21 @@ class QuestTests : LibTestSuite {
         val floor0 = quest.floorMappings.find { it.floorId == 0 }
         assertNotNull(floor0, "Expected floor 0 mapping")
         assertEquals(0x12, floor0.mapId, "Floor 0 should use mapId 0x12 (Lab)")
-        assertEquals(0, floor0.areaId, "Lab should have areaId=0")
+        assertEquals(0, floor0.mapAreaId, "Lab should have mapAreaId=0")
         assertEquals(Episode.II, floor0.mapEpisode, "mapId 0x12 (Lab) should have mapEpisode=Episode.II")
+        val floor0Npcs = quest.npcs.filter { it.floorId == 0 }
+        assertTrue(floor0Npcs.isNotEmpty(), "Expected Lab NPCs on logical floor 0")
+        assertTrue(
+            floor0Npcs.all { it.episode == Episode.II },
+            "NPC type resolution on floor 0 must use the effective EP2 Lab episode",
+        )
+        assertTrue(
+            quest.objects.any { it.floorId == 0 && it.type == ObjectType.LabGlassWindowDoor },
+            "Expected the EP2 Lab glass-window door from the exact Lost SON HOPKINS DAT",
+        )
 
         // Simulate what QuestModel does: resolve variant using mapEpisode
-        // With the fix: getVariant(mapping.mapEpisode ?: episode, mapping.areaId, mapping.variantId)
+        // With the fix: getVariant(mapping.mapEpisode ?: episode, mapping.mapAreaId, mapping.mapVariation)
         // = getVariant(Episode.II, 0, 0) -> should find EP2 Lab, NOT EP4 Pioneer II
         val resolvedEpisode = floor0.mapEpisode ?: quest.episode
         assertEquals(Episode.II, resolvedEpisode, "Should use Episode.II for variant lookup")
@@ -345,8 +355,8 @@ class QuestTests : LibTestSuite {
         // Verify the area it resolves to is Lab (EP2 area 0), not Pioneer II (EP4 area 0)
         val ep2Areas = getAreasForEpisode(Episode.II)
         val ep4Areas = getAreasForEpisode(Episode.IV)
-        val resolvedArea = ep2Areas.find { it.id == floor0.areaId }
-        val wrongArea = ep4Areas.find { it.id == floor0.areaId }
+        val resolvedArea = ep2Areas.find { it.id == floor0.mapAreaId }
+        val wrongArea = ep4Areas.find { it.id == floor0.mapAreaId }
 
         assertNotNull(resolvedArea, "Should find area in EP2")
         assertEquals("Lab", resolvedArea.name, "EP2 area 0 should be Lab")
@@ -368,6 +378,8 @@ class QuestTests : LibTestSuite {
         assertEquals(Episode.II, findEpisodeByMapId(0x13), "VR Temple Alpha")
         assertEquals(Episode.IV, findEpisodeByMapId(0x2D), "Pioneer II EP4")
         assertEquals(Episode.IV, findEpisodeByMapId(0x24), "Crater Route 1")
+        assertEquals(Episode.IV, findEpisodeByMapId(0x2E), "EP4 Test Map")
+        assertEquals("Test Map", findAreaByEpisodeAndAreaId(Episode.IV, 10)?.name)
     }
 
     // ---- Additional round-trip and feature tests using existing Tethealla quest files ----
@@ -392,15 +404,15 @@ class QuestTests : LibTestSuite {
 
         assertNotNull(floor17, "Floor 17 (Tower) must exist in PW4")
         assertEquals(0x23, floor17.mapId, "Floor 17 must use mapId 0x23 (Tower)")
-        assertEquals(17, floor17.areaId, "Tower must have areaId=17, not 16 (Seaside Night)")
+        assertEquals(17, floor17.mapAreaId, "Tower must have mapAreaId=17, not 16 (Seaside Night)")
 
         if (floor16 != null) {
             assertEquals(0x23, floor16.mapId, "Floor 16 must use mapId 0x23 (Tower), not Seaside Night (0x22)")
-            assertEquals(17, floor16.areaId, "Floor 16 must map to areaId=17 (Tower), not 16 (Seaside Night)")
+            assertEquals(17, floor16.mapAreaId, "Floor 16 must map to mapAreaId=17 (Tower), not 16 (Seaside Night)")
         }
 
         // No floor should incorrectly map to Seaside Night (areaId=16).
-        val seasideNightMappings = quest.floorMappings.filter { it.areaId == 16 }
+        val seasideNightMappings = quest.floorMappings.filter { it.mapAreaId == 16 }
         assertTrue(seasideNightMappings.isEmpty(), "PW4 should have no Seaside Night (areaId=16) mappings; got: $seasideNightMappings")
     }
 
@@ -443,7 +455,7 @@ class QuestTests : LibTestSuite {
         // Every spawn entry must have a valid section ID (not negative) and valid coords.
         for (spawn in spawns) {
             for (entry in spawn.entries) {
-                assertTrue(entry.sectionId >= 0, "Section ID must be non-negative in spawn ${spawn.areaId}/${spawn.roomId}")
+                assertTrue(entry.sectionId >= 0, "Section ID must be non-negative in spawn ${spawn.floorId}/${spawn.roomId}")
             }
         }
 
@@ -517,12 +529,12 @@ class QuestTests : LibTestSuite {
 
         // Verify object areaIds.
         for (i in quest.objects.indices) {
-            assertEquals(quest.objects[i].areaId, reparsed.objs[i].areaId, "Object[$i] areaId")
+            assertEquals(quest.objects[i].floorId, reparsed.objs[i].floorId, "Object[$i] floorId")
         }
 
         // Verify NPC areaIds.
         for (i in quest.npcs.indices) {
-            assertEquals(quest.npcs[i].areaId, reparsed.npcs[i].areaId, "NPC[$i] areaId")
+            assertEquals(quest.npcs[i].floorId, reparsed.npcs[i].floorId, "NPC[$i] floorId")
         }
     }
 

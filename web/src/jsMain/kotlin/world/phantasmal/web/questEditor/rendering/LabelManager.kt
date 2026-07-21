@@ -221,7 +221,13 @@ class LabelManager(
         val lockIds = playbackVisualizationStore.playbackLockDoorIds.value
 
         for (obj in quest.objects.value) {
-            if (!quest.entityBelongsToArea(obj.areaId, area.id, areaVariant?.id)) continue
+            if (!quest.entityBelongsToMap(
+                    entityFloorId = obj.floorId,
+                    mapEpisode = areaVariant?.episode ?: quest.episode,
+                    mapAreaId = area.id,
+                    mapVariation = areaVariant?.id,
+                )
+            ) continue
 
             if (obj.type !in doorObjectTypes) continue
             val doorIdValue = getEffectiveDoorId(obj)
@@ -292,11 +298,10 @@ class LabelManager(
 
         if (spawnSectionIds.isEmpty()) return
 
-        val quest = questEditorStore.currentQuest.value ?: return
         val areaVariant = questEditorStore.currentAreaVariant.value
-
-        val episode = quest.episode
-        val sections = areaVariant?.let { areaStore.getLoadedSections(episode, it) } ?: emptyList()
+        val sections = areaVariant
+            ?.let { areaStore.getLoadedSections(it.episode, it) }
+            ?: emptyList()
 
         for (section in sections) {
             if (section.id in spawnSectionIds) {

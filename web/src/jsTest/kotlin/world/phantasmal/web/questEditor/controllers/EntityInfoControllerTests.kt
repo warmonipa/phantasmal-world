@@ -51,7 +51,7 @@ class EntityInfoControllerTests : WebTestSuite {
                 components.asmStore,
             ))
 
-        val questNpc = QuestNpc(NpcType.Booma, Episode.I, areaId = 10, wave = 5)
+        val questNpc = QuestNpc(NpcType.Booma, Episode.I, floorId = 10, wave = 5)
         questNpc.sectionId = 7
         questNpc.position = Vec3(8f, 16f, 32f)
         questNpc.rotation = Vec3(PI.toFloat() / 4, PI.toFloat() / 2, PI.toFloat())

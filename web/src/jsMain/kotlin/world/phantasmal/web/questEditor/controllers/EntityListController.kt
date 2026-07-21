@@ -21,8 +21,9 @@ class EntityListController(store: QuestEditorStore, uiStore: QuestEditorUiStore,
     val currentArea: Cell<AreaModel?> = store.currentArea
 
     val entities: Cell<List<EntityType>> =
-        map(store.currentQuest, store.currentArea, uiStore.omnispawn) { quest, area, omnispawn ->
-            val episode = quest?.episode ?: Episode.I
+        map(store.currentMapEpisode, store.currentArea, uiStore.omnispawn) {
+                mapEpisode, area, omnispawn ->
+            val episode = mapEpisode ?: Episode.I
 
             entityTypes.filter { entityType ->
                 filter(entityType, episode, area, omnispawn)

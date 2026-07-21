@@ -5,6 +5,9 @@ import world.phantasmal.psolib.asm.*
 import world.phantasmal.psolib.fileFormats.quest.Quest
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
+import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.getNormalBossTeleporterDestinationFloor
+import world.phantasmal.psolib.fileFormats.quest.isBossArea
 
 /**
  * PSO Quest compatibility checker.
@@ -269,20 +272,19 @@ class CompatibilityChecker(
     ) {
         val episode = quest.episode
 
-        // Group NPCs by area for counting
-        val npcsByArea = quest.npcs.groupBy { it.areaId }
+        // Entity limits are enforced per logical DAT floor.
+        val npcsByFloor = quest.npcs.groupBy { it.floorId }
 
         quest.npcs.forEachIndexed { index, npc ->
             checkNpc(version, npc, index, episode, allLabels, builder)
         }
 
-        // Check NPC count per area
-        npcsByArea.forEach { (areaId, npcs) ->
+        npcsByFloor.forEach { (floorId, npcs) ->
             if (npcs.size > MAX_ENTITIES_PER_AREA) {
                 builder.addWarning(
                     ProblemType.TOO_MANY_MONSTERS,
-                    "Area $areaId has too many NPCs (${npcs.size} > $MAX_ENTITIES_PER_AREA)",
-                    ProblemLocation.Floor(areaId)
+                    "Floor $floorId has too many NPCs (${npcs.size} > $MAX_ENTITIES_PER_AREA)",
+                    ProblemLocation.Floor(floorId)
                 )
             }
         }
@@ -296,9 +298,8 @@ class CompatibilityChecker(
         allLabels: Set<Int>,
         builder: CompatibilityResultBuilder,
     ) {
-        // Use gameAreaId (the logical game area) for all floor/area checks.
-        // For CM quests, npc.areaId is a floor ID and gameAreaId is the resolved area ID.
-        val effectiveAreaId = npc.gameAreaId
+        // NPC type and resource validity depend on the resolved map area, not the DAT floor.
+        val effectiveAreaId = npc.mapAreaId
         val location = ProblemLocation.Monster(index, effectiveAreaId)
         val skin = npc.skin
 
@@ -326,7 +327,7 @@ class CompatibilityChecker(
                             if (scriptLabel !in allLabels) {
                                 builder.addWarning(
                                     ProblemType.NPC_ACTION_LABEL_NOT_FOUND,
-                                    "Label $scriptLabel not found for NPC #$index on floor ${npc.areaId}",
+                                    "Label $scriptLabel not found for NPC #$index on floor ${npc.floorId}",
                                     location
                                 )
                             }
@@ -373,7 +374,7 @@ class CompatibilityChecker(
         episode: Episode,
         builder: CompatibilityResultBuilder,
     ) {
-        val location = ProblemLocation.Monster(index, npc.gameAreaId)
+        val location = ProblemLocation.Monster(index, npc.mapAreaId)
 
         when {
             version == PSOVersion.DC_V1 || version == PSOVersion.DC_V2 -> {
@@ -404,10 +405,10 @@ class CompatibilityChecker(
                         )
                     }
 
-                    !floorDataProvider.isValidNPC51(npc.gameAreaId, subtype) -> {
+                    !floorDataProvider.isValidNPC51(npc.mapAreaId, subtype) -> {
                         builder.addError(
                             ProblemType.SKIN_51_INVALID_SUBTYPE,
-                            "Skin $SKIN_SPECIAL_NPC subtype $subtype not valid for floor ${npc.gameAreaId}",
+                            "Skin $SKIN_SPECIAL_NPC subtype $subtype not valid for map area ${npc.mapAreaId}",
                             location
                         )
                     }
@@ -421,20 +422,19 @@ class CompatibilityChecker(
         quest: Quest,
         builder: CompatibilityResultBuilder,
     ) {
-        // Group objects by area for counting
-        val objectsByArea = quest.objects.groupBy { it.areaId }
+        // Entity limits are enforced per logical DAT floor.
+        val objectsByFloor = quest.objects.groupBy { it.floorId }
 
         quest.objects.forEachIndexed { index, obj ->
-            checkObject(version, obj, index, builder)
+            checkObject(version, quest, obj, index, builder)
         }
 
-        // Check object count per area
-        objectsByArea.forEach { (areaId, objects) ->
+        objectsByFloor.forEach { (floorId, objects) ->
             if (objects.size > MAX_ENTITIES_PER_AREA) {
                 builder.addWarning(
                     ProblemType.TOO_MANY_OBJECTS,
-                    "Area $areaId has too many objects (${objects.size} > $MAX_ENTITIES_PER_AREA)",
-                    ProblemLocation.Floor(areaId)
+                    "Floor $floorId has too many objects (${objects.size} > $MAX_ENTITIES_PER_AREA)",
+                    ProblemLocation.Floor(floorId)
                 )
             }
         }
@@ -442,18 +442,19 @@ class CompatibilityChecker(
 
     private fun checkObject(
         version: PSOVersion,
+        quest: Quest,
         obj: QuestObject,
         index: Int,
         builder: CompatibilityResultBuilder,
     ) {
-        val location = ProblemLocation.Object(index, obj.areaId)
+        val location = ProblemLocation.Object(index, obj.floorId)
 
         // Get object skin/type ID
         val skinId = obj.data.getShort(0).toInt()
 
         // Check floor-specific object restrictions
-        if (obj.areaId <= MAX_FIELD_AREA_ID) {
-            val allowedObjects = floorDataProvider.getFloorObjects(obj.areaId, version.verId)
+        if (obj.floorId <= MAX_FIELD_AREA_ID) {
+            val allowedObjects = floorDataProvider.getFloorObjects(obj.floorId, version.verId)
             if (allowedObjects != null && allowedObjects.isNotEmpty() && skinId !in allowedObjects) {
                 builder.addWarning(
                     ProblemType.OBJECT_FLOOR_MISMATCH,
@@ -461,6 +462,51 @@ class CompatibilityChecker(
                     location
                 )
             }
+        }
+
+        if (
+            version == PSOVersion.BLUE_BURST &&
+            obj.type == ObjectType.BossTeleporter &&
+            quest.events.none { it.isChallengeMode }
+        ) {
+            checkNormalBossTeleporter(quest, obj, location, builder)
+        }
+    }
+
+    private fun checkNormalBossTeleporter(
+        quest: Quest,
+        obj: QuestObject,
+        location: ProblemLocation.Object,
+        builder: CompatibilityResultBuilder,
+    ) {
+        val destinationFloor = getNormalBossTeleporterDestinationFloor(quest.episode, obj.floorId)
+            ?: return
+        val sourceMapping = quest.floorMappings.find { it.floorId == obj.floorId }
+        val sourceMapEpisode = sourceMapping?.mapEpisode ?: quest.episode
+        val sourceAreaId = sourceMapping?.mapAreaId ?: obj.floorId
+        val mapNativeDestination =
+            getNormalBossTeleporterDestinationFloor(sourceMapEpisode, sourceAreaId)
+
+        if (mapNativeDestination != null && mapNativeDestination != destinationFloor) {
+            builder.addWarning(
+                ProblemType.BOSS_TELEPORTER_SOURCE_MISMATCH,
+                "In BB normal mode, Boss Teleporter on logical floor ${obj.floorId} targets " +
+                    "floor $destinationFloor, but the effective map belongs to the floor " +
+                    "$mapNativeDestination Boss group.",
+                location,
+            )
+        }
+
+        val targetMapping = quest.floorMappings.find { it.floorId == destinationFloor }
+        val targetMapEpisode = targetMapping?.mapEpisode ?: quest.episode
+        val targetAreaId = targetMapping?.mapAreaId ?: destinationFloor
+        if (!isBossArea(targetMapEpisode, targetAreaId)) {
+            builder.addWarning(
+                ProblemType.BOSS_TELEPORTER_TARGET_NOT_BOSS,
+                "In BB normal mode, Boss Teleporter on logical floor ${obj.floorId} targets " +
+                    "floor $destinationFloor, whose effective map is not a Boss area.",
+                location,
+            )
         }
     }
 

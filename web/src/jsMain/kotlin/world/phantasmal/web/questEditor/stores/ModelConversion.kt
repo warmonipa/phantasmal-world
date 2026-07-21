@@ -10,7 +10,7 @@ import world.phantasmal.web.questEditor.models.*
 
 fun convertQuestToModel(
     quest: Quest,
-    getVariant: (Episode, areaId: Int, variantId: Int) -> AreaVariantModel?,
+    getVariant: (Episode, mapAreaId: Int, mapVariation: Int) -> AreaVariantModel?,
 ): QuestModel =
     QuestModel(
         quest.id,
@@ -24,7 +24,7 @@ fun convertQuestToModel(
         quest.events.mapTo(mutableListOf()) { event ->
             QuestEventModel(
                 event.id,
-                event.areaId,
+                event.floorId,
                 event.sectionId.toInt(),
                 event.wave.toInt(),
                 event.delay.toInt(),
@@ -105,7 +105,7 @@ fun convertQuestFromModel(quest: QuestModel, bytecodeIrOverride: BytecodeIr? = n
                             DatEventAction.TriggerEvent(action.eventId.value)
                     }
                 },
-                event.areaId,
+                event.floorId,
                 event.unknown.toShort(),
                 event.cmWaveSettings.value,
             )

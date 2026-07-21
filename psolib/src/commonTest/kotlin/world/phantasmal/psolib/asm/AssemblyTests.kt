@@ -15,7 +15,7 @@ class AssemblyTests : LibTestSuite {
             """
             0:
                 set_episode 0
-                bb_map_designate 1, 2, 3, 4
+                bb_map_designate 1, 2, 0, 3, 4
                 set_floor_handler 0, 150
                 ret
             150:
@@ -46,7 +46,7 @@ class AssemblyTests : LibTestSuite {
                             ),
                             Instruction(
                                 opcode = OP_BB_MAP_DESIGNATE,
-                                args = listOf(IntArg(1), IntArg(2), IntArg(3), IntArg(4)),
+                                args = listOf(IntArg(1), IntArg(2), IntArg(0), IntArg(3), IntArg(4)),
                                 srcLoc = InstructionSrcLoc(
                                     mnemonic = SrcLoc(3, 5, 16),
                                     args = listOf(
@@ -54,6 +54,7 @@ class AssemblyTests : LibTestSuite {
                                         ArgSrcLoc(SrcLoc(3, 25, 1), SrcLoc(3, 24, 3)),
                                         ArgSrcLoc(SrcLoc(3, 28, 1), SrcLoc(3, 27, 3)),
                                         ArgSrcLoc(SrcLoc(3, 31, 1), SrcLoc(3, 30, 3)),
+                                        ArgSrcLoc(SrcLoc(3, 34, 1), SrcLoc(3, 33, 3)),
                                     ),
                                     trailingArgSeparator = false,
                                 ),
@@ -117,6 +118,44 @@ class AssemblyTests : LibTestSuite {
             ),
             result.value
         )
+    }
+
+    @Test
+    fun legacy_four_argument_bb_map_designate_splits_packed_map_and_type() {
+        val result = assemble(
+            """
+            0:
+                bb_map_designate 16, 547, 1, 2
+                ret
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
+        )
+
+        assertTrue(result is Success)
+        val inst = (result.value.segments.single() as InstructionSegment).instructions.first()
+        assertEquals(
+            listOf(IntArg(16), IntArg(35), IntArg(2), IntArg(1), IntArg(2)),
+            inst.args,
+        )
+        assertTrue(result.problems.any { it.severity == world.phantasmal.core.Severity.Warning })
+        assertTrue(result.problems.none { it.severity == world.phantasmal.core.Severity.Error })
+    }
+
+    @Test
+    fun five_argument_bb_map_designate_rejects_map_larger_than_byte() {
+        val result = assemble(
+            """
+            0:
+                bb_map_designate 16, 547, 2, 1, 2
+                ret
+            """.trimIndent().split('\n'),
+            Version.BB_V4,
+        )
+
+        assertTrue(result.problems.any {
+            it.severity == world.phantasmal.core.Severity.Error &&
+                it.message?.contains("8-Bit integer") == true
+        })
     }
 
     @Test

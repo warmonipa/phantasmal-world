@@ -73,9 +73,9 @@ class QuestEditorMeshManager(
                 if (quest != null && area != null) {
                     quest.npcs.filteredCell {
                         val areaMatch = if (floorIds != null) {
-                            it.areaId in floorIds
+                            it.floorId in floorIds
                         } else {
-                            it.areaId == area.id
+                            it.floorId == area.id
                         }
 
                         val matchesSelectedEvent = if (selectedSectionWaves.isEmpty()) {
@@ -104,9 +104,9 @@ class QuestEditorMeshManager(
                 if (quest != null && area != null) {
                     quest.objects.filteredCell {
                         val areaMatch = if (floorIds != null) {
-                            it.areaId in floorIds
+                            it.floorId in floorIds
                         } else {
-                            it.areaId == area.id
+                            it.floorId == area.id
                         }
                         val seasonOk = lobbyEventSeasonOk(it.type.lobbyEvent, selectedLobbyEvent)
                         it.sectionInitialized and (areaMatch && seasonOk)

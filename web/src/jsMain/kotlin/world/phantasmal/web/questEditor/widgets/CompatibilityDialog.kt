@@ -346,6 +346,8 @@ private class CompatibilityDialogContent(private val ctrl: CompatibilityControll
         ProblemType.TOO_MANY_MONSTERS -> "[Monster]"
         ProblemType.OBJECT_FLOOR_MISMATCH -> "[Object]"
         ProblemType.TOO_MANY_OBJECTS -> "[Object]"
+        ProblemType.BOSS_TELEPORTER_SOURCE_MISMATCH -> "[Object]"
+        ProblemType.BOSS_TELEPORTER_TARGET_NOT_BOSS -> "[Object]"
         ProblemType.UNUSED_DATA_LABEL -> "[Data]"
         ProblemType.MISSING_BIN_FILE -> "[File]"
         ProblemType.MISSING_DAT_FILE -> "[File]"

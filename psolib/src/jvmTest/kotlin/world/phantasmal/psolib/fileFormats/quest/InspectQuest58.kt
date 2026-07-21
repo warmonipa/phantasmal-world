@@ -111,7 +111,7 @@ class InspectQuest58 : LibTestSuite {
         val nteQ = nte.value.quest
         val v3Q = v3.value.quest
 
-        // FloorMapping is a pure-semantic data class (floorId, mapId, areaId, variantId,
+        // FloorMapping is a pure-semantic data class (floorId, mapId, mapAreaId, mapVariation,
         // mapEpisode) with no offset-dependent fields — use full set equality.
         assertEquals(
             nteQ.floorMappings.toSet(),

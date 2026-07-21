@@ -51,8 +51,13 @@ class EntityMeshManager(
      */
     private val entityMeshCache = addDisposable(
         LoadingCache<TypeAndModel, EntityInstanceContainer>(
-            { (type, model, ultimate) ->
-                val mesh = entityAssetLoader.loadInstancedMesh(type, model, ultimate)
+            { (type, model, ultimate, renderVariant) ->
+                val mesh = entityAssetLoader.loadInstancedMesh(
+                    type,
+                    model,
+                    ultimate,
+                    renderVariant,
+                )
                 renderContext.entities.add(mesh)
                 EntityInstanceContainer(mesh, modelChanged = { entity ->
                     // When an entity's model changes, add it again. At this point it has already
@@ -184,6 +189,7 @@ class EntityMeshManager(
                             type = entity.type,
                             model = (entity as? QuestObjectModel)?.model?.value,
                             ultimate = questEditorUiStore.ultimate.value,
+                            renderVariant = entityRenderVariant(entity),
                         )
                     )
 
@@ -221,6 +227,7 @@ class EntityMeshManager(
                 entity.type,
                 (entity as? QuestObjectModel)?.model?.value,
                 questEditorUiStore.ultimate.value,
+                entityRenderVariant(entity),
             )
         )?.removeInstance(entity)
 
@@ -318,6 +325,7 @@ class EntityMeshManager(
                 entity.type,
                 (entity as? QuestObjectModel)?.model?.value,
                 questEditorUiStore.ultimate.value,
+                entityRenderVariant(entity),
             )
         )?.getInstance(entity)
 
@@ -377,7 +385,13 @@ class EntityMeshManager(
 
         // Find spawn configurations for the current area
         for (cmSpawn in quest.cmRandomSpawns.value) {
-            if (quest.entityBelongsToArea(cmSpawn.areaId, area.id, areaVariant.id)) {
+            if (quest.entityBelongsToMap(
+                    entityFloorId = cmSpawn.floorId,
+                    mapEpisode = areaVariant.episode,
+                    mapAreaId = area.id,
+                    mapVariation = areaVariant.id,
+                )
+            ) {
                 // Create spawn point models for each entry
                 for (entry in cmSpawn.entries) {
                     val sectionId = entry.sectionId.toInt()
@@ -392,7 +406,7 @@ class EntityMeshManager(
                         continue
                     }
 
-                    val spawnModel = ChallengeMonsterSpawnModel(cmSpawn.areaId, entry, section)
+                    val spawnModel = ChallengeMonsterSpawnModel(cmSpawn.floorId, entry, section)
                     challengeMonsterSpawnContainer.addInstance(spawnModel)
                     totalSpawnsCreated++
                 }
@@ -415,5 +429,13 @@ class EntityMeshManager(
         val type: EntityType,
         val model: Int?,
         val ultimate: Boolean,
+        val renderVariant: Int?,
     )
+
+    private fun entityRenderVariant(entity: QuestEntityModel<*, *>): Int? =
+        if (entity is QuestObjectModel && entity.type == ObjectType.ForestDoor) {
+            entity.entity.forestDoorDigit
+        } else {
+            null
+        }
 }

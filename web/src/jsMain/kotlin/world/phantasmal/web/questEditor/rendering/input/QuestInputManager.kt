@@ -374,7 +374,8 @@ class QuestInputManager(
         // unnecessary camera offset resets.
         if (quest.floorMappings.isNotEmpty()) {
             val floorMapping = quest.floorMappings.find { mapping ->
-                mapping.areaId == currentVariant.area.id && mapping.variantId == currentVariant.id
+                    mapping.mapAreaId == currentVariant.area.id &&
+                        mapping.mapVariation == currentVariant.id
             }
             return floorMapping?.floorId ?: currentVariant.area.id
         }

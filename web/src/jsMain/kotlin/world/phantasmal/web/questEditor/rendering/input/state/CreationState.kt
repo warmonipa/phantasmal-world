@@ -22,7 +22,7 @@ class CreationState(
                 val waveId = wave?.id ?: 0
                 val npc = QuestNpc(
                     event.entityType,
-                    quest.episode,
+                    ctx.areaVariant.value?.episode ?: quest.episode,
                     area.id,
                     waveId.toShort(),
                 )

@@ -345,7 +345,7 @@ class EventsController(
                     index,
                     QuestEventModel(
                         id = 0,
-                        areaId = area.id,
+                        floorId = store.currentFloorIds.value?.firstOrNull() ?: area.id,
                         sectionId = DEFAULT_SECTION_ID,
                         waveId = DEFAULT_WAVE_ID,
                         delay = 0,
@@ -490,7 +490,7 @@ class EventsController(
     fun getEventNpcsSummary(event: QuestEventModel): Cell<String?> =
         map(store.currentAreaNpcs, event.wave, event.sectionId) { npcs, wave, sectionId ->
             val matchingNpcs = npcs.filter { npc ->
-                npc.areaId == event.areaId &&
+                npc.floorId == event.floorId &&
                         npc.wave.value.id == wave.id &&
                         npc.sectionId.value == sectionId
             }
@@ -504,7 +504,7 @@ class EventsController(
 
             val allMatchingNpcs = selectedEvents.flatMap { event ->
                 npcs.filter { npc ->
-                    npc.areaId == event.areaId &&
+                    npc.floorId == event.floorId &&
                             npc.wave.value.id == event.wave.value.id &&
                             npc.sectionId.value == event.sectionId.value
                 }

@@ -55,22 +55,27 @@ class QuestEditorStore(
     val currentQuest: Cell<QuestModel?> = _currentQuest
     val currentArea: Cell<AreaModel?> = _currentArea
     val currentAreaVariant: Cell<AreaVariantModel?> = _currentAreaVariant
+    /** Episode that owns the currently displayed map, which can differ from the quest episode. */
+    val currentMapEpisode: Cell<Episode?> =
+        map(currentQuest, currentAreaVariant) { quest, variant ->
+            variant?.episode ?: quest?.episode
+        }
     /** When set, entity filtering uses these specific floor IDs instead of area+variant lookup. */
     val currentFloorIds: Cell<Set<Int>?> = _currentFloorIds
 
     val currentAreaNpcs: ListCell<QuestNpcModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
-            filterEntitiesByFloor(quest, area, floorIds, quest?.npcs) { it.areaId }
+            filterEntitiesByFloor(quest, area, floorIds, quest?.npcs) { it.floorId }
         }
 
     val currentAreaObjects: ListCell<QuestObjectModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
-            filterEntitiesByFloor(quest, area, floorIds, quest?.objects) { it.areaId }
+            filterEntitiesByFloor(quest, area, floorIds, quest?.objects) { it.floorId }
         }
 
     val currentAreaEvents: ListCell<QuestEventModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
-            filterEntitiesByFloor(quest, area, floorIds, quest?.events) { it.areaId }
+            filterEntitiesByFloor(quest, area, floorIds, quest?.events) { it.floorId }
         }
 
     val selectedEvent: Cell<QuestEventModel?> = _focusedEvent
@@ -102,7 +107,7 @@ class QuestEditorStore(
     val currentAreaSections: Cell<List<SectionModel>> =
         map(currentQuest, currentAreaVariant, _sectionsUpdated) { quest, areaVariant, _ ->
             if (quest != null && areaVariant != null) {
-                (areaStore.getLoadedSections(quest.episode, areaVariant) ?: emptyList())
+                (areaStore.getLoadedSections(areaVariant.episode, areaVariant) ?: emptyList())
                     .sortedBy { it.id }
             } else {
                 emptyList()
@@ -162,9 +167,13 @@ class QuestEditorStore(
     ): Pair<AreaModel?, AreaVariantModel?>? {
         if (quest.floorMappings.isEmpty()) return null
         val mapping = quest.floorMappings.find { it.floorId == floorId } ?: return null
-        val mapEp = mapping.mapEpisode ?: quest.episode
-        val area = areaStore.getArea(mapEp, mapping.areaId)
-        val variant = areaStore.getVariant(mapEp, mapping.areaId, mapping.variantId)
+        val mapEpisode = mapping.mapEpisode ?: quest.episode
+        val area = areaStore.getArea(mapEpisode, mapping.mapAreaId)
+        val variant = areaStore.getVariant(
+            mapEpisode,
+            mapping.mapAreaId,
+            mapping.mapVariation,
+        )
         return Pair(area, variant)
     }
 
@@ -244,7 +253,7 @@ class QuestEditorStore(
             _sectionsUpdated.value += 1
 
             // Auto-select the section closest to the origin for the initial area.
-            autoSelectClosestSection(quest, initialVariant)
+            autoSelectClosestSection(initialVariant)
         }
     }
 
@@ -270,8 +279,8 @@ class QuestEditorStore(
             // Fallback: find the first floor with entities
             for (mapping in quest.floorMappings) {
                 val hasEntities =
-                    quest.npcs.value.any { it.areaId == mapping.floorId } ||
-                    quest.objects.value.any { it.areaId == mapping.floorId }
+                    quest.npcs.value.any { it.floorId == mapping.floorId } ||
+                    quest.objects.value.any { it.floorId == mapping.floorId }
                 if (hasEntities) {
                     val resolved = resolveAreaVariantForFloor(quest, mapping.floorId)
                     if (resolved != null) {
@@ -299,9 +308,9 @@ class QuestEditorStore(
     /**
      * Auto-selects the section closest to the origin for the given area variant.
      */
-    private fun autoSelectClosestSection(quest: QuestModel, variant: AreaVariantModel?) {
+    private fun autoSelectClosestSection(variant: AreaVariantModel?) {
         if (variant != null) {
-            val sections = areaStore.getLoadedSections(quest.episode, variant)
+            val sections = areaStore.getLoadedSections(variant.episode, variant)
             if (sections != null && sections.isNotEmpty()) {
                 _selectedSection.value =
                     sections.minByOrNull { it.position.distanceTo(Vector3(0.0, 0.0, 0.0)) }
@@ -340,8 +349,11 @@ class QuestEditorStore(
     fun setCurrentArea(area: AreaModel?) {
         val event = selectedEvent.value
 
-        if (area != null && event != null && area.id != event.areaId) {
-            setSelectedEvent(null)
+        if (area != null && event != null) {
+            val eventIsVisible = _currentFloorIds.value
+                ?.let { event.floorId in it }
+                ?: (event.floorId == area.id)
+            if (!eventIsVisible) setSelectedEvent(null)
         }
 
         _highlightedEntity.value = null
@@ -414,9 +426,9 @@ class QuestEditorStore(
             // Cross-area navigation: switch to the event's floor if different.
             val quest = currentQuest.value
 
-            if (quest != null && _currentFloorIds.value?.let { event.areaId !in it } != false) {
+            if (quest != null && _currentFloorIds.value?.let { event.floorId !in it } != false) {
                 mutate {
-                    switchToFloor(quest, event.areaId)
+                    switchToFloor(quest, event.floorId)
                 }
             }
         }
@@ -525,7 +537,7 @@ class QuestEditorStore(
         mutate {
             entity?.let {
                 currentQuest.value?.let { quest ->
-                    switchToFloor(quest, entity.areaId)
+                    switchToFloor(quest, entity.floorId)
                 }
             }
             _selectedEntity.value = entity
@@ -624,12 +636,11 @@ class QuestEditorStore(
      */
     private fun setEntitySection(entity: QuestEntityModel<*, *>, sectionId: Int) {
         currentQuest.value?.let { quest ->
-            // For multi-floor quests, entity.areaId is a floor ID — use floorToVariantMap
-            val variant = quest.floorToVariantMap[entity.areaId]
+            val variant = quest.floorToVariantMap[entity.floorId]
             val variants = if (variant != null) {
                 listOf(variant)
             } else {
-                quest.areaVariants.value.filter { it.area.id == entity.areaId }
+                quest.areaVariants.value.filter { it.area.id == entity.floorId }
             }
 
             for (areaVariant in variants) {
@@ -736,9 +747,7 @@ class QuestEditorStore(
      */
     fun goToSection(sectionId: Int) {
         currentAreaVariant.value?.let { areaVariant ->
-            // Use quest episode if available, otherwise default to Episode I
-            val episode = currentQuest.value?.episode ?: Episode.I
-            val sections = areaStore.getLoadedSections(episode, areaVariant)
+            val sections = areaStore.getLoadedSections(areaVariant.episode, areaVariant)
             sections?.find { it.id == sectionId }?.let { section ->
                 // Set target camera position without using observers to avoid circular dependencies
                 viewportStore.setTargetCameraPosition(section.position.clone())
@@ -804,7 +813,13 @@ class QuestEditorStore(
     ) {
 
         entities.forEach { entity ->
-            if (quest.entityBelongsToArea(entity.areaId, variant.area.id, variant.id)) {
+            if (quest.entityBelongsToMap(
+                    entityFloorId = entity.floorId,
+                    mapEpisode = variant.episode,
+                    mapAreaId = variant.area.id,
+                    mapVariation = variant.id,
+                )
+            ) {
                 val section = sections.find { it.id == entity.sectionId.value }
 
                 if (section == null) {

@@ -21,12 +21,12 @@ class DatFloorSection(
 )
 
 /**
- * Extract raw entity data from a quest, split by floor (areaId).
+ * Extract raw entity data from a quest, split by logical floor.
  * Returns a map of floorId → (objBuffer, npcBuffer) for writing back to per-floor dat files.
  */
 fun extractRawEntityDataByFloor(quest: Quest): Map<Int, Pair<Buffer, Buffer>> {
-    val objsByFloor = quest.objects.groupBy { it.areaId }
-    val npcsByFloor = quest.npcs.groupBy { it.areaId }
+    val objsByFloor = quest.objects.groupBy { it.floorId }
+    val npcsByFloor = quest.npcs.groupBy { it.floorId }
     val allFloorIds = (objsByFloor.keys + npcsByFloor.keys).sorted()
 
     return allFloorIds.associateWith { floorId ->

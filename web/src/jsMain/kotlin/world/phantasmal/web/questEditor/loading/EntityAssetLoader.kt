@@ -27,7 +27,7 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
         LoadingCache<EntityMeshKey, InstancedMesh>(
             { key ->
                 try {
-                    loadMesh(key.type, key.model, key.ultimate)
+                    loadMesh(key.type, key.model, key.ultimate, key.renderVariant)
                         ?: if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
                 } catch (e: Exception) {
                     logger.error(e) { "Couldn't load mesh for ${key.type} (model: ${key.model})." }
@@ -42,10 +42,24 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
         type: EntityType,
         model: Int?,
         ultimate: Boolean = false,
-    ): InstancedMesh =
-        instancedMeshCache.get(EntityMeshKey(type, model, ultimate)).clone() as InstancedMesh
+        renderVariant: Int? = null,
+    ): InstancedMesh {
+        val normalizedVariant = if (type == ObjectType.ForestDoor) {
+            (renderVariant ?: 0).mod(10)
+        } else {
+            null
+        }
+        return instancedMeshCache.get(
+            EntityMeshKey(type, model, ultimate, normalizedVariant)
+        ).clone() as InstancedMesh
+    }
 
-    private suspend fun loadMesh(type: EntityType, model: Int?, ultimate: Boolean): InstancedMesh? {
+    private suspend fun loadMesh(
+        type: EntityType,
+        model: Int?,
+        ultimate: Boolean,
+        renderVariant: Int?,
+    ): InstancedMesh? {
         val geomFormat = entityTypeToGeometryFormat(type)
 
         val geomParts = geometryParts(type).mapNotNull { suffix ->
@@ -70,6 +84,11 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
                 side = DoubleSide
             }),
             boundingVolumes = true,
+            textureIndexOverrides = if (type == ObjectType.ForestDoor) {
+                mapOf(FOREST_DOOR_DEFAULT_DIGIT_TEXTURE to (renderVariant ?: 0))
+            } else {
+                emptyMap()
+            },
         ).apply {
             name = type.uniqueName
             // Apply entity-specific scaling
@@ -167,6 +186,7 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
     companion object {
         private val DEFAULT_NPC_COLOR = Color(0xFF0000)
         private val DEFAULT_OBJECT_COLOR = Color(0xFFFF00)
+        private const val FOREST_DOOR_DEFAULT_DIGIT_TEXTURE = 0
 
         private val DEFAULT_NPC_MESH = createCylinder(DEFAULT_NPC_COLOR)
         private val DEFAULT_OBJECT_MESH = createCylinder(DEFAULT_OBJECT_COLOR)
@@ -212,6 +232,7 @@ private data class EntityMeshKey(
     val type: EntityType,
     val model: Int?,
     val ultimate: Boolean,
+    val renderVariant: Int?,
 )
 
 private enum class AssetType {

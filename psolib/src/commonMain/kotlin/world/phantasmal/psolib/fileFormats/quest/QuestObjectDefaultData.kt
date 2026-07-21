@@ -316,6 +316,8 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setFloat(40, 0.9999980926513672f) // Scale x
             data.setFloat(44, 1.000000238418579f) // Scale y
             data.setFloat(48, 0.9999954700469971f) // Scale z
+            // Packed field: low byte = switch flag 0; next byte = displayed digit 0.
+            data.setInt(52, 0)
             data.setInt(64, -1929757168)
         }
 

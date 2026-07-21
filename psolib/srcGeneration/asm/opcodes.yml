@@ -2255,7 +2255,7 @@ opcodes:
 
   - code: 0xc4
     mnemonic: map_designate
-    doc: "Specifies how objects and enemies should be populated for a floor. On v2, the ability to reassign areas was added, which can be done with map_designate_ex (F80D)"
+    doc: "Specifies how objects and enemies should be populated for a floor. This legacy handler also uses the floor number as the map ID. On v2, map_designate_ex (F80D) added an explicit map-ID register."
     params:
       - type: reg
         registers:
@@ -2268,11 +2268,12 @@ opcodes:
             doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
           - type: int
             read: true
-            name: "major variation"
-            doc: "major variation (minor variation is set to zero)"
+            name: "map variation"
+            doc: "Map/layout variation (object-set variation is set to zero)."
           - type: int
             read: true
-            name: "ignored"
+            name: "object-set variation"
+            doc: "Used by type 2 on DC/PC. GC and BB force this value to zero."
 
   - code: 0xc5
     mnemonic: masterkey_on
@@ -3076,7 +3077,7 @@ opcodes:
 
   - code: 0xf80d
     mnemonic: map_designate_ex
-    doc: "Like map_designate, but allows changing the area assignment"
+    doc: "Like map_designate, but also allows changing the client map ID and object-set variation (the client's objset field)."
     params:
       - type: reg
         registers:
@@ -3085,17 +3086,18 @@ opcodes:
             name: "floor number"
           - type: int
             read: true
-            name: "area number"
+            name: "map ID"
           - type: int
             read: true
             name: "type"
             doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
           - type: int
             read: true
-            name: "major variation"
+            name: "map variation"
           - type: int
             read: true
-            name: "minor variation"
+            name: "object-set variation"
+            doc: "The client's objset field; used by type 2."
 
   - code: 0xf80e
     mnemonic: disable_weapon_drop
@@ -6524,17 +6526,20 @@ opcodes:
 
   - code: 0xf951
     mnemonic: bb_map_designate
-    doc: "Behaves exactly the same as map_designate_ex, but the arguments are specified as immediate values and not via registers or arg_push. Sega probably added this opcode so their quest authoring tools could easily generate the necessary header fields without doing any fancy script analysis"
+    doc: "Behaves exactly the same as map_designate_ex, but the arguments are specified as five immediate bytes: floor, map, type, map variation, and object-set variation (the client's objset field). Type values: 0 = use quest DAT, 1 = use offline template, 2 = use online template, 3 = load no entities."
     params:
       - type: byte
         name: "floor number"
-      - type: short
-        name: "area number"
+      - type: byte
+        name: "map ID"
       - type: byte
         name: "type"
         doc: "type (0: use layout, 1: use offline template, 2: use online template, 3: nothing)"
       - type: byte
-        name: "major variation"
+        name: "map variation"
+      - type: byte
+        name: "object-set variation"
+        doc: "The client's objset field; selects the object, enemy, and event asset set."
 
   - code: 0xf952
     mnemonic: bb_get_number_in_pack

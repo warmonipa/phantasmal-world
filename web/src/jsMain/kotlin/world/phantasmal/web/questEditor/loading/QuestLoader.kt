@@ -121,8 +121,8 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
             q
         } else {
             val dat = parseDat(datCursor)
-            val objects = dat.objs.mapTo(mutableListOf()) { QuestObject(it.areaId, it.data) }
-            val npcs = dat.npcs.mapTo(mutableListOf()) { QuestNpc(episode, it.areaId, it.data) }
+            val objects = dat.objs.mapTo(mutableListOf()) { QuestObject(it.floorId, it.data) }
+            val npcs = dat.npcs.mapTo(mutableListOf()) { QuestNpc(episode, it.floorId, it.data) }
 
             Quest(
                 id = 0,

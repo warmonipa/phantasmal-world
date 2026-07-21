@@ -7,9 +7,9 @@ fun npcTypeFromQuestNpc(npc: QuestNpc): NpcType {
     val episode = npc.episode
     val special = npc.special
     val skin = npc.skin
-    // Use gameAreaId for NPC type detection (mapped from floor mapping, e.g., 17 for Tower)
+    // NPC types depend on the actual selected map area, not the logical DAT floor.
     // This ensures correct type identification for quests using map_designate instructions
-    val areaId = npc.gameAreaId
+    val areaId = npc.mapAreaId
 
     return when (npc.typeId.toInt()) {
         0x001 -> NpcType.FemaleBase

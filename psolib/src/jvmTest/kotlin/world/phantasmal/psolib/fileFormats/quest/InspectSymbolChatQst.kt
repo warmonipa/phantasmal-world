@@ -127,7 +127,7 @@ class InspectSymbolChatQst : LibTestSuite {
         val scObjects = q.objects.filter { it.type == ObjectType.SymbolChatObject }
         println("SymbolChatObject (type 0x21) entities: ${scObjects.size}")
         for (o in scObjects.take(20)) {
-            println("  area=${o.areaId}  section=${o.sectionId}  pos=(${o.position.x}, ${o.position.y}, ${o.position.z})")
+            println("  floor=${o.floorId}  section=${o.sectionId}  pos=(${o.position.x}, ${o.position.y}, ${o.position.z})")
         }
 
         // 2. Every opcode F8xx that touches symbol chat / chat / sound.

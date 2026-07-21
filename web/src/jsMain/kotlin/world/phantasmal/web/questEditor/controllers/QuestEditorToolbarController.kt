@@ -39,6 +39,12 @@ import world.phantasmal.webui.obj
 
 private val logger = KotlinLogging.logger {}
 
+private data class MapVariantKey(
+    val episode: Episode,
+    val mapAreaId: Int,
+    val variation: Int,
+)
+
 enum class SaveFormat {
     QST,
     BIN_DAT,
@@ -157,9 +163,8 @@ class QuestEditorToolbarController(
      *
      * **With floorMappings** (challenge mode, multi-floor quests like PW4):
      *   - One floor can map to an area+variant (e.g., floor 16 → Tower variant 1).
-     *   - Multiple floors may share the same area but with different variants, so entries are
-     *     deduplicated by (areaId, variantId). Entity counts are summed across all floors that
-     *     belong to each variant.
+     *   - Each logical floor has its own entry. When floors share the same effective map and
+     *     variation, a numeric suffix distinguishes them.
      *   - Unmapped episode areas are interleaved in canonical order (not appended at the end)
      *     without variant suffix or entity count. All floors are always shown — do NOT filter
      *     out empty areas.
@@ -174,22 +179,29 @@ class QuestEditorToolbarController(
                 val result = mutableListOf<AreaAndLabel>()
 
                 if (quest.floorMappings.isNotEmpty()) {
-                    // Group mappings by areaId for lookup. Each FloorMapping is a distinct floor,
-                    // even when multiple floors share the same (areaId, variantId) — e.g. two
-                    // Seaside Area floors with different floorIds but the same map and variant.
+                    // Group mappings by mapAreaId for canonical placement within the quest episode.
+                    // Cross-episode mappings whose mapAreaId does not exist in the quest episode
+                    // are appended below, so cross-episode maps are never omitted.
                     val mappingsByAreaId = mutableMapOf<Int, MutableList<FloorMapping>>()
                     for (mapping in quest.floorMappings) {
-                        mappingsByAreaId.getOrPut(mapping.areaId) { mutableListOf() }
+                        mappingsByAreaId.getOrPut(mapping.mapAreaId) { mutableListOf() }
                             .add(mapping)
                     }
 
-                    // Count how many floors share each (areaId, variantId) to detect duplicates.
+                    // The episode is part of the map identity: equal area/variation IDs in two
+                    // episodes are unrelated maps.
                     val variantFloorCount = quest.floorMappings
-                        .groupBy { Pair(it.areaId, it.variantId) }
+                        .groupBy {
+                            MapVariantKey(
+                                episode = it.mapEpisode ?: quest.episode,
+                                mapAreaId = it.mapAreaId,
+                                variation = it.mapVariation,
+                            )
+                        }
                         .mapValues { (_, mappings) -> mappings.size }
 
-                    // Track sequential numbering for same-(areaId, variantId) floors.
-                    val variantFloorIndex = mutableMapOf<Pair<Int, Int>, Int>()
+                    val variantFloorIndex = mutableMapOf<MapVariantKey, Int>()
+                    val addedFloorIds = mutableSetOf<Int>()
 
                     // Iterate in episode area order so the list matches the canonical floor order.
                     for (episodeArea in areaStore.getAreasForEpisode(quest.episode)) {
@@ -197,33 +209,34 @@ class QuestEditorToolbarController(
 
                         if (areaMappings != null) {
                             // Mapped area: add one entry per floor with entity count.
-                            for (mapping in areaMappings) {
-                                val mapEp = mapping.mapEpisode ?: quest.episode
-                                val area = areaStore.getArea(mapEp, mapping.areaId) ?: continue
-                                val variant = areaStore.getVariant(mapEp, mapping.areaId, mapping.variantId)
-                                    ?: continue
-
-                                // Count entities for this specific floor only.
-                                val floorId = mapping.floorId
-                                val entityCount =
-                                    quest.npcs.value.count { it.areaId == floorId } +
-                                        quest.objects.value.count { it.areaId == floorId }
-
-                                // Disambiguate when multiple floors share the same area+variant.
-                                val key = Pair(mapping.areaId, mapping.variantId)
-                                val floorIdx = (variantFloorIndex[key] ?: 0) + 1
-                                variantFloorIndex[key] = floorIdx
-                                val floorSuffix = if (variantFloorCount.getValue(key) > 1) {
-                                    " #$floorIdx"
-                                } else ""
-
-                                val displayName = buildAreaDisplayName(area, variant, if (entityCount > 0) entityCount else null) + floorSuffix
-                                result.add(AreaAndLabel(area, displayName, variant, setOf(floorId)))
+                            for (mapping in areaMappings.sortedBy(FloorMapping::floorId)) {
+                                addMappedArea(
+                                    result,
+                                    quest,
+                                    mapping,
+                                    variantFloorCount,
+                                    variantFloorIndex,
+                                )
+                                addedFloorIds.add(mapping.floorId)
                             }
                         } else {
                             // Unmapped area: show without variant suffix or entity count.
                             val displayName = buildAreaDisplayName(episodeArea, null, null)
                             result.add(AreaAndLabel(episodeArea, displayName))
+                        }
+                    }
+
+                    // A cross-episode area may have no matching mapAreaId in the quest episode
+                    // (for example an EP4 quest designating the EP2 Tower). Include it explicitly.
+                    for (mapping in quest.floorMappings.sortedBy(FloorMapping::floorId)) {
+                        if (mapping.floorId !in addedFloorIds) {
+                            addMappedArea(
+                                result,
+                                quest,
+                                mapping,
+                                variantFloorCount,
+                                variantFloorIndex,
+                            )
                         }
                     }
                 } else {
@@ -250,6 +263,31 @@ class QuestEditorToolbarController(
 
     private fun getEntityCountForArea(entitiesPerArea: Map<Int, Int>, area: AreaModel): Int? {
         return entitiesPerArea[area.id]
+    }
+
+    private fun addMappedArea(
+        result: MutableList<AreaAndLabel>,
+        quest: QuestModel,
+        mapping: FloorMapping,
+        variantFloorCount: Map<MapVariantKey, Int>,
+        variantFloorIndex: MutableMap<MapVariantKey, Int>,
+    ) {
+        val mapEpisode = mapping.mapEpisode ?: quest.episode
+        val area = areaStore.getArea(mapEpisode, mapping.mapAreaId) ?: return
+        val variant =
+            areaStore.getVariant(mapEpisode, mapping.mapAreaId, mapping.mapVariation) ?: return
+        val floorId = mapping.floorId
+        val entityCount =
+            quest.npcs.value.count { it.floorId == floorId } +
+                quest.objects.value.count { it.floorId == floorId }
+        val key = MapVariantKey(mapEpisode, mapping.mapAreaId, mapping.mapVariation)
+        val floorIndex = (variantFloorIndex[key] ?: 0) + 1
+        variantFloorIndex[key] = floorIndex
+        val floorSuffix = if (variantFloorCount.getValue(key) > 1) " #$floorIndex" else ""
+        val displayName =
+            buildAreaDisplayName(area, variant, entityCount.takeIf { it > 0 }) + floorSuffix
+
+        result.add(AreaAndLabel(area, displayName, variant, setOf(floorId)))
     }
 
     private fun getAreaVariants(area: AreaModel, variants: List<AreaVariantModel>): List<AreaVariantModel> {
@@ -323,7 +361,7 @@ class QuestEditorToolbarController(
                     } else {
                         val present = objects
                             .filter {
-                                if (floorIds != null) it.areaId in floorIds else it.areaId == area.id
+                                if (floorIds != null) it.floorId in floorIds else it.floorId == area.id
                             }
                             .mapNotNull { it.type.lobbyEvent }
                             .distinct()
@@ -861,9 +899,10 @@ class QuestEditorToolbarController(
         _selectedAreaAndLabel.value = areaAndLabel
         settingAreaFromDropdown = true
         try {
+            // Set logical floors first so setCurrentArea can validate selection against the new map.
+            questEditorStore.setCurrentFloorIds(areaAndLabel.floorIds)
             questEditorStore.setCurrentArea(areaAndLabel.area)
             questEditorStore.setCurrentAreaVariant(areaAndLabel.variant)
-            questEditorStore.setCurrentFloorIds(areaAndLabel.floorIds)
         } finally {
             settingAreaFromDropdown = false
         }

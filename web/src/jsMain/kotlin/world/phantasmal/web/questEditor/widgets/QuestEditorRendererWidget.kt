@@ -68,17 +68,22 @@ class QuestEditorRendererWidget(
             if (quest == null || area == null) {
                 false
             } else if (quest.floorMappings.isNotEmpty()) {
-                val floorIds = quest.floorMappings
-                    .filter { it.areaId == area.id && (areaVariant == null || it.variantId == areaVariant.id) }
-                    .map { it.floorId }
-                    .toSet()
-                quest.cmRandomSpawns.value.any { it.areaId in floorIds } ||
-                    quest.cmMonsterMappings.value.any { it.areaId in floorIds } ||
-                    quest.cmConfigPool.value.any { it.areaId in floorIds }
+                val floorIds = if (areaVariant == null) {
+                    quest.getFloorIdsForArea(quest.episode, area.id).orEmpty()
+                } else {
+                    quest.getFloorIdsForVariant(
+                        areaVariant.episode,
+                        area.id,
+                        areaVariant.id,
+                    ).orEmpty()
+                }
+                quest.cmRandomSpawns.value.any { it.floorId in floorIds } ||
+                    quest.cmMonsterMappings.value.any { it.floorId in floorIds } ||
+                    quest.cmConfigPool.value.any { it.floorId in floorIds }
             } else {
-                quest.cmRandomSpawns.value.any { it.areaId == area.id } ||
-                    quest.cmMonsterMappings.value.any { it.areaId == area.id } ||
-                    quest.cmConfigPool.value.any { it.areaId == area.id }
+                quest.cmRandomSpawns.value.any { it.floorId == area.id } ||
+                    quest.cmMonsterMappings.value.any { it.floorId == area.id } ||
+                    quest.cmConfigPool.value.any { it.floorId == area.id }
             }
         }
 

@@ -50,12 +50,12 @@ fun WebTestContext.createQuestModel(
 fun createQuestNpcModel(
     type: NpcType,
     episode: Episode,
-    areaId: Int = 0,
+    floorId: Int = 0,
 ): QuestNpcModel =
     QuestNpcModel(
-        QuestNpc(type, episode, areaId = areaId, wave = 0),
+        QuestNpc(type, episode, floorId = floorId, wave = 0),
         waveId = 0,
     )
 
-fun createQuestObjectModel(type: ObjectType, areaId: Int = 0): QuestObjectModel =
-    QuestObjectModel(QuestObject(type, areaId = areaId))
+fun createQuestObjectModel(type: ObjectType, floorId: Int = 0): QuestObjectModel =
+    QuestObjectModel(QuestObject(type, floorId = floorId))

@@ -16,21 +16,45 @@ import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
     @Test
-    fun entitiesPerArea_maps_floor_ids_to_area_ids() = test {
-        // EP2: floor 17 and floor 16 both map to area 17 (Tower)
+    fun setFloorMappings_updates_npc_effective_episode() = test {
+        val npc = createQuestNpcModel(NpcType.Boota, Episode.IV, floorId = 0)
+        val quest = createQuestModel(
+            episode = Episode.IV,
+            npcs = listOf(npc),
+        )
+
+        quest.setFloorMappings(
+            listOf(
+                FloorMapping(
+                    floorId = 0,
+                    mapId = 0x12,
+                    mapAreaId = 0,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        assertEquals(Episode.II, npc.entity.episode)
+        assertEquals(0, npc.entity.mapAreaId)
+    }
+
+    @Test
+    fun entitiesPerArea_maps_floor_ids_to_map_area_ids() = test {
+        // EP2: floor 17 and floor 16 both map to map area 17 (Tower).
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
             npcs = listOf(
-                createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 17), // floor 17
-                createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 16), // floor 16
+                createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 17),
+                createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 16),
             ),
             objects = listOf(
-                createQuestObjectModel(ObjectType.PlayerSet, areaId = 0),    // floor 0
+                createQuestObjectModel(ObjectType.PlayerSet, floorId = 0),
             ),
         )
 
@@ -49,9 +73,9 @@ class QuestModelTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
         )
 
@@ -90,9 +114,9 @@ class QuestModelTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
         )
 
@@ -113,6 +137,48 @@ class QuestModelTests : WebTestSuite {
         assertEquals(1, labVariants.size, "Lab should have 1 variant")
     }
 
+    @Test
+    fun same_area_and_variation_can_resolve_multiple_logical_floors() = test {
+        val quest = createQuestModel(
+            episode = Episode.I,
+            floorMappings = listOf(
+                FloorMapping(floorId = 1, mapId = 2, mapAreaId = 2, mapVariation = 3),
+                FloorMapping(floorId = 5, mapId = 2, mapAreaId = 2, mapVariation = 3),
+                FloorMapping(floorId = 6, mapId = 2, mapAreaId = 2, mapVariation = 4),
+            ),
+        )
+
+        assertEquals(
+            setOf(1, 5),
+            quest.getFloorIdsForVariant(Episode.I, mapAreaId = 2, mapVariation = 3),
+        )
+        assertEquals(setOf(1, 5, 6), quest.getFloorIdsForArea(Episode.I, mapAreaId = 2))
+        assertTrue(quest.entityBelongsToMap(5, Episode.I, mapAreaId = 2, mapVariation = 3))
+        assertTrue(!quest.entityBelongsToMap(6, Episode.I, mapAreaId = 2, mapVariation = 3))
+    }
+
+    @Test
+    fun map_identity_includes_episode() = test {
+        val quest = createQuestModel(
+            episode = Episode.IV,
+            floorMappings = listOf(
+                FloorMapping(0, 0x12, 0, 0, Episode.II),
+                FloorMapping(1, 0x00, 0, 0, Episode.I),
+            ),
+        )
+
+        assertEquals(
+            setOf(0),
+            quest.getFloorIdsForVariant(Episode.II, mapAreaId = 0, mapVariation = 0),
+        )
+        assertEquals(
+            setOf(1),
+            quest.getFloorIdsForVariant(Episode.I, mapAreaId = 0, mapVariation = 0),
+        )
+        assertTrue(quest.entityBelongsToMap(0, Episode.II, mapAreaId = 0, mapVariation = 0))
+        assertTrue(!quest.entityBelongsToMap(1, Episode.II, mapAreaId = 0, mapVariation = 0))
+    }
+
     /**
      * When an EP4 quest uses bb_map_designate to reference an EP2 map (e.g., mapId 0x12 = Lab),
      * the QuestModel should resolve the variant using EP2's area list, not EP4's.
@@ -123,11 +189,11 @@ class QuestModelTests : WebTestSuite {
     @Test
     fun cross_episode_floor_mapping_resolves_correct_variant() = test {
         // Simulate what "Lost SON HOPKINS" quest does:
-        // EP4 quest with bb_map_designate 0, 18, 0, 0 (floor 0 -> EP2 Lab mapId=0x12)
+        // EP4 quest with bb_map_designate 0, 18, 0, 0, 0 (floor 0 -> EP2 Lab mapId=0x12)
         val floorMappings = listOf(
-            FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0, mapEpisode = Episode.II),
-            FloorMapping(floorId = 6, mapId = 0x29, areaId = 6, variantId = 0, mapEpisode = Episode.IV),
-            FloorMapping(floorId = 7, mapId = 0x2A, areaId = 7, variantId = 0, mapEpisode = Episode.IV),
+            FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0, mapEpisode = Episode.II),
+            FloorMapping(floorId = 6, mapId = 0x29, mapAreaId = 6, mapVariation = 0, mapEpisode = Episode.IV),
+            FloorMapping(floorId = 7, mapId = 0x2A, mapAreaId = 7, mapVariation = 0, mapEpisode = Episode.IV),
         )
 
         val quest = QuestModel(
@@ -181,8 +247,8 @@ class QuestModelTests : WebTestSuite {
     @Test
     fun same_episode_floor_mapping_resolves_correctly() = test {
         val floorMappings = listOf(
-            FloorMapping(floorId = 0, mapId = 0x2D, areaId = 0, variantId = 0, mapEpisode = Episode.IV),
-            FloorMapping(floorId = 1, mapId = 0x24, areaId = 1, variantId = 0, mapEpisode = Episode.IV),
+            FloorMapping(floorId = 0, mapId = 0x2D, mapAreaId = 0, mapVariation = 0, mapEpisode = Episode.IV),
+            FloorMapping(floorId = 1, mapId = 0x24, mapAreaId = 1, mapVariation = 0, mapEpisode = Episode.IV),
         )
 
         val quest = QuestModel(

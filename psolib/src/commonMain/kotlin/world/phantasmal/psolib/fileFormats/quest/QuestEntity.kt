@@ -6,7 +6,8 @@ import world.phantasmal.psolib.fileFormats.Vec3
 interface QuestEntity<Type : EntityType> {
     val type: Type
 
-    var areaId: Int
+    /** Logical quest floor that owns this entity; this is not an Episode map-area ID. */
+    var floorId: Int
 
     val data: Buffer
 

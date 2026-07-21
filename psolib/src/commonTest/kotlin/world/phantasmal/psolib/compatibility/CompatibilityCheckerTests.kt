@@ -2,7 +2,10 @@ package world.phantasmal.psolib.compatibility
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.*
+import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.DatEvent
+import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.Quest
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
@@ -157,11 +160,11 @@ class CompatibilityCheckerTests : LibTestSuite {
     }
 
     @Test
-    fun too_many_npcs_per_area_generates_warning() {
+    fun too_many_npcs_per_floor_generates_warning() {
         val npcs = mutableListOf<QuestNpc>()
-        // Create 401 NPCs in area 0
+        // Create 401 NPCs on logical floor 0.
         repeat(401) {
-            npcs.add(createQuestNpc(areaId = 0))
+            npcs.add(createQuestNpc(floorId = 0))
         }
 
         val quest = createQuest(npcs = npcs)
@@ -174,11 +177,11 @@ class CompatibilityCheckerTests : LibTestSuite {
     }
 
     @Test
-    fun too_many_objects_per_area_generates_warning() {
+    fun too_many_objects_per_floor_generates_warning() {
         val objects = mutableListOf<QuestObject>()
         // Create 401 objects in area 0
         repeat(401) {
-            objects.add(createQuestObject(areaId = 0))
+            objects.add(createQuestObject(floorId = 0))
         }
 
         val quest = createQuest(objects = objects)
@@ -193,7 +196,7 @@ class CompatibilityCheckerTests : LibTestSuite {
     @Test
     fun npc_undefined_custom_label_generates_warning() {
         // Create an NPC with a custom script label that doesn't exist in bytecode
-        val npc = createQuestNpc(areaId = 0, scriptLabel = 999) // Custom label, not in bytecode
+        val npc = createQuestNpc(floorId = 0, scriptLabel = 999) // Custom label, not in bytecode
         val quest = createQuest(npcs = mutableListOf(npc))
 
         // For any version, if NPC uses a non-default label that doesn't exist in script,
@@ -232,7 +235,7 @@ class CompatibilityCheckerTests : LibTestSuite {
         )
 
         // Create an NPC with a custom script label that exists in bytecode
-        val npc = createQuestNpc(areaId = 0, scriptLabel = 999)
+        val npc = createQuestNpc(floorId = 0, scriptLabel = 999)
         val quest = createQuest(bytecodeIr = bytecodeIr, npcs = mutableListOf(npc))
 
         // If the custom label is defined in script, no warning should be generated
@@ -250,7 +253,7 @@ class CompatibilityCheckerTests : LibTestSuite {
     @Test
     fun npc_undefined_label_warning_for_all_versions() {
         // Create an NPC with a non-existent custom script label
-        val npc = createQuestNpc(areaId = 0, scriptLabel = 999)
+        val npc = createQuestNpc(floorId = 0, scriptLabel = 999)
         val quest = createQuest(npcs = mutableListOf(npc))
 
         // All versions should warn about undefined labels
@@ -266,7 +269,7 @@ class CompatibilityCheckerTests : LibTestSuite {
     @Test
     fun npc_default_label_works_in_all_versions() {
         // Create an NPC with a default menu label (100 is a default label for Episode 1)
-        val npc = createQuestNpc(areaId = 0, scriptLabel = 100)
+        val npc = createQuestNpc(floorId = 0, scriptLabel = 100)
         val quest = createQuest(npcs = mutableListOf(npc))
 
         // Default labels should work in all versions without needing script definition
@@ -282,7 +285,7 @@ class CompatibilityCheckerTests : LibTestSuite {
     @Test
     fun npc_gc_extended_label_works_only_in_gc() {
         // 850 is a GC-extended label for Episode 1
-        val npc = createQuestNpc(areaId = 0, scriptLabel = 850)
+        val npc = createQuestNpc(floorId = 0, scriptLabel = 850)
         val quest = createQuest(npcs = mutableListOf(npc))
 
         // GC (ver=3) should recognize 850 as a built-in default label
@@ -351,7 +354,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                         ),
                         Instruction(
                             opcode = OP_BB_MAP_DESIGNATE,
-                            args = listOf(IntArg(0), IntArg(0), IntArg(0), IntArg(0)),
+                            args = listOf(IntArg(0), IntArg(0), IntArg(0), IntArg(0), IntArg(0)),
                             srcLoc = null,
                             valid = true,
                         ),
@@ -393,7 +396,7 @@ class CompatibilityCheckerTests : LibTestSuite {
                         ),
                         Instruction(
                             opcode = OP_BB_MAP_DESIGNATE,
-                            args = listOf(IntArg(0), IntArg(0), IntArg(0), IntArg(0)),
+                            args = listOf(IntArg(0), IntArg(0), IntArg(0), IntArg(0), IntArg(0)),
                             srcLoc = null,
                             valid = true,
                         ),
@@ -579,11 +582,105 @@ class CompatibilityCheckerTests : LibTestSuite {
         assertTrue(unusedDataWarning != null, "Should warn about unused data label 100")
     }
 
+    @Test
+    fun bb_normal_boss_teleporter_warns_when_effective_map_uses_another_boss_group() {
+        val teleporter = QuestObject(ObjectType.BossTeleporter, floorId = 5)
+        val quest = createQuest(
+            objects = mutableListOf(teleporter),
+            floorMappings = listOf(
+                FloorMapping(floorId = 5, mapId = 2, mapAreaId = 2, mapVariation = 0),
+                FloorMapping(floorId = 12, mapId = 12, mapAreaId = 12, mapVariation = 0),
+            ),
+        )
+
+        val result = checker.checkCompatibility(PSOVersion.BLUE_BURST, quest)
+
+        val warning = result.warnings.single {
+            it.type == ProblemType.BOSS_TELEPORTER_SOURCE_MISMATCH
+        }
+        assertTrue(warning.message.contains("floor 12"))
+        assertEquals(ProblemLocation.Object(0, 5), warning.location)
+    }
+
+    @Test
+    fun bb_normal_boss_teleporter_warns_when_target_floor_is_not_a_boss_map() {
+        val teleporter = QuestObject(ObjectType.BossTeleporter, floorId = 5)
+        val quest = createQuest(
+            objects = mutableListOf(teleporter),
+            floorMappings = listOf(
+                FloorMapping(floorId = 5, mapId = 5, mapAreaId = 5, mapVariation = 0),
+                FloorMapping(floorId = 12, mapId = 2, mapAreaId = 2, mapVariation = 0),
+            ),
+        )
+
+        val result = checker.checkCompatibility(PSOVersion.BLUE_BURST, quest)
+
+        val warning = result.warnings.single {
+            it.type == ProblemType.BOSS_TELEPORTER_TARGET_NOT_BOSS
+        }
+        assertTrue(warning.message.contains("floor 12"))
+    }
+
+    @Test
+    fun bb_normal_boss_teleporter_accepts_designated_boss_target() {
+        val teleporter = QuestObject(ObjectType.BossTeleporter, floorId = 5)
+        val quest = createQuest(
+            objects = mutableListOf(teleporter),
+            floorMappings = listOf(
+                FloorMapping(floorId = 5, mapId = 5, mapAreaId = 5, mapVariation = 0),
+                FloorMapping(floorId = 12, mapId = 11, mapAreaId = 11, mapVariation = 0),
+            ),
+        )
+
+        val result = checker.checkCompatibility(PSOVersion.BLUE_BURST, quest)
+
+        assertTrue(
+            result.warnings.none {
+                it.type == ProblemType.BOSS_TELEPORTER_SOURCE_MISMATCH ||
+                    it.type == ProblemType.BOSS_TELEPORTER_TARGET_NOT_BOSS
+            },
+        )
+    }
+
+    @Test
+    fun bb_challenge_boss_teleporter_does_not_use_normal_mode_destination_table() {
+        val teleporter = QuestObject(ObjectType.BossTeleporter, floorId = 5)
+        val challengeEvent = DatEvent(
+            id = 1,
+            sectionId = 0,
+            wave = 0,
+            delay = 0,
+            actions = mutableListOf(),
+            floorId = 5,
+            unknown = 0,
+            cmWaveSettings = 0,
+        )
+        val quest = createQuest(
+            objects = mutableListOf(teleporter),
+            events = listOf(challengeEvent),
+            floorMappings = listOf(
+                FloorMapping(floorId = 5, mapId = 2, mapAreaId = 2, mapVariation = 0),
+                FloorMapping(floorId = 12, mapId = 2, mapAreaId = 2, mapVariation = 0),
+            ),
+        )
+
+        val result = checker.checkCompatibility(PSOVersion.BLUE_BURST, quest)
+
+        assertTrue(
+            result.warnings.none {
+                it.type == ProblemType.BOSS_TELEPORTER_SOURCE_MISMATCH ||
+                    it.type == ProblemType.BOSS_TELEPORTER_TARGET_NOT_BOSS
+            },
+        )
+    }
+
     private fun createQuest(
         episode: Episode = Episode.I,
         bytecodeIr: BytecodeIr = createDefaultBytecodeIr(),
         npcs: MutableList<QuestNpc> = mutableListOf(),
         objects: MutableList<QuestObject> = mutableListOf(),
+        events: List<DatEvent> = emptyList(),
+        floorMappings: List<FloorMapping> = emptyList(),
     ): Quest = Quest(
         id = 1,
         language = 0,
@@ -593,11 +690,11 @@ class CompatibilityCheckerTests : LibTestSuite {
         episode = episode,
         objects = objects,
         npcs = npcs,
-        events = mutableListOf(),
+        events = events,
         datUnknowns = mutableListOf(),
         bytecodeIr = bytecodeIr,
         shopItems = UIntArray(0),
-        floorMappings = emptyList(),
+        floorMappings = floorMappings,
     )
 
     private fun createDefaultBytecodeIr(): BytecodeIr = BytecodeIr(
@@ -622,17 +719,17 @@ class CompatibilityCheckerTests : LibTestSuite {
         )
     )
 
-    private fun createQuestNpc(areaId: Int = 0, scriptLabel: Int = 0): QuestNpc {
+    private fun createQuestNpc(floorId: Int = 0, scriptLabel: Int = 0): QuestNpc {
         val data = Buffer.withSize(72)
-        val npc = QuestNpc(Episode.I, areaId, data)
+        val npc = QuestNpc(Episode.I, floorId, data)
         if (scriptLabel > 0) {
             npc.scriptLabel = scriptLabel
         }
         return npc
     }
 
-    private fun createQuestObject(areaId: Int = 0): QuestObject {
+    private fun createQuestObject(floorId: Int = 0): QuestObject {
         val data = Buffer.withSize(68)
-        return QuestObject(areaId, data)
+        return QuestObject(floorId, data)
     }
 }

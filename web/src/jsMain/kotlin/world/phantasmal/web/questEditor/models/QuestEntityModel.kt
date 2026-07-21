@@ -34,7 +34,8 @@ abstract class QuestEntityModel<Type : EntityType, Entity : QuestEntity<Type>>(
 
     val type: Type get() = entity.type
 
-    val areaId: Int get() = entity.areaId
+    /** Logical quest floor; use the selected AreaVariantModel for actual map-area identity. */
+    val floorId: Int get() = entity.floorId
 
     val sectionId: Cell<Int> = _sectionId
 

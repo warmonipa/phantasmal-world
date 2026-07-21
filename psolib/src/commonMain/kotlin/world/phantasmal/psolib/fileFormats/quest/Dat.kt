@@ -47,7 +47,8 @@ class DatFile(
 )
 
 class DatEntity(
-    var areaId: Int,
+    /** Logical client floor from the DAT section header (`dat_table.floor_num` in PSOBB). */
+    var floorId: Int,
     val data: Buffer,
 )
 
@@ -57,7 +58,8 @@ class DatEvent(
     var wave: Short,
     var delay: Short,
     val actions: MutableList<DatEventAction>,
-    var areaId: Int,
+    /** Logical client floor from the DAT event section header. */
+    var floorId: Int,
     var unknown: Short,
     /**
      * Challenge mode wave settings (4 bytes packed as int):
@@ -104,7 +106,8 @@ sealed class DatEventAction {
 class DatUnknown(
     var entityType: Int,
     var totalSize: Int,
-    var areaId: Int,
+    /** Uninterpreted DAT section's logical client floor. */
+    var floorId: Int,
     var entitiesSize: Int,
     val data: ByteArray,
 )
@@ -112,12 +115,12 @@ class DatUnknown(
 /**
  * Challenge mode random spawn configuration (DAT entity type 4).
  * Defines spawn points for randomly generated monsters.
- * Each instance represents one room within a DAT chunk area.
+ * Each instance represents one room within a DAT section for a logical floor.
  */
 class DatCmRandomSpawn(
-    /** DAT chunk area ID (floor/area). */
-    var areaId: Int,
-    /** Room ID from the internal room table (section within the area). */
+    /** Logical client floor from the DAT section header. */
+    var floorId: Int,
+    /** Room ID from the internal room table (section within the floor). */
     var roomId: Int,
     val entries: MutableList<DatCmRandomSpawnEntry>,
 )
@@ -152,7 +155,8 @@ class DatCmRandomSpawnEntry(
  * Maps configuration IDs to specific monster types and spawn ratios.
  */
 class DatCmMonsterMapping(
-    var areaId: Int,
+    /** Logical client floor from the DAT section header. */
+    var floorId: Int,
     val entries: MutableList<DatCmMonsterMappingEntry>,
 )
 
@@ -178,7 +182,8 @@ class DatCmMonsterMappingEntry(
  * Configuration parameters for spawn points.
  */
 class DatCmConfigPool(
-    var areaId: Int,
+    /** Logical client floor from the DAT section header. */
+    var floorId: Int,
     val entries: MutableList<DatCmConfigPoolEntry>,
 )
 
@@ -211,7 +216,8 @@ fun parseDat(cursor: Cursor): DatFile {
     while (cursor.hasBytesLeft()) {
         val entityType = cursor.int()
         val totalSize = cursor.int()
-        val areaId = cursor.int()
+        // PSOBB calls this dat_table.floor_num. It selects a logical quest floor, not a map area.
+        val floorId = cursor.int()
         val entitiesSize = cursor.int()
 
         if (entityType == 0) {
@@ -224,17 +230,17 @@ fun parseDat(cursor: Cursor): DatFile {
             val entitiesCursor = cursor.take(entitiesSize)
 
             when (entityType) {
-                DAT_ENTITY_TYPE_OBJ -> parseObjects(entitiesCursor, areaId, objs)
-                DAT_ENTITY_TYPE_NPC -> parseNpcs(entitiesCursor, areaId, npcs)
-                DAT_ENTITY_TYPE_EVENT -> parseEvents(entitiesCursor, areaId, events)
-                DAT_ENTITY_TYPE_CM_RANDOM_SPAWN -> parseChallengeRandomSpawns(entitiesCursor, areaId, cmRandomSpawns)
-                DAT_ENTITY_TYPE_CM_MONSTER_DATA -> parseChallengeMonsterData(entitiesCursor, areaId, cmConfigPool, cmMonsterMappings)
+                DAT_ENTITY_TYPE_OBJ -> parseObjects(entitiesCursor, floorId, objs)
+                DAT_ENTITY_TYPE_NPC -> parseNpcs(entitiesCursor, floorId, npcs)
+                DAT_ENTITY_TYPE_EVENT -> parseEvents(entitiesCursor, floorId, events)
+                DAT_ENTITY_TYPE_CM_RANDOM_SPAWN -> parseChallengeRandomSpawns(entitiesCursor, floorId, cmRandomSpawns)
+                DAT_ENTITY_TYPE_CM_MONSTER_DATA -> parseChallengeMonsterData(entitiesCursor, floorId, cmConfigPool, cmMonsterMappings)
                 else -> {
                     unknowns.add(
                         DatUnknown(
                             entityType,
                             totalSize,
-                            areaId,
+                            floorId,
                             entitiesSize,
                             data = entitiesCursor.byteArray(entitiesSize),
                         )
@@ -263,7 +269,7 @@ fun parseDat(cursor: Cursor): DatFile {
 
 private fun parseObjects(
     cursor: Cursor,
-    areaId: Int,
+    floorId: Int,
     objects: MutableList<DatEntity>,
 ) {
     val entityCount = cursor.size / OBJECT_BYTE_SIZE
@@ -271,7 +277,7 @@ private fun parseObjects(
     repeat(entityCount) {
         objects.add(
             DatEntity(
-                areaId,
+                floorId,
                 data = cursor.buffer(OBJECT_BYTE_SIZE),
             )
         )
@@ -280,7 +286,7 @@ private fun parseObjects(
 
 private fun parseNpcs(
     cursor: Cursor,
-    areaId: Int,
+    floorId: Int,
     npcs: MutableList<DatEntity>,
 ) {
     val entityCount = cursor.size / NPC_BYTE_SIZE
@@ -288,7 +294,7 @@ private fun parseNpcs(
     repeat(entityCount) {
         npcs.add(
             DatEntity(
-                areaId,
+                floorId,
                 data = cursor.buffer(NPC_BYTE_SIZE),
             )
         )
@@ -297,10 +303,10 @@ private fun parseNpcs(
 
 private fun parseChallengeRandomSpawns(
     cursor: Cursor,
-    areaId: Int,
+    floorId: Int,
     spawns: MutableList<DatCmRandomSpawn>
 ) {
-    logger.debug { "Parsing CM random spawns for area $areaId, cursor size=${cursor.size}, bytesLeft=${cursor.bytesLeft}" }
+    logger.debug { "Parsing CM random spawns for floor $floorId, cursor size=${cursor.size}, bytesLeft=${cursor.bytesLeft}" }
 
     // Header format:
     //   offset 0: tableHeaderSize (4 bytes) — size of this header (always 12)
@@ -343,7 +349,7 @@ private fun parseChallengeRandomSpawns(
         val seekPos = startOffset + room.byteOffset
         if (seekPos < 0 || seekPos >= cursor.size) {
             logger.warn {
-                "CM random spawns area $areaId: room ${room.roomId} data offset $seekPos " +
+                "CM random spawns floor $floorId: room ${room.roomId} data offset $seekPos " +
                     "out of bounds (cursor size=${cursor.size}), skipping room."
             }
             continue
@@ -371,8 +377,8 @@ private fun parseChallengeRandomSpawns(
             )
         }
 
-        logger.debug { "Parsed ${entries.size} random spawn entries for area $areaId, room ${room.roomId}" }
-        spawns.add(DatCmRandomSpawn(areaId, room.roomId, entries))
+        logger.debug { "Parsed ${entries.size} random spawn entries for floor $floorId, room ${room.roomId}" }
+        spawns.add(DatCmRandomSpawn(floorId, room.roomId, entries))
     }
 }
 
@@ -390,11 +396,11 @@ private fun parseChallengeRandomSpawns(
  */
 private fun parseChallengeMonsterData(
     cursor: Cursor,
-    areaId: Int,
+    floorId: Int,
     configPool: MutableList<DatCmConfigPool>,
     mappings: MutableList<DatCmMonsterMapping>
 ) {
-    logger.debug { "Parsing CM monster data for area $areaId, cursor size=${cursor.size}" }
+    logger.debug { "Parsing CM monster data for floor $floorId, cursor size=${cursor.size}" }
 
     // Read 16-byte header.
     val headerSize = cursor.int()       // offset 0
@@ -430,8 +436,8 @@ private fun parseChallengeMonsterData(
         )
     }
 
-    logger.debug { "Parsed ${configEntries.size} config pool entries for area $areaId" }
-    configPool.add(DatCmConfigPool(areaId, configEntries))
+    logger.debug { "Parsed ${configEntries.size} config pool entries for floor $floorId" }
+    configPool.add(DatCmConfigPool(floorId, configEntries))
 
     // Parse Table 5B (Monsters Setting) — 4 bytes per entry, starts at table5bOffset.
     cursor.seekStart(table5bOffset)
@@ -447,11 +453,11 @@ private fun parseChallengeMonsterData(
         )
     }
 
-    logger.debug { "Parsed ${monsterEntries.size} monster mapping entries for area $areaId" }
-    mappings.add(DatCmMonsterMapping(areaId, monsterEntries))
+    logger.debug { "Parsed ${monsterEntries.size} monster mapping entries for floor $floorId" }
+    mappings.add(DatCmMonsterMapping(floorId, monsterEntries))
 }
 
-private fun parseEvents(cursor: Cursor, areaId: Int, events: MutableList<DatEvent>) {
+private fun parseEvents(cursor: Cursor, floorId: Int, events: MutableList<DatEvent>) {
     val actionsOffset = cursor.int()
     cursor.seek(4) // Always 0x10
     val eventCount = cursor.int()
@@ -465,12 +471,12 @@ private fun parseEvents(cursor: Cursor, areaId: Int, events: MutableList<DatEven
     cursor.seekStart(EVENT_SECTION_HEADER_SIZE)
 
     repeat(eventCount) {
-        events.add(parseSingleEvent(cursor, isChallengeMode, actionsCursor, areaId))
+        events.add(parseSingleEvent(cursor, isChallengeMode, actionsCursor, floorId))
     }
 
     if (cursor.position != actionsOffset) {
         logger.warn {
-            "Area $areaId: Event data size mismatch. " +
+            "Floor $floorId: Event data size mismatch. " +
                     "Read ${cursor.position - EVENT_SECTION_HEADER_SIZE} bytes but expected ${actionsOffset - EVENT_SECTION_HEADER_SIZE}."
         }
     }
@@ -500,7 +506,7 @@ private fun parseSingleEvent(
     cursor: Cursor,
     isChallengeMode: Boolean,
     actionsCursor: Cursor,
-    areaId: Int,
+    floorId: Int,
 ): DatEvent {
     val id = cursor.int()
 
@@ -528,7 +534,7 @@ private fun parseSingleEvent(
             actionsCursor.seekStart(eventActionsOffset)
             parseEventActions(actionsCursor)
         } else {
-            logger.warn { "Invalid event actions offset $eventActionsOffset for event $id in area $areaId." }
+            logger.warn { "Invalid event actions offset $eventActionsOffset for event $id on floor $floorId." }
             mutableListOf()
         }
 
@@ -538,7 +544,7 @@ private fun parseSingleEvent(
         wave,
         delay,
         actions,
-        areaId,
+        floorId,
         unknown,
         cmWaveSettings,
     )
@@ -595,9 +601,9 @@ fun writeDat(dat: DatFile): Buffer {
         dat.objs.size * (DAT_HEADER_SIZE + OBJECT_BYTE_SIZE) +
                 dat.npcs.size * (DAT_HEADER_SIZE + NPC_BYTE_SIZE) +
                 dat.events.size * 24 + // Approximate event data size.
-                // Per area: DAT header(16) + internal header(12) + room table(numRooms*8) + entries(n*28)
-                dat.cmRandomSpawns.groupBy { it.areaId }.values.sumOf { areaSpawns ->
-                    DAT_HEADER_SIZE + 12 + areaSpawns.size * 8 + areaSpawns.sumOf { it.entries.size } * 28
+                // Per floor: DAT header(16) + internal header(12) + room table(numRooms*8) + entries(n*28)
+                dat.cmRandomSpawns.groupBy { it.floorId }.values.sumOf { floorSpawns ->
+                    DAT_HEADER_SIZE + 12 + floorSpawns.size * 8 + floorSpawns.sumOf { it.entries.size } * 28
                 } +
                 dat.cmConfigPool.sumOf { 16 + 16 + it.entries.size * 32 } +
                 dat.cmMonsterMappings.sumOf { it.entries.size * 4 } +
@@ -616,7 +622,7 @@ fun writeDat(dat: DatFile): Buffer {
     for (unknown in dat.unknowns) {
         cursor.writeInt(unknown.entityType)
         cursor.writeInt(unknown.totalSize)
-        cursor.writeInt(unknown.areaId)
+        cursor.writeInt(unknown.floorId)
         cursor.writeInt(unknown.entitiesSize)
         cursor.writeByteArray(unknown.data)
     }
@@ -638,7 +644,7 @@ fun writeDat(dat: DatFile): Buffer {
  * the 16-byte DAT chunk header that wraps it inside a .dat file.
  */
 fun writeEventDataForFloor(events: List<DatEvent>, floorId: Int): Buffer? {
-    val floorEvents = events.filter { it.areaId == floorId }
+    val floorEvents = events.filter { it.floorId == floorId }
     if (floorEvents.isEmpty()) return null
 
     val isChallengeMode = floorEvents.any { it.isChallengeMode }
@@ -708,19 +714,19 @@ private fun writeEntityGroup(
     entityType: Int,
     entitySize: Int,
 ) {
-    val groupedEntities = entities.groupBy { it.areaId }
+    val groupedEntities = entities.groupBy { it.floorId }
 
-    for ((areaId, areaEntities) in groupedEntities.entries) {
-        val entitiesSize = areaEntities.size * entitySize
+    for ((floorId, floorEntities) in groupedEntities.entries) {
+        val entitiesSize = floorEntities.size * entitySize
         cursor.writeInt(entityType)
         cursor.writeInt(DAT_HEADER_SIZE + entitiesSize)
-        cursor.writeInt(areaId)
+        cursor.writeInt(floorId)
         cursor.writeInt(entitiesSize)
         val startPos = cursor.position
 
-        for (entity in areaEntities) {
+        for (entity in floorEntities) {
             require(entity.data.size == entitySize) {
-                "Malformed entity in area $areaId, data buffer was of size ${
+                "Malformed entity on floor $floorId, data buffer was of size ${
                     entity.data.size
                 } instead of expected $entitySize."
             }
@@ -731,19 +737,19 @@ private fun writeEntityGroup(
         check(cursor.position == startPos + entitiesSize) {
             "Wrote ${
                 cursor.position - startPos
-            } bytes of entity data instead of expected $entitiesSize bytes for area $areaId."
+            } bytes of entity data instead of expected $entitiesSize bytes for floor $floorId."
         }
     }
 }
 
 private fun writeEvents(cursor: WritableCursor, events: List<DatEvent>) {
-    val groupedEvents = events.groupBy { it.areaId }
+    val groupedEvents = events.groupBy { it.floorId }
 
-    for ((areaId, areaEvents) in groupedEvents.entries) {
-        val isChallengeMode = areaEvents.any { it.isChallengeMode }
-        if (isChallengeMode && areaEvents.any { !it.isChallengeMode }) {
+    for ((floorId, floorEvents) in groupedEvents.entries) {
+        val isChallengeMode = floorEvents.any { it.isChallengeMode }
+        if (isChallengeMode && floorEvents.any { !it.isChallengeMode }) {
             logger.warn {
-                "Area $areaId has both CM and non-CM events; non-CM events padded to 24 bytes."
+                "Floor $floorId has both CM and non-CM events; non-CM events padded to 24 bytes."
             }
         }
 
@@ -751,7 +757,7 @@ private fun writeEvents(cursor: WritableCursor, events: List<DatEvent>) {
         cursor.writeInt(DAT_ENTITY_TYPE_EVENT)
         val totalSizeOffset = cursor.position
         cursor.writeInt(0) // Placeholder for the total size.
-        cursor.writeInt(areaId)
+        cursor.writeInt(floorId)
         val entitiesSizeOffset = cursor.position
         cursor.writeInt(0) // Placeholder for the entities size.
 
@@ -759,12 +765,12 @@ private fun writeEvents(cursor: WritableCursor, events: List<DatEvent>) {
         val startPos = cursor.position
         val eventSize = if (isChallengeMode) 24 else 20  // CM events: 20 + 4 wave settings = 24
         // Absolute offset.
-        val actionsOffset = startPos + EVENT_SECTION_HEADER_SIZE + eventSize * areaEvents.size
+        val actionsOffset = startPos + EVENT_SECTION_HEADER_SIZE + eventSize * floorEvents.size
         cursor.size = max(actionsOffset, cursor.size)
 
         cursor.writeInt(actionsOffset - startPos)
         cursor.writeInt(0x10)
-        cursor.writeInt(areaEvents.size)
+        cursor.writeInt(floorEvents.size)
         if (isChallengeMode) {
             // "evt" marker followed by challenge mode flag
             cursor.writeByte('e'.code.toByte())
@@ -781,7 +787,7 @@ private fun writeEvents(cursor: WritableCursor, events: List<DatEvent>) {
         // Relative offset.
         var eventActionsOffset = 0
 
-        for (event in areaEvents) {
+        for (event in floorEvents) {
             eventActionsOffset = writeSingleEvent(
                 cursor, event, isChallengeMode, actionsOffset, eventActionsOffset,
             )
@@ -875,10 +881,10 @@ private fun writeChallengeRandomSpawns(
     cursor: WritableCursor,
     spawns: List<DatCmRandomSpawn>
 ) {
-    // Group rooms by DAT chunk areaId.
-    val grouped = spawns.groupBy { it.areaId }
+    // Group rooms by the logical floor stored in the DAT section header.
+    val grouped = spawns.groupBy { it.floorId }
 
-    for ((areaId, roomSpawns) in grouped) {
+    for ((floorId, roomSpawns) in grouped) {
         val numRooms = roomSpawns.size
         val tableHeaderSize = 12                      // 3 ints: headerSize, startOffset, numRooms
         val roomTableSize = numRooms * 8              // 8 bytes per room table entry
@@ -890,7 +896,7 @@ private fun writeChallengeRandomSpawns(
         // DAT chunk header.
         cursor.writeInt(DAT_ENTITY_TYPE_CM_RANDOM_SPAWN)
         cursor.writeInt(DAT_HEADER_SIZE + entitiesSize)
-        cursor.writeInt(areaId)
+        cursor.writeInt(floorId)
         cursor.writeInt(entitiesSize)
 
         // Internal header: tableHeaderSize, startOffset, numRooms.
@@ -926,7 +932,7 @@ private fun writeChallengeRandomSpawns(
 
 /**
  * Writes entityType=5 data combining Table 5A (Config Pool) and Table 5B (Monsters Setting).
- * Pairs config pool and mapping data by areaId.
+ * Pairs config-pool and monster-mapping data by logical floor.
  */
 private fun writeChallengeMonsterData(
     cursor: WritableCursor,
@@ -934,11 +940,11 @@ private fun writeChallengeMonsterData(
     mappings: List<DatCmMonsterMapping>
 ) {
     // Collect all area IDs from both config pool and mappings.
-    val areaIds = (configPool.map { it.areaId } + mappings.map { it.areaId }).distinct().sorted()
+    val floorIds = (configPool.map { it.floorId } + mappings.map { it.floorId }).distinct().sorted()
 
-    for (areaId in areaIds) {
-        val configs = configPool.find { it.areaId == areaId }?.entries ?: emptyList()
-        val monsters = mappings.find { it.areaId == areaId }?.entries ?: emptyList()
+    for (floorId in floorIds) {
+        val configs = configPool.find { it.floorId == floorId }?.entries ?: emptyList()
+        val monsters = mappings.find { it.floorId == floorId }?.entries ?: emptyList()
 
         val headerSize = 16
         val table5aSize = configs.size * 32
@@ -949,7 +955,7 @@ private fun writeChallengeMonsterData(
         // DAT chunk header.
         cursor.writeInt(DAT_ENTITY_TYPE_CM_MONSTER_DATA)
         cursor.writeInt(DAT_HEADER_SIZE + entitiesSize)
-        cursor.writeInt(areaId)
+        cursor.writeInt(floorId)
         cursor.writeInt(entitiesSize)
 
         // Internal header (16 bytes).

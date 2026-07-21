@@ -9,6 +9,7 @@ import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
 import world.phantasmal.web.core.commands.Command
+import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -228,9 +229,9 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
         )
         components.questEditorStore.setCurrentQuest(quest)
@@ -273,6 +274,36 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
     }
 
     @Test
+    fun multi_floor_quest_includes_cross_episode_area_missing_from_quest_episode() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        val quest = createQuestModel(
+            episode = Episode.IV,
+            floorMappings = listOf(
+                FloorMapping(
+                    floorId = 0,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+
+        val tower = ctrl.areas.value.single {
+            it.variant?.episode == Episode.II && it.area.id == 17
+        }
+        assertEquals("Tower", tower.area.name)
+        assertEquals(setOf(0), tower.floorIds)
+    }
+
+    @Test
     fun regular_quest_shows_all_episode_areas() = testAsync {
         val ctrl = disposer.add(QuestEditorToolbarController(
             components.uiStore,
@@ -284,7 +315,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // Regular quest with no floor mappings and only 1 NPC on area 1.
         val quest = createQuestModel(
             episode = Episode.I,
-            npcs = listOf(createQuestNpcModel(NpcType.Boota, Episode.I, areaId = 1)),
+            npcs = listOf(createQuestNpcModel(NpcType.Boota, Episode.I, floorId = 1)),
         )
         components.questEditorStore.setCurrentQuest(quest)
 
@@ -314,16 +345,16 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
             npcs = listOf(
-                createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 17),
-                createQuestNpcModel(NpcType.Boota, Episode.II, areaId = 17),
+                createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 17),
+                createQuestNpcModel(NpcType.Boota, Episode.II, floorId = 17),
             ),
             objects = listOf(
-                createQuestObjectModel(ObjectType.PlayerSet, areaId = 16),
+                createQuestObjectModel(ObjectType.PlayerSet, floorId = 16),
             ),
         )
         components.questEditorStore.setCurrentQuest(quest)
@@ -361,9 +392,9 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         val quest = createQuestModel(
             episode = Episode.II,
             floorMappings = listOf(
-                FloorMapping(floorId = 0, mapId = 0x12, areaId = 0, variantId = 0),
-                FloorMapping(floorId = 17, mapId = 0x23, areaId = 17, variantId = 0),
-                FloorMapping(floorId = 16, mapId = 0x23, areaId = 17, variantId = 1),
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
             ),
         )
         store.setCurrentQuest(quest)
@@ -388,6 +419,46 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // currentArea in controller should match
         assertNotNull(ctrl.currentArea.value)
         assertEquals(0, ctrl.currentArea.value?.variant?.id)
+    }
+
+    @Test
+    fun multi_floor_variant_selection_clears_event_from_another_logical_floor() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+        val store = components.questEditorStore
+        val floor16Event = QuestEventModel(
+            id = 1,
+            floorId = 16,
+            sectionId = 0,
+            waveId = 0,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        val quest = createQuestModel(
+            episode = Episode.II,
+            floorMappings = listOf(
+                FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
+                FloorMapping(floorId = 16, mapId = 0x23, mapAreaId = 17, mapVariation = 1),
+            ),
+            events = listOf(floor16Event),
+        )
+        store.setCurrentQuest(quest)
+        store.setSelectedEvent(floor16Event)
+        assertSame(floor16Event, store.selectedEvent.value)
+
+        val towerVariation0 = ctrl.areas.value.single {
+            it.area.id == 17 && it.variant?.id == 0
+        }
+        ctrl.setCurrentArea(towerVariation0)
+
+        assertEquals(setOf(17), store.currentFloorIds.value)
+        assertNull(store.selectedEvent.value)
     }
 
     // ---- Save As format selection tests ----

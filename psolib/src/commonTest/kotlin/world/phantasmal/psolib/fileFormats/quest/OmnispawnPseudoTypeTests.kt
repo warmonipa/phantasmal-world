@@ -16,7 +16,7 @@ class OmnispawnPseudoTypeTests {
     /** Create a raw QuestNpc with the given header values. */
     private fun createRawNpc(
         episode: Episode,
-        areaId: Int,
+        floorId: Int,
         typeId: Int,
         skin: Int = 0,
         special: Boolean = false,
@@ -25,34 +25,34 @@ class OmnispawnPseudoTypeTests {
         data.setShort(0, typeId.toShort())   // typeId at offset 0
         data.setFloat(48, if (special) 1f else 0f) // special at offset 48
         data.setInt(64, skin)                // skin at offset 64
-        return QuestNpc(episode, areaId, data)
+        return QuestNpc(episode, floorId, data)
     }
 
     @Test
     fun typeId_0xE2_resolves_to_SinowZoaOmni() {
-        assertEquals(NpcType.SinowZoaOmni, createRawNpc(Episode.II, areaId = 11, typeId = 0xE2).type)
+        assertEquals(NpcType.SinowZoaOmni, createRawNpc(Episode.II, floorId = 11, typeId = 0xE2).type)
     }
 
     @Test
     fun typeId_0xE3_resolves_to_EpsilonOmni() {
-        assertEquals(NpcType.EpsilonOmni, createRawNpc(Episode.II, areaId = 17, typeId = 0xE3).type)
+        assertEquals(NpcType.EpsilonOmni, createRawNpc(Episode.II, floorId = 17, typeId = 0xE3).type)
     }
 
     @Test
     fun typeId_0xE4_resolves_to_PoisonLilyOmni() {
-        assertEquals(NpcType.PoisonLilyOmni, createRawNpc(Episode.I, areaId = 3, typeId = 0xE4).type)
+        assertEquals(NpcType.PoisonLilyOmni, createRawNpc(Episode.I, floorId = 3, typeId = 0xE4).type)
     }
 
     @Test
     fun typeId_0xE5_resolves_to_DelLilyOmni() {
-        assertEquals(NpcType.DelLilyOmni, createRawNpc(Episode.II, areaId = 17, typeId = 0xE5).type)
+        assertEquals(NpcType.DelLilyOmni, createRawNpc(Episode.II, floorId = 17, typeId = 0xE5).type)
     }
 
     @Test
     fun detection_ignores_skin_area_and_special() {
         // The pseudo-type is the sole discriminator: a 0xE2 placed outside Seabed with a
         // non-zero skin and special flag must still resolve to Sinow Zoa.
-        val npc = createRawNpc(Episode.I, areaId = 1, typeId = 0xE2, skin = 1, special = true)
+        val npc = createRawNpc(Episode.I, floorId = 1, typeId = 0xE2, skin = 1, special = true)
         assertEquals(NpcType.SinowZoaOmni, npc.type)
     }
 
@@ -67,9 +67,9 @@ class OmnispawnPseudoTypeTests {
     @Test
     fun stock_0xE0_still_resolves_by_skin_and_area() {
         // Regression guard: registering the pseudo-types must not perturb stock 0xE0 resolution.
-        assertEquals(NpcType.SinowZoa, createRawNpc(Episode.II, areaId = 10, typeId = 0xE0, skin = 0).type)
-        assertEquals(NpcType.SinowZele, createRawNpc(Episode.II, areaId = 10, typeId = 0xE0, skin = 1).type)
-        assertEquals(NpcType.Epsilon, createRawNpc(Episode.II, areaId = 17, typeId = 0xE0, skin = 0).type)
+        assertEquals(NpcType.SinowZoa, createRawNpc(Episode.II, floorId = 10, typeId = 0xE0, skin = 0).type)
+        assertEquals(NpcType.SinowZele, createRawNpc(Episode.II, floorId = 10, typeId = 0xE0, skin = 1).type)
+        assertEquals(NpcType.Epsilon, createRawNpc(Episode.II, floorId = 17, typeId = 0xE0, skin = 0).type)
     }
 
     @Test
@@ -84,7 +84,7 @@ class OmnispawnPseudoTypeTests {
         )
         for ((type, expectedTypeId) in cases) {
             val episode = type.episode ?: Episode.II
-            val npc = QuestNpc(type, episode, areaId = type.areaIds.first(), wave = 0)
+            val npc = QuestNpc(type, episode, floorId = type.areaIds.first(), wave = 0)
             assertEquals(expectedTypeId, npc.typeId.toInt(), "$type should write typeId $expectedTypeId")
             assertEquals(0, npc.skin, "$type should write skin 0")
             assertEquals(type, npc.type, "$type should round-trip back to itself")

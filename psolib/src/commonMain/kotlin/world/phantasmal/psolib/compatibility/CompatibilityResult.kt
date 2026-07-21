@@ -55,6 +55,8 @@ enum class ProblemType {
     // Object problems
     OBJECT_FLOOR_MISMATCH,
     TOO_MANY_OBJECTS,
+    BOSS_TELEPORTER_SOURCE_MISMATCH,
+    BOSS_TELEPORTER_TARGET_NOT_BOSS,
 
     // Data problems
     UNUSED_DATA_LABEL,

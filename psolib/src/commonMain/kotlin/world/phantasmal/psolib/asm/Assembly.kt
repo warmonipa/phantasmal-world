@@ -399,7 +399,14 @@ private class Assembler(private val asm: List<String>, private val version: Vers
             val nextLen = tokenizer.len
 
             val param = opcode.params.getOrNull(paramI)
-            val paramType = param?.type
+            // The legacy four-argument bb_map_designate syntax stored map and type in one
+            // 16-bit argument. Parse the second argument broadly enough to accept that form;
+            // the final argument count below determines whether it is split or byte-validated.
+            val paramType = if (opcode == OP_BB_MAP_DESIGNATE && paramI == 1) {
+                ShortType
+            } else {
+                param?.type
+            }
 
             // Coarse source position, including surrounding whitespace.
             val coarseCol = prevCol + prevLen
@@ -437,6 +444,38 @@ private class Assembler(private val asm: List<String>, private val version: Vers
                         addError(col, len, "Expected ${describeParamType(param.type)}.")
                     }
                 }
+            }
+        }
+
+        // Older Phantasmal versions modeled bb_map_designate as four logical arguments by
+        // combining the client map and type bytes into a 16-bit "area" parameter. Accept that
+        // textual form during migration and normalize it to the client's five-byte form:
+        // floor, map, type, mapVariation, objectSetVariation.
+        if (opcode == OP_BB_MAP_DESIGNATE && argCount == 4) {
+            val packedMapAndType = (immediateArgs[1] as? IntArg)
+                ?.takeUnless(IntArg::isRegRef)
+                ?.value
+            if (packedMapAndType != null) {
+                immediateArgs[1] = IntArg(packedMapAndType and 0xFF)
+                immediateArgs.add(2, IntArg((packedMapAndType ushr 8) and 0xFF))
+            } else {
+                // The original type error already identifies the invalid argument. Keep the IR
+                // structurally normalized without attempting to reinterpret it.
+                immediateArgs.add(2, IntArg(0))
+            }
+            srcLocs.add(2, srcLocs[1])
+            argCount++
+            addWarning(
+                "The four-argument bb_map_designate form is deprecated; " +
+                    "use floor, map, type, map variation, object-set variation.",
+            )
+        } else if (opcode == OP_BB_MAP_DESIGNATE && argCount >= 2) {
+            // The current five-argument form has a one-byte map ID. Its second argument was
+            // temporarily parsed as a short only so the legacy packed form could be recognized.
+            val mapArg = immediateArgs[1]
+            if (mapArg is IntArg && !mapArg.isRegRef) {
+                val srcLoc = srcLocs[1].precise
+                checkIntValue(srcLoc.col, srcLoc.len, mapArg.value, 1)
             }
         }
 

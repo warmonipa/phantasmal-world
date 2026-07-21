@@ -6,8 +6,8 @@ import world.phantasmal.psolib.fileFormats.ninja.angleToRad
 import world.phantasmal.psolib.fileFormats.ninja.radToAngle
 import kotlin.math.roundToInt
 
-class QuestObject(override var areaId: Int, override val data: Buffer) : QuestEntity<ObjectType> {
-    constructor(type: ObjectType, areaId: Int) : this(areaId, Buffer.withSize(OBJECT_BYTE_SIZE)) {
+class QuestObject(override var floorId: Int, override val data: Buffer) : QuestEntity<ObjectType> {
+    constructor(type: ObjectType, floorId: Int) : this(floorId, Buffer.withSize(OBJECT_BYTE_SIZE)) {
         setObjectDefaultData(type, data)
         this.type = type
     }
@@ -35,6 +35,10 @@ class QuestObject(override var areaId: Int, override val data: Buffer) : QuestEn
         set(value) {
             data.setShort(10, value)
         }
+
+    /** The single digit rendered on a Forest Door, derived from param4's second-lowest byte. */
+    val forestDoorDigit: Int
+        get() = ((data.getInt(52) ushr 8) and 0xFF) % 10
 
     override var sectionId: Short
         get() = data.getShort(12)

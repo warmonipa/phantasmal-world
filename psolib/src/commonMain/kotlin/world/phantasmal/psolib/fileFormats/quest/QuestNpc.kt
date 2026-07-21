@@ -9,26 +9,26 @@ import kotlin.math.roundToInt
 
 class QuestNpc(
     var episode: Episode,
-    override var areaId: Int,
+    override var floorId: Int,
     override val data: Buffer,
 ) : QuestEntity<NpcType> {
     /**
-     * Game area ID mapped from floor mapping (e.g., 17 for Tower).
-     * Defaults to areaId if no floor mapping exists.
-     * Used for NPC type detection while areaId is used for floor/variant mapping.
+     * Actual Episode map-area ID selected for [floorId]. This can differ from [floorId] when a
+     * designation opcode maps a logical floor to another map (for example, an EP4 quest using Lab).
+     * NPC type resolution uses this value.
      */
-    var gameAreaId: Int = areaId
+    var mapAreaId: Int = floorId
+
     constructor(
         type: NpcType,
         episode: Episode,
-        areaId: Int,
+        floorId: Int,
         wave: Short,
-    ) : this(episode, areaId, Buffer.withSize(NPC_BYTE_SIZE)) {
+    ) : this(episode, floorId, Buffer.withSize(NPC_BYTE_SIZE)) {
         setNpcDefaultData(type, data)
         this.type = type
-        // Set areaId after type, because you might want to overwrite the areaId that type has
-        // determined.
-        this.areaId = areaId
+        // The caller's logical floor takes precedence over the default chosen for the NPC type.
+        this.floorId = floorId
         this.wave = wave
         this.wave2 = wave.toInt()
     }
@@ -72,8 +72,8 @@ class QuestNpc(
 
             skin = value.skin ?: 0
 
-            if (value.areaIds.isNotEmpty() && areaId !in value.areaIds) {
-                areaId = value.areaIds.first()
+            if (value.areaIds.isNotEmpty() && mapAreaId !in value.areaIds) {
+                mapAreaId = value.areaIds.first()
             }
         }
 

@@ -78,9 +78,9 @@ private fun parseBinDatFromDecompressed(
     val bin = parseBin(binData, shiftJis)
 
     val dat = parseDat(datData)
-    val objects = dat.objs.mapTo(mutableListOf()) { QuestObject(it.areaId, it.data) }
+    val objects = dat.objs.mapTo(mutableListOf()) { QuestObject(it.floorId, it.data) }
     // Initialize NPCs with random episode and correct it later.
-    val npcs = dat.npcs.mapTo(mutableListOf()) { QuestNpc(Episode.I, it.areaId, it.data) }
+    val npcs = dat.npcs.mapTo(mutableListOf()) { QuestNpc(Episode.I, it.floorId, it.data) }
 
     // Extract episode and map designations from byte code.
     var episode = Episode.I
@@ -129,37 +129,53 @@ private fun parseBinDatFromDecompressed(
             }
 
             // Build the CFG once and reuse it across all bytecode analyses.
-            var cfg: ControlFlowGraph? = null
-            val createCfg = {
-                cfg ?: ControlFlowGraph.create(bytecodeIr).also { cfg = it }
+            var cachedControlFlowGraph: ControlFlowGraph? = null
+            val createControlFlowGraph = {
+                cachedControlFlowGraph
+                    ?: ControlFlowGraph.create(bytecodeIr)
+                        .also { cachedControlFlowGraph = it }
             }
 
-            // Extract floor mappings from all instruction segments
-            floorMappings = getFloorMappings(instructionSegments, createCfg)
+            // Resolve the effective client mapping for every floor referenced by DAT data or
+            // quest bytecode. Floors without an explicit designation use the client's
+            // episode-default floor table.
+            val usedFloorIds = buildSet {
+                objects.forEach { add(it.floorId) }
+                npcs.forEach { add(it.floorId) }
+                dat.events.forEach { add(it.floorId) }
+            }
+            floorMappings = getFloorMappings(
+                instructionSegments = instructionSegments,
+                usedFloorIds = usedFloorIds,
+                version = version,
+                createControlFlowGraph = createControlFlowGraph,
+            )
 
             // Extract `particle_v3` spawn sites from all instruction segments.
-            particleSpawns = getParticleSpawns(instructionSegments, createCfg)
+            particleSpawns = getParticleSpawns(instructionSegments, createControlFlowGraph)
 
-            // Update NPC gameAreaId based on floor mappings from map_designate instructions
-            // gameAreaId is used for NPC type detection, while areaId remains as floorId for variant mapping
+            // Resolve the actual map area used to interpret each NPC. The DAT floor remains intact.
             if (floorMappings.isNotEmpty()) {
                 for (npc in npcs) {
                     /*
-                     * Use FloorMapping.floorId to match NPC.areaId.
+                     * Match the mapping's logical floor to NPC.floorId.
                      *
                      * Reason:
                      * - FloorMapping.floorId represents the original logical floor.
-                     * - NPC.areaId also stores the original floor ID.
-                     * - FloorMapping.areaId is derived from mapId and may differ
+                     * - NPC.floorId stores the original DAT floor ID.
+ * - FloorMapping.mapAreaId is derived from mapId and may differ
                      *   from floorId when multiple floors share the same map.
                      *
                      * Example:
                      *   Floor 17 -> Tower (mapId 35), variant 0
                      *   Floor 16 -> Tower (mapId 35), variant 1
                      */
-                    val mapping = floorMappings.find { it.floorId == npc.areaId }
+                    val mapping = floorMappings.find { it.floorId == npc.floorId }
                     if (mapping != null) {
-                        npc.gameAreaId = mapping.areaId
+                        npc.mapAreaId = mapping.mapAreaId
+                        // NPC type IDs are interpreted using the effective map's episode. An EP4
+                        // quest may designate an EP2 map (for example Lost SON HOPKINS uses Lab).
+                        npc.episode = mapping.mapEpisode ?: episode
                     }
                 }
             }
@@ -642,8 +658,8 @@ private fun extractScriptEntryPoints(
  */
 fun writeQuestToBinDat(quest: Quest, version: Version): Pair<Buffer, Buffer> {
     val dat = writeDat(DatFile(
-        objs = quest.objects.mapTo(mutableListOf()) { DatEntity(it.areaId, it.data) },
-        npcs = quest.npcs.mapTo(mutableListOf()) { DatEntity(it.areaId, it.data) },
+        objs = quest.objects.mapTo(mutableListOf()) { DatEntity(it.floorId, it.data) },
+        npcs = quest.npcs.mapTo(mutableListOf()) { DatEntity(it.floorId, it.data) },
         events = quest.events,
         unknowns = quest.datUnknowns,
         cmRandomSpawns = quest.challengeData.cmRandomSpawns,
