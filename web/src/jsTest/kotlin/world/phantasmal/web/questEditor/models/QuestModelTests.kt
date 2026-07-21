@@ -2,7 +2,10 @@ package world.phantasmal.web.questEditor.models
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
+import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
+import world.phantasmal.core.Success
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.test.WebTestSuite
@@ -15,6 +18,52 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
+    @Test
+    fun particle_spawns_follow_dat_object_edits_and_list_changes() = test {
+        val particleObject = createQuestObjectModel(ObjectType.Particle, areaId = 2)
+        val particleType = particleObject.properties.value.single { it.offset == 40 }
+        particleType.setValue(44.9f)
+        val quest = createQuestModel(objects = listOf(particleObject))
+
+        assertEquals(44, quest.particleSpawns.value.single().particleId)
+
+        particleType.setValue(45.9f)
+        assertEquals(45, quest.particleSpawns.value.single().particleId)
+
+        quest.removeEntity(particleObject)
+        assertTrue(quest.particleSpawns.value.isEmpty())
+
+        quest.addObject(particleObject)
+        assertEquals(45, quest.particleSpawns.value.single().particleId)
+    }
+
+    @Test
+    fun opcode_particle_spawns_follow_bytecode_edits() = test {
+        fun bytecode(particleId: Int): BytecodeIr {
+            val result = assemble(listOf(
+                "0:",
+                "leti r0, 10",
+                "leti r1, 20",
+                "leti r2, 30",
+                "leti r3, $particleId",
+                "leti r4, 60",
+                "particle_v3 r0",
+                "ret",
+            ))
+            assertTrue(result is Success)
+            return result.value
+        }
+
+        val quest = createQuestModel(bytecodeIr = bytecode(41))
+        assertEquals(41, quest.particleSpawns.value.single().particleId)
+
+        quest.setBytecodeIr(bytecode(42))
+
+        val spawn = quest.particleSpawns.value.single()
+        assertEquals(42, spawn.particleId)
+        assertTrue(spawn.source is ParticleSpawnSource.Opcode)
+    }
+
     @Test
     fun entitiesPerArea_maps_floor_ids_to_area_ids() = test {
         // EP2: floor 17 and floor 16 both map to area 17 (Tower)
@@ -147,7 +196,6 @@ class QuestModelTests : WebTestSuite {
             bytecodeIr = BytecodeIr(emptyList()),
             shopItems = UIntArray(0),
             floorMappings = floorMappings,
-            particleSpawns = emptyList(),
             getVariant = components.areaStore::getVariant,
         )
 
@@ -202,7 +250,6 @@ class QuestModelTests : WebTestSuite {
             bytecodeIr = BytecodeIr(emptyList()),
             shopItems = UIntArray(0),
             floorMappings = floorMappings,
-            particleSpawns = emptyList(),
             getVariant = components.areaStore::getVariant,
         )
 

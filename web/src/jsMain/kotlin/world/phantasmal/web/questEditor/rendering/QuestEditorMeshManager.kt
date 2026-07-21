@@ -2,18 +2,52 @@ package world.phantasmal.web.questEditor.rendering
 
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.and
+import world.phantasmal.cell.cell
+import world.phantasmal.cell.flatMap
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.filteredCell
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.particle.GLOBAL_PARTICLE_EFFECT_COUNT
 import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.stores.*
+
+internal fun particleTemplateMapIds(
+    spawn: ParticleSpawn,
+    floorToMapId: Map<Int, Int>,
+    visibleFloorIds: Set<Int>,
+    currentMapId: Int,
+): Set<Int> = if (spawn.particleId < GLOBAL_PARTICLE_EFFECT_COUNT) {
+    setOf(currentMapId)
+} else {
+    spawn.executionFloorIds.asSequence()
+        .filter { it in visibleFloorIds }
+        .mapNotNullTo(mutableSetOf()) { floorToMapId[it] }
+        .ifEmpty { setOf(currentMapId) }
+}
+
+/**
+ * Selects fixed quest particle emitters for one editor floor view.
+ *
+ * A DAT emitter belongs to its entity floor; an opcode emitter belongs to its execution paths.
+ * An unresolved opcode is not shown in an arbitrary floor because the client clears the
+ * particle system during floor transitions; treating unknown as global would be false.
+ */
+internal fun particleSpawnsForFloorView(
+    spawns: List<ParticleSpawn>,
+    visibleFloorIds: Set<Int>,
+): List<ParticleSpawn> = spawns.filter { spawn ->
+    spawn.executionFloorIds.any { it in visibleFloorIds }
+}
 
 class QuestEditorMeshManager(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
+    particleAssetLoader: ParticleAssetLoader,
     questEditorStore: QuestEditorStore,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
@@ -23,7 +57,11 @@ class QuestEditorMeshManager(
     symbolChatColliRepository: SymbolChatColliRepository,
     symbolChatTriggers: Cell<List<SymbolChatTriggerInfo>>,
     readSegmentData: (Int) -> Buffer?,
-) : QuestMeshManager(areaAssetLoader, entityAssetLoader, questEditorStore, questEditorUiStore, playbackVisualizationStore, areaStore, renderContext) {
+) : QuestMeshManager(areaAssetLoader, entityAssetLoader, particleAssetLoader, questEditorStore, questEditorUiStore, playbackVisualizationStore, areaStore, renderContext) {
+    private val questParticleSpawns = questEditorStore.currentQuest.flatMap { quest ->
+        quest?.particleSpawns ?: cell(emptyList())
+    }
+
     private val symbolChatTriggerManager = addDisposable(
         SymbolChatTriggerManager(
             triggers = symbolChatTriggers,
@@ -112,50 +150,47 @@ class QuestEditorMeshManager(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
-            renderContext.collisionGeometryBoundingBox,
-            questEditorUiStore.showScriptParticles,
-        ) { quest, area, floorIds, bbox, showScriptParticles ->
-            val spawns = quest?.particleSpawns
-            loadParticleMarkers(
-                if (spawns == null || area == null || !showScriptParticles) {
-                    emptyList()
-                } else {
-                    spawns.filter { spawn ->
-                        // 1) Empty floorIds = unreachable bytecode (psolib already warned).
-                        if (spawn.floorIds.isEmpty()) return@filter false
-
-                        // 2) Floor-id attribution from static analysis.
-                        val floorMatches = if (floorIds != null) {
-                            spawn.floorIds.any { it in floorIds }
-                        } else {
-                            area.id in spawn.floorIds
+            questEditorUiStore.showQuestParticles,
+            questParticleSpawns,
+        ) { quest, area, floorIds, showQuestParticles, particleSpawns ->
+            if (quest == null || area == null || !showQuestParticles) {
+                loadParticleMarkers(emptyList())
+            } else {
+                // The runtime emitter has no floor field. DAT objects supply an exact floor;
+                // opcode emitters are scoped by the script path that creates them. An unresolved
+                // opcode is not assigned to an arbitrary floor.
+                val visibleFloorIds = floorIds ?: setOf(area.id)
+                val mapId = quest.floorMappings.firstOrNull { mapping ->
+                    if (floorIds != null) mapping.floorId in floorIds else mapping.areaId == area.id
+                }?.mapId ?: area.id
+                val floorToMapId = quest.floorMappings.associate { it.floorId to it.mapId }
+                loadParticleMarkers(
+                    spawns = particleSpawnsForFloorView(particleSpawns, visibleFloorIds),
+                    // A map-local template is selected when the emitter is created. Its source
+                    // floors recover the corresponding map-specific resource table.
+                    resolveTemplateMapIds = {
+                        particleTemplateMapIds(it, floorToMapId, visibleFloorIds, mapId)
+                    },
+                    resolveEntityPosition = { entityId ->
+                        when (entityId) {
+                            in 0x1000..0x3FFF -> quest.npcs.value
+                                .firstOrNull {
+                                    it.areaId in visibleFloorIds &&
+                                            (it.entity.id + 0x1000) and 0xFFFF == entityId
+                                }
+                                ?.worldPosition?.value
+                            in 0x4000..0xFFFF -> quest.objects.value
+                                .firstOrNull {
+                                    it.areaId in visibleFloorIds &&
+                                            (it.entity.id.toInt() + 0x4000) and 0xFFFF == entityId
+                                }
+                                ?.worldPosition?.value
+                            // Player IDs 0..11 have no fixed position in a quest file.
+                            else -> null
                         }
-                        if (!floorMatches) return@filter false
-
-                        // 3) Coord-based geometry filter — script analysis can over-attribute
-                        // when a quest dispatches through random/non-floor-deterministic state
-                        // (e.g. Endless Episode 2's `r6 mod 3` chain, where floors 1..12 share
-                        // a dispatcher that reaches all per-floor thread starters). Drop spawns
-                        // whose XZ position falls clearly outside the floor's collision bbox.
-                        // Y is intentionally unconstrained: particles legitimately spawn above
-                        // ceilings or below floors as visual effects.
-                        //
-                        // Heuristic, not a guarantee: if two floors' coordinate ranges overlap
-                        // (rare in PSO maps), a spawn authored for one may also fall within
-                        // the other's bbox.
-                        if (bbox != null) {
-                            val px = spawn.x.toDouble()
-                            val pz = spawn.z.toDouble()
-                            val slack = COORD_FILTER_SLACK
-                            val inside = px in (bbox.min.x - slack)..(bbox.max.x + slack) &&
-                                pz in (bbox.min.z - slack)..(bbox.max.z + slack)
-                            if (!inside) return@filter false
-                        }
-
-                        true
-                    }
-                }
-            )
+                    },
+                )
+            }
         }
 
         observeNow(questEditorUiStore.showCollisionGeometry) {
@@ -174,13 +209,4 @@ class QuestEditorMeshManager(
         gotoIndicatorManager.update()
     }
 
-    private companion object {
-        /**
-         * Slack (in PSO world units) added to the collision-geometry bounding box when
-         * checking script particle XZ coordinates. PSO maps span thousands of units, so 100
-         * is roughly a 1% margin — generous enough to catch edge spawns and bbox imprecision
-         * from missing collision triangles without leaking spawns from neighboring floors.
-         */
-        private const val COORD_FILTER_SLACK = 100.0
-    }
 }

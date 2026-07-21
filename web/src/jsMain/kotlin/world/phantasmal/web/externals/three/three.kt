@@ -523,6 +523,7 @@ external class Color() {
     fun set(color: Int): Color
 
     fun setHSL(h: Double, s: Double, l: Double): Color
+    fun setRGB(r: Double, g: Double, b: Double): Color
 
     fun clone(): Color
 }
@@ -643,9 +644,18 @@ external object SubtractiveBlending : Blending
 external object MultiplyBlending : Blending
 external object CustomBlending : Blending
 
+external interface BlendingFactor
+external object SrcAlphaFactor : BlendingFactor
+external object OneMinusSrcAlphaFactor : BlendingFactor
+external object DstAlphaFactor : BlendingFactor
+external object OneMinusDstAlphaFactor : BlendingFactor
+external object OneMinusDstColorFactor : BlendingFactor
+
 external interface MaterialParameters {
     var alphaTest: Double
     var blending: Blending
+    var blendSrc: BlendingFactor
+    var blendDst: BlendingFactor
     var side: Side
     var transparent: Boolean
     var opacity: Double
@@ -673,6 +683,25 @@ external class MeshBasicMaterial(
 ) : Material {
     var color: Color
     var map: Texture?
+}
+
+external interface SpriteMaterialParameters : MaterialParameters {
+    var color: Color
+    var map: Texture?
+    var rotation: Double
+}
+
+external class SpriteMaterial(
+    parameters: SpriteMaterialParameters = definedExternally,
+) : Material {
+    var color: Color
+    var map: Texture?
+    var rotation: Double
+    var opacity: Double
+}
+
+external class Sprite(material: SpriteMaterial = definedExternally) : Object3D {
+    var material: SpriteMaterial
 }
 
 external interface MeshLambertMaterialParameters : MaterialParameters {

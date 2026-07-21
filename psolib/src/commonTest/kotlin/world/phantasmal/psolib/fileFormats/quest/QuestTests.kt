@@ -4,6 +4,9 @@ import world.phantasmal.core.Success
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.*
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.psolib.cursor.Cursor
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.test.LibTestSuite
@@ -16,7 +19,28 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+private val ParticleSpawn.worldPosition: ParticleSpawnOrigin.WorldPosition
+    get() = origin as ParticleSpawnOrigin.WorldPosition
+
 class QuestTests : LibTestSuite {
+    @Test
+    fun dat_particle_id_is_truncated_toward_zero_like_the_client() = test {
+        val obj = QuestObject(ObjectType.Particle, areaId = 3).apply {
+            id = 7
+            data.setFloat(40, 44.9f)
+        }
+
+        val particles = getQuestParticleSpawns(
+            bytecodeIr = BytecodeIr(emptyList()),
+            objects = listOf(obj),
+            npcs = emptyList(),
+        )
+
+        assertEquals(1, particles.size)
+        assertEquals(44, particles.single().particleId)
+        assertEquals(setOf(3), particles.single().executionFloorIds)
+    }
+
     @Test
     fun parseBinDatToQuest_with_towards_the_future() = testAsync {
         val result = parseBinDatToQuest(readFile("/towards_the_future.bin"), readFile("/towards_the_future.dat"))
@@ -107,20 +131,38 @@ class QuestTests : LibTestSuite {
         // The floor handlers are registered in label-0 via set_floor_handler. The CFG walk
         // should attribute each spawn site to the floor whose handler can reach it.
 
-        val labSpawn = quest.particleSpawns.firstOrNull { it.x == -10230 && it.z == -10 }
+        val opcodeSpawns = quest.particleSpawns.filter { it.source is ParticleSpawnSource.Opcode }
+        val labSpawn = opcodeSpawns.firstOrNull { it.worldPosition.x == -10230 && it.worldPosition.z == -10 }
         assertNotNull(labSpawn, "Expected lab particle_v3 at X=-10230 Z=-10")
         assertTrue(
-            0 in labSpawn.floorIds,
-            "Lab particle_v3 should be attributed to floor 0, got ${labSpawn.floorIds}",
+            0 in labSpawn.executionFloorIds,
+            "Lab particle_v3 should be attributed to floor 0, got ${labSpawn.executionFloorIds}",
         )
 
-        val towerSpawns = quest.particleSpawns.filter { it.x == 20000 && it.z == -1 }
+        val towerSpawns = opcodeSpawns.filter { it.worldPosition.x == 20000 && it.worldPosition.z == -1 }
         assertEquals(2, towerSpawns.size, "Expected 2 tower particle_v3 calls at X=20000 Z=-1")
-        val towerFloors = towerSpawns.flatMap { it.floorIds }.toSet()
+        val towerFloors = towerSpawns.flatMap { it.executionFloorIds }.toSet()
         assertTrue(
             16 in towerFloors || 17 in towerFloors,
             "Tower particle_v3 calls should be attributed to floor 16 or 17, got $towerFloors",
         )
+    }
+
+    @Test
+    fun dat_particle_object_in_pw4_is_a_persistent_floor_scoped_emitter() = testAsync {
+        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        assertTrue(result is Success)
+
+        val datParticles = result.value.quest.particleSpawns.filter {
+            it.source is ParticleSpawnSource.DatObject
+        }
+
+        assertEquals(1, datParticles.size)
+        val particle = datParticles.single()
+        assertEquals(45, particle.particleId)
+        assertEquals(null, particle.lifetimeFrames)
+        assertEquals(setOf(0), particle.executionFloorIds)
+        assertEquals(0x0001, (particle.source as ParticleSpawnSource.DatObject).objectTypeId)
     }
 
     @Test

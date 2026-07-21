@@ -2,6 +2,7 @@ package world.phantasmal.web.questEditor.models
 
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.list.dependingOnElements
 import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.MutableCell
@@ -16,6 +17,7 @@ import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatUnknown
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
+import world.phantasmal.psolib.fileFormats.quest.getQuestParticleSpawns
 
 class QuestModel(
     id: Int,
@@ -46,10 +48,6 @@ class QuestModel(
     bytecodeIr: BytecodeIr,
     val shopItems: UIntArray,
     floorMappings: List<FloorMapping>,
-    /**
-     * `particle_v3` script invocations whose arguments could be statically resolved.
-     */
-    val particleSpawns: List<ParticleSpawn>,
     private val getVariant: (Episode, areaId: Int, variantId: Int) -> AreaVariantModel?,
     /** Whether DC/GC text fields use Shift-JIS encoding (Japanese). */
     val shiftJis: Boolean = false,
@@ -163,6 +161,27 @@ class QuestModel(
      * quest load, which isn't enough to catch in-place reassembles.
      */
     val bytecodeRevision: Cell<Int> = _bytecodeRevision
+
+    /**
+     * Fixed DAT-object and BIN-opcode particles derived from the current editable quest state.
+     * Entity property dependencies cover particle IDs and DAT/NPC script entry labels.
+     */
+    val particleSpawns: Cell<List<ParticleSpawn>> = map(
+        _objects.dependingOnElements { obj ->
+            obj.properties.value.map { it.value }.toTypedArray()
+        },
+        _npcs.dependingOnElements { npc ->
+            npc.properties.value.map { it.value }.toTypedArray()
+        },
+        _bytecodeRevision,
+        _floorMappingRevision,
+    ) { objects, npcs, _, _ ->
+        getQuestParticleSpawns(
+            bytecodeIr = this.bytecodeIr,
+            objects = objects.map { it.entity },
+            npcs = npcs.map { it.entity },
+        )
+    }
 
     init {
         setId(id)

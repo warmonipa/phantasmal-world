@@ -5,14 +5,41 @@ import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
 import world.phantasmal.psolib.asm.OP_AT_COORDS_CALL
+import world.phantasmal.psolib.asm.OP_AT_COORDS_CALL_EX
 import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK
+import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK_EX
+import world.phantasmal.psolib.asm.OP_COL_NPCIN
+import world.phantasmal.psolib.asm.OP_COL_NPCINR
+import world.phantasmal.psolib.asm.OP_COL_PLINAW
+import world.phantasmal.psolib.asm.OP_CLR_FLOOR_HANDLER
+import world.phantasmal.psolib.asm.OP_CLR_QT_CANCEL
+import world.phantasmal.psolib.asm.OP_CLR_QT_EXIT
+import world.phantasmal.psolib.asm.OP_CLR_QT_FAILURE
+import world.phantasmal.psolib.asm.OP_CLR_QT_SUCCESS
+import world.phantasmal.psolib.asm.OP_CLEAR_QUEST_BOARD_HANDLER
 import world.phantasmal.psolib.asm.OP_GET_FLOOR_NUMBER
 import world.phantasmal.psolib.asm.OP_JMPI_E
 import world.phantasmal.psolib.asm.OP_JMPI_NE
 import world.phantasmal.psolib.asm.OP_LET
 import world.phantasmal.psolib.asm.OP_LETI
+import world.phantasmal.psolib.asm.OP_NPC_CHECK_STRAGGLE_EX
+import world.phantasmal.psolib.asm.OP_NPC_COORDS_CALL_EX
+import world.phantasmal.psolib.asm.OP_PARTICLE2
+import world.phantasmal.psolib.asm.OP_PARTICLE_EFFECT_NC
+import world.phantasmal.psolib.asm.OP_PARTICLE_ID_V3
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3
+import world.phantasmal.psolib.asm.OP_PLAYER_EFFECT_NC
+import world.phantasmal.psolib.asm.OP_PARTY_COORDS_CALL_EX
+import world.phantasmal.psolib.asm.OP_SET_CHAT_CALLBACK
+import world.phantasmal.psolib.asm.OP_SET_CHAT_CALLBACK_NO_FILTER
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER
+import world.phantasmal.psolib.asm.OP_SET_OBJ_PARAM
+import world.phantasmal.psolib.asm.OP_SET_OBJ_PARAM_EX
+import world.phantasmal.psolib.asm.OP_SET_QT_CANCEL
+import world.phantasmal.psolib.asm.OP_SET_QT_EXIT
+import world.phantasmal.psolib.asm.OP_SET_QT_FAILURE
+import world.phantasmal.psolib.asm.OP_SET_QT_SUCCESS
+import world.phantasmal.psolib.asm.OP_SET_QUEST_BOARD_HANDLER
 import world.phantasmal.psolib.asm.OP_SWITCH_CALL
 import world.phantasmal.psolib.asm.OP_SWITCH_JMP
 import world.phantasmal.psolib.asm.OP_THREAD
@@ -22,107 +49,165 @@ import world.phantasmal.psolib.asm.RegType
 private val logger = KotlinLogging.logger {}
 
 /**
- * A `particle_v3` invocation whose arguments could be statically resolved to constant values.
+ * The client-side origin of a quest particle emitter.
+ */
+sealed class ParticleSpawnOrigin {
+    /** A fixed world-space position. Quest registers are converted numerically from int to float. */
+    data class WorldPosition(val x: Int, val y: Int, val z: Int) : ParticleSpawnOrigin()
+
+    /**
+     * An entity resolved by the client's global entity ID table. Opcode sources resolve it when
+     * executed; DAT sources remain attached to their map object. The Y offset is added to the
+     * entity's position; X and Z are unchanged.
+     */
+    data class EntityPosition(val entityId: Int, val yOffset: Int) : ParticleSpawnOrigin()
+}
+
+/** The quest opcode variant that creates the emitter. */
+enum class ParticleSpawnOpcode {
+    ParticleV3,
+    Particle2,
+    ParticleIdV3,
+    ParticleEffectNoCull,
+    PlayerEffectNoCull,
+}
+
+/** The quest resource that creates a particle emitter. */
+sealed class ParticleSpawnSource {
+    /** A BIN quest-script opcode invocation. */
+    data class Opcode(val opcode: ParticleSpawnOpcode) : ParticleSpawnSource()
+
+    /** A DAT map object whose client constructor creates a persistent emitter. */
+    data class DatObject(val objectTypeId: Int, val objectId: Int) : ParticleSpawnSource()
+}
+
+/**
+ * A quest particle emitter created by a DAT object or a statically resolved BIN opcode.
  *
- * Coordinates are world-space integers as written by the script (PSO bytecode uses raw integer
- * literals for these positions).
+ * PSOBB does not copy a floor ID into the runtime emitter. DAT objects inherit their DAT floor;
+ * [executionFloorIds] records the logical floors whose script paths can execute a BIN opcode.
+ * On a floor transition PSOBB destroys the old floor's emitters before starting the new floor's
+ * handler. For persistent threads that resume after a yield, [executionFloorIds] is derived by
+ * analyzing the continuation against every possible runtime `g_CurrentFloor` value.
  *
- * @property x World-space X coordinate.
- * @property y World-space Y coordinate.
- * @property z World-space Z coordinate.
+ * @property origin Fixed coordinates or an entity reference resolved by the editor.
  * @property particleId Particle effect ID; index into `particleentry.dat` (or area-specific
- *   `particleentryaXX.dat`).
- * @property frames Number of frames the effect should last.
- * @property floorIds The set of floor IDs whose `set_floor_handler` chain transitively reaches
- *   this invocation. Empty when the spawn site is not reachable from any registered floor
- *   handler — typically dead code in the bytecode (e.g. a self-looping ambient thread that
- *   was never `thread_stg`d, or a `thread_stg` placed after an unconditional `jmp`). Callers
- *   should hide spawns with an empty set; [getParticleSpawns] emits a one-shot warning listing
- *   them at parse time.
+ *   `particleentryaXX.dat` for IDs 512 through 575).
+ * @property lifetimeFrames Number of frames an opcode emitter should last, or null for a
+ *   persistent DAT particle object.
+ * @property source The BIN opcode or DAT object that creates the emitter.
+ * @property hasExtendedDrawRange Whether the source selects the client's extended/no-cull
+ *   particle draw behavior.
+ * @property executionFloorIds Logical floors whose handler paths can execute this invocation.
  */
 data class ParticleSpawn(
-    val x: Int,
-    val y: Int,
-    val z: Int,
+    val origin: ParticleSpawnOrigin,
     val particleId: Int,
-    val frames: Int,
-    val floorIds: Set<Int> = emptySet(),
+    val lifetimeFrames: Int?,
+    val source: ParticleSpawnSource,
+    val hasExtendedDrawRange: Boolean,
+    val executionFloorIds: Set<Int> = emptySet(),
 )
 
 /**
- * Scans every [InstructionSegment] for `particle_v3` (opcode 0xC0) invocations and resolves the 5
- * consecutive registers passed as arguments (X, Y, Z, particle ID, # of frames) via constant
- * propagation on the [ControlFlowGraph].
- *
- * Each resolved spawn is also tagged with the floor IDs whose [OP_SET_FLOOR_HANDLER] entry can
- * reach the spawn site, so the editor can filter markers per floor view.
+ * Scans reachable uses of all five PSOBB quest particle opcodes and resolves their register
+ * arguments via constant propagation on the [ControlFlowGraph].
  *
  * Invocations whose arguments can't be reduced to a single value are skipped (logged at debug
  * level).
  */
 fun getParticleSpawns(
     instructionSegments: List<InstructionSegment>,
+    entityEntryPointFloorIds: Map<Int, Set<Int>> = emptyMap(),
     createCfg: () -> ControlFlowGraph,
 ): List<ParticleSpawn> {
     val spawns = mutableListOf<ParticleSpawn>()
     var cfg: ControlFlowGraph? = null
-    var blockToFloors: Map<BasicBlock, Set<Int>>? = null
+    var executionFloors: ParticleExecutionFloors? = null
 
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
-            if (inst.opcode.code != OP_PARTICLE_V3.code) continue
+            val opcode = when (inst.opcode.code) {
+                OP_PARTICLE_V3.code -> ParticleSpawnOpcode.ParticleV3
+                OP_PARTICLE2.code -> ParticleSpawnOpcode.Particle2
+                OP_PARTICLE_ID_V3.code -> ParticleSpawnOpcode.ParticleIdV3
+                OP_PARTICLE_EFFECT_NC.code -> ParticleSpawnOpcode.ParticleEffectNoCull
+                OP_PLAYER_EFFECT_NC.code -> ParticleSpawnOpcode.PlayerEffectNoCull
+                else -> continue
+            }
 
             if (cfg == null) cfg = createCfg()
-            if (blockToFloors == null) blockToFloors = computeBlockToFloors(cfg, instructionSegments)
+            if (executionFloors == null) {
+                executionFloors = computeParticleExecutionFloors(
+                    cfg,
+                    instructionSegments,
+                    entityEntryPointFloorIds,
+                )
+            }
 
-            val firstReg = (inst.args[0] as IntArg).value
+            val firstReg = (inst.args.firstOrNull() as? IntArg)?.value ?: continue
+            val registerCount = when (opcode) {
+                ParticleSpawnOpcode.ParticleV3,
+                ParticleSpawnOpcode.ParticleEffectNoCull -> 5
+                ParticleSpawnOpcode.Particle2 -> 3
+                ParticleSpawnOpcode.ParticleIdV3,
+                ParticleSpawnOpcode.PlayerEffectNoCull -> 4
+            }
+            if (firstReg !in 0..(256 - registerCount)) continue
 
-            // particle_v3 needs 5 consecutive registers (firstReg..firstReg+4).
-            if (firstReg !in 0..251) continue
-
-            val x = getRegisterValue(cfg, inst, firstReg)
-            val y = getRegisterValue(cfg, inst, firstReg + 1)
-            val z = getRegisterValue(cfg, inst, firstReg + 2)
-            val pid = getRegisterValue(cfg, inst, firstReg + 3)
-            val frames = getRegisterValue(cfg, inst, firstReg + 4)
-
-            if (x.size != 1L || y.size != 1L || z.size != 1L || pid.size != 1L ||
-                frames.size != 1L
-            ) {
+            val values = (0 until registerCount).map { offset ->
+                val value = getRegisterValue(cfg, inst, firstReg + offset)
+                if (value.size == 1L) value[0] else null
+            }
+            if (values.any { it == null }) {
                 logger.debug {
-                    "Couldn't determine constant arguments for particle_v3 in segment with " +
+                    "Couldn't determine constant arguments for ${inst.opcode.mnemonic} in segment with " +
                             "labels ${segment.labels}."
                 }
                 continue
             }
 
-            val block = cfg.getBlockForInstruction(inst)
-            val floorIds = blockToFloors[block] ?: emptySet()
+            val executionFloorIds = executionFloors.floorsByInstruction[inst] ?: emptySet()
+            // A marker requires a real client entry path. Bytes after a ret and unreferenced
+            // labels never execute. Persistent threads are analyzed again for all 18 possible
+            // runtime floors after each resumable yield.
+            if (executionFloorIds.isEmpty()) continue
 
-            spawns.add(
-                ParticleSpawn(
-                    x = x[0]!!,
-                    y = y[0]!!,
-                    z = z[0]!!,
-                    particleId = pid[0]!!,
-                    frames = frames[0]!!,
-                    floorIds = floorIds,
+            val spawn = when (opcode) {
+                ParticleSpawnOpcode.ParticleV3,
+                ParticleSpawnOpcode.ParticleEffectNoCull -> ParticleSpawn(
+                    origin = ParticleSpawnOrigin.WorldPosition(values[0]!!, values[1]!!, values[2]!!),
+                    particleId = values[3]!!.toShort().toInt(),
+                    lifetimeFrames = values[4]!!,
+                    source = ParticleSpawnSource.Opcode(opcode),
+                    hasExtendedDrawRange = opcode == ParticleSpawnOpcode.ParticleEffectNoCull,
+                    executionFloorIds = executionFloorIds,
                 )
-            )
-        }
-    }
-
-    val unattributed = spawns.filter { it.floorIds.isEmpty() }
-    if (unattributed.isNotEmpty()) {
-        logger.warn {
-            buildString {
-                append("Hiding ${unattributed.size} unreachable particle_v3 spawn(s) — ")
-                append("the containing segments are not reachable from any set_floor_handler ")
-                append("entry (likely dead bytecode):")
-                for (s in unattributed) {
-                    append("\n  particleId=${s.particleId} pos=(${s.x}, ${s.y}, ${s.z}) frames=${s.frames}")
-                }
+                ParticleSpawnOpcode.Particle2 -> ParticleSpawn(
+                    origin = ParticleSpawnOrigin.WorldPosition(values[0]!!, values[1]!!, values[2]!!),
+                    particleId = inst.args.getOrNull(1)?.coerceInt() ?: continue,
+                    // The client temporarily selects the x87 round-toward-zero mode here.
+                    lifetimeFrames = inst.args.getOrNull(2)?.coerceFloat()?.toInt() ?: continue,
+                    source = ParticleSpawnSource.Opcode(opcode),
+                    // PSOBB's particle2 handler always ORs flag 0x40 into the emitter.
+                    hasExtendedDrawRange = true,
+                    executionFloorIds = executionFloorIds,
+                )
+                ParticleSpawnOpcode.ParticleIdV3,
+                ParticleSpawnOpcode.PlayerEffectNoCull -> ParticleSpawn(
+                    origin = ParticleSpawnOrigin.EntityPosition(
+                        entityId = values[2]!! and 0xFFFF,
+                        yOffset = values[3]!!,
+                    ),
+                    particleId = values[0]!!.toShort().toInt(),
+                    lifetimeFrames = values[1]!!,
+                    source = ParticleSpawnSource.Opcode(opcode),
+                    hasExtendedDrawRange = opcode == ParticleSpawnOpcode.PlayerEffectNoCull,
+                    executionFloorIds = executionFloorIds,
+                )
             }
+
+            spawns.add(spawn)
         }
     }
 
@@ -130,8 +215,8 @@ fun getParticleSpawns(
 }
 
 /**
- * Returns a mapping from each reachable [BasicBlock] to the set of floor IDs whose
- * [OP_SET_FLOOR_HANDLER]-registered entry blocks transitively reach it.
+ * Returns a mapping from each client-reachable instruction to the logical floors on which the
+ * client can execute it.
  *
  * The analysis is **path-sensitive on the floor register**. Each floor handler entry is BFSed
  * once per floor it is registered for; during the walk we track the set of registers known to
@@ -156,46 +241,68 @@ fun getParticleSpawns(
  *
  * Reachability also follows callback-registration edges where the callback body is associated
  * with the registration floor:
- * - [OP_AT_COORDS_CALL] / [OP_AT_COORDS_TALK] — the trigger geometry (radius around an XYZ
- *   point) is created on the current floor, so the registered label only fires on that floor.
- * - [OP_THREAD] / [OP_THREAD_STG] — many quests start a per-floor "ambience" thread from the
- *   floor handler whose body spawns particles at coordinates in that floor's local space.
- *   Threads technically outlive floor transitions, but the registration site is the strongest
- *   signal of authorial intent we have, and the alternative (no propagation) leaves heavy-thread
- *   quests with all spawns unattributed.
+ * - Spatial trigger/object registrations — their trigger geometry or interactable object is
+ *   created on the current floor, so the registered label only fires on that floor. This
+ *   includes `at_coords_*`, NPC/party-coordinate triggers, `set_obj_param`, NPC-straggle
+ *   triggers, chat-sensor regions, and their `_ex` variants.
+ * - [OP_THREAD_STG] — PSOBB reparents this thread to `g_QuestThreadListHead`, which is destroyed
+ *   during a floor transition. An ordinary `thread` initially executes on its launch floor, but
+ *   remains parented to the Quest object; after a resumable yield its continuation is analyzed
+ *   against every possible runtime floor.
  *
- * Callback registrations whose bodies fire in a context unrelated to the registration floor
- * are deliberately NOT followed: `set_qt_*` and `set_quest_board_handler` fire at the Hunter's
- * Guild / quest board on Pioneer 2, `set_chat_callback*` and `set_palettex_callback` are
- * per-client global handlers triggered on whichever floor the player is on at input time.
+ * Quest completion/cancel and Quest Board handlers are seeded separately as floor 0 because the
+ * client invokes them at the Hunter's Guild / quest board on Pioneer 2, independently of the floor
+ * on which they were registered.
  *
- * Blocks not reachable from any floor handler are absent from the map (treated as "unknown floor"
- * by callers).
+ * Label 0 is executed once while the quest starts on Pioneer 2 (logical floor 0), before the
+ * current floor handler is started, so its reachable blocks are seeded as floor 0. Blocks not
+ * reachable from a client entry point are absent from the map and never create an emitter.
  */
-private fun computeBlockToFloors(
+private data class ParticleExecutionFloors(
+    val floorsByInstruction: Map<Instruction, Set<Int>>,
+)
+
+private data class ExecutionPoint(
+    val block: BasicBlock,
+    val instructionIndex: Int,
+    val floor: Int,
+    val floorBound: Boolean,
+)
+
+private data class TraversalState(
+    val block: BasicBlock,
+    val instructionIndex: Int,
+    val floorRegisters: Set<Int>,
+    val floorBound: Boolean,
+    val floorHandlerWrites: Map<Int, Set<Int>>,
+    val callbackHandlerWrites: Map<CallbackHandlerSlot, Set<Int>>,
+)
+
+private data class ThreadExitState(
+    val floorRegisters: Set<Int>,
+    val floorHandlerWrites: Map<Int, Set<Int>>,
+    val callbackHandlerWrites: Map<CallbackHandlerSlot, Set<Int>>,
+)
+
+private enum class CallbackHandlerKind {
+    QuestFailure,
+    QuestSuccess,
+    QuestCancel,
+    QuestExit,
+    QuestBoard,
+}
+
+private data class CallbackHandlerSlot(
+    val kind: CallbackHandlerKind,
+    val index: Int = 0,
+)
+
+private fun computeParticleExecutionFloors(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
-): Map<BasicBlock, Set<Int>> {
-    // Step 1: extract label -> floors from every set_floor_handler in the script.
-    // Scanning all segments (not just label 0) matches what GetFloorMappings does and
-    // covers quests that register handlers from nested segments.
-    //
-    // The map is multi-valued because a single handler label can be registered for many
-    // floors (e.g. quests that share one ambience handler across floors 1..12). All those
-    // floors must be propagated when we BFS from that label.
-    val labelToFloors = mutableMapOf<Int, MutableSet<Int>>()
-    for (segment in instructionSegments) {
-        for (inst in segment.instructions) {
-            if (inst.opcode.code != OP_SET_FLOOR_HANDLER.code) continue
-            val floorArg = inst.args.getOrNull(0) as? IntArg ?: continue
-            val labelArg = inst.args.getOrNull(1) as? IntArg ?: continue
-            labelToFloors.getOrPut(labelArg.value) { mutableSetOf() }.add(floorArg.value)
-        }
-    }
-
-    if (labelToFloors.isEmpty()) return emptyMap()
-
-    // Step 2: build label -> entry block (the first block of the segment carrying that label).
+    entityEntryPointFloorIds: Map<Int, Set<Int>>,
+): ParticleExecutionFloors {
+    // Step 1: build label -> entry block (the first block of the segment carrying that label).
     val labelToEntryBlock = mutableMapOf<Int, BasicBlock>()
     for (block in cfg.blocks) {
         // The first block of a segment starts at index 0 and is the only one whose labels are
@@ -216,38 +323,51 @@ private fun computeBlockToFloors(
         if (n.segment === b.segment) nextInSegment[b] = n
     }
 
-    // Step 2.5: pre-compute callback edges. For each block that registers a callback whose
-    // body is associated with the registration floor (at_coords_call/at_coords_talk and
-    // thread/thread_stg), resolve the target label and record an extra edge
+    // Step 2: pre-compute callback edges. For each block that registers a callback whose
+    // body is associated with the registration floor (spatial triggers/objects and floor-scoped
+    // threads),
+    // resolve the target label and record an extra edge
     // `block -> labelEntry` for the BFS to follow.
-    val callbackEdges = mutableMapOf<BasicBlock, MutableList<BasicBlock>>()
+    val callbackEdges = mutableMapOf<Instruction, MutableList<BasicBlock>>()
+    val ordinaryThreadEdges = mutableMapOf<Instruction, MutableList<BasicBlock>>()
     for (block in cfg.blocks) {
         for (i in block.start until block.end) {
             val inst = block.segment.instructions[i]
+            val callbackLabelOffset = spatialCallbackLabelRegisterOffset(inst.opcode.code)
+            if (callbackLabelOffset != null) {
+                // The callback label is embedded in a register group instead of being an
+                // inline ILabel operand, so the ordinary CFG cannot discover this edge.
+                val firstReg = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                if (firstReg !in 0 until (256 - callbackLabelOffset)) continue
+                val labelValues = getRegisterValue(cfg, inst, firstReg + callbackLabelOffset)
+                if (labelValues.size != 1L) continue
+                val label = labelValues[0] ?: continue
+                val target = labelToEntryBlock[label] ?: continue
+                callbackEdges.getOrPut(inst) { mutableListOf() }.add(target)
+                continue
+            }
+
             when (inst.opcode.code) {
-                OP_AT_COORDS_CALL.code, OP_AT_COORDS_TALK.code -> {
-                    // Single RegType[5] operand: (X, Y, Z, radius, label) at firstReg+0..+4.
-                    val firstReg = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                    if (firstReg !in 0..251) continue
-                    val labelValues = getRegisterValue(cfg, inst, firstReg + 4)
-                    if (labelValues.size != 1L) continue
-                    val label = labelValues[0] ?: continue
-                    val target = labelToEntryBlock[label] ?: continue
-                    callbackEdges.getOrPut(block) { mutableListOf() }.add(target)
-                }
-                OP_THREAD.code, OP_THREAD_STG.code -> {
+                OP_THREAD_STG.code -> {
                     // Single inline ILabelType arg.
                     val label = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
                     val target = labelToEntryBlock[label] ?: continue
-                    callbackEdges.getOrPut(block) { mutableListOf() }.add(target)
+                    callbackEdges.getOrPut(inst) { mutableListOf() }.add(target)
+                }
+                OP_THREAD.code -> {
+                    val label = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                    val target = labelToEntryBlock[label] ?: continue
+                    ordinaryThreadEdges.getOrPut(inst) { mutableListOf() }.add(target)
                 }
             }
         }
     }
 
-    // Step 3: forward, path-sensitive, **interprocedural** reachability from each floor
-    // handler entry. We BFS once per (entry label, single floor) pair so that branch pruning
-    // can use a single, known current floor.
+    // Step 3: forward, path-sensitive, **interprocedural** reachability from actual client
+    // entry points. New roots are discovered only from reachable registration instructions.
+    // Floor-handler writes are carried through calls and branches, then committed when the
+    // client thread yields or returns; this preserves the client's overwrite/clear semantics.
+    // Merely having a setter in dead bytecode therefore does not register anything.
     //
     // Edge model — we deliberately do NOT use `block.to` directly because the CFG, via
     // linkReturningBlocks, gives every callee's Return block edges to *all* of its callers'
@@ -265,48 +385,250 @@ private fun computeBlockToFloors(
     // - All other block types use `block.to` (filtered by branch pruning when the terminator
     //   dispatches on a floor-tracking register).
     //
-    // Visited keys are (block, floorRegs) pairs (per (handler, floor) instance). To prevent
-    // infinite recursion on mutually-recursive callees, we track in-progress (entry, regs)
-    // contexts and break cycles by returning the entry state. Per-instance exit-state
-    // memoization keeps the recursion linear in distinct (entry, regs) contexts.
-    val result = mutableMapOf<BasicBlock, MutableSet<Int>>()
-    for ((entryLabel, floorIds) in labelToFloors) {
-        val handlerEntry = labelToEntryBlock[entryLabel] ?: continue
-        for (currentFloor in floorIds) {
-            val visited = mutableSetOf<Pair<BasicBlock, Set<Int>>>()
-            val exitStateCache = mutableMapOf<Pair<BasicBlock, Set<Int>>, Set<Int>>()
-            val inProgress = mutableSetOf<Pair<BasicBlock, Set<Int>>>()
+    // Visited keys contain the block position, floor-register lineage, thread lifetime, and
+    // pending floor-handler writes. To prevent infinite recursion on mutually-recursive callees,
+    // in-progress contexts break cycles by returning their entry state. Per-instance exit-state
+    // memoization keeps the recursion linear in distinct traversal states.
+    val result = mutableMapOf<Instruction, MutableSet<Int>>()
+    val pendingEntries = ArrayDeque<ExecutionPoint>()
+    val discoveredEntries = mutableSetOf<ExecutionPoint>()
 
-            // Recursive BFS that returns the merged register state at all Return blocks
-            // reached from `start` with `startRegs`. The depth limit guards against
-            // pathological call chains; PSO scripts rarely exceed ~20 levels.
-            fun bfs(start: BasicBlock, startRegs: Set<Int>, depth: Int): Set<Int> {
-                val key = start to startRegs
+    fun enqueueEntry(label: Int, floor: Int, floorBound: Boolean) {
+        val block = labelToEntryBlock[label] ?: return
+        val entry = ExecutionPoint(block, block.start, floor, floorBound)
+        if (discoveredEntries.add(entry)) {
+            pendingEntries.add(entry)
+        }
+    }
+
+    fun enqueueResume(block: BasicBlock, instructionIndex: Int) {
+        // A persistent QuestThread2 resumes against whatever g_CurrentFloor is at that time.
+        // The client supports exactly 18 logical floor slots.
+        for (floor in 0 until 0x12) {
+            val entry = ExecutionPoint(block, instructionIndex, floor, floorBound = false)
+            if (discoveredEntries.add(entry)) pendingEntries.add(entry)
+        }
+    }
+
+    fun commitFloorHandlerWrites(writes: Map<Int, Set<Int>>) {
+        for ((floor, labels) in writes) {
+            for (label in labels) enqueueEntry(label, floor, floorBound = false)
+        }
+    }
+
+    fun commitCallbackHandlerWrites(writes: Map<CallbackHandlerSlot, Set<Int>>) {
+        for ((slot, labels) in writes) {
+            for (label in labels) {
+                when (slot.kind) {
+                    CallbackHandlerKind.QuestFailure,
+                    CallbackHandlerKind.QuestSuccess,
+                    CallbackHandlerKind.QuestCancel,
+                    -> enqueueEntry(label, 0, floorBound = false)
+                    CallbackHandlerKind.QuestBoard -> enqueueEntry(label, 0, floorBound = true)
+                    CallbackHandlerKind.QuestExit -> {
+                        for (floor in 0 until 0x12) {
+                            enqueueEntry(label, floor, floorBound = true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun <K> mergeHandlerWrites(
+        left: Map<K, Set<Int>>,
+        right: Map<K, Set<Int>>,
+    ): Map<K, Set<Int>> {
+        if (left.isEmpty()) return right
+        if (right.isEmpty()) return left
+        val merged = left.toMutableMap()
+        for ((floor, labels) in right) {
+            merged[floor] = merged[floor].orEmpty() + labels
+        }
+        return merged
+    }
+
+    // PSOBB constructs label 0 while the quest starts on Pioneer 2.
+    enqueueEntry(0, 0, floorBound = false)
+    for ((label, floorIds) in entityEntryPointFloorIds) {
+        for (floor in floorIds) enqueueEntry(label, floor, floorBound = true)
+    }
+
+    while (pendingEntries.isNotEmpty()) {
+        val (entryBlock, entryInstruction, currentFloor, entryFloorBound) = pendingEntries.removeFirst()
+        val visited = mutableSetOf<TraversalState>()
+        val exitStateCache = mutableMapOf<TraversalState, ThreadExitState>()
+        val inProgress = mutableSetOf<TraversalState>()
+
+        // Recursive BFS that returns the merged register state at all Return blocks
+        // reached from `start` with `startRegs`. The depth limit guards against
+        // pathological call chains; PSO scripts rarely exceed ~20 levels.
+        fun bfs(
+            start: BasicBlock,
+            firstInstruction: Int,
+            startRegs: Set<Int>,
+            depth: Int,
+            floorBound: Boolean,
+            startFloorHandlerWrites: Map<Int, Set<Int>> = emptyMap(),
+            startCallbackHandlerWrites: Map<CallbackHandlerSlot, Set<Int>> = emptyMap(),
+        ): ThreadExitState? {
+                val key = TraversalState(
+                    start,
+                    firstInstruction,
+                    startRegs,
+                    floorBound,
+                    startFloorHandlerWrites,
+                    startCallbackHandlerWrites,
+                )
                 exitStateCache[key]?.let { return it }
-                if (key in inProgress) return startRegs
-                if (depth >= 64) return startRegs
+                if (key in inProgress || depth >= 64) {
+                    return ThreadExitState(
+                        startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
+                    )
+                }
                 inProgress.add(key)
 
-                val queue = ArrayDeque<Pair<BasicBlock, Set<Int>>>()
+                val queue = ArrayDeque<TraversalState>()
                 queue.add(key)
-                var mergedExit: Set<Int>? = null
+                var mergedExit: ThreadExitState? = null
+                var suspended = false
 
                 while (queue.isNotEmpty()) {
-                    val (b, regs) = queue.removeFirst()
-                    if (!visited.add(b to regs)) continue
-                    result.getOrPut(b) { mutableSetOf() }.add(currentFloor)
+                    val (b, begin, regs, _, incomingFloorHandlerWrites, incomingCallbackHandlerWrites) =
+                        queue.removeFirst()
+                    val visitKey = TraversalState(
+                        b,
+                        begin,
+                        regs,
+                        floorBound,
+                        incomingFloorHandlerWrites,
+                        incomingCallbackHandlerWrites,
+                    )
+                    if (!visited.add(visitKey)) continue
+                    // Registration opcodes mutate client handler slots only if control flow
+                    // reaches them. Writes remain pending until this VM execution slice ends.
+                    var yielded = false
+                    var floorHandlerWrites = incomingFloorHandlerWrites
+                    var callbackHandlerWrites = incomingCallbackHandlerWrites
+                    for (i in begin until b.end) {
+                        val inst = b.segment.instructions[i]
+                        result.getOrPut(inst) { mutableSetOf() }.add(currentFloor)
+                        when (inst.opcode.code) {
+                            OP_SET_FLOOR_HANDLER.code -> {
+                                val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                val label = (inst.args.getOrNull(1) as? IntArg)?.value ?: continue
+                                // PSOBB's set_floor_handler accepts only logical floors 0..17.
+                                if (floor in 0 until 0x12) {
+                                    floorHandlerWrites = floorHandlerWrites + (floor to setOf(label))
+                                }
+                            }
+                            OP_CLR_FLOOR_HANDLER.code -> {
+                                val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                if (floor in 0 until 0x12) {
+                                    floorHandlerWrites = floorHandlerWrites + (floor to emptySet())
+                                }
+                            }
+                            OP_SET_QT_FAILURE.code,
+                            OP_SET_QT_SUCCESS.code,
+                            OP_SET_QT_CANCEL.code,
+                            OP_SET_QT_EXIT.code,
+                            -> {
+                                val label = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                val kind = when (inst.opcode.code) {
+                                    OP_SET_QT_FAILURE.code -> CallbackHandlerKind.QuestFailure
+                                    OP_SET_QT_SUCCESS.code -> CallbackHandlerKind.QuestSuccess
+                                    OP_SET_QT_CANCEL.code -> CallbackHandlerKind.QuestCancel
+                                    else -> CallbackHandlerKind.QuestExit
+                                }
+                                callbackHandlerWrites = callbackHandlerWrites +
+                                        (CallbackHandlerSlot(kind) to setOf(label))
+                            }
+                            OP_CLR_QT_FAILURE.code,
+                            OP_CLR_QT_SUCCESS.code,
+                            OP_CLR_QT_CANCEL.code,
+                            OP_CLR_QT_EXIT.code,
+                            -> {
+                                val kind = when (inst.opcode.code) {
+                                    OP_CLR_QT_FAILURE.code -> CallbackHandlerKind.QuestFailure
+                                    OP_CLR_QT_SUCCESS.code -> CallbackHandlerKind.QuestSuccess
+                                    OP_CLR_QT_CANCEL.code -> CallbackHandlerKind.QuestCancel
+                                    else -> CallbackHandlerKind.QuestExit
+                                }
+                                callbackHandlerWrites = callbackHandlerWrites +
+                                        (CallbackHandlerSlot(kind) to emptySet())
+                            }
+                            OP_SET_QUEST_BOARD_HANDLER.code -> {
+                                val index = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                if (index !in 0..5) continue
+                                val label = (inst.args.getOrNull(1) as? IntArg)?.value ?: continue
+                                val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
+                                callbackHandlerWrites = callbackHandlerWrites + (slot to setOf(label))
+                            }
+                            OP_CLEAR_QUEST_BOARD_HANDLER.code -> {
+                                val index = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                if (index !in 0..5) continue
+                                val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
+                                callbackHandlerWrites = callbackHandlerWrites + (slot to emptySet())
+                            }
+                        }
+                        ordinaryThreadEdges[inst]?.forEach {
+                            bfs(it, it.start, emptySet(), depth + 1, floorBound = false)
+                                ?.let { exit ->
+                                    commitFloorHandlerWrites(exit.floorHandlerWrites)
+                                    commitCallbackHandlerWrites(exit.callbackHandlerWrites)
+                                }
+                        }
+                        callbackEdges[inst]?.forEach {
+                            bfs(it, it.start, emptySet(), depth + 1, floorBound = true)
+                                ?.let { exit ->
+                                    commitFloorHandlerWrites(exit.floorHandlerWrites)
+                                    commitCallbackHandlerWrites(exit.callbackHandlerWrites)
+                                }
+                        }
+
+                        // A normal QuestThread2 remains attached to the Quest object. At resume,
+                        // analyze the continuation once for every possible runtime g_CurrentFloor.
+                        // Floor-scoped callbacks/threads are destroyed by a floor transition, so
+                        // their continuation remains bound to the same floor.
+                        if (!floorBound && isResumableYield(inst)) {
+                            commitFloorHandlerWrites(floorHandlerWrites)
+                            commitCallbackHandlerWrites(callbackHandlerWrites)
+                            if (i + 1 < b.end) {
+                                enqueueResume(b, i + 1)
+                            } else {
+                                b.to.forEach { enqueueResume(it, it.start) }
+                            }
+                            yielded = true
+                            break
+                        }
+                    }
+                    if (yielded) {
+                        suspended = true
+                        break
+                    }
 
                     // Walk the block (excluding terminator) to compute the post-block state
                     // even for Return blocks — pre-`ret` instructions like `let`/`leti` still
                     // contribute to the exit state propagated to the caller.
-                    val outgoing = walkBlockTrackingFloorRegs(b, regs, currentFloor)
+                    val outgoing = walkBlockTrackingFloorRegs(b, regs)
                     val terminator = if (b.end > b.start) b.segment.instructions[b.end - 1] else null
 
                     if (b.branchType == BranchType.Return) {
-                        mergedExit = (mergedExit ?: emptySet()) + outgoing
-                        // Still follow callback edges registered within this block (a `ret`
-                        // block can contain `thread_stg` / `at_coords_call` before the ret).
-                        callbackEdges[b]?.forEach { queue.add(it to outgoing) }
+                        mergedExit = if (mergedExit == null) {
+                            ThreadExitState(outgoing, floorHandlerWrites, callbackHandlerWrites)
+                        } else {
+                            ThreadExitState(
+                                mergedExit.floorRegisters + outgoing,
+                                mergeHandlerWrites(
+                                    mergedExit.floorHandlerWrites,
+                                    floorHandlerWrites,
+                                ),
+                                mergeHandlerWrites(
+                                    mergedExit.callbackHandlerWrites,
+                                    callbackHandlerWrites,
+                                ),
+                            )
+                        }
                         continue
                     }
 
@@ -318,21 +640,82 @@ private fun computeBlockToFloors(
                             val callees = pruned ?: b.to
                             // Recurse into each candidate callee, union their exit states.
                             // The after-call block inherits this union (not the pre-call state).
-                            val mergedCalleeExit = mutableSetOf<Int>()
+                            var mergedCalleeExit: ThreadExitState? = null
                             var anyCallee = false
+                            var suspendedCallee = false
+                            var fixedCalleeReturned = false
                             for (callee in callees) {
                                 anyCallee = true
-                                mergedCalleeExit.addAll(bfs(callee, outgoing, depth + 1))
+                                val calleeExit = bfs(
+                                    callee,
+                                    callee.start,
+                                    outgoing,
+                                    depth + 1,
+                                    floorBound,
+                                    floorHandlerWrites,
+                                    callbackHandlerWrites,
+                                )
+                                if (calleeExit == null) {
+                                    suspendedCallee = true
+                                } else {
+                                    fixedCalleeReturned = true
+                                    mergedCalleeExit = if (mergedCalleeExit == null) {
+                                        calleeExit
+                                    } else {
+                                        ThreadExitState(
+                                            mergedCalleeExit.floorRegisters + calleeExit.floorRegisters,
+                                            mergeHandlerWrites(
+                                                mergedCalleeExit.floorHandlerWrites,
+                                                calleeExit.floorHandlerWrites,
+                                            ),
+                                            mergeHandlerWrites(
+                                                mergedCalleeExit.callbackHandlerWrites,
+                                                calleeExit.callbackHandlerWrites,
+                                            ),
+                                        )
+                                    }
+                                }
                             }
-                            val afterCallState = if (anyCallee) mergedCalleeExit.toSet() else outgoing
-                            nextInSegment[b]?.let { queue.add(it to afterCallState) }
+                            nextInSegment[b]?.let {
+                                if (suspendedCallee && !floorBound) enqueueResume(it, it.start)
+                                if (!anyCallee || fixedCalleeReturned) {
+                                    val afterCallState = if (anyCallee) {
+                                        checkNotNull(mergedCalleeExit)
+                                    } else {
+                                        ThreadExitState(
+                                            outgoing, floorHandlerWrites, callbackHandlerWrites,
+                                        )
+                                    }
+                                    queue.add(
+                                        TraversalState(
+                                            it,
+                                            it.start,
+                                            afterCallState.floorRegisters,
+                                            floorBound,
+                                            afterCallState.floorHandlerWrites,
+                                            afterCallState.callbackHandlerWrites,
+                                        ),
+                                    )
+                                }
+                            }
                         }
                         BranchType.Jump -> {
                             val pruned = tryPruneSwitch(
                                 terminator, outgoing, currentFloor, labelToEntryBlock,
                             )
                             val succs = pruned ?: b.to
-                            for (s in succs) queue.add(s to outgoing)
+                            for (s in succs) {
+                                queue.add(
+                                    TraversalState(
+                                        s,
+                                        s.start,
+                                        outgoing,
+                                        floorBound,
+                                        floorHandlerWrites,
+                                        callbackHandlerWrites,
+                                    ),
+                                )
+                            }
                         }
                         BranchType.ConditionalJump -> {
                             val pruned = tryPruneConditional(
@@ -340,27 +723,101 @@ private fun computeBlockToFloors(
                                 labelToEntryBlock, nextInSegment,
                             )
                             val succs = pruned ?: b.to
-                            for (s in succs) queue.add(s to outgoing)
+                            for (s in succs) {
+                                queue.add(
+                                    TraversalState(
+                                        s,
+                                        s.start,
+                                        outgoing,
+                                        floorBound,
+                                        floorHandlerWrites,
+                                        callbackHandlerWrites,
+                                    ),
+                                )
+                            }
                         }
                         BranchType.None -> {
-                            for (s in b.to) queue.add(s to outgoing)
+                            for (s in b.to) {
+                                queue.add(
+                                    TraversalState(
+                                        s,
+                                        s.start,
+                                        outgoing,
+                                        floorBound,
+                                        floorHandlerWrites,
+                                        callbackHandlerWrites,
+                                    ),
+                                )
+                            }
                         }
                         BranchType.Return -> { /* handled above */ }
                     }
-                    callbackEdges[b]?.forEach { queue.add(it to outgoing) }
                 }
 
                 inProgress.remove(key)
-                val exit = mergedExit ?: startRegs
+                if (suspended) return null
+                val exit = mergedExit ?: ThreadExitState(
+                    startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
+                )
                 exitStateCache[key] = exit
                 return exit
             }
 
-            bfs(handlerEntry, emptySet(), 0)
-        }
+        bfs(entryBlock, entryInstruction, emptySet(), 0, entryFloorBound)
+            ?.let {
+                commitFloorHandlerWrites(it.floorHandlerWrites)
+                commitCallbackHandlerWrites(it.callbackHandlerWrites)
+            }
     }
 
-    return result
+    return ParticleExecutionFloors(result)
+}
+
+/** Opcodes after which the same client quest thread can resume on a later frame. */
+private fun isResumableYield(inst: Instruction): Boolean = when (inst.opcode.mnemonic) {
+    "sync",
+    "list",
+    "fadein",
+    "fadeout",
+    "window_msg",
+    "disp_msg_qb",
+    "add_msg",
+    "message",
+    "award_item_name",
+    "award_item_select",
+    "award_item_ok",
+    "get_item_id",
+    "chat_box",
+    -> true
+    else -> false
+}
+
+/**
+ * Returns the offset of a script callback label embedded in an opcode's first register group.
+ * These opcodes all create floor-local client objects. The offsets come from the PSO opcode
+ * layouts: most use (x, y, z, radius, label), while party-coordinate triggers insert a second
+ * radius before the label.
+ */
+private fun spatialCallbackLabelRegisterOffset(opcodeCode: Int): Int? = when (opcodeCode) {
+    OP_AT_COORDS_CALL.code,
+    OP_AT_COORDS_TALK.code,
+    OP_COL_NPCIN.code,
+    OP_SET_OBJ_PARAM.code,
+    OP_COL_PLINAW.code,
+    OP_SET_CHAT_CALLBACK.code,
+    OP_SET_CHAT_CALLBACK_NO_FILTER.code,
+    OP_AT_COORDS_CALL_EX.code,
+    OP_AT_COORDS_TALK_EX.code,
+    OP_NPC_COORDS_CALL_EX.code,
+    OP_SET_OBJ_PARAM_EX.code,
+    OP_NPC_CHECK_STRAGGLE_EX.code,
+    -> 4
+
+    OP_COL_NPCINR.code,
+    OP_PARTY_COORDS_CALL_EX.code,
+    -> 5
+
+    else -> null
 }
 
 /**
@@ -371,12 +828,11 @@ private fun computeBlockToFloors(
 private fun walkBlockTrackingFloorRegs(
     block: BasicBlock,
     incoming: Set<Int>,
-    currentFloor: Int,
 ): Set<Int> {
     var regs = incoming
     val end = if (block.branchType != BranchType.None) block.end - 1 else block.end
     for (i in block.start until end) {
-        regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs, currentFloor)
+        regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs)
     }
     return regs
 }
@@ -384,7 +840,6 @@ private fun walkBlockTrackingFloorRegs(
 private fun updateFloorRegsForInstruction(
     inst: Instruction,
     regs: Set<Int>,
-    currentFloor: Int,
 ): Set<Int> {
     when (inst.opcode.code) {
         OP_GET_FLOOR_NUMBER.code -> {
@@ -399,12 +854,13 @@ private fun updateFloorRegsForInstruction(
             return if (src in regs) regs + dest else regs - dest
         }
         OP_LETI.code -> {
-            // leti dest, K writes literal K. If K equals the BFS's current floor, treat dest
-            // as a floor register (a script may stash a per-branch floor sentinel that way).
-            // Otherwise dest no longer holds the floor value.
+            // A literal assignment breaks floor-value lineage. Even when the literal happens
+            // to equal the current floor, it did not originate from get_floor_number and must not
+            // be used to prune later branches. Quest scripts use small literals pervasively;
+            // treating (for example) every `leti rX, 5` as the floor value on floor 5 causes
+            // unrelated conditionals to be pruned and makes reachable particle sites disappear.
             val dest = (inst.args.getOrNull(0) as? IntArg)?.value ?: return regs
-            val value = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs - dest
-            return if (value == currentFloor) regs + dest else regs - dest
+            return regs - dest
         }
         else -> {
             // Default: any opcode whose declared RegType params include a writable register

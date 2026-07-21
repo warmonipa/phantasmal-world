@@ -30,8 +30,8 @@ class QuestRenderContext(
     }
 
     /**
-     * Static markers for `particle_v3` script invocation sites. Pickable via raycaster but not
-     * directly manipulable.
+     * Particle previews and fallback markers for fixed quest particle emitters. Pickable via
+     * raycaster but not directly manipulable.
      */
     val particleMarkers: Object3D = Group().apply {
         name = "Particle Markers"
@@ -54,10 +54,7 @@ class QuestRenderContext(
 
     /**
      * Axis-aligned bounding box of the current collision geometry, recomputed when
-     * [collisionGeometry] is assigned. `null` means no geometry is loaded. Used by the script
-     * particle marker filter to suppress markers whose XZ position falls clearly outside the
-     * floor's geometry — these are typically per-floor ambient effects whose script reaches
-     * them on multiple floors but whose coordinates only make sense in one.
+     * [collisionGeometry] is assigned. `null` means no geometry is loaded.
      */
     val collisionGeometryBoundingBox: Cell<Box3?> = _collisionGeometryBoundingBox
 
