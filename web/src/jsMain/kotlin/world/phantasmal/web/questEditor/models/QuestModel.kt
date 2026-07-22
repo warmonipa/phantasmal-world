@@ -320,9 +320,11 @@ class QuestModel(
         // Re-propagate the effective map area and episode so NPC type detection stays accurate.
         val mappingsByFloor = floorMappings.associateBy(FloorMapping::floorId)
         _npcs.value.forEach { npcModel ->
+            val previousType = npcModel.type
             val mapping = mappingsByFloor[npcModel.entity.floorId]
             npcModel.entity.mapAreaId = mapping?.mapAreaId ?: npcModel.entity.floorId
             npcModel.entity.episode = mapping?.mapEpisode ?: episode
+            if (npcModel.type != previousType) npcModel.refreshResolvedType()
         }
         rebuildFloorVariants()
         _floorMappingRevision.value++

@@ -9,6 +9,8 @@ import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.pointerevents.PointerEvent
 import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.core.disposable.Disposable
+import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.web.core.rendering.InputManager
 import world.phantasmal.web.core.rendering.OrbitalCameraInputManager
 import world.phantasmal.web.externals.three.Plane
@@ -368,19 +370,14 @@ class QuestInputManager(
     private fun getCurrentFloorId(): Int? {
         val quest = questEditorStore.currentQuest.value ?: return null
         val currentVariant = questEditorStore.currentAreaVariant.value ?: return null
-
-        // For quests with floor mappings, find the floor ID that matches current area and variant.
-        // Fall back to area ID if no mapping matches, to avoid returning null which would cause
-        // unnecessary camera offset resets.
-        if (quest.floorMappings.isNotEmpty()) {
-            val floorMapping = quest.floorMappings.find { mapping ->
-                    mapping.mapAreaId == currentVariant.area.id &&
-                        mapping.mapVariation == currentVariant.id
-            }
-            return floorMapping?.floorId ?: currentVariant.area.id
-        }
-
-        return currentVariant.area.id
+        return resolveCurrentFloorId(
+            currentFloorIds = questEditorStore.currentFloorIds.value,
+            questEpisode = quest.episode,
+            mapEpisode = currentVariant.episode,
+            mapAreaId = currentVariant.area.id,
+            mapVariation = currentVariant.id,
+            floorMappings = quest.floorMappings,
+        )
     }
 
     private fun returnToIdleState() {
@@ -389,4 +386,22 @@ class QuestInputManager(
             state = IdleState(stateContext, entityManipulationEnabled)
         }
     }
+}
+
+internal fun resolveCurrentFloorId(
+    currentFloorIds: Set<Int>?,
+    questEpisode: Episode,
+    mapEpisode: Episode,
+    mapAreaId: Int,
+    mapVariation: Int,
+    floorMappings: List<FloorMapping>,
+): Int {
+    currentFloorIds?.singleOrNull()?.let { return it }
+    if (floorMappings.isEmpty()) return mapAreaId
+
+    return floorMappings.find { mapping ->
+        (mapping.mapEpisode ?: questEpisode) == mapEpisode &&
+            mapping.mapAreaId == mapAreaId &&
+            mapping.mapVariation == mapVariation
+    }?.floorId ?: mapAreaId
 }

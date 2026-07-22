@@ -39,12 +39,6 @@ import world.phantasmal.webui.obj
 
 private val logger = KotlinLogging.logger {}
 
-private data class MapVariantKey(
-    val episode: Episode,
-    val mapAreaId: Int,
-    val variation: Int,
-)
-
 enum class SaveFormat {
     QST,
     BIN_DAT,
@@ -157,14 +151,13 @@ class QuestEditorToolbarController(
      * Builds the area dropdown list for the toolbar. Reactively updates when entities are
      * added/removed (entity counts in labels) or when the current quest changes.
      *
-     * Both branches maintain the canonical episode area order (Pioneer II → Forest 1 → … etc.).
+     * Both branches maintain logical floor order (Pioneer II → Forest 1 → … etc. for defaults).
      *
-     * Two branches depending on whether the quest uses floor mappings (bb_map_designate):
+     * Two branches depending on whether the quest has resolved floor mappings:
      *
      * **With floorMappings** (challenge mode, multi-floor quests like PW4):
      *   - One floor can map to an area+variant (e.g., floor 16 → Tower variant 1).
-     *   - Each logical floor has its own entry. When floors share the same effective map and
-     *     variation, a numeric suffix distinguishes them.
+     *   - Each logical floor has its own entry prefixed with its actual floor ID.
      *   - Unmapped episode areas are interleaved in canonical order (not appended at the end)
      *     without variant suffix or entity count. All floors are always shown — do NOT filter
      *     out empty areas.
@@ -179,46 +172,20 @@ class QuestEditorToolbarController(
                 val result = mutableListOf<AreaAndLabel>()
 
                 if (quest.floorMappings.isNotEmpty()) {
-                    // Group mappings by mapAreaId for canonical placement within the quest episode.
-                    // Cross-episode mappings whose mapAreaId does not exist in the quest episode
-                    // are appended below, so cross-episode maps are never omitted.
-                    val mappingsByAreaId = mutableMapOf<Int, MutableList<FloorMapping>>()
-                    for (mapping in quest.floorMappings) {
-                        mappingsByAreaId.getOrPut(mapping.mapAreaId) { mutableListOf() }
-                            .add(mapping)
-                    }
+                    // The client's designation table is indexed by logical floor, not map area.
+                    // Place each effective map in its actual floor slot; mapAreaId is not globally
+                    // unique and cannot be used to infer floor identity.
+                    val mappingsByFloorId = quest.floorMappings.associateBy(FloorMapping::floorId)
 
-                    // The episode is part of the map identity: equal area/variation IDs in two
-                    // episodes are unrelated maps.
-                    val variantFloorCount = quest.floorMappings
-                        .groupBy {
-                            MapVariantKey(
-                                episode = it.mapEpisode ?: quest.episode,
-                                mapAreaId = it.mapAreaId,
-                                variation = it.mapVariation,
-                            )
-                        }
-                        .mapValues { (_, mappings) -> mappings.size }
-
-                    val variantFloorIndex = mutableMapOf<MapVariantKey, Int>()
                     val addedFloorIds = mutableSetOf<Int>()
 
-                    // Iterate in episode area order so the list matches the canonical floor order.
+                    // Episode-default area IDs match their logical floor slots.
                     for (episodeArea in areaStore.getAreasForEpisode(quest.episode)) {
-                        val areaMappings = mappingsByAreaId[episodeArea.id]
+                        val mapping = mappingsByFloorId[episodeArea.id]
 
-                        if (areaMappings != null) {
-                            // Mapped area: add one entry per floor with entity count.
-                            for (mapping in areaMappings.sortedBy(FloorMapping::floorId)) {
-                                addMappedArea(
-                                    result,
-                                    quest,
-                                    mapping,
-                                    variantFloorCount,
-                                    variantFloorIndex,
-                                )
-                                addedFloorIds.add(mapping.floorId)
-                            }
+                        if (mapping != null) {
+                            addMappedArea(result, quest, mapping)
+                            addedFloorIds.add(mapping.floorId)
                         } else {
                             // Unmapped area: show without variant suffix or entity count.
                             val displayName = buildAreaDisplayName(episodeArea, null, null)
@@ -226,16 +193,14 @@ class QuestEditorToolbarController(
                         }
                     }
 
-                    // A cross-episode area may have no matching mapAreaId in the quest episode
-                    // (for example an EP4 quest designating the EP2 Tower). Include it explicitly.
+                    // EP4 has fewer named default areas than the client's 18 floor slots. Preserve
+                    // any explicitly designated higher floor after the canonical slots.
                     for (mapping in quest.floorMappings.sortedBy(FloorMapping::floorId)) {
                         if (mapping.floorId !in addedFloorIds) {
                             addMappedArea(
                                 result,
                                 quest,
                                 mapping,
-                                variantFloorCount,
-                                variantFloorIndex,
                             )
                         }
                     }
@@ -269,8 +234,6 @@ class QuestEditorToolbarController(
         result: MutableList<AreaAndLabel>,
         quest: QuestModel,
         mapping: FloorMapping,
-        variantFloorCount: Map<MapVariantKey, Int>,
-        variantFloorIndex: MutableMap<MapVariantKey, Int>,
     ) {
         val mapEpisode = mapping.mapEpisode ?: quest.episode
         val area = areaStore.getArea(mapEpisode, mapping.mapAreaId) ?: return
@@ -280,12 +243,10 @@ class QuestEditorToolbarController(
         val entityCount =
             quest.npcs.value.count { it.floorId == floorId } +
                 quest.objects.value.count { it.floorId == floorId }
-        val key = MapVariantKey(mapEpisode, mapping.mapAreaId, mapping.mapVariation)
-        val floorIndex = (variantFloorIndex[key] ?: 0) + 1
-        variantFloorIndex[key] = floorIndex
-        val floorSuffix = if (variantFloorCount.getValue(key) > 1) " #$floorIndex" else ""
-        val displayName =
-            buildAreaDisplayName(area, variant, entityCount.takeIf { it > 0 }) + floorSuffix
+        val ambiguitySuffix = if (mapping.runtimeAmbiguous) " [runtime-dependent]" else ""
+        val displayName = "Floor $floorId — " +
+            buildAreaDisplayName(area, variant, entityCount.takeIf { it > 0 }) +
+            ambiguitySuffix
 
         result.add(AreaAndLabel(area, displayName, variant, setOf(floorId)))
     }
@@ -317,8 +278,16 @@ class QuestEditorToolbarController(
 
     val currentArea: Cell<AreaAndLabel?> = areas.flatMap { areas ->
         map(_selectedAreaAndLabel, questEditorStore.currentArea, questEditorStore.currentFloorIds) { selectedAreaAndLabel, storeCurrentArea, storeFloorIds ->
-            // If there's an explicitly selected AreaAndLabel, use it
-            selectedAreaAndLabel ?:
+            // Resolve an explicit selection against the latest list. Labels and mappings are
+            // rebuilt reactively, so retaining the old object would leave the dropdown stale.
+            selectedAreaAndLabel?.let { selected ->
+                areas.find { candidate ->
+                    candidate.floorIds == selected.floorIds &&
+                        candidate.area.id == selected.area.id &&
+                        candidate.variant?.episode == selected.variant?.episode &&
+                        candidate.variant?.id == selected.variant?.id
+                }
+            } ?:
             // Match by floorIds first (most precise), then by area, then fallback
             if (storeFloorIds != null) {
                 areas.find { it.floorIds == storeFloorIds }
@@ -583,14 +552,9 @@ class QuestEditorToolbarController(
         setResult(parseResult)
 
         if (parseResult is Success) {
-            val version = when (parseResult.value.quest.binFormat) {
-                BinFormat.DC_GC -> Version.GC_V3  // BinFormat.DC_GC spans five sub-versions (DC_NTE/V1/V2, GC_NTE/V3); default to GC_V3 until auto-detect is wired up.
-                BinFormat.PC -> Version.PC_V2
-                BinFormat.BB -> Version.BB_V4
-            }
             setCurrentQuest(
                 FileHolder.BinDat(strategy.binFile, strategy.datFile, parseResult.value.compressed),
-                version,
+                parseResult.value.quest.version,
                 parseResult.value.quest,
             )
         }

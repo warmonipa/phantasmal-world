@@ -611,7 +611,21 @@ class QuestEditorStore(
 
     suspend fun setFloorMappings(floorMappings: List<FloorMapping>) {
         currentQuest.value?.let { quest ->
-            quest.setFloorMappings(floorMappings)
+            val currentLogicalFloor =
+                _currentFloorIds.value?.singleOrNull() ?: _currentArea.value?.id
+
+            mutate {
+                quest.setFloorMappings(floorMappings)
+                if (floorMappings.isEmpty()) {
+                    val area = currentLogicalFloor?.let { areaStore.getArea(quest.episode, it) }
+                    _currentArea.value = area
+                    _currentAreaVariant.value = area?.areaVariants?.firstOrNull()
+                    _currentFloorIds.value = null
+                } else if (currentLogicalFloor != null) {
+                    switchToFloor(quest, currentLogicalFloor)
+                }
+            }
+
             updateQuestEntitySections(quest)
         }
     }

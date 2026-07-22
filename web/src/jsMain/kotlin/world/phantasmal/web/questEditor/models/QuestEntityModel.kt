@@ -2,7 +2,7 @@ package world.phantasmal.web.questEditor.models
 
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.list.ListCell
-import world.phantasmal.cell.list.listCell
+import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.cell.mutate
 import world.phantasmal.psolib.fileFormats.quest.EntityType
@@ -56,9 +56,16 @@ abstract class QuestEntityModel<Type : EntityType, Entity : QuestEntity<Type>>(
 
     val worldRotation: Cell<Euler> = _worldRotation
 
-    val properties: ListCell<QuestEntityPropModel> = listCell(*Array(type.properties.size) {
+    private val _properties = mutableListCell(*Array(type.properties.size) {
         QuestEntityPropModel(this, type.properties[it])
     })
+    val properties: ListCell<QuestEntityPropModel> = _properties
+
+    protected fun rebuildPropertiesForCurrentType() {
+        _properties.replaceAll(List(type.properties.size) {
+            QuestEntityPropModel(this, type.properties[it])
+        })
+    }
 
     open fun setSectionId(sectionId: Int) {
         mutate {

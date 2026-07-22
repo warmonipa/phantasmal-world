@@ -5,7 +5,6 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.cell.list.listMap
-import world.phantasmal.cell.list.mapToList
 import world.phantasmal.core.math.degToRad
 import world.phantasmal.core.math.radToDeg
 import world.phantasmal.psolib.fileFormats.quest.EntityPropType
@@ -188,8 +187,10 @@ class EntityInfoController(
 
     val type: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
         when (entity) {
-            // Re-resolve the kind when an NPC's type ID changes (enemy vs. friendly NPC).
-            is QuestNpcModel -> entity.typeId.map { if (entity.type.enemy) "Enemy" else "NPC" }
+            // Re-resolve the kind when the raw type ID or effective map changes.
+            is QuestNpcModel -> entity.resolvedTypeRevision.map {
+                if (entity.type.enemy) "Enemy" else "NPC"
+            }
             null -> cell("")
             else -> cell("Object")
         }
@@ -197,10 +198,10 @@ class EntityInfoController(
 
     val name: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
         when (entity) {
-            // Re-resolve the name when an NPC's type ID changes or the Ultimate toggle flips
-            // (NPCs like Sinow Beat → Sinow Blue are renamed on Ultimate).
+            // Re-resolve the name when the raw type ID or effective map changes, or the Ultimate
+            // toggle flips (NPCs like Sinow Beat → Sinow Blue are renamed on Ultimate).
             is QuestNpcModel ->
-                map(entity.typeId, questEditorUiStore.ultimate) { _, ult ->
+                map(entity.resolvedTypeRevision, questEditorUiStore.ultimate) { _, ult ->
                     entity.type.displayName(ult)
                 }
             null -> cell("")
@@ -249,17 +250,7 @@ class EntityInfoController(
 
     val props: ListCell<EntityInfoPropModel> =
         questEditorStore.selectedEntity.flatMapToList { entity ->
-            when (entity) {
-                // Rebuild the property models when an NPC's type ID changes, so the panel reflects
-                // the newly resolved type's properties.
-                is QuestNpcModel -> entity.typeId.mapToList { _ ->
-                    entity.type.properties.map { prop ->
-                        toInfoPropModel(QuestEntityPropModel(entity, prop))
-                    }
-                }
-                null -> emptyListCell()
-                else -> entity.properties.listMap(::toInfoPropModel)
-            }
+            entity?.properties?.listMap(::toInfoPropModel) ?: emptyListCell()
         }
 
     private fun toInfoPropModel(prop: QuestEntityPropModel): EntityInfoPropModel =

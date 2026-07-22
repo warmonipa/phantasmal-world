@@ -43,6 +43,32 @@ class QuestEditorStoreTests : WebTestSuite {
     }
 
     @Test
+    fun setFloorMappings_reconciles_current_area_and_variant() = testAsync {
+        val store = components.questEditorStore
+        val quest = createQuestModel(episode = Episode.IV)
+        store.setCurrentQuest(quest)
+
+        assertEquals("Pioneer II", store.currentArea.value?.name)
+        assertEquals(Episode.IV, store.currentAreaVariant.value?.episode)
+
+        store.setFloorMappings(
+            listOf(
+                FloorMapping(
+                    floorId = 0,
+                    mapId = 0x12,
+                    mapAreaId = 0,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        assertEquals(setOf(0), store.currentFloorIds.value)
+        assertEquals("Lab", store.currentArea.value?.name)
+        assertEquals(Episode.II, store.currentAreaVariant.value?.episode)
+    }
+
+    @Test
     fun setCurrentQuest_selects_floor_0_area_for_multi_floor() = testAsync {
         val store = components.questEditorStore
 

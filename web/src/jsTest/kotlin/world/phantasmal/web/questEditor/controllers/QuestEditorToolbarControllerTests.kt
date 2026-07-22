@@ -3,13 +3,18 @@ package world.phantasmal.web.questEditor.controllers
 import org.w3c.files.File
 import world.phantasmal.core.Failure
 import world.phantasmal.core.Severity
+import world.phantasmal.core.Success
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
+import world.phantasmal.psolib.fileFormats.quest.writeQuestToBinDat
 import world.phantasmal.web.core.commands.Command
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.stores.convertQuestFromModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -131,6 +136,37 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
     }
 
     @Test
+    fun loading_bin_dat_preserves_the_detected_quest_version() = testAsync {
+        val bytecode = assemble(
+            asm = listOf(
+                "0:",
+                "particle r0, 0",
+                "ret",
+            ),
+            version = Version.DC_V2,
+        )
+        assertTrue(bytecode is Success)
+
+        val quest = convertQuestFromModel(createQuestModel(bytecodeIr = bytecode.value))
+        val (bin, dat) = writeQuestToBinDat(quest, Version.DC_V2)
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        ctrl.openFiles(
+            listOf(
+                FileHandle.Simple(File(arrayOf(bin.arrayBuffer), "quest.bin")),
+                FileHandle.Simple(File(arrayOf(dat.arrayBuffer), "quest.dat")),
+            )
+        )
+
+        assertEquals(Version.DC_V2, ctrl.version.value)
+    }
+
+    @Test
     fun undo_state_changes_correctly() = testAsync {
         val ctrl = disposer.add(QuestEditorToolbarController(
             components.uiStore,
@@ -242,6 +278,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // Mapped areas: Lab (1 entry) + Tower (2 variant entries) = 3.
         val labEntries = areas.filter { it.area.id == 0 }
         assertEquals(1, labEntries.size, "Lab should have 1 entry")
+        assertTrue(labEntries.single().label.startsWith("Floor 0 — "))
 
         val towerEntries = areas.filter { it.area.id == 17 }
         assertEquals(2, towerEntries.size, "Tower should have 2 entries")
@@ -252,10 +289,12 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             towerEntries[1].variant!!.id,
             "Tower entries should have different variant IDs",
         )
+        assertTrue(towerEntries.any { it.label.startsWith("Floor 16 — ") })
+        assertTrue(towerEntries.any { it.label.startsWith("Floor 17 — ") })
 
-        // All unmapped episode areas should also be present (with no variant suffix).
-        val mappedAreaIds = setOf(0, 17)
-        val unmappedEp2Areas = ep2Areas.filter { it.id !in mappedAreaIds }
+        // All unmapped logical floor slots should also be present (with no variant suffix).
+        val mappedFloorIds = setOf(0, 16, 17)
+        val unmappedEp2Areas = ep2Areas.filter { it.id !in mappedFloorIds }
         for (unmappedArea in unmappedEp2Areas) {
             val entry = areas.find { it.area.id == unmappedArea.id }
             assertNotNull(entry, "Unmapped area '${unmappedArea.name}' (id=${unmappedArea.id}) should be in list")
@@ -266,11 +305,11 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // Total = 3 mapped entries + all unmapped areas.
         assertEquals(3 + unmappedEp2Areas.size, areas.size)
 
-        // Areas should follow canonical episode order (by area id), not mapped-first.
-        val areaIds = areas.map { it.area.id }
-        val sortedAreaIds = areaIds.sorted()
-        // Tower (id=17) has 2 entries, so allow consecutive duplicates but overall order must be non-decreasing.
-        assertEquals(sortedAreaIds, areaIds, "Areas should be in canonical episode order")
+        // Entries follow logical floor order; floors 16 and 17 both resolve to Tower.
+        assertEquals(setOf(16), areas[16].floorIds)
+        assertEquals(setOf(17), areas[17].floorIds)
+        assertEquals("Tower", areas[16].area.name)
+        assertEquals("Tower", areas[17].area.name)
     }
 
     @Test
@@ -301,6 +340,105 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         }
         assertEquals("Tower", tower.area.name)
         assertEquals(setOf(0), tower.floorIds)
+        assertTrue(tower.label.startsWith("Floor 0 — "))
+    }
+
+    @Test
+    fun cross_episode_map_area_id_does_not_replace_another_logical_floor() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        val quest = createQuestModel(
+            episode = Episode.IV,
+            floorMappings = listOf(
+                FloorMapping(
+                    floorId = 5,
+                    mapId = 0x13,
+                    mapAreaId = 1,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+
+        val floor1 = ctrl.areas.value.single { it.floorIds == null && it.area.id == 1 }
+        val floor5 = ctrl.areas.value.single { it.floorIds == setOf(5) }
+
+        assertEquals("Crater Route 1", floor1.area.name)
+        assertNull(floor1.variant)
+        assertEquals("VR Temple Alpha", floor5.area.name)
+        assertEquals(Episode.II, floor5.variant?.episode)
+    }
+
+    @Test
+    fun runtime_ambiguous_mapping_is_visible_in_area_label() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+        val quest = createQuestModel(
+            episode = Episode.II,
+            floorMappings = listOf(
+                FloorMapping(
+                    floorId = 0,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                    runtimeAmbiguous = true,
+                ),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+
+        val floor = ctrl.areas.value.single { it.floorIds == setOf(0) }
+        assertTrue(floor.label.contains("[runtime-dependent]"))
+    }
+
+    @Test
+    fun floor_mapping_change_refreshes_selected_variant_in_toolbar() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+        val quest = createQuestModel(
+            episode = Episode.II,
+            floorMappings = listOf(
+                FloorMapping(
+                    floorId = 16,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+        ctrl.setCurrentArea(ctrl.areas.value.single { it.floorIds == setOf(16) })
+
+        components.questEditorStore.setFloorMappings(
+            listOf(
+                FloorMapping(
+                    floorId = 16,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 1,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        assertEquals(1, ctrl.currentArea.value?.variant?.id)
+        assertTrue(ctrl.currentArea.value?.label?.contains("Map 2") == true)
     }
 
     @Test

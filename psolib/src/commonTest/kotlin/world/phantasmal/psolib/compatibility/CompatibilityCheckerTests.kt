@@ -305,6 +305,37 @@ class CompatibilityCheckerTests : LibTestSuite {
     }
 
     @Test
+    fun npc_problem_location_uses_logical_floor_not_effective_map_area() {
+        val npc = createQuestNpc(floorId = 5, scriptLabel = 999).apply {
+            mapAreaId = 0
+        }
+        val quest = createQuest(npcs = mutableListOf(npc))
+
+        val result = checker.checkCompatibility(PSOVersion.BLUE_BURST, quest)
+
+        val warning = result.warnings.single {
+            it.type == ProblemType.NPC_ACTION_LABEL_NOT_FOUND
+        }
+        assertEquals(ProblemLocation.Monster(index = 0, floorId = 5), warning.location)
+    }
+
+    @Test
+    fun skin_problem_location_uses_logical_floor_not_effective_map_area() {
+        val npc = createQuestNpc(floorId = 5).apply {
+            mapAreaId = 0
+            skin = 51
+        }
+        val quest = createQuest(npcs = mutableListOf(npc))
+
+        val result = checker.checkCompatibility(PSOVersion.DC_V1, quest)
+
+        val warning = result.warnings.single {
+            it.type == ProblemType.SKIN_NOT_SUPPORTED
+        }
+        assertEquals(ProblemLocation.Monster(index = 0, floorId = 5), warning.location)
+    }
+
+    @Test
     fun script_label_reference_not_found_is_error() {
         // Create bytecode with a label reference to a non-existent label
         val bytecodeIr = BytecodeIr(

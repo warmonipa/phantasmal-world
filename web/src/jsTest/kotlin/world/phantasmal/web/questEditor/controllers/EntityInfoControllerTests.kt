@@ -1,7 +1,10 @@
 package world.phantasmal.web.questEditor.controllers
 
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.fileFormats.Vec3
+import world.phantasmal.psolib.fileFormats.quest.NPC_BYTE_SIZE
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
@@ -70,6 +73,50 @@ class EntityInfoControllerTests : WebTestSuite {
         assertCloseTo(45.0, ctrl.rotX.value)
         assertCloseTo(90.0, ctrl.rotY.value)
         assertCloseTo(180.0, ctrl.rotZ.value)
+    }
+
+    @Test
+    fun floor_mapping_change_refreshes_resolved_npc_details() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val data = Buffer.withSize(NPC_BYTE_SIZE).apply {
+            setShort(0, 0x33)
+            setInt(32, 9)
+        }
+        val npc = QuestNpcModel(
+            QuestNpc(Episode.II, floorId = 16, data = data).apply {
+                mapAreaId = 6
+            },
+            waveId = 0,
+        )
+        val store = components.questEditorStore
+        store.setCurrentQuest(createQuestModel(episode = Episode.II, npcs = listOf(npc)))
+        store.setSelectedEntity(npc)
+
+        assertNotEquals("Epsilon", ctrl.name.value)
+
+        store.setFloorMappings(
+            listOf(
+                FloorMapping(
+                    floorId = 16,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        assertEquals("Enemy", ctrl.type.value)
+        assertEquals("Epsilon", ctrl.name.value)
+        assertEquals(
+            NpcType.Epsilon.properties.map { "${it.name}:" },
+            ctrl.props.value.map { it.label },
+        )
     }
 
     @Test

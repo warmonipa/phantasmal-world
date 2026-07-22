@@ -300,7 +300,7 @@ class CompatibilityChecker(
     ) {
         // NPC type and resource validity depend on the resolved map area, not the DAT floor.
         val effectiveAreaId = npc.mapAreaId
-        val location = ProblemLocation.Monster(index, effectiveAreaId)
+        val location = ProblemLocation.Monster(index, npc.floorId)
         val skin = npc.skin
 
         // Check NPC script label for lobby area (area 0: Pioneer II in EP1/EP4, Lab in EP2) only.
@@ -340,7 +340,7 @@ class CompatibilityChecker(
                         if (scriptLabel !in allLabels) {
                             builder.addWarning(
                                 ProblemType.NPC_ACTION_LABEL_NOT_FOUND,
-                                "Label $scriptLabel not found for NPC #$index on floor $effectiveAreaId",
+                                "Label $scriptLabel not found for NPC #$index on floor ${npc.floorId}",
                                 location
                             )
                         }
@@ -374,7 +374,7 @@ class CompatibilityChecker(
         episode: Episode,
         builder: CompatibilityResultBuilder,
     ) {
-        val location = ProblemLocation.Monster(index, npc.mapAreaId)
+        val location = ProblemLocation.Monster(index, npc.floorId)
 
         when {
             version == PSOVersion.DC_V1 || version == PSOVersion.DC_V2 -> {

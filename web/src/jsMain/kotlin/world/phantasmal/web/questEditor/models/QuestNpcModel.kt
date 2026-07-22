@@ -11,12 +11,14 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
     private val _waveId = mutableCell(waveId)
 
     private val _typeId = mutableCell(npc.typeId.toInt())
+    private val _resolvedTypeRevision = mutableCell(0)
 
     /**
      * The raw type ID stored at offset 0 of the NPC data. Editing it changes which [NpcType] the
      * NPC resolves to. Exposed as a cell so the 3D mesh and the info panel can react to changes.
      */
     val typeId: Cell<Int> = _typeId
+    val resolvedTypeRevision: Cell<Int> = _resolvedTypeRevision
 
     /**
      * Sets the raw type ID. The resolved [type] (and thus the model/properties) changes with it.
@@ -24,6 +26,12 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
     fun setTypeId(typeId: Int) {
         entity.typeId = typeId.toShort()
         _typeId.value = typeId
+        refreshResolvedType()
+    }
+
+    internal fun refreshResolvedType() {
+        rebuildPropertiesForCurrentType()
+        _resolvedTypeRevision.value++
     }
 
     /**
@@ -34,13 +42,13 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
      * StageNPC GiGue y=-15 vs regular GiGue y=0~3.8), because the game engine handles StageNPC
      * positioning differently. We ignore the data Y and use section ground height + yOffset instead.
      */
-    private val isStageNpc: Boolean = npc.typeId.toInt() == 0x33
+    private val isStageNpc: Boolean get() = entity.typeId.toInt() == 0x33
 
     /**
-     * Y offset precomputed at construction time based on the resolved NPC type.
-     * For StageNPC, the type is resolved from the NPC51 table via subtype/character ID.
+     * Y offset for the currently resolved NPC type. For StageNPC, the type is resolved from the
+     * NPC51 table via effective map and subtype/character ID.
      */
-    private val yOffset: Double = computeYOffset(type)
+    private val yOffset: Double get() = computeYOffset(type)
 
     val wave: Cell<WaveModel> = map(_waveId, sectionId) { id, sectionId ->
         WaveModel(id, floorId, sectionId)
@@ -53,7 +61,12 @@ class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, Ques
     }
 
     override val worldPosition: Cell<Vector3> =
-        map(super.worldPosition, NpcDisplaySettings.spawnOnGround, section) { basePos, spawnOnGround, section ->
+        map(
+            super.worldPosition,
+            NpcDisplaySettings.spawnOnGround,
+            section,
+            resolvedTypeRevision,
+        ) { basePos, spawnOnGround, section, _ ->
             if (isStageNpc && section != null) {
                 val groundY = calculateGroundHeight(basePos.x, basePos.z, section)
                 Vector3(basePos.x, groundY + yOffset, basePos.z)

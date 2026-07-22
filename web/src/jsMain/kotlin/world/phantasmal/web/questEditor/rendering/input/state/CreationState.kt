@@ -15,6 +15,8 @@ class CreationState(
     private val quest: QuestModel,
     area: AreaModel,
 ) : State() {
+    private val floorId = creationFloorId(ctx.currentFloorIds.value, area.id)
+
     private val entity: QuestEntityModel<*, *> =
         when (event.entityType) {
             is NpcType -> {
@@ -23,7 +25,7 @@ class CreationState(
                 val npc = QuestNpc(
                     event.entityType,
                     ctx.areaVariant.value?.episode ?: quest.episode,
-                    area.id,
+                    floorId,
                     waveId.toShort(),
                 )
                 wave?.let {
@@ -36,7 +38,7 @@ class CreationState(
             }
             is ObjectType -> {
                 QuestObjectModel(
-                    QuestObject(event.entityType, area.id)
+                    QuestObject(event.entityType, floorId)
                 ).also {
                     it.setSectionInitialized()
                     quest.addObject(it)
@@ -122,3 +124,6 @@ class CreationState(
         private val ZERO_VECTOR = Vector3(.0, .0, .0)
     }
 }
+
+internal fun creationFloorId(currentFloorIds: Set<Int>?, mapAreaId: Int): Int =
+    currentFloorIds?.singleOrNull() ?: mapAreaId

@@ -7,8 +7,11 @@ import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.core.Success
+import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.NPC_BYTE_SIZE
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -16,6 +19,7 @@ import world.phantasmal.web.test.createQuestObjectModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
@@ -90,6 +94,42 @@ class QuestModelTests : WebTestSuite {
         val spawn = quest.particleSpawns.value.single()
         assertEquals(42, spawn.particleId)
         assertTrue(spawn.source is ParticleSpawnSource.Opcode)
+    }
+
+    @Test
+    fun setFloorMappings_refreshes_resolved_npc_type_and_properties() = test {
+        val data = Buffer.withSize(NPC_BYTE_SIZE).apply {
+            setShort(0, 0x33)
+            setInt(32, 9)
+        }
+        val entity = QuestNpc(Episode.II, floorId = 16, data = data).apply {
+            mapAreaId = 6
+        }
+        val npc = QuestNpcModel(entity, waveId = 0)
+        val quest = createQuestModel(
+            episode = Episode.II,
+            npcs = listOf(npc),
+        )
+
+        assertNotEquals(NpcType.Epsilon, npc.type)
+
+        quest.setFloorMappings(
+            listOf(
+                FloorMapping(
+                    floorId = 16,
+                    mapId = 0x23,
+                    mapAreaId = 17,
+                    mapVariation = 0,
+                    mapEpisode = Episode.II,
+                ),
+            ),
+        )
+
+        assertEquals(NpcType.Epsilon, npc.type)
+        assertEquals(
+            NpcType.Epsilon.properties.map { it.offset },
+            npc.properties.value.map { it.offset },
+        )
     }
 
     @Test

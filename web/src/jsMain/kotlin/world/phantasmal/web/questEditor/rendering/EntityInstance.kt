@@ -30,10 +30,9 @@ class EntityInstance(
             }
         }
 
-        // When an NPC's type ID changes, its resolved type (and thus mesh) changes. Trigger the
-        // same remove-and-re-add path that object model changes use.
+        // A raw type-ID edit or effective-map change can alter the resolved NPC type.
         if (entity is QuestNpcModel) {
-            addDisposable(entity.typeId.observeChange {
+            addDisposable(entity.resolvedTypeRevision.observeChange {
                 modelChanged(this.instanceIndex)
             })
         }

@@ -41,6 +41,7 @@ class StateContext(
     val quest: Cell<QuestModel?> = questEditorStore.currentQuest
     val area: Cell<AreaModel?> = questEditorStore.currentArea
     val areaVariant: Cell<AreaVariantModel?> = questEditorStore.currentAreaVariant
+    val currentFloorIds: Cell<Set<Int>?> = questEditorStore.currentFloorIds
     val wave: Cell<WaveModel?> = questEditorStore.selectedEvent.flatMapNull { it?.wave }
     val selectedEntity: Cell<QuestEntityModel<*, *>?> = questEditorStore.selectedEntity
 

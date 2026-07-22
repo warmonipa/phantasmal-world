@@ -88,6 +88,111 @@ class GetFloorMappingsTests : LibTestSuite {
         assertEquals(35, floor0.mapId)
         assertEquals(17, floor0.mapAreaId)
         assertEquals(2, floor0.mapVariation)
+        assertEquals(false, floor0.runtimeAmbiguous)
+    }
+
+    @Test
+    fun mutually_exclusive_designations_are_marked_runtime_ambiguous() {
+        val segments = toInstructions("""
+            0:
+                set_episode 1
+                jmp_> r1, r2, 1
+                bb_map_designate 0, 18, 0, 0, 0
+                jmp 2
+            1:
+                bb_map_designate 0, 35, 0, 2, 0
+            2:
+                ret
+        """.trimIndent())
+
+        val mapping = getFloorMappings(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertTrue(mapping.runtimeAmbiguous)
+    }
+
+    @Test
+    fun conditional_designation_is_ambiguous_with_episode_default() {
+        val segments = toInstructions("""
+            0:
+                set_episode 1
+                jmp_> r1, r2, 1
+                bb_map_designate 0, 35, 0, 2, 0
+            1:
+                ret
+        """.trimIndent())
+
+        val mapping = getFloorMappings(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertTrue(mapping.runtimeAmbiguous)
+    }
+
+    @Test
+    fun reachable_later_designation_is_ambiguous_when_a_path_skips_it() {
+        val segments = toInstructions("""
+            0:
+                set_episode 1
+                bb_map_designate 0, 18, 0, 0, 0
+                jmp_> r1, r2, 1
+                bb_map_designate 0, 35, 0, 2, 0
+            1:
+                ret
+        """.trimIndent())
+
+        val mapping = getFloorMappings(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertTrue(mapping.runtimeAmbiguous)
+    }
+
+    @Test
+    fun common_final_designation_resolves_earlier_branch_states() {
+        val segments = toInstructions("""
+            0:
+                set_episode 1
+                jmp_> r1, r2, 1
+                bb_map_designate 0, 18, 0, 0, 0
+                jmp 2
+            1:
+                bb_map_designate 0, 35, 0, 2, 0
+            2:
+                bb_map_designate 0, 19, 0, 1, 0
+                ret
+        """.trimIndent())
+
+        val mapping = getFloorMappings(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertEquals(19, mapping.mapId)
+        assertEquals(false, mapping.runtimeAmbiguous)
+    }
+
+    @Test
+    fun repeated_helper_calls_return_to_their_own_continuations() {
+        val segments = toInstructions("""
+            0:
+                set_episode 1
+                call 500
+                bb_map_designate 0, 35, 0, 2, 0
+                call 500
+                bb_map_designate 0, 18, 3, 0, 0
+                ret
+            500:
+                ret
+        """.trimIndent())
+
+        val mapping = getFloorMappings(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertEquals(35, mapping.mapId)
+        assertEquals(FloorDataSource.None, mapping.dataSource)
+        assertEquals(false, mapping.runtimeAmbiguous)
     }
 
     @Test

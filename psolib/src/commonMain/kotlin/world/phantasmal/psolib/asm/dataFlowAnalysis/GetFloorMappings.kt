@@ -17,6 +17,9 @@ private const val CLIENT_LOGICAL_FLOOR_COUNT = 0x12
 
 /**
  * Where the client obtains entities for a designated floor.
+ *
+ * This describes runtime loading only. Quest DAT records remain part of the editable QST even
+ * when the client selects a template or no runtime entities for that floor.
  */
 @Serializable
 enum class FloorDataSource {
@@ -57,12 +60,34 @@ data class FloorMapping(
     val objectSetVariation: Int = 0,
     val dataSource: FloorDataSource = FloorDataSource.QuestDat,
     val mapSource: FloorMapSource = FloorMapSource.ExplicitDesignation,
+    /**
+     * True when mutually exclusive control-flow paths can leave this floor with different
+     * designations. The remaining fields are a preview, not a guaranteed runtime result.
+     */
+    val runtimeAmbiguous: Boolean = false,
 )
 
 private data class FloorDesignation(
     val floorId: Int,
     val dataSource: FloorDataSource,
     val mapUpdate: FloorMapUpdate,
+)
+
+private data class ResolvedFloorDesignation(
+    val instruction: Instruction,
+    val designation: FloorDesignation,
+)
+
+private data class FloorRuntimeState(
+    val mapId: Int?,
+    val mapVariation: Int,
+    val objectSetVariation: Int,
+    val dataSource: FloorDataSource,
+)
+
+private data class FloorRuntimePosition(
+    val block: BasicBlock,
+    val returnBlocks: List<BasicBlock>,
 )
 
 private sealed interface FloorMapUpdate {
@@ -89,7 +114,8 @@ private sealed interface FloorMapUpdate {
  * - 3: load no entities and do not change the current map assignment.
  *
  * This is a static approximation: discovered instructions are applied in normalized segment
- * traversal order, not by interpreting every runtime branch of the quest script.
+ * traversal order. When mutually exclusive paths produce different final states, the preview
+ * mapping is marked [FloorMapping.runtimeAmbiguous] instead of being presented as guaranteed.
  */
 fun getFloorMappings(
     instructionSegments: List<InstructionSegment>,
@@ -148,6 +174,8 @@ fun getFloorMappings(
     // Client equivalent: init_episode_maps(episode) establishes the default floor -> map table
     // before any map_designate-family opcode mutates it.
     val floorMappings = initEpisodeMaps(episode, inferredUsedFloors)
+    val initialFloorMappings = floorMappings.toMap()
+    val designationHistory = mutableMapOf<Int, MutableList<ResolvedFloorDesignation>>()
 
     for (segment in instructionSegments) {
         for (instruction in segment.instructions) {
@@ -155,19 +183,203 @@ fun getFloorMappings(
                 OP_MAP_DESIGNATE,
                 OP_MAP_DESIGNATE_EX -> {
                     resolveRegisterDesignation(instruction, version, controlFlowGraph())
-                        ?.let { applyDesignation(it, floorMappings) }
+                        ?.let { designation ->
+                            designationHistory
+                                .getOrPut(designation.floorId) { mutableListOf() }
+                                .add(ResolvedFloorDesignation(instruction, designation))
+                            applyDesignation(designation, floorMappings)
+                        }
                 }
 
                 OP_BB_MAP_DESIGNATE -> {
                     resolveBbDesignation(instruction, version)
-                        ?.let { applyDesignation(it, floorMappings) }
+                        ?.let { designation ->
+                            designationHistory
+                                .getOrPut(designation.floorId) { mutableListOf() }
+                                .add(ResolvedFloorDesignation(instruction, designation))
+                            applyDesignation(designation, floorMappings)
+                        }
                 }
             }
         }
     }
 
-    return floorMappings.values.sortedBy(FloorMapping::floorId)
+    val runtimeAmbiguousFloors = designationHistory
+        .filter { (floorId, history) ->
+            hasRuntimeAmbiguity(
+                history = history,
+                initialMapping = initialFloorMappings[floorId],
+                controlFlowGraph = controlFlowGraph(),
+            )
+        }
+        .keys
+
+    return floorMappings.values
+        .map { mapping ->
+            if (mapping.floorId in runtimeAmbiguousFloors) {
+                mapping.copy(runtimeAmbiguous = true)
+            } else {
+                mapping
+            }
+        }
+        .sortedBy(FloorMapping::floorId)
 }
+
+private fun hasRuntimeAmbiguity(
+    history: List<ResolvedFloorDesignation>,
+    initialMapping: FloorMapping?,
+    controlFlowGraph: ControlFlowGraph,
+): Boolean {
+    if (history.isEmpty()) return false
+
+    val designationsByBlock = history.groupBy { resolved ->
+        controlFlowGraph.getBlockForInstruction(resolved.instruction)
+    }.mapValues { (block, designations) ->
+        designations.sortedBy { block.indexOfInstruction(it.instruction) }
+    }
+
+    val nextInSegment = mutableMapOf<BasicBlock, BasicBlock>()
+    for (i in controlFlowGraph.blocks.indices) {
+        val block = controlFlowGraph.blocks[i]
+        val next = controlFlowGraph.blocks.getOrNull(i + 1) ?: continue
+        if (next.segment === block.segment) nextInSegment[block] = next
+    }
+
+    // ControlFlowGraph connects every callee return to every caller continuation. Those edges are
+    // useful for context-insensitive analyses, but would mix mutually exclusive call sites here.
+    // Build return-free predecessors and handle calls with an explicit return stack below.
+    val semanticPredecessors = mutableMapOf<BasicBlock, MutableSet<BasicBlock>>()
+    for (block in controlFlowGraph.blocks) {
+        val successors = when (block.branchType) {
+            BranchType.Return -> emptyList()
+            BranchType.Call -> block.to + listOfNotNull(nextInSegment[block])
+            else -> block.to
+        }
+        for (successor in successors) {
+            semanticPredecessors.getOrPut(successor) { mutableSetOf() }.add(block)
+        }
+    }
+
+    // Only entry paths which can reach a designation for this floor are relevant. Starting every
+    // quest function would introduce false default states from unrelated handlers.
+    val relevantAncestors = mutableSetOf<BasicBlock>()
+    val ancestorsToVisit = ArrayDeque<BasicBlock>()
+    ancestorsToVisit.addAll(designationsByBlock.keys)
+    while (ancestorsToVisit.isNotEmpty()) {
+        val block = ancestorsToVisit.removeFirst()
+        if (!relevantAncestors.add(block)) continue
+        ancestorsToVisit.addAll(semanticPredecessors[block].orEmpty())
+    }
+
+    val entryBlocks = relevantAncestors.filter { block ->
+        semanticPredecessors[block].orEmpty().none { it in relevantAncestors }
+    }.ifEmpty {
+        // A closed loop has no graph root. Seed its designation blocks conservatively.
+        designationsByBlock.keys.toList()
+    }
+
+    val initialState = initialMapping.toRuntimeState()
+    val entryStates = mutableMapOf<FloorRuntimePosition, MutableSet<FloorRuntimeState>>()
+    val worklist = ArrayDeque<FloorRuntimePosition>()
+    for (entryBlock in entryBlocks) {
+        val position = FloorRuntimePosition(entryBlock, emptyList())
+        entryStates.getOrPut(position) { mutableSetOf() }.add(initialState)
+        worklist.addLast(position)
+    }
+
+    val terminalStates = mutableSetOf<FloorRuntimeState>()
+    while (worklist.isNotEmpty()) {
+        val position = worklist.removeFirst()
+        val block = position.block
+        var outputStates = entryStates.getValue(position).toSet()
+        for (resolved in designationsByBlock[block].orEmpty()) {
+            outputStates = outputStates
+                .mapTo(mutableSetOf()) { state ->
+                    state.apply(resolved.designation)
+                }
+        }
+
+        fun enqueue(successor: FloorRuntimePosition) {
+            val successorStates = entryStates.getOrPut(successor) { mutableSetOf() }
+            if (successorStates.addAll(outputStates)) {
+                worklist.addLast(successor)
+            }
+        }
+
+        when (block.branchType) {
+            BranchType.Return -> {
+                val returnBlock = position.returnBlocks.lastOrNull()
+                if (returnBlock == null) {
+                    terminalStates.addAll(outputStates)
+                } else {
+                    enqueue(FloorRuntimePosition(returnBlock, position.returnBlocks.dropLast(1)))
+                }
+            }
+            BranchType.Call -> {
+                val returnBlock = nextInSegment[block]
+                if (block.to.isEmpty()) {
+                    if (returnBlock == null) {
+                        terminalStates.addAll(outputStates)
+                    } else {
+                        enqueue(FloorRuntimePosition(returnBlock, position.returnBlocks))
+                    }
+                } else if (returnBlock != null && position.returnBlocks.size >= 64) {
+                    // Match the existing interprocedural analysis depth guard: continue after an
+                    // excessively deep call instead of growing an unbounded recursion stack.
+                    enqueue(FloorRuntimePosition(returnBlock, position.returnBlocks))
+                } else {
+                    val returnBlocks = if (returnBlock == null) {
+                        position.returnBlocks
+                    } else {
+                        position.returnBlocks + returnBlock
+                    }
+                    for (callee in block.to) {
+                        enqueue(FloorRuntimePosition(callee, returnBlocks))
+                    }
+                }
+            }
+            else -> {
+                if (block.to.isEmpty()) {
+                    terminalStates.addAll(outputStates)
+                } else {
+                    for (successor in block.to) {
+                        enqueue(FloorRuntimePosition(successor, position.returnBlocks))
+                    }
+                }
+            }
+        }
+    }
+
+    return terminalStates.size > 1
+}
+
+private fun FloorMapping?.toRuntimeState(): FloorRuntimeState =
+    if (this == null) {
+        FloorRuntimeState(
+            mapId = null,
+            mapVariation = 0,
+            objectSetVariation = 0,
+            dataSource = FloorDataSource.QuestDat,
+        )
+    } else {
+        FloorRuntimeState(
+            mapId = mapId,
+            mapVariation = mapVariation,
+            objectSetVariation = objectSetVariation,
+            dataSource = dataSource,
+        )
+    }
+
+private fun FloorRuntimeState.apply(designation: FloorDesignation): FloorRuntimeState =
+    when (val mapUpdate = designation.mapUpdate) {
+        FloorMapUpdate.KeepCurrent -> copy(dataSource = designation.dataSource)
+        is FloorMapUpdate.Replace -> FloorRuntimeState(
+            mapId = mapUpdate.mapId,
+            mapVariation = mapUpdate.mapVariation,
+            objectSetVariation = mapUpdate.objectSetVariation,
+            dataSource = designation.dataSource,
+        )
+    }
 
 private fun resolveRegisterDesignation(
     instruction: Instruction,
