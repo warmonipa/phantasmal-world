@@ -1,6 +1,7 @@
 package world.phantasmal.web.questEditor.rendering
 
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
@@ -100,7 +101,13 @@ class ParticleMarkerManager internal constructor(
             val mapIds = resolveTemplateMapIds(spawn)
             var addedEmitter = false
             for (mapId in mapIds) {
-                val assets = runCatching { loadParticleAssets(mapId) }.getOrNull() ?: continue
+                val assets = try {
+                    loadParticleAssets(mapId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    continue
+                }
                 val effect = assets.effect(spawn.particleId) ?: continue
                 val texture = assets.texturesById[effect.textureId] ?: continue
                 val resolveAttachedPosition =

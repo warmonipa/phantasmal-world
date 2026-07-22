@@ -1,6 +1,11 @@
 package world.phantasmal.web.questEditor.rendering
 
 import kotlinx.browser.document
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOpcode
@@ -19,6 +24,42 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ParticleMarkerManagerTests : WebTestSuite {
+    @Test
+    fun cancelled_asset_load_does_not_add_a_stale_fallback_marker() = testAsync {
+        val loadStarted = CompletableDeferred<Unit>()
+        val renderContext = QuestRenderContext(
+            canvas = document.createElement("canvas") as HTMLCanvasElement,
+            camera = Camera(),
+        )
+        disposer.add(renderContext)
+        val manager = ParticleMarkerManager(
+            renderContext = renderContext,
+            loadParticleAssets = {
+                loadStarted.complete(Unit)
+                awaitCancellation()
+            },
+            nowMs = { 0.0 },
+        )
+        disposer.add(manager)
+
+        coroutineScope {
+            val staleLoad = launch {
+                manager.setSpawns(
+                    spawns = listOf(spawn(floorId = 1)),
+                    resolveTemplateMapIds = { setOf(0) },
+                    resolveEntityPosition = { null },
+                )
+            }
+            loadStarted.await()
+
+            staleLoad.cancelAndJoin()
+        }
+
+        assertEquals(0, manager.emitterCount)
+        assertEquals(0, manager.liveParticleCount)
+        assertTrue(renderContext.particleMarkers.children.isEmpty())
+    }
+
     @Test
     fun replacing_floor_spawns_clears_emitters_live_particles_and_scene_nodes() = testAsync {
         var nowMs = 0.0
