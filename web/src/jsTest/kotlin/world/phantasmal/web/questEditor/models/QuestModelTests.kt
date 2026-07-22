@@ -1,6 +1,7 @@
 package world.phantasmal.web.questEditor.models
 
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
@@ -44,7 +45,7 @@ class QuestModelTests : WebTestSuite {
 
     @Test
     fun particle_spawns_follow_dat_object_edits_and_list_changes() = test {
-        val particleObject = createQuestObjectModel(ObjectType.Particle, areaId = 2)
+        val particleObject = createQuestObjectModel(ObjectType.Particle, floorId = 2)
         val particleType = particleObject.properties.value.single { it.offset == 40 }
         particleType.setValue(44.9f)
         val quest = createQuestModel(objects = listOf(particleObject))
@@ -64,16 +65,19 @@ class QuestModelTests : WebTestSuite {
     @Test
     fun opcode_particle_spawns_follow_bytecode_edits() = test {
         fun bytecode(particleId: Int): BytecodeIr {
-            val result = assemble(listOf(
-                "0:",
-                "leti r0, 10",
-                "leti r1, 20",
-                "leti r2, 30",
-                "leti r3, $particleId",
-                "leti r4, 60",
-                "particle_v3 r0",
-                "ret",
-            ))
+            val result = assemble(
+                asm = listOf(
+                    "0:",
+                    "leti r0, 10",
+                    "leti r1, 20",
+                    "leti r2, 30",
+                    "leti r3, $particleId",
+                    "leti r4, 60",
+                    "particle_v3 r0",
+                    "ret",
+                ),
+                version = Version.BB_V4,
+            )
             assertTrue(result is Success)
             return result.value
         }

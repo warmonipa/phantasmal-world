@@ -26,7 +26,7 @@ private val ParticleSpawn.worldPosition: ParticleSpawnOrigin.WorldPosition
 class QuestTests : LibTestSuite {
     @Test
     fun dat_particle_id_is_truncated_toward_zero_like_the_client() = test {
-        val obj = QuestObject(ObjectType.Particle, areaId = 3).apply {
+        val obj = QuestObject(ObjectType.Particle, floorId = 3).apply {
             id = 7
             data.setFloat(40, 44.9f)
         }
@@ -151,7 +151,7 @@ class QuestTests : LibTestSuite {
 
     @Test
     fun dat_particle_object_in_pw4_is_a_persistent_floor_scoped_emitter() = testAsync {
-        val result = parseQstToQuest(readFile("$TETHEALLA_QUEST_PATH_PREFIX/ep2/ext/pw4.qst"))
+        val result = parseQstToQuest(readFile("$QUEST_RESOURCE_PREFIX/ep2/ext/phantasmal world 4.qst"))
         assertTrue(result is Success)
 
         val datParticles = result.value.quest.particleSpawns.filter {

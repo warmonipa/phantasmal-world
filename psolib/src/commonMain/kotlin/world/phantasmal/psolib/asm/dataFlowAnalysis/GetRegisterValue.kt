@@ -68,15 +68,9 @@ private class RegisterValueFinder {
                 OP_LETW.code,
                 OP_SYNC_REGISTER_V3_V4.code,
                 -> {
-                    if (args[0].value == register) {
-                        return ValueSet.of((args[1] as IntArg).value)
-                    }
-                }
-
-                OP_SYNC_REGISTER_V1_V2.code -> {
-                    // This stack-based opcode can still have no inline arguments while bytecode
-                    // segments and label references are being discovered. In that case we can't
-                    // know which register is written, so conservatively stop the analysis.
+                    // V1/V2's stack-based sync_register shares its opcode byte with the
+                    // V3/V4 inline-argument form. During discovery it can therefore have no
+                    // decoded arguments; conservatively stop the analysis in that case.
                     if (args.size < 2) return ValueSet.all()
 
                     if (args[0].value == register) {
