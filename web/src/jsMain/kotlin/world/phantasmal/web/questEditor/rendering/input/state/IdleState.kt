@@ -1,5 +1,7 @@
 package world.phantasmal.web.questEditor.rendering.input.state
 
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.web.core.minus
 import world.phantasmal.web.externals.three.Mesh
 import world.phantasmal.web.externals.three.Vector2
@@ -142,8 +144,18 @@ class IdleState(
             // shows a native tooltip after the user hovers for ~1s.
             val particle = ctx.pickParticle(pointerDevicePosition)
             ctx.renderContext.canvas.title = if (particle != null) {
-                "Particle ${particle.particleId} @ (${particle.x}, ${particle.y}, ${particle.z}) " +
-                        "for ${particle.frames} frames"
+                val origin = when (val value = particle.origin) {
+                    is ParticleSpawnOrigin.WorldPosition ->
+                        "(${value.x}, ${value.y}, ${value.z})"
+                    is ParticleSpawnOrigin.EntityPosition ->
+                        "entity 0x${value.entityId.toString(16).uppercase()} +Y ${value.yOffset}"
+                }
+                val drawRange = if (particle.hasExtendedDrawRange) ", extended draw range" else ""
+                val lifetime = when (particle.source) {
+                    is ParticleSpawnSource.DatObject -> "persistent DAT object"
+                    is ParticleSpawnSource.Opcode -> "${particle.lifetimeFrames} frames"
+                }
+                "Particle ${particle.particleId} @ $origin, $lifetime$drawRange"
             } else {
                 ""
             }

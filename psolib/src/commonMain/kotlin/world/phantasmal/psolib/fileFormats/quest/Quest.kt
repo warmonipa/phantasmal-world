@@ -9,6 +9,8 @@ import world.phantasmal.psolib.asm.OP_SET_EPISODE_V3_V4
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getFloorMappings
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getParticleSpawns
 import world.phantasmal.psolib.buffer.Buffer
@@ -53,9 +55,7 @@ class Quest(
     var binFormat: BinFormat = BinFormat.BB,
     /** Quest version detected during parsing (e.g. BB_V4, GC_V3). */
     var version: Version = Version.BB_V4,
-    /**
-     * `particle_v3` script invocations whose arguments could be statically resolved.
-     */
+    /** Fixed quest particle emitters from DAT objects and statically resolved BIN opcodes. */
     val particleSpawns: List<ParticleSpawn> = emptyList(),
 )
 
@@ -85,9 +85,6 @@ private fun parseBinDatFromDecompressed(
     // Extract episode and map designations from byte code.
     var episode = Episode.I
     var floorMappings = emptyList<FloorMapping>()
-    var particleSpawns: List<ParticleSpawn> = emptyList()
-
-
     val (hardEntryLabels, npcEntryLabels) = extractScriptEntryPoints(objects, npcs)
     val parseBytecodeResult = parseBytecode(
         bin.bytecode,
@@ -151,9 +148,6 @@ private fun parseBinDatFromDecompressed(
                 createControlFlowGraph = createControlFlowGraph,
             )
 
-            // Extract `particle_v3` spawn sites from all instruction segments.
-            particleSpawns = getParticleSpawns(instructionSegments, createControlFlowGraph)
-
             // Resolve the actual map area used to interpret each NPC. The DAT floor remains intact.
             if (floorMappings.isNotEmpty()) {
                 for (npc in npcs) {
@@ -163,7 +157,7 @@ private fun parseBinDatFromDecompressed(
                      * Reason:
                      * - FloorMapping.floorId represents the original logical floor.
                      * - NPC.floorId stores the original DAT floor ID.
- * - FloorMapping.mapAreaId is derived from mapId and may differ
+                     * - FloorMapping.mapAreaId is derived from mapId and may differ
                      *   from floorId when multiple floors share the same map.
                      *
                      * Example:
@@ -179,6 +173,7 @@ private fun parseBinDatFromDecompressed(
                     }
                 }
             }
+
         } else {
             result.addProblem(Severity.Warning, "No instruction segment for label 0 found.")
         }
@@ -207,7 +202,7 @@ private fun parseBinDatFromDecompressed(
         shiftJis = bin.shiftJis,
         binFormat = bin.format,
         version = version,
-        particleSpawns = particleSpawns,
+        particleSpawns = getQuestParticleSpawns(bytecodeIr, objects, npcs),
     ))
 }
 
@@ -638,19 +633,141 @@ private fun extractScriptEntryPoints(
     val npcEntryPoints = mutableSetOf<Int>()
 
     objects.forEach { obj ->
-        obj.scriptLabel?.let(hardEntryPoints::add)
-        obj.scriptLabel2?.let(hardEntryPoints::add)
+        hardEntryPoints.addAll(scriptLabelsForObject(obj))
     }
 
-    npcs.forEach { npc ->
-        // Enemy NPCs store unrelated data at the scriptLabel field offset (it is a combat
-        // parameter, not a code label). Only add scriptLabel for non-enemy (friendly) NPCs.
-        if (!npc.type.enemy) {
-            npcEntryPoints.add(npc.scriptLabel)
-        }
-    }
+    // Parsing is intentionally conservative: before map designation is analyzed we cannot tell
+    // whether the area-dependent D0-D7/110-112 records are scripted city NPCs or enemies. Extra
+    // candidate labels are harmless here; exact floor attribution below uses isScriptedNpc after
+    // mapAreaId has been resolved.
+    npcs.filter { it.scriptLabel > 0 }.forEach { npc -> npcEntryPoints.add(npc.scriptLabel) }
 
     return hardEntryPoints to npcEntryPoints
+}
+
+/**
+ * Extracts persistent map-object particles. PSOBB's TObjParticle constructor truncates param1 to a
+ * particle ID, accepts IDs 0..575, and keeps the emitter attached to the object's position.
+ * Type 0x0240 is a BB alias whose constructor is identical to type 0x0001.
+ */
+private fun extractDatObjectParticleSpawns(objects: List<QuestObject>): List<ParticleSpawn> =
+    objects.mapNotNull { obj ->
+        val typeId = obj.typeId.toInt() and 0xFFFF
+        if (typeId != 0x0001 && typeId != 0x0240) return@mapNotNull null
+        val particleId = obj.data.getFloat(40).toInt()
+        if (particleId !in 0 until 0x240) return@mapNotNull null
+
+        ParticleSpawn(
+            origin = ParticleSpawnOrigin.EntityPosition(
+                entityId = (obj.id.toInt() + 0x4000) and 0xFFFF,
+                yOffset = 0,
+            ),
+            particleId = particleId,
+            lifetimeFrames = null,
+            source = ParticleSpawnSource.DatObject(typeId, obj.id.toInt()),
+            // param4 == 1 raises the client's distance-related emitter flag and draw range.
+            hasExtendedDrawRange = obj.data.getInt(52) == 1,
+            executionFloorIds = setOf(obj.floorId),
+        )
+    }
+
+/**
+ * Derives every fixed quest particle emitter from the current DAT entities and BIN bytecode.
+ * This is intentionally side-effect free so editor models can recompute the result after edits.
+ */
+fun getQuestParticleSpawns(
+    bytecodeIr: BytecodeIr,
+    objects: List<QuestObject>,
+    npcs: List<QuestNpc>,
+): List<ParticleSpawn> {
+    val spawns = extractDatObjectParticleSpawns(objects).toMutableList()
+    val instructionSegments = bytecodeIr.instructionSegments()
+    if (instructionSegments.none { 0 in it.labels }) return spawns
+
+    var cfg: ControlFlowGraph? = null
+    val createCfg = {
+        cfg ?: ControlFlowGraph.create(bytecodeIr).also { cfg = it }
+    }
+    spawns += getParticleSpawns(
+        instructionSegments,
+        extractScriptEntryPointFloorIds(objects, npcs),
+        createCfg,
+    )
+    return spawns
+}
+
+/**
+ * DAT objects and NPCs invoke their script labels on the logical floor stored in their DAT
+ * section. These are client-side script entry points that do not have an incoming BIN opcode,
+ * so bytecode-only control-flow analysis cannot infer their execution floor.
+ */
+private fun extractScriptEntryPointFloorIds(
+    objects: List<QuestObject>,
+    npcs: List<QuestNpc>,
+): Map<Int, Set<Int>> {
+    val floorsByLabel = mutableMapOf<Int, MutableSet<Int>>()
+
+    fun add(label: Int, floorId: Int) {
+        floorsByLabel.getOrPut(label) { mutableSetOf() }.add(floorId)
+    }
+
+    objects.forEach { obj ->
+        scriptLabelsForObject(obj).forEach { label -> add(label, obj.floorId) }
+    }
+    npcs.filter(::isScriptedNpc).forEach { npc -> add(npc.scriptLabel, npc.floorId) }
+
+    return floorsByLabel
+}
+
+/** Script labels referenced by a DAT object, following the client's type-specific field rules. */
+private fun scriptLabelsForObject(obj: QuestObject): List<Int> {
+    val typeId = obj.typeId.toInt() and 0xFFFF
+    val label = when (typeId) {
+        0x0012, // TObjQuestCol
+        0x0015, // TObjQuestColA
+        0x008B, // TObjComputer
+        0x02B7, // TObjGbAdvance
+        -> obj.data.getInt(52) // param4
+
+        0x02B8, // TObjQuestColALock2
+        0x02BA, // TObjQuestCol2
+        -> if (obj.data.getInt(56) <= 0) obj.data.getInt(52) else null
+
+        0x0023, // TOAttackableCol
+        -> obj.data.getInt(60).takeIf { it > 0 } // param6
+
+        0x0026, // TOChatSensor: angle.x != 0 selects switch mode instead of script mode
+        -> if (obj.data.getInt(28) == 0) obj.data.getInt(52) else null
+
+        0x008D, // TOCapsuleAncient01
+        0x0104, // TOComputerMachine01
+        0x0155, // TOMonumentAncient01
+        0x0229, // TOCapsuleLabo
+        -> obj.data.getInt(60) // param6
+
+        else -> null
+    }
+    return listOfNotNull(label)
+}
+
+/**
+ * Whether the DAT enemy record is one of the NPC classes for which param5 is a script label.
+ * Other enemy classes reuse the same field for unrelated configuration values.
+ */
+private fun isScriptedNpc(npc: QuestNpc): Boolean {
+    val typeId = npc.typeId.toInt() and 0xFFFF
+    val npcType = typeId in 0x0001..0x000E ||
+        typeId in 0x0010..0x0022 ||
+        typeId in 0x0024..0x0029 ||
+        typeId in 0x002B..0x002D ||
+        typeId in 0x0030..0x0033 ||
+        typeId in 0x0045..0x0047 ||
+        (typeId in 0x00D0..0x00D7 && npc.mapAreaId == 0) ||
+        typeId in 0x00F0..0x0100 ||
+        (typeId in 0x0110..0x0112 && npc.mapAreaId == 0) ||
+        typeId == 0x00A9 ||
+        typeId == 0x0118
+    return npcType && npc.scriptLabel > 0
 }
 
 /**

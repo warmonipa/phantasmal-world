@@ -16,6 +16,7 @@ import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.BattleParamRepository
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.QuestLoader
+import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.persistence.QuestEditorUiPersister
 import world.phantasmal.web.questEditor.rendering.EntityImageRenderer
@@ -97,6 +98,7 @@ class QuestEditor(
             },
         ))
         val characterClassAssetLoader = addDisposable(CharacterClassAssetLoader(assetLoader))
+        val particleAssetLoader = addDisposable(ParticleAssetLoader(assetLoader))
         val npcListController = addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = true))
         val objectListController =
             addDisposable(EntityListController(questEditorStore, questEditorUiStore, npcs = false))
@@ -111,6 +113,7 @@ class QuestEditor(
             QuestRenderer(
                 areaAssetLoader,
                 entityAssetLoader,
+                particleAssetLoader,
                 questEditorStore,
                 questEditorUiStore,
                 playbackVisualizationStore,

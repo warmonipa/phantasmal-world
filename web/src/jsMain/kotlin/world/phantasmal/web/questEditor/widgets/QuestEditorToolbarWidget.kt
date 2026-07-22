@@ -146,10 +146,10 @@ class QuestEditorToolbarWidget(
                                 onChange = ctrl::setShowOriginPoint,
                             ),
                             MenuItem.Check(
-                                label = "Script Particles",
-                                tooltip = "Show particle_v3 spawn markers from the quest script",
-                                checked = ctrl.showScriptParticles,
-                                onChange = ctrl::setShowScriptParticles,
+                                label = "Quest Particles",
+                                tooltip = "Show fixed DAT object and BIN opcode particle effects",
+                                checked = ctrl.showQuestParticles,
+                                onChange = ctrl::setShowQuestParticles,
                             ),
                             MenuItem.Check(
                                 label = "Ultimate",

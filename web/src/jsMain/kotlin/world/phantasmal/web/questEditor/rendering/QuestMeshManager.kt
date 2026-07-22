@@ -11,6 +11,7 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.models.AreaVariantModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
@@ -21,6 +22,7 @@ import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.Group
+import world.phantasmal.web.externals.three.Vector3
 
 /**
  * Loads the necessary area and entity 3D models into [QuestRenderer].
@@ -28,6 +30,7 @@ import world.phantasmal.web.externals.three.Group
 abstract class QuestMeshManager protected constructor(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
+    particleAssetLoader: ParticleAssetLoader,
     private val questEditorStore: QuestEditorStore,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
@@ -58,7 +61,7 @@ abstract class QuestMeshManager protected constructor(
             enableSectionLabels = false
         ) // Object manager doesn't handle section labels
     )
-    private val particleMarkerManager = addDisposable(ParticleMarkerManager(renderContext))
+    private val particleMarkerManager = addDisposable(ParticleMarkerManager(renderContext, particleAssetLoader))
 
     // Origin point rendering
     private val originPointRenderer = OriginPointRenderer()
@@ -67,6 +70,7 @@ abstract class QuestMeshManager protected constructor(
     private var areaLoadJob: Job? = null
     private var npcLoadJob: Job? = null
     private var objectLoadJob: Job? = null
+    private var particleLoadJob: Job? = null
 
     private var npcObserver: Disposable? = null
     private var objectObserver: Disposable? = null
@@ -122,8 +126,15 @@ abstract class QuestMeshManager protected constructor(
         }
     }
 
-    protected fun loadParticleMarkers(spawns: List<ParticleSpawn>) {
-        particleMarkerManager.setSpawns(spawns)
+    protected fun loadParticleMarkers(
+        spawns: List<ParticleSpawn>,
+        resolveTemplateMapIds: (ParticleSpawn) -> Set<Int> = { emptySet() },
+        resolveEntityPosition: (Int) -> Vector3? = { null },
+    ) {
+        particleLoadJob?.cancel()
+        particleLoadJob = scope.launch {
+            particleMarkerManager.setSpawns(spawns, resolveTemplateMapIds, resolveEntityPosition)
+        }
     }
 
     private fun npcsChanged(event: ListChangeEvent<QuestNpcModel>) {
@@ -164,6 +175,7 @@ abstract class QuestMeshManager protected constructor(
     open fun beforeRender() {
         // Update text scales in the NPC mesh manager (which handles section labels and playback labels)
         npcMeshManager.beforeRender()
+        particleMarkerManager.beforeRender()
 
         // Update origin point axis labels (billboard + constant screen size)
         originGroup?.let { group ->

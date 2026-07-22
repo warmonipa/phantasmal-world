@@ -3,7 +3,6 @@ package world.phantasmal.web.test
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
-import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
@@ -24,7 +23,6 @@ fun WebTestContext.createQuestModel(
     objects: List<QuestObjectModel> = emptyList(),
     events: List<QuestEventModel> = emptyList(),
     bytecodeIr: BytecodeIr = BytecodeIr(emptyList()),
-    particleSpawns: List<ParticleSpawn> = emptyList(),
 ): QuestModel =
     QuestModel(
         id,
@@ -43,7 +41,6 @@ fun WebTestContext.createQuestModel(
         bytecodeIr,
         UIntArray(0),
         floorMappings,
-        particleSpawns,
         components.areaStore::getVariant,
     )
 

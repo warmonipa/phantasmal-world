@@ -2197,7 +2197,7 @@ opcodes:
             name: "location Z"
           - type: int
             read: true
-            name: "effect type"
+            name: "particle effect ID"
           - type: int
             read: true
             name: "duration"
@@ -2356,7 +2356,7 @@ opcodes:
         registers:
           - type: int
             read: true
-            name: "effect type"
+            name: "particle effect ID"
           - type: int
             read: true
             name: "duration in frames"
@@ -3052,13 +3052,13 @@ opcodes:
       - type: reg
         registers:
           - type: int
-            read: true
+            write: true
             name: "returned location X"
           - type: int
-            read: true
+            write: true
             name: "returned location Y"
           - type: int
-            read: true
+            write: true
             name: "returned location Z"
       - type: reg
         registers:
@@ -5520,7 +5520,7 @@ opcodes:
 
   - code: 0xf8f3
     mnemonic: particle2
-    doc: "Creates a timed particle effect. Like the particle opcode, but the location duration are floats"
+    doc: "Creates a timed particle emitter. Coordinates come from integer registers and are numerically converted to float; the immediate float duration is truncated toward zero"
     params:
       - type: reg
         registers:
@@ -5534,7 +5534,7 @@ opcodes:
             read: true
             name: "location Z"
       - type: int
-        name: "effect type"
+        name: "particle effect ID"
       - type: float
         name: "duration as float"
         doc: "duration as float (in frames; 30 frames/sec)"
@@ -6460,45 +6460,45 @@ opcodes:
 
   - code: 0xf94b
     mnemonic: particle_effect_nc
-    doc: "Creates a timed particle effect. Similar to the particle opcode, but the created particles have no draw distance, so they are visible from very far away"
+    doc: "Creates a timed particle effect. Like particle_v3, but bypasses the camera-distance check that stops the emitter from creating new particles"
     params:
       - type: reg
         registers:
           - type: int
-            write: true
+            read: true
             name: "location X"
           - type: int
-            write: true
+            read: true
             name: "location Y"
           - type: int
-            write: true
+            read: true
             name: "location Z"
           - type: int
-            write: true
-            name: "effect type"
+            read: true
+            name: "particle effect ID"
           - type: int
-            write: true
+            read: true
             name: "duration"
             doc: "duration (in frames; 30 frames/sec)"
 
   - code: 0xf94c
     mnemonic: player_effect_nc
-    doc: "Creates a particle effect on a given entity. Similar to the particle_id opcode, but the created particles have no draw distance, so they are visible from very far away"
+    doc: "Creates a particle effect at an entity's current position. Like particle_id_v3, but bypasses the camera-distance check that stops the emitter from creating new particles"
     params:
       - type: reg
         registers:
           - type: int
-            write: true
-            name: "effect type"
+            read: true
+            name: "particle effect ID"
           - type: int
-            write: true
+            read: true
             name: "duration in frames"
           - type: int
-            write: true
+            read: true
             name: "entity"
             doc: "entity (client ID, 0x1000 + enemy ID, or 0x4000 + object ID)"
           - type: int
-            write: true
+            read: true
             name: "y offset"
             doc: "y offset (as integer)"
 

@@ -9,6 +9,7 @@ import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.rendering.input.QuestInputManager
 import world.phantasmal.web.questEditor.stores.*
@@ -16,6 +17,7 @@ import world.phantasmal.web.questEditor.stores.*
 class QuestRenderer(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
+    particleAssetLoader: ParticleAssetLoader,
     questEditorStore: QuestEditorStore,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
@@ -44,6 +46,7 @@ class QuestRenderer(
         QuestEditorMeshManager(
             areaAssetLoader,
             entityAssetLoader,
+            particleAssetLoader,
             questEditorStore,
             questEditorUiStore,
             playbackVisualizationStore,
