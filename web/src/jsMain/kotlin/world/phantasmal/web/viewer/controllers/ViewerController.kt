@@ -182,7 +182,9 @@ class ViewerController(
             }
 
         private fun categoryForModel(model: ViewerModel?): ViewerModel.Category? =
-            model?.let { item ->
+            if (model is ViewerModel.Item) {
+                ViewerModel.CATEGORIES.find { it.label == "Items" }
+            } else model?.let { item ->
                 ViewerModel.CATEGORIES.find { category ->
                     category.groups.any { group -> item in group.items }
                 }
@@ -192,7 +194,11 @@ class ViewerController(
             model: ViewerModel?,
             category: ViewerModel.Category,
         ): ViewerModel.Group? =
-            model?.let { item ->
+            if (model is ViewerModel.Item) {
+                category.groups.find { group ->
+                    (group.items.firstOrNull() as? ViewerModel.Item)?.kind == model.kind
+                }
+            } else model?.let { item ->
                 category.groups.find { group -> item in group.items }
             }
     }

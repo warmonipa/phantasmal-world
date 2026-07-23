@@ -78,11 +78,20 @@ inline fun Object3D.isSkinnedMesh(): Boolean {
 
 fun boundingSphere(object3d: Object3D, bSphere: Sphere = Sphere()): Sphere {
     if (object3d.isMesh()) {
+        val geom = object3d.geometry
+        if (geom.boundingSphere == null) {
+            geom.computeBoundingSphere()
+        }
+
         // Don't use reference to union method to improve performance of emitted JS.
-        object3d.geometry.boundingSphere?.let {
+        geom.boundingSphere?.let {
             tmpSphere.copy(it)
             tmpSphere.applyMatrix4(object3d.matrixWorld)
-            bSphere.union(tmpSphere)
+            if (bSphere.radius < .0) {
+                bSphere.copy(tmpSphere)
+            } else {
+                bSphere.union(tmpSphere)
+            }
         }
     }
 

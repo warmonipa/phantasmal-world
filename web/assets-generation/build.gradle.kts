@@ -23,6 +23,43 @@ tasks.register<JavaExec>("generateAssets") {
     args = listOf(outputFile.absolutePath)
 }
 
+val viewerWeaponCatalogFile =
+    rootProject.file(
+        "web/src/jsMain/kotlin/world/phantasmal/web/viewer/models/ViewerWeaponCatalog.kt"
+    )
+
+tasks.register<JavaExec>("generateViewerWeaponCatalog") {
+    description = "Regenerate the checked-in Viewer weapon catalog from ItemPMT and Unitxt"
+
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.GenerateViewerWeaponCatalogKt")
+    args = listOf(viewerWeaponCatalogFile.absolutePath)
+}
+
+val verifyViewerWeaponCatalog by tasks.registering(JavaExec::class) {
+    description = "Verify the checked-in Viewer weapon catalog matches ItemPMT and Unitxt"
+
+    val generatedFile =
+        layout.buildDirectory.file("generatedViewerWeaponCatalog/ViewerWeaponCatalog.kt")
+    inputs.file(viewerWeaponCatalogFile)
+    outputs.file(generatedFile)
+
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.GenerateViewerWeaponCatalogKt")
+    args = listOf(generatedFile.get().asFile.absolutePath)
+
+    doLast {
+        check(generatedFile.get().asFile.readText() == viewerWeaponCatalogFile.readText()) {
+            "ViewerWeaponCatalog.kt is stale. Run " +
+                    "./gradlew :web:assets-generation:generateViewerWeaponCatalog."
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyViewerWeaponCatalog)
+}
+
 tasks.register<JavaExec>("synthesizeSinowRed") {
     description = "Synthesize Sinow Red (Ultimate rare Sinow Gold) by recolor transfer"
 

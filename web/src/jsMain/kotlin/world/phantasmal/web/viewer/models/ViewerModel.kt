@@ -30,14 +30,27 @@ sealed class ViewerModel {
         override val slug: String = "Object_${objectType.name}"
     }
 
-    data class Item(val index: Int, private val displayName: String, val kind: ItemKind) :
-        ViewerModel() {
+    data class Item(
+        val index: Int,
+        private val displayName: String,
+        val kind: ItemKind,
+        val textureIndex: Int = index,
+        val itemTypeId: Int? = null,
+    ) : ViewerModel() {
         override val uiName: String = displayName
-        override val slug: String = "ItemModel_$index"
+        override val slug: String = when {
+            itemTypeId != null ->
+                "Weapon_${itemTypeId.toString(16).padStart(6, '0').uppercase()}"
+            textureIndex == index ->
+                "ItemModel_$index"
+            else ->
+                "ItemModel_${index}_Texture_$textureIndex"
+        }
     }
 
     enum class ItemKind {
         Weapon,
+        Mag,
         Barrier,
         Tool,
         Other,
@@ -251,7 +264,35 @@ sealed class ViewerModel {
             .groupBy { objectGroupLabel(it.objectType) }
             .map { (label, items) -> Group(label, items.sortedBy { it.objectType.typeId }) }
 
-        val ITEMS: List<ViewerModel> = (0 until ITEM_MODEL_COUNT).map(::itemModel)
+        private val DUPLICATE_WEAPON_NAMES: Set<String> =
+            VIEWER_WEAPON_CATALOG
+                .groupingBy { it.name }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
+
+        val WEAPONS: List<ViewerModel> =
+            VIEWER_WEAPON_CATALOG.map(::weaponCatalogItem)
+
+        /**
+         * Raw weapon-model URLs are kept for old links and model-by-model visual verification.
+         * The visible weapon catalog above is item-based, so aliases such as the TypeXX series
+         * remain separate even when they reuse the same model and texture.
+         */
+        private val LEGACY_WEAPON_MODELS: List<ViewerModel> = buildList {
+            val textureVariants = weaponTextureVariants()
+            for (index in 0 until MAG_MODEL_OFFSET) {
+                add(itemModel(index))
+                addAll(textureVariants.filter { it.index == index })
+            }
+        }
+
+        val ITEMS: List<ViewerModel> = buildList {
+            addAll(WEAPONS)
+            for (index in MAG_MODEL_OFFSET until ITEM_MODEL_COUNT) {
+                add(itemModel(index))
+            }
+        }
 
         val ITEM_GROUPS: List<Group> = ITEMS
             .filterIsInstance<Item>()
@@ -287,7 +328,9 @@ sealed class ViewerModel {
 
         val GROUPS: List<Group> = CATEGORIES.flatMap { it.groups }
 
-        fun findBySlug(slug: String): ViewerModel? = ALL.find { it.slug == slug }
+        fun findBySlug(slug: String): ViewerModel? =
+            ALL.find { it.slug == slug }
+                ?: LEGACY_WEAPON_MODELS.find { it.slug == slug }
 
         private fun objectGroupLabel(type: ObjectType): String {
             val typeId = type.typeId?.toInt() ?: return "Objects - Other"
@@ -313,17 +356,79 @@ sealed class ViewerModel {
             type.typeId != null && type !in OBJECTS_WITHOUT_VIEWER_ASSET
 
         private const val ITEM_MODEL_COUNT = 408
+        private const val MAG_MODEL_OFFSET = 271
         private const val BARRIER_MODEL_OFFSET = 295
         private const val TOOL_MODEL_OFFSET = 362
         private const val OTHER_ITEM_MODEL_OFFSET = 368
+
+        // TODO: Investigate the material rendering issue on item type 0x001600
+        // (Akiko's Frying Pan, model/texture 21).
+        private fun weaponCatalogItem(entry: ViewerWeaponCatalogEntry): Item {
+            val itemTypeId = entry.itemTypeId.toString(16).padStart(6, '0').uppercase()
+            val displayName =
+                if (entry.name in DUPLICATE_WEAPON_NAMES) "${entry.name} [$itemTypeId]"
+                else entry.name
+
+            return Item(
+                index = entry.modelIndex,
+                displayName = displayName,
+                kind = ItemKind.Weapon,
+                textureIndex = entry.textureIndex,
+                itemTypeId = entry.itemTypeId,
+            )
+        }
+
+        /**
+         * ItemPMT weapon `type` selects geometry while `skin` selects textures. Most weapons use
+         * the same value for both, but these visual variants reuse another weapon's geometry.
+         */
+        private fun weaponTextureVariants(): List<Item> =
+            listOf(
+                weaponTextureVariant(12, 272, "Silence Claw"),
+                weaponTextureVariant(12, 273, "Nei's Claw"),
+                weaponTextureVariant(12, 294, "TypeSL/Claw, TypeKN/Claw, TypeCL/Claw"),
+                weaponTextureVariant(
+                    15,
+                    271,
+                    "Agito (1975, 1977, 1980, 1983, 1991, 2001)",
+                ),
+                weaponTextureVariant(15, 292, "Raikiri"),
+                weaponTextureVariant(20, 290, "Burning Visit"),
+                weaponTextureVariant(46, 288, "Black King Bar"),
+                weaponTextureVariant(68, 275, "Snow Queen"),
+                weaponTextureVariant(77, 291, "Iron Faust"),
+                weaponTextureVariant(85, 287, "Fatsia"),
+                weaponTextureVariant(108, 289, "Power Maser"),
+                weaponTextureVariant(109, 293, "LOGiN"),
+            )
+
+        private fun weaponTextureVariant(
+            modelIndex: Int,
+            textureIndex: Int,
+            name: String,
+        ): Item {
+            val modelId = modelIndex.toString().padStart(3, '0')
+            val textureId = textureIndex.toString().padStart(3, '0')
+            return Item(
+                modelIndex,
+                "Weapon $modelId/$textureId - $name",
+                ItemKind.Weapon,
+                textureIndex,
+            )
+        }
 
         private fun itemModel(index: Int): Item {
             val id = index.toString().padStart(3, '0')
 
             return when {
-                index < BARRIER_MODEL_OFFSET -> {
+                index < MAG_MODEL_OFFSET -> {
                     val name = weaponModelLabel(index)
                     Item(index, "Weapon $id - $name", ItemKind.Weapon)
+                }
+
+                index < BARRIER_MODEL_OFFSET -> {
+                    val skin = index - MAG_MODEL_OFFSET
+                    Item(index, "Mag $id - skin $skin", ItemKind.Mag)
                 }
 
                 index < TOOL_MODEL_OFFSET -> {
@@ -345,6 +450,7 @@ sealed class ViewerModel {
         private fun itemGroupLabel(kind: ItemKind): String =
             when (kind) {
                 ItemKind.Weapon -> "Item Models - Weapons"
+                ItemKind.Mag -> "Item Models - Mags"
                 ItemKind.Barrier -> "Item Models - Barriers"
                 ItemKind.Tool -> "Item Models - Tools"
                 ItemKind.Other -> "Item Models - Other"
@@ -399,8 +505,8 @@ sealed class ViewerModel {
                 44 -> "Red Saber"
                 45 -> "Meteor Cudgel"
                 46 -> "Monkey King Bar"
-                47 -> "Black King Bar"
-                48 -> "Double Cannon"
+                47 -> "Double Cannon"
+                48 -> "Huge Battle Fan"
                 49 -> "Tsumikiri J-Sword"
                 50 -> "Sealed J-Sword"
                 51 -> "Red Sword"
@@ -409,8 +515,8 @@ sealed class ViewerModel {
                 54 -> "Wok of Akiko's Shop"
                 55 -> "Lavis Blade"
                 56 -> "Red Dagger"
-                57 -> "Madam's Umbrella"
-                58 -> "Madam's Parasol"
+                57 -> "Madam's Parasol"
+                58 -> "Madam's Umbrella"
                 59 -> "Imperial Pick"
                 60 -> "Berdysh"
                 61 -> "Red Partisan"
@@ -421,48 +527,194 @@ sealed class ViewerModel {
                 66 -> "Handgun: Milla"
                 67 -> "Red Handgun"
                 68 -> "Frozen Shooter"
-                69 -> "Snow Queen"
-                70 -> "Anti Android Rifle"
-                71 -> "Rocket Punch"
-                72 -> "Samba Maracas"
-                73 -> "Twin Psychogun"
-                74 -> "Drill Launcher"
-                75 -> "Guld Milla"
-                76 -> "Red Mechgun"
-                77 -> "Belra Cannon"
-                78 -> "Panzer Faust"
-                79 -> "Iron Faust"
-                80 -> "Summit Moon"
-                81 -> "Windmill"
-                82 -> "Evil Curst"
-                83 -> "Flower Cane"
-                84 -> "Hildebear's Cane"
-                85 -> "Hildeblue's Cane"
-                86 -> "Rabbit Wand"
-                87 -> "Plantain Leaf"
-                88 -> "Fatsia"
-                89 -> "Demonic Fork"
-                90 -> "Striker of Chao"
-                91 -> "Broom"
-                92 -> "Prophets of Motav"
-                93 -> "The Sigh of a God"
-                94 -> "Twinkle Star"
-                95 -> "Plantain Fan"
-                96 -> "Twin Blaze"
-                97 -> "Marina's Bag"
-                98 -> "Dragon's Claw"
-                99 -> "Panther's Claw"
-                100 -> "S-Red's Blade"
-                101 -> "Plantain Huge Fan"
-                102 -> "Chameleon Scythe"
-                103 -> "Yasminkov 3000R"
-                104 -> "Ano Rifle"
-                105 -> "Baranz Launcher"
-                106 -> "Branch of Pakupaku"
-                107 -> "Heart of Poumn"
-                108 -> "Yasminkov 2000H"
-                109 -> "Yasminkov 7000V"
-                110 -> "Yasminkov 9000M"
+                69 -> "Anti Android Rifle"
+                70 -> "Rocket Punch"
+                71 -> "Samba Maracas"
+                72 -> "Twin Psychogun"
+                73 -> "Drill Launcher"
+                74 -> "Guld Milla"
+                75 -> "Red Mechgun"
+                76 -> "Belra Cannon"
+                77 -> "Panzer Faust"
+                78 -> "Summit Moon"
+                79 -> "Windmill"
+                80 -> "Evil Curst"
+                81 -> "Flower Cane"
+                82 -> "Hildebear's Cane"
+                83 -> "Hildeblue's Cane"
+                84 -> "Rabbit Wand"
+                85 -> "Plantain Leaf"
+                86 -> "Demonic Fork"
+                87 -> "Striker of Chao"
+                88 -> "Broom"
+                89 -> "Prophets of Motav"
+                90 -> "The Sigh of a God"
+                91 -> "Twinkle Star"
+                92 -> "Plantain Fan"
+                93 -> "Twin Blaze"
+                94 -> "Marina's Bag"
+                95 -> "Dragon's Claw"
+                96 -> "Panther's Claw"
+                97 -> "S-Red's Blade"
+                98 -> "Plantain Huge Fan"
+                99 -> "Chameleon Scythe"
+                100 -> "Yasminkov 3000R"
+                101 -> "Ano Rifle"
+                102 -> "Baranz Launcher"
+                103 -> "Branch of Pakupaku"
+                104 -> "Heart of Poumn"
+                105 -> "Yasminkov 2000H"
+                106 -> "Yasminkov 7000V"
+                107 -> "Yasminkov 9000M"
+                108 -> "Maser Beam"
+                109 -> "Game Magazine"
+                110 -> "Flower Bouquet"
+                in 111..125 -> "Unused weapon model"
+                126 -> "Bravace"
+                127 -> "Custom Ray ver.OO"
+                128 -> "Varista"
+                129 -> "Justy-23ST"
+                130 -> "Visk-235W"
+                131 -> "Wals-MK2"
+                132 -> "L&K14 Combat"
+                133 -> "H&S25 Justice"
+                134 -> "M&A60 Vise"
+                135 -> "Meteor Smash"
+                136 -> "Crush Bullet"
+                137 -> "Final Impact"
+                138 -> "Photon Launcher"
+                139 -> "Guilty Light"
+                140 -> "Red Scorpio"
+                141 -> "NUG2000-Bazooka"
+                142 -> "Club of Laconium"
+                143 -> "Mace of Adaman"
+                144 -> "Club of Zumiuran"
+                145 -> "Brave Hammer"
+                146 -> "Battle Verge"
+                147 -> "Alive Aqhu"
+                148 -> "Fire Scepter: Agni"
+                149 -> "Ice Staff: Dagon"
+                150 -> "Storm Wand: Indra"
+                151 -> "Talis"
+                152 -> "Durandal"
+                153 -> "DB's Saber"
+                154 -> "Kaladbolg"
+                155 -> "Kamui"
+                156 -> "Sange"
+                157 -> "Yasha"
+                158 -> "Flowen's Sword"
+                159 -> "Dragon Slayer"
+                160 -> "Last Survivor"
+                161 -> "Bloody Art"
+                162 -> "Blade Dance"
+                163 -> "Cross Scar"
+                164 -> "Vjaya"
+                165 -> "Brionac"
+                166 -> "Gae Bolg"
+                167 -> "Slicer of Assassin"
+                168 -> "Diska of Braveman"
+                169 -> "Diska of Liberator"
+                170 -> "Musashi"
+                171 -> "Yamato"
+                172 -> "Asuka"
+                173 -> "S-Berill's Hands #0"
+                174 -> "Gi Gue Bazooka"
+                175 -> "Mahu"
+                176 -> "Guardianna"
+                177 -> "Hitogata"
+                178 -> "Viridia Card"
+                179 -> "Dark Flow"
+                180 -> "Zanba"
+                181 -> "Partisan of Lightning"
+                182 -> "Demolition Comet"
+                183 -> "Ruby Bullet"
+                184 -> "Booma's Claw"
+                185 -> "Gobooma's Claw"
+                186 -> "Gigobooma's Claw"
+                187 -> "G-Assassin's Sabers"
+                188 -> "Morning Glory"
+                189 -> "Dark Bridge"
+                190 -> "Angel Harp"
+                191 -> "Rainbow Baton"
+                192 -> "Rika's Claw"
+                193 -> "Nei's Claw"
+                194 -> "Gal Wind"
+                195 -> "Amore Rose"
+                196 -> "Rappy's Fan"
+                197 -> "Dark Meteor"
+                198 -> "Sange & Yasha"
+                199 -> "Slicer of Fanatic"
+                200 -> "Lame d'Argent"
+                201 -> "Excalibur"
+                202 -> "Rage de Feu"
+                203 -> "Daisy Chain"
+                204 -> "Ophelie Seize"
+                205 -> "Mille Marteaux"
+                206 -> "Le Cogneur"
+                207 -> "Commander Blade"
+                208 -> "Vivienne"
+                209 -> "Kusanagi"
+                210 -> "Sacred Duster"
+                211 -> "Guren"
+                212 -> "Shouren"
+                213 -> "Jizai"
+                214 -> "Flamberge"
+                215 -> "Yunchang"
+                216 -> "Snake Spire"
+                217 -> "Flapjack Flapper"
+                218 -> "Getsugasan"
+                219 -> "Maguwa"
+                220 -> "Heaven Striker"
+                221 -> "Cannon Rouge"
+                222 -> "Meteor Rouge"
+                223 -> "Solferino"
+                224 -> "Clio"
+                225 -> "Siren Glass Hammer"
+                226 -> "Glide Divine"
+                227 -> "Shichishito"
+                228 -> "Murasame"
+                229 -> "Daylight Scar"
+                230 -> "Decalog"
+                231 -> "5th Anniv. Blade"
+                232 -> "Tyrell's Parasol"
+                233 -> "Akiko's Cleaver"
+                234 -> "Tanegashima"
+                235 -> "Tree Clippers"
+                236 -> "Nice Shot"
+                237 -> "Unused Weapon38"
+                238 -> "Unused Weapon39"
+                239 -> "Ano Bazooka"
+                240 -> "Synthesizer"
+                241 -> "Bamboo Spear"
+                242 -> "Kan'ei Tsuho"
+                243 -> "Jitte"
+                244 -> "Butterfly Net"
+                245 -> "Syringe"
+                246 -> "Battledore"
+                247 -> "Racket"
+                248 -> "Hammer"
+                249 -> "Great Bouquet"
+                250 -> "Mercurius Rod"
+                251 -> "Rambling May"
+                252 -> "Galatine"
+                253 -> "Zero Divide"
+                254 -> "Master Raven"
+                255 -> "Last Swan"
+                256 -> "Dual Bird"
+                257 -> "Asteron Belt"
+                258 -> "Phoenix Claw"
+                259 -> "Girasole"
+                260 -> "Rianov 303SNR family"
+                261 -> "L&K38 Combat"
+                262 -> "Phonon Maser"
+                263 -> "Laconium Axe"
+                264 -> "Earth Wand: Brownie"
+                265 -> "Izmaela"
+                266 -> "Kunai"
+                267 -> "Tension Blaster"
+                268 -> "Lollipop"
+                269 -> "Valkyrie"
+                270 -> "TypeSS/Sw"
                 in 126..294 -> "Rare weapon skin $skin"
                 else -> "Weapon skin $skin"
             }

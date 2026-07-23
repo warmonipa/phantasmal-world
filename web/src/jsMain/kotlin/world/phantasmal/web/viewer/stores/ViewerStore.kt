@@ -419,7 +419,7 @@ class ViewerStore(
 
         try {
             val ninjaObject = itemAssetLoader.loadNinjaObject(model.index)
-            val textures = itemAssetLoader.loadXvrTextures(model.index)
+            val textures = itemAssetLoader.loadXvrTextures(model.textureIndex)
 
             mutate {
                 if (clearAnimation) {
@@ -431,7 +431,9 @@ class ViewerStore(
                 _currentTextures.replaceAll(textures)
             }
         } catch (e: Exception) {
-            logger.error(e) { "Couldn't load Ninja model for item model ${model.index}." }
+            logger.error(e) {
+                "Couldn't load Ninja model ${model.index} with item texture ${model.textureIndex}."
+            }
 
             mutate {
                 _currentAnimation.value = null

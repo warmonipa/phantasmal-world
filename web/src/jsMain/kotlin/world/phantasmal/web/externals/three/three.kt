@@ -322,6 +322,7 @@ open external class Object3D {
 
     fun lookAt(vector: Vector3)
     fun lookAt(x: Double, y: Double, z: Double)
+    fun rotateOnWorldAxis(axis: Vector3, angle: Double): Object3D
 
     /**
      * Updates local transform.
