@@ -833,10 +833,11 @@ enum class ObjectType(
         ),
         typeId = 128,
         properties = listOf(
-            // The renderer uses the second-lowest byte as the door digit:
-            // ((value ushr 8) and 0xFF) % 10. The packed DAT field stays unchanged.
+            // param4 packs the switch flag in the low byte and the raw door display number in the
+            // second-lowest byte. The renderer displays the latter modulo 10.
             EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Door Display Number", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Unknown (param5)", offset = 56, type = EntityPropType.I32),
         ),
     ),
     ForestSwitch(

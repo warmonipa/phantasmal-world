@@ -53,9 +53,15 @@ sealed class EntityInfoPropModel(
             if (prop.name == "Color" && isFenceColorProp(store)) COLOR_OPTIONS else null
 
         @Suppress("UNCHECKED_CAST")
-        val value: Cell<Int> = if (prop.name == "Door ID" && isForestDoor(store)) {
-            (prop.value as Cell<Int>).map { doorId ->
-                if (doorId == -1) doorId else doorId and 0xFF
+        val value: Cell<Int> = if (isForestDoor(store)) {
+            when (prop.name) {
+                "Door ID" -> (prop.value as Cell<Int>).map { packedValue ->
+                    if (packedValue == -1) packedValue else packedValue and 0xFF
+                }
+                "Door Display Number" -> (prop.value as Cell<Int>).map { packedValue ->
+                    (packedValue ushr 8) and 0xFF
+                }
+                else -> prop.value as Cell<Int>
             }
         } else {
             prop.value as Cell<Int>
@@ -73,11 +79,18 @@ sealed class EntityInfoPropModel(
         val canGoToEvent: Cell<Boolean> = store.canGoToEvent(value)
 
         fun setValue(value: Int) {
-            val actualValue = if (prop.name == "Door ID" && isForestDoor(store)) {
-                if (value == -1) value else {
-                    @Suppress("UNCHECKED_CAST")
-                    val originalValue = (prop.value as Cell<Int>).value
-                    (originalValue and 0xFF00) or (value and 0xFF)
+            val actualValue = if (isForestDoor(store)) {
+                @Suppress("UNCHECKED_CAST")
+                val originalValue = (prop.value as Cell<Int>).value
+                when (prop.name) {
+                    "Door ID" -> {
+                        if (value == -1) value
+                        else (originalValue and 0xFF.inv()) or (value and 0xFF)
+                    }
+                    "Door Display Number" -> {
+                        (originalValue and (0xFF shl 8).inv()) or ((value and 0xFF) shl 8)
+                    }
+                    else -> value
                 }
             } else {
                 value

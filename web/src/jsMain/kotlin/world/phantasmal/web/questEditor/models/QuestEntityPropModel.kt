@@ -62,6 +62,11 @@ class QuestEntityPropModel(private val entity: QuestEntityModel<*, *>, prop: Ent
         }
 
         _value.value = value
+        for (otherProp in entity.properties.value) {
+            if (otherProp !== this && otherProp.overlaps(offset, sizeBytes)) {
+                otherProp.updateValue()
+            }
+        }
 
         if (affectsModel) {
             (entity as QuestObjectModel).setModel(

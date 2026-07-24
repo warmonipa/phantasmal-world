@@ -45,7 +45,7 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
         renderVariant: Int? = null,
     ): InstancedMesh {
         val normalizedVariant = if (type == ObjectType.ForestDoor) {
-            (renderVariant ?: 0).mod(10)
+            forestDoorDigitTextureIndex(renderVariant ?: 0)
         } else {
             null
         }
@@ -227,6 +227,11 @@ private fun InstancedMesh.applyEntityTypeScale(type: EntityType) {
         computeBoundingSphere()
     }
 }
+
+/**
+ * The first ten textures in 128.xvm match the PSO world-font digit order 0-9.
+ */
+internal fun forestDoorDigitTextureIndex(digit: Int): Int = digit.mod(10)
 
 private data class EntityMeshKey(
     val type: EntityType,

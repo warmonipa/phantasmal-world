@@ -20,6 +20,57 @@ import kotlin.test.*
 
 class EntityInfoControllerTests : WebTestSuite {
     @Test
+    fun forest_door_packed_param4_is_exposed_as_two_editable_properties() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val door = createQuestObjectModel(ObjectType.ForestDoor, floorId = 1)
+        door.entity.data.setInt(52, 0x12340B05)
+        components.questEditorStore.setCurrentQuest(createQuestModel(objects = listOf(door)))
+        components.questEditorStore.setSelectedEntity(door)
+
+        val doorId = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label == "Door ID:" },
+        )
+        val displayNumber = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label == "Door Display Number:" },
+        )
+
+        assertEquals(5, doorId.value.value)
+        assertEquals(11, displayNumber.value.value)
+
+        displayNumber.setValue(7)
+        assertEquals(0x12340705, door.entity.data.getInt(52))
+        assertEquals(5, doorId.value.value)
+        assertEquals(7, displayNumber.value.value)
+
+        doorId.setValue(60)
+        assertEquals(0x1234073C, door.entity.data.getInt(52))
+        assertEquals(60, doorId.value.value)
+        assertEquals(7, displayNumber.value.value)
+
+        components.questEditorStore.makeMainUndoCurrent()
+        components.questEditorStore.undo()
+        assertEquals(0x12340705, door.entity.data.getInt(52))
+        assertEquals(5, doorId.value.value)
+        assertEquals(7, displayNumber.value.value)
+
+        components.questEditorStore.undo()
+        assertEquals(0x12340B05, door.entity.data.getInt(52))
+        assertEquals(5, doorId.value.value)
+        assertEquals(11, displayNumber.value.value)
+
+        components.questEditorStore.redo()
+        components.questEditorStore.redo()
+        assertEquals(0x1234073C, door.entity.data.getInt(52))
+        assertEquals(60, doorId.value.value)
+        assertEquals(7, displayNumber.value.value)
+    }
+
+    @Test
     fun test_unavailable_and_enabled() = testAsync {
         val ctrl =
             disposer.add(EntityInfoController(
