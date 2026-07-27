@@ -74,6 +74,7 @@ class AsmStore(
 
     private val _goToLabelEvent = Emitter<AsmRange>()
     val goToLabelEvent: Observable<AsmRange> = _goToLabelEvent
+    private var pendingGoToLabelRange: AsmRange? = null
 
     val problems: ListCell<AssemblyProblem> = asmAnalyser.problems
 
@@ -133,10 +134,13 @@ class AsmStore(
     }
 
     fun goToLabel(labelId: Int) {
-        val label = labels.value.find { it.name == labelId }
-        if (label != null) {
-            _goToLabelEvent.emit(label.range)
-        }
+        val range = labels.value.find { it.name == labelId }?.range
+            ?: textModel.value
+                ?.getLinesContent()
+                ?.let { lines -> findLabelLineNo(lines, labelId) }
+                ?.let { lineNo -> AsmRange(lineNo, 1, lineNo, 1) }
+
+        range?.let(::goToLabelRange)
     }
 
     fun setHexFormat(hex: Boolean) {
@@ -148,7 +152,18 @@ class AsmStore(
     }
 
     fun goToLabelRange(range: AsmRange) {
+        pendingGoToLabelRange = range
         _goToLabelEvent.emit(range)
+    }
+
+    /**
+     * Returns the latest unhandled navigation request. This makes navigation reliable when the
+     * Script widget is activated and mounted after [goToLabelRange] emits its event.
+     */
+    fun takePendingGoToLabelRange(): AsmRange? {
+        val range = pendingGoToLabelRange
+        pendingGoToLabelRange = null
+        return range
     }
 
     private fun setTextModel(quest: QuestModel?) {
@@ -238,4 +253,10 @@ class AsmStore(
             //  See: https://github.com/microsoft/monaco-editor/issues/1833#issuecomment-588108427
         }
     }
+}
+
+internal fun findLabelLineNo(lines: Array<String>, labelId: Int): Int? {
+    val declaration = "$labelId:"
+    val index = lines.indexOfFirst { it.trimStart().startsWith(declaration) }
+    return index.takeIf { it >= 0 }?.plus(1)
 }

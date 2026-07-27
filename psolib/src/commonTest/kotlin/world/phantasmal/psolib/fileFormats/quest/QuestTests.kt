@@ -4,6 +4,7 @@ import world.phantasmal.core.Success
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.*
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleInteractionEvent
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
@@ -138,6 +139,10 @@ class QuestTests : LibTestSuite {
         assertTrue(
             0 in labSpawn.executionFloorIds,
             "Lab particle_v3 should be attributed to floor 0, got ${labSpawn.executionFloorIds}",
+        )
+        assertEquals(
+            setOf(ParticleInteractionEvent(302, ParticleInteractionEvent.Kind.Talk)),
+            labSpawn.interactionEvents,
         )
 
         val towerSpawns = opcodeSpawns.filter { it.worldPosition.x == 20000 && it.worldPosition.z == -1 }

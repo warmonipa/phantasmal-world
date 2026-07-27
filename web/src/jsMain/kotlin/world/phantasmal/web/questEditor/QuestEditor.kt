@@ -122,7 +122,13 @@ class QuestEditor(
                 symbolChatColliRepository,
                 dataEditorController.symbolChatTriggers,
                 dataEditorController::readSegmentData,
-                createThreeRenderer,
+                onNavigateToScriptLabel = { label ->
+                    questEditorController.requestActivateWidget(
+                        QuestEditorController.ASM_WIDGET_ID
+                    )
+                    asmStore.goToLabel(label)
+                },
+                createThreeRenderer = createThreeRenderer,
             )
         )
         val entityImageRenderer =

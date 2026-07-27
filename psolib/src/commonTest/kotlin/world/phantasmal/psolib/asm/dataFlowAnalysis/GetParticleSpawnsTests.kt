@@ -159,6 +159,41 @@ class GetParticleSpawnsTests : LibTestSuite {
     }
 
     @Test
+    fun particle_is_associated_with_spatial_talk_event_on_the_same_floor() {
+        val segments = toInstructions("""
+            0:
+                set_floor_handler 4, 100
+                ret
+            100:
+                leti r0, 550
+                leti r1, 0
+                leti r2, 360
+                leti r3, 25
+                leti r4, 217
+                at_coords_talk r0
+
+                leti r10, 550
+                leti r11, 0
+                leti r12, 360
+                leti r13, 349
+                leti r14, 30
+                particle_v3 r10
+                ret
+            217:
+                ret
+        """.trimIndent())
+
+        val spawn = getParticleSpawns(segments) {
+            ControlFlowGraph.create(segments)
+        }.single()
+
+        assertEquals(
+            setOf(ParticleInteractionEvent(217, ParticleInteractionEvent.Kind.Talk)),
+            spawn.interactionEvents,
+        )
+    }
+
+    @Test
     fun particle_inside_set_qt_success_callback_is_attributed_to_pioneer_2() {
         // set_qt_success bodies fire at the Hunter's Guild on Pioneer 2, not on the floor
         // where the registration happened.

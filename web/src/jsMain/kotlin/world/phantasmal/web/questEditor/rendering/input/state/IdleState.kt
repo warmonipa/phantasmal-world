@@ -1,5 +1,7 @@
 package world.phantasmal.web.questEditor.rendering.input.state
 
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleInteractionEvent
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.web.core.minus
@@ -10,6 +12,9 @@ import world.phantasmal.web.questEditor.models.QuestEntityModel
 import world.phantasmal.web.questEditor.rendering.EntityInstanceContainer
 import world.phantasmal.web.questEditor.rendering.input.*
 
+internal fun ParticleSpawn.primaryInteractionEvent(): ParticleInteractionEvent? =
+    interactionEvents.minWithOrNull(compareBy({ it.label }, { it.kind.ordinal }))
+
 class IdleState(
     private val ctx: StateContext,
     private val entityManipulationEnabled: Boolean,
@@ -17,6 +22,7 @@ class IdleState(
     private var panning = false
     private var rotating = false
     private var zooming = false
+    private var pressedParticle: ParticleSpawn? = null
     private val pointerDevicePosition = Vector2()
     private var shouldCheckHighlight = false
 
@@ -43,13 +49,25 @@ class IdleState(
             }
 
             is PointerDownEvt -> {
+                // A canceled pointer sequence can leave the previous target behind.
+                pressedParticle = null
+
+                val particle =
+                    if (forcedPanningRotatingMode || event.buttons != 1) null
+                    else ctx.pickParticle(event.pointerDevicePosition)
+                        ?.takeIf { it.primaryInteractionEvent() != null }
                 val pick =
-                    if (forcedPanningRotatingMode) null
+                    if (forcedPanningRotatingMode || particle != null) null
                     else pickEntity(event.pointerDevicePosition)
 
                 when (event.buttons) {
                     1 -> {
-                        if (pick == null) {
+                        if (particle != null) {
+                            // Remember the moving particle instead of trying to pick it again on
+                            // pointer-up. Navigating here would switch tabs halfway through the
+                            // browser's click sequence and let the remaining events reactivate 3D.
+                            pressedParticle = particle
+                        } else if (pick == null) {
                             panning = true
                         } else {
                             ctx.setSelectedEntity(pick.entity)
@@ -94,10 +112,17 @@ class IdleState(
                 rotating = false
                 zooming = false
 
-                // If the user clicks on nothing, deselect the currently selected entity.
-                if (!event.movedSinceLastPointerDown &&
+                val clickedParticle = pressedParticle
+                pressedParticle = null
+
+                if (clickedParticle != null) {
+                    clickedParticle.primaryInteractionEvent()?.let { interactionEvent ->
+                        ctx.navigateToScriptLabel(interactionEvent.label)
+                    }
+                } else if (!event.movedSinceLastPointerDown &&
                     pickEntity(event.pointerDevicePosition) == null
                 ) {
+                    // If the user clicks on nothing, deselect the currently selected entity.
                     ctx.setSelectedEntity(null)
                     pickAndHighlightMesh()
                 }
@@ -116,6 +141,10 @@ class IdleState(
             }
 
             is PointerOutEvt -> {
+                // Don't clear pressedParticle here. QuestInputManager intentionally overlays the
+                // canvas with a pointer trap after pointer-down, producing a synthetic pointer-out
+                // (with inconsistent buttons values across browsers) before the window-level
+                // pointer-up consumes and clears the locked particle.
                 ctx.setHighlightedEntity(null)
                 shouldCheckHighlight = false
                 ctx.renderContext.canvas.title = ""
@@ -155,7 +184,19 @@ class IdleState(
                     is ParticleSpawnSource.DatObject -> "persistent DAT object"
                     is ParticleSpawnSource.Opcode -> "${particle.lifetimeFrames} frames"
                 }
-                "Particle ${particle.particleId} @ $origin, $lifetime$drawRange"
+                val events = particle.interactionEvents
+                    .sortedWith(compareBy({ it.label }, { it.kind.ordinal }))
+                    .joinToString { event ->
+                        val kind = when (event.kind) {
+                            ParticleInteractionEvent.Kind.Call -> "call"
+                            ParticleInteractionEvent.Kind.Talk -> "talk"
+                        }
+                        "event ${event.label} ($kind)"
+                    }
+                    .let { if (it.isEmpty()) "" else ", $it" }
+                val clickHint =
+                    if (particle.primaryInteractionEvent() == null) "" else ", click to open script"
+                "Particle ${particle.particleId} @ $origin, $lifetime$drawRange$events$clickHint"
             } else {
                 ""
             }

@@ -29,6 +29,7 @@ import world.phantasmal.web.questEditor.controllers.AsmEditorController
 import world.phantasmal.web.questEditor.controllers.DataEditorController
 import world.phantasmal.web.questEditor.controllers.DataLabelEntry
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
+import world.phantasmal.web.shared.messages.AsmRange
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.obj
 import world.phantasmal.webui.widgets.Widget
@@ -308,14 +309,20 @@ class AsmEditorWidget(
 
             editor.onDidFocusEditorWidget(ctrl::makeUndoCurrent)
 
-            // Navigate to a label position when triggered from entity info panel.
-            addDisposable(ctrl.goToLabel.observe { range ->
+            fun navigateTo(range: AsmRange) {
                 logger.info { "goToLabel observer fired: line=${range.startLineNo}, col=${range.startCol}" }
                 val pos: IPosition = obj { lineNumber = range.startLineNo; column = range.startCol }
                 editor.setPosition(pos)
                 editor.revealPositionInCenter(pos)
                 editor.focus()
+            }
+
+            // Navigation can be requested while this widget is still being activated. Keep the
+            // request pending until the Monaco editor and its observer are ready.
+            addDisposable(ctrl.goToLabel.observe { emittedRange ->
+                navigateTo(ctrl.takePendingGoToLabelRange() ?: emittedRange)
             })
+            ctrl.takePendingGoToLabelRange()?.let(::navigateTo)
 
             addDisposable(EditorHistory(editor))
         }

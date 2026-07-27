@@ -322,6 +322,7 @@ open external class Object3D {
 
     fun lookAt(vector: Vector3)
     fun lookAt(x: Double, y: Double, z: Double)
+    fun rotateZ(angle: Double): Object3D
     fun rotateOnWorldAxis(axis: Vector3, angle: Double): Object3D
 
     /**
@@ -646,6 +647,7 @@ external object MultiplyBlending : Blending
 external object CustomBlending : Blending
 
 external interface BlendingFactor
+external object OneFactor : BlendingFactor
 external object SrcAlphaFactor : BlendingFactor
 external object OneMinusSrcAlphaFactor : BlendingFactor
 external object DstAlphaFactor : BlendingFactor
@@ -684,6 +686,7 @@ external class MeshBasicMaterial(
 ) : Material {
     var color: Color
     var map: Texture?
+    var opacity: Double
 }
 
 external interface SpriteMaterialParameters : MaterialParameters {

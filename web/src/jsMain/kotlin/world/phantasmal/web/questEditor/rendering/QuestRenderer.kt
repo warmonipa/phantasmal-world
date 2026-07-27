@@ -26,6 +26,7 @@ class QuestRenderer(
     symbolChatColliRepository: SymbolChatColliRepository,
     symbolChatTriggers: Cell<List<SymbolChatTriggerInfo>>,
     readSegmentData: (Int) -> Buffer?,
+    onNavigateToScriptLabel: (Int) -> Unit,
     createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Renderer() {
     override val context = addDisposable(QuestRenderContext(
@@ -40,7 +41,13 @@ class QuestRenderer(
 
     override val threeRenderer = addDisposable(createThreeRenderer(context.canvas)).renderer
 
-    override val inputManager = addDisposable(QuestInputManager(questEditorStore, questEditorUiStore, viewportStore, context))
+    override val inputManager = addDisposable(QuestInputManager(
+        questEditorStore,
+        questEditorUiStore,
+        viewportStore,
+        context,
+        onNavigateToScriptLabel,
+    ))
 
     private val meshManager = addDisposable(
         QuestEditorMeshManager(

@@ -22,6 +22,7 @@ import world.phantasmal.web.test.WebTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.math.PI
 
 class ParticleMarkerManagerTests : WebTestSuite {
     @Test
@@ -142,55 +143,167 @@ class ParticleMarkerManagerTests : WebTestSuite {
         texture.dispose()
     }
 
-    private fun spawn(floorId: Int): ParticleSpawn = ParticleSpawn(
-        origin = ParticleSpawnOrigin.WorldPosition(100, 200, 300),
-        particleId = 0,
+    @Test
+    fun tiny_particle_is_visible_and_uses_radius_as_rotation_speed() = testAsync {
+        var nowMs = 0.0
+        val texture = Texture()
+        val effect = particleEffect(
+            initialScale = 0.025f,
+            scaleMultiplier = 1f,
+            radius = 6f,
+        )
+        val assets = particleAssets(
+            texture = texture,
+            effect = effect,
+            metadata = EffectNtMetadata(
+                flags = 0,
+                textureIndex = 0,
+                width = 32f,
+                height = 32f,
+                rendererType = 0,
+            ),
+        )
+        val renderContext = QuestRenderContext(
+            canvas = document.createElement("canvas") as HTMLCanvasElement,
+            camera = Camera(),
+        )
+        disposer.add(renderContext)
+        val manager = ParticleMarkerManager(
+            renderContext = renderContext,
+            loadParticleAssets = { assets },
+            nowMs = { nowMs },
+        )
+        disposer.add(manager)
+
+        manager.setSpawns(
+            spawns = listOf(spawn(floorId = 1)),
+            resolveTemplateMapIds = { setOf(0) },
+            resolveEntityPosition = { null },
+        )
+        nowMs = 34.0
+        manager.beforeRender()
+
+        val particle = renderContext.particleMarkers.children.single()
+        assertEquals(32.0, particle.scale.x, absoluteTolerance = 1e-6)
+        assertEquals(32.0, particle.scale.y, absoluteTolerance = 1e-6)
+        assertEquals(PI / 30.0, particle.rotation.z, absoluteTolerance = 1e-6)
+        assertEquals(false, particle.frustumCulled)
+        assertEquals(1000, particle.renderOrder)
+        texture.dispose()
+    }
+
+    @Test
+    fun low_rate_emitter_is_not_starved_by_earlier_high_rate_emitters() = testAsync {
+        var nowMs = 0.0
+        val texture = Texture()
+        val highRateEffect = particleEffect(emissionRate = 16f, lifetimeFrames = 1000)
+        val lowRateEffect = particleEffect(emissionRate = 1f, lifetimeFrames = 1000)
+        val assets = ParticleAssets(
+            globalEffects = listOf(highRateEffect, lowRateEffect),
+            mapEffects = emptyList(),
+            texturesById = mapOf(
+                0 to ParticleTexture(
+                    texture = texture,
+                    metadata = EffectNtMetadata(
+                        flags = 0,
+                        textureIndex = 0,
+                        width = 16f,
+                        height = 16f,
+                        rendererType = 0,
+                    ),
+                ),
+            ),
+        )
+        val renderContext = QuestRenderContext(
+            canvas = document.createElement("canvas") as HTMLCanvasElement,
+            camera = Camera(),
+        )
+        disposer.add(renderContext)
+        val manager = ParticleMarkerManager(
+            renderContext = renderContext,
+            loadParticleAssets = { assets },
+            nowMs = { nowMs },
+        )
+        disposer.add(manager)
+
+        manager.setSpawns(
+            spawns = (0 until 4).map { spawn(floorId = 1, particleId = 0, x = it * 10) } +
+                spawn(floorId = 1, particleId = 1, x = 100),
+            resolveTemplateMapIds = { setOf(0) },
+            resolveEntityPosition = { null },
+        )
+        repeat(20) {
+            nowMs += 100.0
+            manager.beforeRender()
+        }
+
+        assertTrue(manager.liveParticleCount(1) >= 50)
+        texture.dispose()
+    }
+
+    private fun spawn(
+        floorId: Int,
+        particleId: Int = 0,
+        x: Int = 100,
+    ): ParticleSpawn = ParticleSpawn(
+        origin = ParticleSpawnOrigin.WorldPosition(x, 200, 300),
+        particleId = particleId,
         lifetimeFrames = 60,
         source = ParticleSpawnSource.Opcode(ParticleSpawnOpcode.ParticleV3),
         hasExtendedDrawRange = false,
         executionFloorIds = setOf(floorId),
     )
 
-    private fun particleAssets(texture: Texture): ParticleAssets = ParticleAssets(
-        globalEffects = listOf(particleEffect()),
+    private fun particleAssets(
+        texture: Texture,
+        effect: ParticleEffectData = particleEffect(),
+        metadata: EffectNtMetadata = EffectNtMetadata(
+            flags = 0,
+            textureIndex = 0,
+            width = 16f,
+            height = 16f,
+            rendererType = 0,
+        ),
+    ): ParticleAssets = ParticleAssets(
+        globalEffects = listOf(effect),
         mapEffects = emptyList(),
         texturesById = mapOf(
             0 to ParticleTexture(
                 texture = texture,
-                metadata = EffectNtMetadata(
-                    flags = 0,
-                    textureIndex = 0,
-                    width = 16f,
-                    height = 16f,
-                    rendererType = 0,
-                ),
+                metadata = metadata,
             ),
         ),
     )
 
-    private fun particleEffect(): ParticleEffectData = ParticleEffectData(
+    private fun particleEffect(
+        initialScale: Float = 1f,
+        scaleMultiplier: Float = 1f,
+        radius: Float = 0f,
+        emissionRate: Float = 1f,
+        lifetimeFrames: Int = 30,
+    ): ParticleEffectData = ParticleEffectData(
         name = "test",
         particleType = 0,
         textureId = 0,
         xVariation = 0f,
         yVariation = 0f,
         zVariation = 0f,
-        initialScale = 1f,
+        initialScale = initialScale,
         randomScaleRange = 0f,
-        scaleMultiplier = 1f,
+        scaleMultiplier = scaleMultiplier,
         horizontalSpeed = 0f,
         verticalSpeed = 0f,
         randomHorizontalSpeedRange = 0f,
         randomVerticalSpeedRange = 0f,
         emissionModulationDegreesPerFrame = 0f,
-        emissionRate = 1f,
-        lifetimeFrames = 30,
+        emissionRate = emissionRate,
+        lifetimeFrames = lifetimeFrames,
         randomLifetimeFrames = 0,
         motionMultiplier = 1f,
         verticalVelocityDelta = 0f,
         fadeInFraction = 0f,
         fadeOutFraction = 0f,
-        radius = 0f,
+        radius = radius,
         motionOption1 = 0f,
         motionOption2 = 0f,
         redDelta = 0f,

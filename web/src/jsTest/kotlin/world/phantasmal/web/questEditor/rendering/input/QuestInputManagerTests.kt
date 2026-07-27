@@ -2,6 +2,12 @@ package world.phantasmal.web.questEditor.rendering.input
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleInteractionEvent
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOpcode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
+import world.phantasmal.web.questEditor.rendering.input.state.primaryInteractionEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -93,6 +99,23 @@ class QuestInputManagerTests {
             expected = 6,
             actual = resolve(mapAreaId = 6, floorMappings = towerMappings),
         )
+    }
+
+    @Test
+    fun particle_navigation_uses_the_lowest_associated_script_label() {
+        val spawn = ParticleSpawn(
+            origin = ParticleSpawnOrigin.WorldPosition(0, 0, 0),
+            particleId = 349,
+            lifetimeFrames = 30,
+            source = ParticleSpawnSource.Opcode(ParticleSpawnOpcode.ParticleV3),
+            hasExtendedDrawRange = false,
+            interactionEvents = setOf(
+                ParticleInteractionEvent(302, ParticleInteractionEvent.Kind.Talk),
+                ParticleInteractionEvent(217, ParticleInteractionEvent.Kind.Talk),
+            ),
+        )
+
+        assertEquals(217, spawn.primaryInteractionEvent()?.label)
     }
 
     private fun resolve(

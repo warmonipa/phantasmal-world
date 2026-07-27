@@ -70,6 +70,9 @@ class AsmEditorController(private val store: AsmStore) : Controller() {
         store.goToLabelRange(range)
     }
 
+    fun takePendingGoToLabelRange(): AsmRange? =
+        store.takePendingGoToLabelRange()
+
     /** Scrolls the editor to whichever label carries [labelId]. No-op if unknown. */
     fun navigateToLabel(labelId: Int) {
         store.goToLabel(labelId)

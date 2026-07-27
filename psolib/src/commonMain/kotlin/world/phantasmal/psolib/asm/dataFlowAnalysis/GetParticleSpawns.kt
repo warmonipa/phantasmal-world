@@ -45,6 +45,7 @@ import world.phantasmal.psolib.asm.OP_SWITCH_JMP
 import world.phantasmal.psolib.asm.OP_THREAD
 import world.phantasmal.psolib.asm.OP_THREAD_STG
 import world.phantasmal.psolib.asm.RegType
+import kotlin.math.abs
 
 private val logger = KotlinLogging.logger {}
 
@@ -81,6 +82,17 @@ sealed class ParticleSpawnSource {
     data class DatObject(val objectTypeId: Int, val objectId: Int) : ParticleSpawnSource()
 }
 
+/** A floor-local script callback whose trigger region contains a particle emitter. */
+data class ParticleInteractionEvent(
+    val label: Int,
+    val kind: Kind,
+) {
+    enum class Kind {
+        Call,
+        Talk,
+    }
+}
+
 /**
  * A quest particle emitter created by a DAT object or a statically resolved BIN opcode.
  *
@@ -99,6 +111,8 @@ sealed class ParticleSpawnSource {
  * @property hasExtendedDrawRange Whether the source selects the client's extended/no-cull
  *   particle draw behavior.
  * @property executionFloorIds Logical floors whose handler paths can execute this invocation.
+ * @property interactionEvents Spatial script callbacks whose trigger region contains this
+ *   emitter on at least one of its execution floors.
  */
 data class ParticleSpawn(
     val origin: ParticleSpawnOrigin,
@@ -107,6 +121,7 @@ data class ParticleSpawn(
     val source: ParticleSpawnSource,
     val hasExtendedDrawRange: Boolean,
     val executionFloorIds: Set<Int> = emptySet(),
+    val interactionEvents: Set<ParticleInteractionEvent> = emptySet(),
 )
 
 /**
@@ -211,7 +226,84 @@ fun getParticleSpawns(
         }
     }
 
-    return spawns
+    val resolvedCfg = cfg ?: return spawns
+    val resolvedExecutionFloors = executionFloors ?: return spawns
+    val interactions = getParticleInteractionRegions(
+        resolvedCfg,
+        instructionSegments,
+        resolvedExecutionFloors,
+    )
+
+    return spawns.map { spawn ->
+        val origin = spawn.origin as? ParticleSpawnOrigin.WorldPosition ?: return@map spawn
+        val associatedEvents = interactions.asSequence()
+            .filter { interaction ->
+                interaction.executionFloorIds.any { it in spawn.executionFloorIds } &&
+                    interaction.contains(origin)
+            }
+            .map { it.event }
+            .toSet()
+        if (associatedEvents.isEmpty()) spawn else {
+            spawn.copy(interactionEvents = associatedEvents)
+        }
+    }
+}
+
+private data class ParticleInteractionRegion(
+    val origin: ParticleSpawnOrigin.WorldPosition,
+    val radius: Int,
+    val event: ParticleInteractionEvent,
+    val executionFloorIds: Set<Int>,
+) {
+    fun contains(position: ParticleSpawnOrigin.WorldPosition): Boolean {
+        val dx = position.x.toDouble() - origin.x
+        val dy = position.y.toDouble() - origin.y
+        val dz = position.z.toDouble() - origin.z
+        val r = abs(radius.toDouble())
+        return dx * dx + dy * dy + dz * dz <= r * r
+    }
+}
+
+private fun getParticleInteractionRegions(
+    cfg: ControlFlowGraph,
+    instructionSegments: List<InstructionSegment>,
+    executionFloors: ParticleExecutionFloors,
+): List<ParticleInteractionRegion> {
+    val regions = mutableListOf<ParticleInteractionRegion>()
+
+    for (segment in instructionSegments) {
+        for (inst in segment.instructions) {
+            val kind = when (inst.opcode.code) {
+                OP_AT_COORDS_CALL.code,
+                OP_AT_COORDS_CALL_EX.code,
+                -> ParticleInteractionEvent.Kind.Call
+
+                OP_AT_COORDS_TALK.code,
+                OP_AT_COORDS_TALK_EX.code,
+                -> ParticleInteractionEvent.Kind.Talk
+
+                else -> continue
+            }
+            val firstReg = (inst.args.firstOrNull() as? IntArg)?.value ?: continue
+            if (firstReg !in 0..(256 - 5)) continue
+            val values = (0 until 5).map { offset ->
+                val value = getRegisterValue(cfg, inst, firstReg + offset)
+                if (value.size == 1L) value[0] else null
+            }
+            if (values.any { it == null }) continue
+            val executionFloorIds = executionFloors.floorsByInstruction[inst] ?: emptySet()
+            if (executionFloorIds.isEmpty()) continue
+
+            regions.add(ParticleInteractionRegion(
+                origin = ParticleSpawnOrigin.WorldPosition(values[0]!!, values[1]!!, values[2]!!),
+                radius = values[3]!!,
+                event = ParticleInteractionEvent(values[4]!!, kind),
+                executionFloorIds = executionFloorIds,
+            ))
+        }
+    }
+
+    return regions
 }
 
 /**

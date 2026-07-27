@@ -21,7 +21,7 @@ class QuestEditorUiStore(
     private val _spawnMonstersOnGround = mutableCell(false)
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
-    private val _showQuestParticles = mutableCell(false)
+    private val _showQuestParticles = mutableCell(true)
     private val _ultimate = mutableCell(true)
     private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
 

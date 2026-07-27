@@ -33,6 +33,7 @@ class QuestInputManager(
     private val questEditorUiStore: QuestEditorUiStore,
     private val viewportStore: ViewportStore,
     private val renderContext: QuestRenderContext,
+    private val onNavigateToScriptLabel: (Int) -> Unit,
 ) : DisposableContainer(), InputManager {
     private val stateContext: StateContext
     private val pointerPosition = Vector2()
@@ -96,7 +97,13 @@ class QuestInputManager(
             screenSpacePanning = false,
         )
 
-        stateContext = StateContext(questEditorStore, questEditorUiStore, renderContext, cameraInputManager)
+        stateContext = StateContext(
+            questEditorStore,
+            questEditorUiStore,
+            renderContext,
+            cameraInputManager,
+            onNavigateToScriptLabel,
+        )
         state = IdleState(stateContext, entityManipulationEnabled)
 
         // Observe quest editing enabled state
