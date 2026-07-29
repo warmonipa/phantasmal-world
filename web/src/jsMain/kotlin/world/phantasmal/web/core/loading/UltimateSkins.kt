@@ -26,10 +26,10 @@ val NPCS_WITH_ULTIMATE_SKIN: Set<NpcType> = setOf(
     NpcType.Gilchic,
     NpcType.Garanz,
     NpcType.Canadine,
-    // The standard Sinow (Sinow Beat) has an Ultimate recolor — Sinow Blue (the purple skin,
-    // extracted from bm_ene_me3_shinowa_a.bml). Sinow Gold is its rare variant; PSO computes its
-    // Ultimate recolor (Sinow Red) at runtime with no texture file, so SinowGold.ult is synthesized
-    // by transferring the Gold rare-recolor onto the Sinow Blue base (see SynthesizeSinowRed).
+    // The standard Sinow (Sinow Beat) has an Ultimate recolor — Sinow Blue (the purple skin).
+    // The same bm_ene_me3_shinowa_a.bml texture bank also contains Sega's original Sinow Red
+    // textures. PrepareSinowVariants maps those Red textures to the slots used by Sinow Gold's
+    // shared geometry without re-encoding them.
     // Sinow Berill / Sinow Spigell are a different model and ship no Ultimate archive.
     NpcType.SinowBeat,
     NpcType.SinowGold,

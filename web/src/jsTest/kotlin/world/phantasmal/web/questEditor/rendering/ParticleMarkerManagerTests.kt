@@ -144,7 +144,7 @@ class ParticleMarkerManagerTests : WebTestSuite {
     }
 
     @Test
-    fun tiny_particle_is_visible_and_uses_radius_as_rotation_speed() = testAsync {
+    fun particle_uses_native_scale_and_radius_as_rotation_speed() = testAsync {
         var nowMs = 0.0
         val texture = Texture()
         val effect = particleEffect(
@@ -184,8 +184,8 @@ class ParticleMarkerManagerTests : WebTestSuite {
         manager.beforeRender()
 
         val particle = renderContext.particleMarkers.children.single()
-        assertEquals(32.0, particle.scale.x, absoluteTolerance = 1e-6)
-        assertEquals(32.0, particle.scale.y, absoluteTolerance = 1e-6)
+        assertEquals(0.8, particle.scale.x, absoluteTolerance = 1e-6)
+        assertEquals(0.8, particle.scale.y, absoluteTolerance = 1e-6)
         assertEquals(PI / 30.0, particle.rotation.z, absoluteTolerance = 1e-6)
         assertEquals(false, particle.frustumCulled)
         assertEquals(1000, particle.renderOrder)

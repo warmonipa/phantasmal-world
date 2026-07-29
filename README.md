@@ -105,6 +105,10 @@ The Kotlin [coding conventions](https://kotlinlang.org/docs/coding-conventions.h
 
 Create an optimized production build with `./gradlew :web:jsBrowserDistribution`.
 
+Production deployment is performed by manually running the `Deploy` GitHub Actions workflow. The
+workflow builds and deploys the selected branch or Git ref to the `gh-pages` branch, so verify the
+selected ref before dispatching it.
+
 #### PSO Server
 
 Create a native production build with `./gradlew :psoserv:nativeBuild`. Cross-compilation is not

@@ -467,13 +467,21 @@ class ViewerStore(
         for (param in modelParams) {
             param.set(model?.slug)
         }
+
+        val characterParamsEnabled = model is ViewerModel.Character
+        for (param in sectionIdParams) {
+            param.set(if (characterParamsEnabled) _currentSectionId.value.name else null)
+        }
+        for (param in bodyParams) {
+            param.set(if (characterParamsEnabled) (_currentBody.value + 1).toString() else null)
+        }
     }
 
     private fun setCurrentSectionIdValue(sectionId: SectionId) {
         _currentSectionId.value = sectionId
 
         for (param in sectionIdParams) {
-            param.set(sectionId.name)
+            param.set(if (_currentModel.value is ViewerModel.Character) sectionId.name else null)
         }
     }
 
@@ -482,7 +490,7 @@ class ViewerStore(
         val paramValue = (body + 1).toString()
 
         for (param in bodyParams) {
-            param.set(paramValue)
+            param.set(if (_currentModel.value is ViewerModel.Character) paramValue else null)
         }
     }
 

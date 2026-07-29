@@ -23,7 +23,6 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private val logger = KotlinLogging.logger {}
-private const val MIN_PARTICLE_PREVIEW_SIZE = 32.0
 
 /**
  * Previews quest-created PSOBB particle emitters with the client's particleentry templates and
@@ -223,13 +222,13 @@ class ParticleMarkerManager internal constructor(
                     particle.velocity.y += particle.verticalVelocityDelta
                 }
             }
-            // Preserve the client's scale curve while keeping very small effects inspectable in
-            // the editor's full-map view. Applying the minimum only to the initial scale would
-            // incorrectly amplify the effect's subsequent per-frame growth.
+            // Preserve the client's native dimensions and per-frame scale curve without
+            // editor-only amplification.
             val scaleFactor = particle.scaleMultiplier.pow(particle.age)
-            particle.mesh.setInspectableScale(
+            particle.mesh.scale.set(
                 particle.nativeWidth * scaleFactor,
                 particle.nativeHeight * scaleFactor,
+                1.0,
             )
             particle.mesh.quaternion.copy(renderContext.camera.quaternion)
             particle.mesh.rotateZ(
@@ -358,7 +357,7 @@ class ParticleMarkerManager internal constructor(
         val metadata = emitter.particleTexture.metadata
         val nativeWidth = metadata.width * scale
         val nativeHeight = metadata.height * scale
-        mesh.setInspectableScale(nativeWidth.toDouble(), nativeHeight.toDouble())
+        mesh.scale.set(nativeWidth.toDouble(), nativeHeight.toDouble(), 1.0)
         mesh.quaternion.copy(renderContext.camera.quaternion)
         mesh.rotateZ(initialRotation)
         mesh.name = "Particle ${emitter.spawn.particleId}"
@@ -424,16 +423,6 @@ class ParticleMarkerManager internal constructor(
             1.0
         }
         return minOf(1.0, fadeIn, fadeOut).coerceAtLeast(0.0)
-    }
-
-    private fun Object3D.setInspectableScale(nativeWidth: Double, nativeHeight: Double) {
-        val smallestDimension = minOf(abs(nativeWidth), abs(nativeHeight))
-        val previewMultiplier = if (smallestDimension > 0.0) {
-            max(1.0, MIN_PARTICLE_PREVIEW_SIZE / smallestDimension)
-        } else {
-            1.0
-        }
-        scale.set(nativeWidth * previewMultiplier, nativeHeight * previewMultiplier, 1.0)
     }
 
     private fun resolvePosition(

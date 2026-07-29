@@ -60,13 +60,13 @@ tasks.named("check") {
     dependsOn(verifyViewerWeaponCatalog)
 }
 
-tasks.register<JavaExec>("synthesizeSinowRed") {
-    description = "Synthesize Sinow Red (Ultimate rare Sinow Gold) by recolor transfer"
+tasks.register<JavaExec>("prepareSinowVariants") {
+    description = "Prepare original Red textures and the retracted Blue bind pose"
 
     classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("world.phantasmal.web.assetsGeneration.SynthesizeSinowRedKt")
+    mainClass.set("world.phantasmal.web.assetsGeneration.PrepareSinowVariantsKt")
 
-    // Usage: ./gradlew :web:assets-generation:synthesizeSinowRed --args="<npcs-assets-dir>"
+    // Usage: ./gradlew :web:assets-generation:prepareSinowVariants --args="<npcs-assets-dir>"
 }
 
 tasks.register<JavaExec>("extractNpcModels") {

@@ -46,6 +46,11 @@ private data class BmlAnimMapping(
  * entry names. BML files bundle PRS-compressed model (.nj/.xj) and texture (.xvm) data.
  */
 private val MODEL_MAPPINGS = listOf(
+    // Sinow Beat / Gold share the standard Sinow geometry and texture bank. Extract both names so
+    // Ultimate Red/Blue post-processing can run reproducibly in a clean output directory.
+    BmlModelMapping("bm_ene_me3_shinowa.bml", 0, "SinowBeat"),
+    BmlModelMapping("bm_ene_me3_shinowa.bml", 0, "SinowGold"),
+
     // Recobox spawned enemy — inside the Recobox BML
     // [0] me7_all.nj = Recon (frog-like robot creature released by Recobox)
     // [1] me7_box_all.nj = Recobox (box form)
@@ -125,10 +130,11 @@ private val ULTIMATE_MODEL_MAPPINGS = listOf(
     // the recolored body+texture).
     BmlModelMapping("bm_ene_me1_mb_a.bml", 1, "Canadine.ult"),
 
-    // The "shinowa" archive is the standard Sinow used by Sinow Beat (Ep1); bm_ene_me3_shinowa_a.bml
-    // is its Ultimate recolor — Sinow Blue (the purple skin), NOT a Berill recolor. Sinow Berill is
-    // a *different* model (bm_ene_me3_beril_low.bml, the green skin) and ships no Ultimate (`_a`)
-    // archive, so Berill keeps its normal green skin on Ultimate.
+    // The "shinowa" archive is the standard Sinow used by Sinow Beat (Ep1).
+    // bm_ene_me3_shinowa_a.bml contains both original Ultimate skins: Red in texture slots 0..2
+    // and Blue in slots 3..5. Entry 0's geometry references the Blue slots; the post-processing
+    // step at the end of this extraction remaps the original Red slots for Sinow Gold. Sinow
+    // Berill is a different model and ships no Ultimate (`_a`) archive.
     BmlModelMapping("bm_ene_me3_shinowa_a.bml", 0, "SinowBeat.ult"),
 
     // Poison Lily / Nar Lily share the flower body — bm_ene_re2_flower_a.bml
@@ -308,5 +314,10 @@ fun main(args: Array<String>) {
         }
     }
 
-    logger.info { "Done. Extracted $extracted model(s) and animation(s), $failed failure(s)." }
+    prepareSinowVariants(outputDir)
+
+    logger.info {
+        "Done. Extracted $extracted model(s) and animation(s), prepared Sinow variants, " +
+            "$failed failure(s)."
+    }
 }

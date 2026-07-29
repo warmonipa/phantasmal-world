@@ -66,6 +66,34 @@ Does analysis of the script assembly code and runs in a worker thread.
 This code is manually run to generate various assets used by web such as item lists, drop tables,
 quest lists, etc.
 
+NPC models can be extracted from a PSO BB installation with:
+
+```shell
+./gradlew :web:assets-generation:extractNpcModels \
+  --args="<pso-data-dir> web/src/jsMain/resources/assets/npcs"
+```
+
+The extraction includes post-processing for the Episode I Sinows. The normal texture bank contains
+the original Gold and Beat textures, while the Ultimate bank contains the original Red and Blue
+textures. The rare textures are remapped to the slots referenced by the shared model without color
+conversion or texture re-encoding. All four variants use the retracted-blade bind pose by default.
+
+## Model Viewer Assets
+
+The viewer weapon catalog is generated from ItemPMT and Unitxt. Separate items can share a geometry
+model and select a different texture from ItemPMT. For example, Agito (1975, 1977, 1980, 1983,
+1991, and 2001) uses model 15 and texture 271 for every year. Orotiagito shares model 15 but uses
+texture 15.
+
+Viewer URLs always contain the selected `model` when one is selected. The `section_id` and `body`
+parameters apply only to character models and are removed from NPC and item model URLs.
+
+## Quest Particle Previews
+
+Quest-created particle previews use the native dimensions and per-frame scale curve stored in the
+game's particle effect data. Small effects are not enlarged solely to make them easier to inspect in
+the full-map editor view.
+
 ### web:shared
 
 Contains code used by web, web:assembly-worker and web:assets-generation.

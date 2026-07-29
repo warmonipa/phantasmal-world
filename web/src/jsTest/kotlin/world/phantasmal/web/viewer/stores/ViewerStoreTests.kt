@@ -1,14 +1,39 @@
 package world.phantasmal.web.viewer.stores
 
 import world.phantasmal.psolib.fileFormats.ninja.XvrTexture
+import world.phantasmal.web.core.PwToolType
+import world.phantasmal.web.test.TestApplicationUrl
 import world.phantasmal.web.test.WebTestSuite
+import world.phantasmal.web.viewer.ViewerUrls
 import world.phantasmal.web.viewer.models.ViewerModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 
 class ViewerStoreTests : WebTestSuite {
+    @Test
+    fun npc_url_omits_character_only_parameters() = test {
+        val applicationUrl = TestApplicationUrl(
+            "/${PwToolType.Viewer.slug}${ViewerUrls.mesh}" +
+                "?model=Hildebear&section_id=Greenill&body=13"
+        )
+        components.applicationUrl = applicationUrl
+
+        // Initializing the store normalizes stale character-only parameters out of an NPC URL.
+        components.viewerStore
+
+        val params = applicationUrl.pathAndParamsDeconstructed.params
+        assertEquals("Hildebear", params[ViewerStore.MODEL_PARAM])
+        assertFalse(ViewerStore.SECTION_ID_PARAM in params)
+        assertFalse(ViewerStore.BODY_PARAM in params)
+        assertEquals(
+            "/${PwToolType.Viewer.slug}${ViewerUrls.mesh}?model=Hildebear",
+            applicationUrl.pathAndParams,
+        )
+    }
+
     @Test
     fun weapon_texture_variants_load_their_itempmt_texture_archive() = testAsync {
         val frozenShooterModel =
