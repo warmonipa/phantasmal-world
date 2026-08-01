@@ -11,15 +11,18 @@ import kotlin.test.assertSame
 
 class ItemAssetLoaderTests : WebTestSuite {
     @Test
-    fun multi_root_item_models_keep_every_component() = test {
+    fun only_wok_model_keeps_every_component() = test {
         val wok = xjObject()
         val ladle = xjObject()
 
-        val combined = combineXjRoots(listOf(wok, ladle))
+        val combined = selectXjRoot(WOK_MODEL_INDEX, listOf(wok, ladle))
 
         assertEquals(2, combined.children.size)
         assertSame(wok, combined.children[0])
         assertSame(ladle, combined.children[1])
+
+        assertSame(wok, selectXjRoot(WOK_MODEL_INDEX - 1, listOf(wok, ladle)))
+        assertSame(wok, selectXjRoot(WOK_MODEL_INDEX + 1, listOf(wok, ladle)))
     }
 
     @Test

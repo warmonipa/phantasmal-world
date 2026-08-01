@@ -20,10 +20,21 @@ class NinjaGeometryConversionTests {
         )
         val model = XjModel(vertices, emptyList(), Vec3(0f, 0f, 0f), 1f)
 
-        assertTrue(usesEnvironmentMapping(model, mesh(0, 1), textureIndex = 0))
-        assertFalse(usesEnvironmentMapping(model, mesh(0, 2), textureIndex = 0))
-        assertFalse(usesEnvironmentMapping(model, mesh(0, 1), textureIndex = null))
-        assertFalse(usesEnvironmentMapping(model, mesh(), textureIndex = 0))
+        assertFalse(usesEnvironmentMapping(
+            model, mesh(0, 1), textureIndex = 0, enabled = false
+        ))
+        assertTrue(usesEnvironmentMapping(
+            model, mesh(0, 1), textureIndex = 0, enabled = true
+        ))
+        assertFalse(usesEnvironmentMapping(
+            model, mesh(0, 2), textureIndex = 0, enabled = true
+        ))
+        assertFalse(usesEnvironmentMapping(
+            model, mesh(0, 1), textureIndex = null, enabled = true
+        ))
+        assertFalse(usesEnvironmentMapping(
+            model, mesh(), textureIndex = 0, enabled = true
+        ))
     }
 
     private fun vertex(uv: Vec2?) =

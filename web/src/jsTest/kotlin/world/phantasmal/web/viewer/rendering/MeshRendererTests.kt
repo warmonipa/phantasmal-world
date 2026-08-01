@@ -32,17 +32,22 @@ class MeshRendererTests : WebTestSuite {
     }
 
     @Test
-    fun named_weapons_use_canonical_weapon_kinds_and_shapes() = test {
+    fun explicitly_verified_named_weapons_use_their_overrides() = test {
         val yasminkovs = listOf(0x006A00, 0x006500, 0x006B00, 0x006C00)
-        for (itemTypeId in yasminkovs) {
+        for ((index, itemTypeId) in yasminkovs.withIndex()) {
             val model = weapon(itemTypeId)
-            assertEquals(MeshRenderer.ItemPresentationProfile.Gun,
+            assertEquals(MeshRenderer.ItemPresentationProfile.Default,
                 MeshRenderer.presentationProfile(model), model.uiName)
-            assertEquals(100.0 * PI / 180.0,
+            assertEquals(90.0 * PI / 180.0,
                 assertNotNull(MeshRenderer.presentationRotation(model)).z,
                 absoluteTolerance = 1e-12,
                 message = model.uiName)
-            assertNull(MeshRenderer.presentationScreenRotation(model), model.uiName)
+            if (index < 3) {
+                assertEquals(PI, MeshRenderer.presentationScreenRotation(model), model.uiName)
+            } else {
+                assertNull(MeshRenderer.presentationScreenRotation(model), model.uiName)
+                assertTrue(MeshRenderer.isPairedModel(model.index), model.uiName)
+            }
         }
 
         val sectionIdCard = weapon(0x009300)
@@ -53,7 +58,7 @@ class MeshRendererTests : WebTestSuite {
         val yunchang = weapon(0x00BA00)
         assertEquals(MeshRenderer.ItemPresentationProfile.SwordPartisan,
             MeshRenderer.presentationProfile(yunchang))
-        assertNull(MeshRenderer.presentationScreenRotation(yunchang))
+        assertEquals(PI, MeshRenderer.presentationScreenRotation(yunchang))
 
         val zeroDivide = weapon(0x000308)
         assertEquals(MeshRenderer.ItemPresentationProfile.Dagger,
@@ -62,12 +67,18 @@ class MeshRendererTests : WebTestSuite {
         assertNull(MeshRenderer.presentationScreenRotation(zeroDivide))
 
         val yamato = weapon(0x008901)
-        assertEquals(MeshRenderer.ItemPresentationProfile.SwordPartisan,
+        assertEquals(MeshRenderer.ItemPresentationProfile.Catalog,
             MeshRenderer.presentationProfile(yamato))
         assertTrue(MeshRenderer.isPairedModel(yamato.index))
-        assertNull(MeshRenderer.presentationScreenRotation(yamato))
+        assertEquals(120.0 * PI / 180.0,
+            assertNotNull(MeshRenderer.presentationScreenRotation(yamato)),
+            absoluteTolerance = 1e-12)
         assertNull(MeshRenderer.pairScreenRotation(yamato.index, first = true))
         assertNull(MeshRenderer.pairScreenRotation(yamato.index, first = false))
+
+        val unverifiedNamedWeapon = weapon(0x001001)
+        assertEquals(MeshRenderer.ItemPresentationProfile.Default,
+            MeshRenderer.presentationProfile(unverifiedNamedWeapon))
     }
 
     @Test
@@ -90,9 +101,9 @@ class MeshRendererTests : WebTestSuite {
                 if (index in (
                         setOf(
                             52, 55, 56, 89, 93, 95, 98, 99, 101, 102, 103, 104,
-                            108, 110, 128, 132, 133, 134, 138, 139, 140, 141, 161,
-                            162, 163, 174, 176, 181, 187, 188, 191, 192, 193, 198,
-                            210, 236, 245,
+                            100, 105, 106, 108, 110, 128, 132, 133, 134, 138, 139,
+                            140, 141, 161, 162, 163, 170, 171, 172, 174, 176, 181,
+                            187, 188, 191, 192, 193, 198, 210, 215, 236, 245,
                         ) + (78..88)
                     )
                 ) {

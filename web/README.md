@@ -88,6 +88,17 @@ texture 15.
 Viewer URLs always contain the selected `model` when one is selected. The `section_id` and `body`
 parameters apply only to character models and are removed from NPC and item model URLs.
 
+Item model archives can contain more than one XJ or NJ root. The viewer preserves the original
+behavior of rendering only the first root unless a model has a verified multi-component catalog
+presentation. Currently, only model 54 (`Wok of Akiko's Shop`) combines its two XJ roots (the wok
+and ladle) and enables UV-less texture environment mapping. These are model-specific exceptions;
+they must not be inferred globally from root count, missing UVs, or the PMT weapon kind because
+those properties are also used by unrelated weapon geometry and effects.
+
+Weapon catalog rotations and multi-item layouts are likewise explicit model-index presentation
+rules. When adjusting a named weapon, retain the established defaults for every unverified model
+and add regression coverage for both the named model and an unaffected neighboring/default model.
+
 ## Quest Particle Previews
 
 Quest-created particle previews use the native dimensions and per-frame scale curve stored in the

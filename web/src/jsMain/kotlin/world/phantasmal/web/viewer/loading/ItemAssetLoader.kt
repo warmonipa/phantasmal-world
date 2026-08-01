@@ -8,7 +8,6 @@ import world.phantasmal.psolib.compression.prs.prsDecompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.ninja.NinjaObject
 import world.phantasmal.psolib.fileFormats.ninja.NinjaEvaluationFlags
-import world.phantasmal.psolib.fileFormats.ninja.NjObject
 import world.phantasmal.psolib.fileFormats.ninja.XvrTexture
 import world.phantasmal.psolib.fileFormats.ninja.XjObject
 import world.phantasmal.psolib.fileFormats.Vec3
@@ -36,13 +35,13 @@ class ItemAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         val xjResult = runCatching { parseXj(decompress(buffer)) }.getOrNull()
 
         if (xjResult is Success && xjResult.value.isNotEmpty()) {
-            return combineXjRoots(xjResult.value)
+            return selectXjRoot(index, xjResult.value)
         }
 
         val njResult = runCatching { parseNj(decompress(buffer)) }.getOrNull()
 
         if (njResult is Success && njResult.value.isNotEmpty()) {
-            return combineNjRoots(njResult.value)
+            return njResult.value.first()
         }
 
         throw IllegalArgumentException("Couldn't parse item model $index.")
@@ -73,6 +72,9 @@ class ItemAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         apply { endianness = Endianness.Little }.cursor()
 }
 
+internal fun selectXjRoot(index: Int, roots: List<XjObject>): XjObject =
+    if (index == WOK_MODEL_INDEX) combineXjRoots(roots) else roots.first()
+
 internal fun combineXjRoots(roots: List<XjObject>): XjObject {
     require(roots.isNotEmpty()) { "An item model must contain at least one XJ root." }
     return roots.singleOrNull() ?: XjObject(
@@ -86,18 +88,6 @@ internal fun combineXjRoots(roots: List<XjObject>): XjObject {
     )
 }
 
-internal fun combineNjRoots(roots: List<NjObject>): NjObject {
-    require(roots.isNotEmpty()) { "An item model must contain at least one NJ root." }
-    return roots.singleOrNull() ?: NjObject(
-        offset = -1,
-        evaluationFlags = NinjaEvaluationFlags(0),
-        model = null,
-        position = ZERO,
-        rotation = ZERO,
-        scale = ONE,
-        children = roots.toMutableList(),
-    )
-}
-
 private val ZERO = Vec3(0f, 0f, 0f)
 private val ONE = Vec3(1f, 1f, 1f)
+internal const val WOK_MODEL_INDEX = 54

@@ -117,10 +117,11 @@ fun ninjaObjectToMesh(
     defaultMaterial: Material? = null,
     boundingVolumes: Boolean = false,
     anisotropy: Int = 1,
+    environmentMapping: Boolean = false,
 ): Mesh {
     val builder = MeshBuilder(textures, anisotropy = anisotropy)
     defaultMaterial?.let { builder.defaultMaterial(defaultMaterial) }
-    ninjaObjectToMeshBuilder(ninjaObject, builder)
+    ninjaObjectToMeshBuilder(ninjaObject, builder, environmentMapping)
     return builder.buildMesh(boundingVolumes)
 }
 
@@ -159,8 +160,9 @@ fun ninjaObjectToSkinnedMesh(
 fun ninjaObjectToMeshBuilder(
     ninjaObject: NinjaObject<*, *>,
     builder: MeshBuilder,
+    environmentMapping: Boolean = false,
 ) {
-    NinjaToMeshConverter(builder).convert(ninjaObject)
+    NinjaToMeshConverter(builder, environmentMapping).convert(ninjaObject)
 }
 
 /** The returned group is not copyable because it contains non-serializable user data. */
@@ -367,7 +369,10 @@ fun collisionGeometryToGroup(
 }
 
 // TODO: take into account different kinds of meshes/vertices (with or without normals, uv, etc.).
-private class NinjaToMeshConverter(private val builder: MeshBuilder) {
+private class NinjaToMeshConverter(
+    private val builder: MeshBuilder,
+    private val environmentMapping: Boolean,
+) {
     private val vertexHolder = VertexHolder()
     private var boneIndex = 0
 
@@ -554,7 +559,12 @@ private class NinjaToMeshConverter(private val builder: MeshBuilder) {
                 currentTextureIdx,
                 alpha = true,
                 additiveBlending = currentSrcAlpha != 4 || currentDstAlpha != 5,
-                environmentMapping = usesEnvironmentMapping(model, mesh, currentTextureIdx),
+                environmentMapping = usesEnvironmentMapping(
+                    model,
+                    mesh,
+                    currentTextureIdx,
+                    enabled = environmentMapping,
+                ),
             )
 
             var clockwise = false
@@ -613,8 +623,9 @@ internal fun usesEnvironmentMapping(
     model: XjModel,
     mesh: XjMesh,
     textureIndex: Int?,
+    enabled: Boolean,
 ): Boolean =
-    textureIndex != null && mesh.indices.isNotEmpty() &&
+    enabled && textureIndex != null && mesh.indices.isNotEmpty() &&
         mesh.indices.all { model.vertices[it].uv == null }
 
 private class Vertex(

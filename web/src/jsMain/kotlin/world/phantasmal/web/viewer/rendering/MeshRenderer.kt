@@ -163,6 +163,7 @@ class MeshRenderer(
                                             boundingVolumes = true,
                                             anisotropy =
                                                 threeRenderer.capabilities.getMaxAnisotropy() / 2,
+                                            environmentMapping = true,
                                         )
                                     )
                                 }
@@ -485,7 +486,7 @@ class MeshRenderer(
         private val DAGGER_ROTATION =
             PresentationRotation(degToRad(47.0), degToRad(-32.0), degToRad(100.0))
         private val GUN_CATALOG_ROTATION =
-            PresentationRotation(degToRad(-132.0), degToRad(-30.0), degToRad(100.0))
+            PresentationRotation(degToRad(-132.0), degToRad(-30.0), degToRad(-80.0))
         private val CLAW_CATALOG_ROTATION =
             PresentationRotation(degToRad(-132.0), degToRad(-30.0), degToRad(40.0))
         private val WOK_CATALOG_ROTATION =
@@ -508,6 +509,7 @@ class MeshRenderer(
             model.index == 139 -> degToRad(215.0)
             model.index in 138..141 -> degToRad(35.0)
             model.index in 161..163 -> degToRad(-30.0)
+            model.index in 170..172 -> degToRad(120.0)
             model.index == 174 -> degToRad(35.0)
             model.index == 176 -> degToRad(45.0)
             model.index == 181 -> degToRad(-30.0)
@@ -518,7 +520,7 @@ class MeshRenderer(
             model.index == 193 -> degToRad(225.0)
             model.index == 198 -> degToRad(120.0)
             model.index == 210 -> degToRad(210.0)
-            model.index in setOf(236, 245) -> kotlin.math.PI
+            model.index in setOf(215, 236, 245) -> kotlin.math.PI
             model.index in SCREEN_ROTATED_45_MODELS -> degToRad(45.0)
             else -> null
         }
@@ -532,7 +534,8 @@ class MeshRenderer(
                 261, 266,
             )
         private val SCREEN_REVERSED_MODELS =
-            setOf(52, 55, 56, 98, 99, 101, 102, 103, 108) + (78..88)
+            setOf(52, 55, 56, 98, 99, 100, 101, 102, 103, 105, 106, 108) +
+                (78..88)
         private val SCREEN_ROTATED_45_MODELS = setOf(89, 94, 104)
         private val DEFAULT_ITEM_ROTATION = PresentationRotation(.0, .0, degToRad(90.0))
         private val CATALOG_MODELS =
@@ -560,24 +563,13 @@ class MeshRenderer(
             when {
                 model !is ViewerModel.Item -> null
                 model.index == 54 -> ItemPresentationProfile.Wok
+                model.index in CARD_FAN_MODELS -> ItemPresentationProfile.Card
                 model.index in DAGGER_MODELS -> ItemPresentationProfile.Dagger
                 model.index in CLAW_MODELS -> ItemPresentationProfile.Claw
                 model.index in SWORD_PARTISAN_CATALOG_MODELS ->
                     ItemPresentationProfile.SwordPartisan
-                model.weaponKind != null -> presentationProfileForWeaponKind(model.weaponKind)
                 model.index in CATALOG_MODELS -> ItemPresentationProfile.Catalog
                 model.index in GUN_CATALOG_MODELS -> ItemPresentationProfile.Gun
-                else -> ItemPresentationProfile.Default
-            }
-
-        private fun presentationProfileForWeaponKind(weaponKind: Int): ItemPresentationProfile =
-            when (weaponKind) {
-                1, 3, 15 -> ItemPresentationProfile.SwordPartisan
-                2 -> ItemPresentationProfile.Dagger
-                in 5..8, 17 -> ItemPresentationProfile.Gun
-                12 -> ItemPresentationProfile.Claw
-                18 -> ItemPresentationProfile.Card
-                0, 4, 9, 10, 11, 13, 16 -> ItemPresentationProfile.Catalog
                 else -> ItemPresentationProfile.Default
             }
 
