@@ -63,20 +63,55 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
         }
 
     val scriptLabel: Int?
-        get() = when (type) {
-            ObjectType.ScriptCollision,
-            ObjectType.ForestConsole,
-            ObjectType.TalkLinkToSupport,
-            -> data.getInt(52)
+        get() = activeScriptLabel
 
-            ObjectType.RicoMessagePod,
-            -> data.getInt(56)
+    @Deprecated("Use scriptLabel instead.", ReplaceWith("scriptLabel"))
+    val scriptLabel2: Int?
+        get() = if (type == ObjectType.RicoMessagePod) scriptLabel else null
+
+    /**
+     * Byte offset that can contain this object's script entry label, regardless of whether the
+     * object's current mode enables the callback.
+     */
+    val possibleScriptLabelOffset: Int?
+        get() = when (typeId.toInt() and 0xFFFF) {
+            0x0012, // TObjQuestCol
+            0x0015, // TObjQuestColA
+            0x0026, // TOChatSensor
+            0x008B, // TObjComputer
+            0x02B7, // TObjGbAdvance
+            0x02B8, // TObjQuestColALock2
+            0x02BA, // TObjQuestCol2
+            -> 52
+
+            0x0023, // TOAttackableCol
+            0x008D, // TOCapsuleAncient01
+            0x0104, // TOComputerMachine01
+            0x0155, // TOMonumentAncient01
+            0x0229, // TOCapsuleLabo
+            -> 60
 
             else -> null
         }
 
-    val scriptLabel2: Int?
-        get() = if (type == ObjectType.RicoMessagePod) data.getInt(60) else null
+    /** Byte offset of the script label that is active in the object's current mode. */
+    val activeScriptLabelOffset: Int?
+        get() {
+            val offset = possibleScriptLabelOffset ?: return null
+            return when (typeId.toInt() and 0xFFFF) {
+                0x0023 -> offset.takeIf { data.getInt(it) > 0 }
+                0x0026 -> offset.takeIf { data.getInt(28) == 0 }
+                0x02B8,
+                0x02BA,
+                -> offset.takeIf { data.getInt(56) <= 0 }
+
+                else -> offset
+            }
+        }
+
+    /** Script entry label referenced by this object's current mode. */
+    val activeScriptLabel: Int?
+        get() = activeScriptLabelOffset?.let(data::getInt)
 
     /**
      * The offset of the model property or -1 if this object doesn't have a model property.

@@ -10,6 +10,7 @@ import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.web.questEditor.controllers.EventsController
 import world.phantasmal.web.questEditor.controllers.PlaybackState
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.webui.obj
 import world.phantasmal.webui.dom.*
 import world.phantasmal.webui.widgets.Dropdown
 import world.phantasmal.webui.widgets.IntInput
@@ -60,6 +61,10 @@ class EventWidget(
 
             createPropsSection()
             createActionsSection()
+        }.also { element ->
+            observeNow(isSelected) { selected ->
+                if (selected) element.scrollIntoView(obj { block = "nearest" })
+            }
         }
 
     private fun Node.createPropsSection() {

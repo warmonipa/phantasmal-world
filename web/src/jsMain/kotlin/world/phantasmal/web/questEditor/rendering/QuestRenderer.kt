@@ -9,6 +9,7 @@ import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.FogAssetLoader
 import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.rendering.input.QuestInputManager
@@ -18,6 +19,7 @@ class QuestRenderer(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
     particleAssetLoader: ParticleAssetLoader,
+    fogAssetLoader: FogAssetLoader,
     questEditorStore: QuestEditorStore,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
@@ -27,6 +29,7 @@ class QuestRenderer(
     symbolChatTriggers: Cell<List<SymbolChatTriggerInfo>>,
     readSegmentData: (Int) -> Buffer?,
     onNavigateToScriptLabel: (Int) -> Unit,
+    onActivateEventsWidget: () -> Unit,
     createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Renderer() {
     override val context = addDisposable(QuestRenderContext(
@@ -39,7 +42,7 @@ class QuestRenderer(
         ),
     ))
 
-    override val threeRenderer = addDisposable(createThreeRenderer(context.canvas)).renderer
+    override val disposableThreeRenderer = addDisposable(createThreeRenderer(context.canvas))
 
     override val inputManager = addDisposable(QuestInputManager(
         questEditorStore,
@@ -47,6 +50,7 @@ class QuestRenderer(
         viewportStore,
         context,
         onNavigateToScriptLabel,
+        onActivateEventsWidget,
     ))
 
     private val meshManager = addDisposable(
@@ -65,6 +69,9 @@ class QuestRenderer(
             readSegmentData,
         ),
     )
+    private val fogPreviewManager = addDisposable(
+        FogPreviewManager(context, fogAssetLoader, questEditorStore)
+    )
 
     init {
 
@@ -82,6 +89,7 @@ class QuestRenderer(
     }
 
     override fun render() {
+        fogPreviewManager.beforeRender()
         meshManager.beforeRender()
         super.render()
     }

@@ -48,7 +48,7 @@ class TextureRenderer(
         )
     )
 
-    override val threeRenderer = addDisposable(createThreeRenderer(context.canvas)).renderer
+    override val disposableThreeRenderer = addDisposable(createThreeRenderer(context.canvas))
 
     override val inputManager = addDisposable(
         OrbitalCameraInputManager(

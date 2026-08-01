@@ -1,6 +1,7 @@
 package world.phantasmal.web.questEditor.widgets
 
 import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.await
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
@@ -42,6 +43,9 @@ class AsmEditorWidget(
     private val asmWidget: AsmWidget,
     private val symbolChatColliRepository: SymbolChatColliRepository,
 ) : Widget() {
+    private var navigationFrame: Int? = null
+    private var pendingNavigationRange: AsmRange? = null
+
     // State for the inline SC preview. We keep at most one Monaco view
     // zone open — the one corresponding to whichever
     // `set_symbol_chat_collision` line the cursor is currently on.
@@ -87,6 +91,9 @@ class AsmEditorWidget(
                         width = size.width
                         height = size.height
                     })
+                    if (pendingNavigationRange != null) {
+                        scheduleNavigation()
+                    }
                 }
             })
 
@@ -309,23 +316,55 @@ class AsmEditorWidget(
 
             editor.onDidFocusEditorWidget(ctrl::makeUndoCurrent)
 
-            fun navigateTo(range: AsmRange) {
-                logger.info { "goToLabel observer fired: line=${range.startLineNo}, col=${range.startCol}" }
-                val pos: IPosition = obj { lineNumber = range.startLineNo; column = range.startCol }
-                editor.setPosition(pos)
-                editor.revealPositionInCenter(pos)
-                editor.focus()
-            }
-
             // Navigation can be requested while this widget is still being activated. Keep the
             // request pending until the Monaco editor and its observer are ready.
             addDisposable(ctrl.goToLabel.observe { emittedRange ->
-                navigateTo(ctrl.takePendingGoToLabelRange() ?: emittedRange)
+                requestNavigation(ctrl.takePendingGoToLabelRange() ?: emittedRange)
             })
-            ctrl.takePendingGoToLabelRange()?.let(::navigateTo)
+            ctrl.takePendingGoToLabelRange()?.let(::requestNavigation)
+
+            addDisposable(disposable {
+                navigationFrame?.let(window::cancelAnimationFrame)
+                navigationFrame = null
+            })
 
             addDisposable(EditorHistory(editor))
         }
+
+    private fun requestNavigation(range: AsmRange) {
+        logger.info {
+            "goToLabel observer fired: line=${range.startLineNo}, col=${range.startCol}"
+        }
+        pendingNavigationRange = range
+        scheduleNavigation()
+    }
+
+    private fun scheduleNavigation() {
+        navigationFrame?.let(window::cancelAnimationFrame)
+        navigationFrame = window.requestAnimationFrame {
+            navigationFrame = null
+
+            if (!disposed) {
+                val width = element.offsetWidth.toDouble()
+                val height = element.offsetHeight.toDouble()
+                val range = pendingNavigationRange
+                if (width > .0 && height > .0 && range != null) {
+                    pendingNavigationRange = null
+                    editor.layout(obj {
+                        this.width = width
+                        this.height = height
+                    })
+                    val pos: IPosition = obj {
+                        lineNumber = range.startLineNo
+                        column = range.startCol
+                    }
+                    editor.setPosition(pos)
+                    editor.revealPositionInCenter(pos)
+                    editor.focus()
+                }
+            }
+        }
+    }
 
     private fun pickFileAndReplaceSegment(labelId: Int) {
         // If the file's first 3 bytes match a known raw-image magic

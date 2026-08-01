@@ -5,6 +5,7 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.questEditor.controllers.EntityListController
+import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -117,6 +118,76 @@ class QuestEditorStoreTests : WebTestSuite {
 
         assertEquals(17, store.currentArea.value?.id, "Should switch to Tower (area 17)")
         assertEquals(1, store.currentAreaVariant.value?.id, "Should switch to variant 1")
+    }
+
+    @Test
+    fun selecting_an_enemy_from_the_viewport_selects_all_matching_events() = testAsync {
+        val store = components.questEditorStore
+        val enemy = createQuestNpcModel(NpcType.Booma, Episode.I).apply {
+            setSectionId(7)
+            setWaveId(4)
+        }
+        val firstEvent = QuestEventModel(
+            id = 100,
+            floorId = 0,
+            sectionId = 7,
+            waveId = 4,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        val secondEvent = QuestEventModel(
+            id = 101,
+            floorId = 0,
+            sectionId = 7,
+            waveId = 4,
+            delay = 30,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        val otherEvent = QuestEventModel(
+            id = 102,
+            floorId = 0,
+            sectionId = 7,
+            waveId = 5,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        val otherSectionEvent = QuestEventModel(
+            id = 103,
+            floorId = 0,
+            sectionId = 8,
+            waveId = 4,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        val otherFloorEvent = QuestEventModel(
+            id = 104,
+            floorId = 1,
+            sectionId = 7,
+            waveId = 4,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+        )
+        store.setCurrentQuest(createQuestModel(
+            npcs = listOf(enemy),
+            events = listOf(
+                firstEvent,
+                secondEvent,
+                otherEvent,
+                otherSectionEvent,
+                otherFloorEvent,
+            ),
+        ))
+
+        store.selectViewportEntity(enemy)
+
+        assertEquals(enemy, store.selectedEntity.value)
+        assertEquals(firstEvent, store.selectedEvent.value)
+        assertEquals(setOf(firstEvent, secondEvent), store.selectedEvents.value)
     }
 
     @Test

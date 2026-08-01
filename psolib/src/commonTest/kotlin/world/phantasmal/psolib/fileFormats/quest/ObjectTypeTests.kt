@@ -3,6 +3,7 @@ package world.phantasmal.psolib.fileFormats.quest
 import world.phantasmal.psolib.test.LibTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class ObjectTypeTests : LibTestSuite {
@@ -37,5 +38,68 @@ class ObjectTypeTests : LibTestSuite {
         // Guard: if a TObjCity_Season_* type is added/removed, update the mapping test above.
         val seasonal = ObjectType.entries.filter { it.lobbyEvent != null }
         assertEquals(8, seasonal.size, "Update the seasonal mapping test when this changes.")
+    }
+
+    @Test
+    fun every_script_object_exposes_its_script_label_property() {
+        val scriptObjectTypes = listOf(
+            ObjectType.ScriptCollision,
+            ObjectType.ScriptCollisionA,
+            ObjectType.TargetableObject,
+            ObjectType.ChatSensor,
+            ObjectType.ForestConsole,
+            ObjectType.RicoMessagePod,
+            ObjectType.ComputerLikeCalus,
+            ObjectType.RuinsCrystal,
+            ObjectType.VRLink,
+            ObjectType.GBAStation,
+            ObjectType.TalkLinkToSupport,
+            ObjectType.LabInvisibleObject,
+        )
+
+        for (type in scriptObjectTypes) {
+            val obj = QuestObject(type, floorId = 0)
+            assertNotNull(
+                type.properties.find { it.offset == obj.possibleScriptLabelOffset },
+                "${type.uniqueName} does not expose its script label property.",
+            )
+        }
+    }
+
+    @Test
+    fun conditional_script_object_modes_control_the_active_label() {
+        val targetable = QuestObject(ObjectType.TargetableObject, floorId = 0)
+        targetable.data.setInt(60, 0)
+        assertNull(targetable.activeScriptLabel)
+        targetable.data.setInt(60, 100)
+        assertEquals(100, targetable.activeScriptLabel)
+
+        val chatSensor = QuestObject(ObjectType.ChatSensor, floorId = 0)
+        chatSensor.data.setInt(52, 200)
+        chatSensor.data.setInt(28, 1)
+        assertNull(chatSensor.activeScriptLabel)
+        chatSensor.data.setInt(28, 0)
+        assertEquals(200, chatSensor.activeScriptLabel)
+
+        for (type in listOf(ObjectType.TalkLinkToSupport, ObjectType.LabInvisibleObject)) {
+            val obj = QuestObject(type, floorId = 0)
+            obj.data.setInt(52, 300)
+            obj.data.setInt(56, 1)
+            assertNull(obj.activeScriptLabel)
+            obj.data.setInt(56, 0)
+            assertEquals(300, obj.activeScriptLabel)
+        }
+    }
+
+    @Test
+    fun fog_objects_expose_the_client_parameters() {
+        assertEquals(
+            listOf(40, 52, 56),
+            ObjectType.FogCollision.properties.map { it.offset },
+        )
+        assertEquals(
+            listOf(40, 48, 52, 56, 60),
+            ObjectType.FogCollisionSW.properties.map { it.offset },
+        )
     }
 }

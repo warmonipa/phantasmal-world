@@ -34,6 +34,7 @@ class QuestInputManager(
     private val viewportStore: ViewportStore,
     private val renderContext: QuestRenderContext,
     private val onNavigateToScriptLabel: (Int) -> Unit,
+    private val onActivateEventsWidget: () -> Unit,
 ) : DisposableContainer(), InputManager {
     private val stateContext: StateContext
     private val pointerPosition = Vector2()
@@ -103,6 +104,7 @@ class QuestInputManager(
             renderContext,
             cameraInputManager,
             onNavigateToScriptLabel,
+            onActivateEventsWidget,
         )
         state = IdleState(stateContext, entityManipulationEnabled)
 

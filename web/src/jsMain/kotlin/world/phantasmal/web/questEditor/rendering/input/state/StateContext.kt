@@ -32,6 +32,7 @@ class StateContext(
     val renderContext: QuestRenderContext,
     val cameraInputManager: OrbitalCameraInputManager,
     private val onNavigateToScriptLabel: (Int) -> Unit,
+    private val onActivateEventsWidget: () -> Unit,
 ) {
     /**
      * Highlighted mesh with its original colors.
@@ -52,6 +53,14 @@ class StateContext(
 
     fun setSelectedEntity(entity: QuestEntityModel<*, *>?) {
         questEditorStore.setSelectedEntity(entity)
+    }
+
+    fun selectViewportEntity(entity: QuestEntityModel<*, *>) {
+        val matchingEvents = questEditorStore.matchingEventsForViewportEntity(entity)
+        if (matchingEvents.isNotEmpty()) {
+            onActivateEventsWidget()
+        }
+        questEditorStore.selectViewportEntity(entity, matchingEvents)
     }
 
     fun navigateToScriptLabel(label: Int) {

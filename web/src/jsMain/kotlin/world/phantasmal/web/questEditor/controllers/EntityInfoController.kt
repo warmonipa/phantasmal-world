@@ -29,7 +29,40 @@ sealed class EntityInfoPropModel(
     protected val prop: QuestEntityPropModel,
 ) {
     val label = prop.name + ":"
-    val isScriptLabel: Boolean = prop.name == "Script label"
+    private val selectedEntity = store.selectedEntity.value
+    val isScriptLabel: Boolean = when (val entity = selectedEntity) {
+        is QuestNpcModel -> prop.name == "Script label"
+        is QuestObjectModel -> prop.offset == entity.entity.possibleScriptLabelOffset
+        else -> false
+    }
+    val scriptLabelId: Cell<Int?> = when (val entity = selectedEntity) {
+        is QuestNpcModel -> {
+            if (isScriptLabel) prop.value.map { it.toScriptLabelId() } else nullCell()
+        }
+        is QuestObjectModel -> objectScriptLabelId(entity)
+        else -> nullCell()
+    }
+    val canGoToScriptLabel: Cell<Boolean> = scriptLabelId.isNotNull()
+
+    private fun objectScriptLabelId(entity: QuestObjectModel): Cell<Int?> {
+        if (!isScriptLabel) return nullCell()
+
+        val activation: Cell<*> = when (entity.type) {
+            ObjectType.ChatSensor -> entity.rotation
+            ObjectType.TalkLinkToSupport,
+            ObjectType.LabInvisibleObject,
+            -> entity.properties.value.find { it.offset == 56 }?.value ?: prop.value
+            else -> prop.value
+        }
+
+        return activation.map { entity.entity.activeScriptLabel }
+    }
+
+    private fun Any.toScriptLabelId(): Int? = when (this) {
+        is Int -> this
+        is Float -> toInt()
+        else -> null
+    }
 
     protected fun setPropValue(prop: QuestEntityPropModel, value: Any) {
         store.selectedEntity.value?.let { entity ->
@@ -45,7 +78,11 @@ sealed class EntityInfoPropModel(
         }
     }
 
-    class I32(store: QuestEditorStore, prop: QuestEntityPropModel) :
+    class I32(
+        store: QuestEditorStore,
+        prop: QuestEntityPropModel,
+        private val onActivateEventsWidget: () -> Unit = {},
+    ) :
         EntityInfoPropModel(store, prop) {
 
         /** Non-null when this property should render as a color select box. */
@@ -99,6 +136,11 @@ sealed class EntityInfoPropModel(
         }
 
         fun goToEvent() {
+            if (!canGoToEvent.value) return
+
+            // Make the event card visible before selecting it, so its selection observer can
+            // reliably scroll the card into view.
+            onActivateEventsWidget()
             store.goToEvent(value.value)
         }
 
@@ -178,6 +220,7 @@ class EntityInfoController(
     private val questEditorUiStore: QuestEditorUiStore,
     private val asmStore: AsmStore,
     private val onActivateAsmEditor: () -> Unit = {},
+    private val onActivateEventsWidget: () -> Unit = {},
 ) : Controller() {
     val unavailable: Cell<Boolean> = questEditorStore.selectedEntity.isNull()
     val enabled: Cell<Boolean> = questEditorStore.questEditingEnabled
@@ -268,8 +311,16 @@ class EntityInfoController(
 
     private fun toInfoPropModel(prop: QuestEntityPropModel): EntityInfoPropModel =
         when (prop.type) {
-            EntityPropType.I32 -> EntityInfoPropModel.I32(questEditorStore, prop)
-            EntityPropType.U16 -> EntityInfoPropModel.I32(questEditorStore, prop)
+            EntityPropType.I32 -> EntityInfoPropModel.I32(
+                questEditorStore,
+                prop,
+                onActivateEventsWidget,
+            )
+            EntityPropType.U16 -> EntityInfoPropModel.I32(
+                questEditorStore,
+                prop,
+                onActivateEventsWidget,
+            )
             EntityPropType.F32 -> EntityInfoPropModel.F32(questEditorStore, prop)
             EntityPropType.Angle -> EntityInfoPropModel.Angle(questEditorStore, prop)
         }

@@ -544,6 +544,34 @@ class QuestEditorStore(
         }
     }
 
+    /** Events whose floor, section, and wave match a viewport enemy. */
+    internal fun matchingEventsForViewportEntity(
+        entity: QuestEntityModel<*, *>,
+    ): List<QuestEventModel> {
+        val enemy = (entity as? QuestNpcModel)?.takeIf { it.type.enemy } ?: return emptyList()
+        return currentQuest.value?.events?.value?.filter { it.wave.value == enemy.wave.value }
+            ?: emptyList()
+    }
+
+    /** Selects a viewport entity and every event matching a clicked enemy's wave. */
+    fun selectViewportEntity(entity: QuestEntityModel<*, *>) {
+        selectViewportEntity(entity, matchingEventsForViewportEntity(entity))
+    }
+
+    internal fun selectViewportEntity(
+        entity: QuestEntityModel<*, *>,
+        matchingEvents: List<QuestEventModel>,
+    ) {
+        mutate {
+            setSelectedEntity(entity)
+
+            val focusedEvent = matchingEvents.firstOrNull() ?: return@mutate
+            setSelectedEvent(focusedEvent)
+            updateEventSelection(matchingEvents.toSet(), focusedEvent)
+            selectSectionForEvent(focusedEvent)
+        }
+    }
+
     fun addEntity(quest: QuestModel, entity: QuestEntityModel<*, *>) {
         mutate {
             quest.addEntity(entity)

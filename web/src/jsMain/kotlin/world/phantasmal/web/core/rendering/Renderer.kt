@@ -5,13 +5,13 @@ import kotlinx.browser.window
 import mu.KotlinLogging
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.webui.DisposableContainer
-import world.phantasmal.web.externals.three.Renderer as ThreeRenderer
 
 private val logger = KotlinLogging.logger {}
 
 abstract class Renderer : DisposableContainer() {
     protected abstract val context: RenderContext
-    protected abstract val threeRenderer: ThreeRenderer
+    protected abstract val disposableThreeRenderer: DisposableThreeRenderer
+    protected val threeRenderer get() = disposableThreeRenderer.renderer
     protected abstract val inputManager: InputManager
 
     val canvas: HTMLCanvasElement get() = context.canvas
@@ -23,6 +23,7 @@ abstract class Renderer : DisposableContainer() {
         if (!rendering) {
             logger.trace { "${this::class.simpleName} - start rendering." }
 
+            disposableThreeRenderer.restoreContext()
             rendering = true
             renderLoop()
         }
@@ -35,6 +36,15 @@ abstract class Renderer : DisposableContainer() {
             rendering = false
             window.cancelAnimationFrame(animationFrameHandle)
         }
+
+        // Three.js renderers retain a scarce browser WebGL context even after their animation
+        // loop has stopped. Hidden tools and tabs must return it to the browser.
+        disposableThreeRenderer.releaseContext()
+    }
+
+    override fun dispose() {
+        stopRendering()
+        super.dispose()
     }
 
     open fun setSize(width: Int, height: Int) {

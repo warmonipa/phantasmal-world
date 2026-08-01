@@ -70,7 +70,7 @@ class IdleState(
                         } else if (pick == null) {
                             panning = true
                         } else {
-                            ctx.setSelectedEntity(pick.entity)
+                            ctx.selectViewportEntity(pick.entity)
 
                             if (entityManipulationEnabled) {
                                 return TranslationState(
@@ -86,7 +86,7 @@ class IdleState(
                         if (pick == null) {
                             rotating = true
                         } else {
-                            ctx.setSelectedEntity(pick.entity)
+                            ctx.selectViewportEntity(pick.entity)
 
                             if (entityManipulationEnabled) {
                                 return RotationState(
@@ -194,9 +194,7 @@ class IdleState(
                         "event ${event.label} ($kind)"
                     }
                     .let { if (it.isEmpty()) "" else ", $it" }
-                val clickHint =
-                    if (particle.primaryInteractionEvent() == null) "" else ", click to open script"
-                "Particle ${particle.particleId} @ $origin, $lifetime$drawRange$events$clickHint"
+                "Particle ${particle.particleId} @ $origin, $lifetime$drawRange$events"
             } else {
                 ""
             }

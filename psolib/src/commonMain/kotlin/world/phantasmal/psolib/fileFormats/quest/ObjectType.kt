@@ -128,6 +128,7 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Transition (0=fade, 1=instant)", offset = 56, type = EntityPropType.I32),
         ),
     ),
     EventCollision(
@@ -264,7 +265,7 @@ enum class ObjectType(
         typeId = 18,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Function", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
         ),
     ),
     HealRing(
@@ -297,6 +298,10 @@ enum class ObjectType(
             Episode.IV to listOf(1, 2, 3, 4, 5, 6, 7, 8, 0),
         ),
         typeId = 21,
+        properties = listOf(
+            EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
+        ),
     ),
     ItemLight(
         uniqueName = "Item Light",
@@ -332,8 +337,9 @@ enum class ObjectType(
         typeId = 24,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Status", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Start off (0=fog on, 1=switch on)", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Transition (0=fade, 1=instant)", offset = 56, type = EntityPropType.I32),
             EntityProp(name = "Switch ID", offset = 60, type = EntityPropType.I32),
         ),
     ),
@@ -479,6 +485,7 @@ enum class ObjectType(
             EntityProp(name = "Target Type", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "HP", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 60, type = EntityPropType.I32),
         ),
     ),
     EffectObject(
@@ -522,7 +529,7 @@ enum class ObjectType(
         typeId = 38,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Switch flag number or quest label number", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label or switch flag number", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Trigger string", offset = 56, type = EntityPropType.I32),
         ),
     ),
@@ -987,7 +994,7 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Active", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Message ID", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Function", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 60, type = EntityPropType.I32),
         ),
     ),
     EnergyBarrier(
@@ -1448,6 +1455,9 @@ enum class ObjectType(
             Episode.II to listOf(17),
         ),
         typeId = 260,
+        properties = listOf(
+            EntityProp(name = "Script label", offset = 60, type = EntityPropType.I32),
+        ),
     ),
     GreenScreenOpeningAndClosing(
         uniqueName = "Green Screen opening and closing",
@@ -1778,6 +1788,9 @@ enum class ObjectType(
             Episode.I to listOf(8, 9, 10),
         ),
         typeId = 341,
+        properties = listOf(
+            EntityProp(name = "Script label", offset = 60, type = EntityPropType.I32),
+        ),
     ),
     Monument(
         uniqueName = "Monument",
@@ -2560,6 +2573,7 @@ enum class ObjectType(
         typeId = 553,
         properties = listOf(
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 60, type = EntityPropType.I32),
         ),
     ),
     Ep2Particle(
@@ -2648,7 +2662,7 @@ enum class ObjectType(
         areaIds = mapOf(),
         typeId = 695,
         properties = listOf(
-            EntityProp(name = "Function", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
         ),
     ),
     TalkLinkToSupport(
@@ -2661,7 +2675,8 @@ enum class ObjectType(
         typeId = 696,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Function", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Activator", offset = 56, type = EntityPropType.I32),
         ),
     ),
     InstaWarp(
@@ -2691,7 +2706,7 @@ enum class ObjectType(
         typeId = 698,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Function", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Activator", offset = 56, type = EntityPropType.I32),
         ),
     ),

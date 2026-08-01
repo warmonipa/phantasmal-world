@@ -14,6 +14,22 @@ import kotlin.test.assertNotEquals
 
 class ViewerStoreTests : WebTestSuite {
     @Test
+    fun weapon_url_omits_character_only_parameters() = test {
+        val applicationUrl = TestApplicationUrl(
+            "/${PwToolType.Viewer.slug}${ViewerUrls.mesh}" +
+                "?model=Weapon_006A00&section_id=Bluefull&body=11"
+        )
+        components.applicationUrl = applicationUrl
+
+        components.viewerStore
+
+        assertEquals(
+            "/${PwToolType.Viewer.slug}${ViewerUrls.mesh}?model=Weapon_006A00",
+            applicationUrl.pathAndParams,
+        )
+    }
+
+    @Test
     fun npc_url_omits_character_only_parameters() = test {
         val applicationUrl = TestApplicationUrl(
             "/${PwToolType.Viewer.slug}${ViewerUrls.mesh}" +

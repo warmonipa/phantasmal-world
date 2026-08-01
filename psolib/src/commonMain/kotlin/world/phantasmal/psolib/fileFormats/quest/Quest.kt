@@ -721,33 +721,7 @@ private fun extractScriptEntryPointFloorIds(
 
 /** Script labels referenced by a DAT object, following the client's type-specific field rules. */
 private fun scriptLabelsForObject(obj: QuestObject): List<Int> {
-    val typeId = obj.typeId.toInt() and 0xFFFF
-    val label = when (typeId) {
-        0x0012, // TObjQuestCol
-        0x0015, // TObjQuestColA
-        0x008B, // TObjComputer
-        0x02B7, // TObjGbAdvance
-        -> obj.data.getInt(52) // param4
-
-        0x02B8, // TObjQuestColALock2
-        0x02BA, // TObjQuestCol2
-        -> if (obj.data.getInt(56) <= 0) obj.data.getInt(52) else null
-
-        0x0023, // TOAttackableCol
-        -> obj.data.getInt(60).takeIf { it > 0 } // param6
-
-        0x0026, // TOChatSensor: angle.x != 0 selects switch mode instead of script mode
-        -> if (obj.data.getInt(28) == 0) obj.data.getInt(52) else null
-
-        0x008D, // TOCapsuleAncient01
-        0x0104, // TOComputerMachine01
-        0x0155, // TOMonumentAncient01
-        0x0229, // TOCapsuleLabo
-        -> obj.data.getInt(60) // param6
-
-        else -> null
-    }
-    return listOfNotNull(label)
+    return listOfNotNull(obj.activeScriptLabel)
 }
 
 /**

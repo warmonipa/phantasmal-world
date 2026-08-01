@@ -220,11 +220,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                 style.cursor = "pointer"
                 title = "Double-click to go to script label"
                 addEventListener("dblclick", {
-                    val labelId = when (prop) {
-                        is EntityInfoPropModel.I32 -> prop.value.value
-                        is EntityInfoPropModel.F32 -> prop.value.value.toInt()
-                        else -> return@addEventListener
-                    }
+                    val labelId = prop.scriptLabelId.value ?: return@addEventListener
                     ctrl.goToScriptLabel(labelId)
                 })
             }
@@ -257,15 +253,12 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                 td {
                     addWidget(
                         disposer.add(Button(
+                            enabled = prop.canGoToScriptLabel,
                             tooltip = cell("Go to script label"),
                             iconLeft = Icon.ArrowRight,
                             onClick = { e ->
                                 e.stopPropagation()
-                                val labelId = when (prop) {
-                                    is EntityInfoPropModel.I32 -> prop.value.value
-                                    is EntityInfoPropModel.F32 -> prop.value.value.toInt()
-                                    else -> return@Button
-                                }
+                                val labelId = prop.scriptLabelId.value ?: return@Button
                                 ctrl.goToScriptLabel(labelId)
                             }
                         )),

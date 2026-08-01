@@ -260,11 +260,17 @@ class EntityInfoControllerTests : WebTestSuite {
     @Test
     fun go_to_event() = testAsync {
         val store = components.questEditorStore
+        var activationCount = 0
         val ctrl = disposer.add(EntityInfoController(
             components.areaStore,
             store,
             components.questEditorUiStore,
             components.asmStore,
+            onActivateEventsWidget = {
+                // The Events tab must become visible before selection triggers card scrolling.
+                assertNull(store.selectedEvent.value)
+                activationCount++
+            },
         ))
 
         val obj = createQuestObjectModel(ObjectType.EventCollision)
@@ -283,11 +289,82 @@ class EntityInfoControllerTests : WebTestSuite {
         assertFalse(eventProp.canGoToEvent.value)
         eventProp.goToEvent()
         assertNull(store.selectedEvent.value)
+        assertEquals(0, activationCount)
 
         // Set the value to 100 to enable.
         eventProp.setValue(100)
         assertTrue(eventProp.canGoToEvent.value)
         eventProp.goToEvent()
         assertEquals(event, store.selectedEvent.value)
+        assertEquals(1, activationCount)
+    }
+
+    @Test
+    fun all_script_objects_expose_a_script_navigation_property() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val objects = listOf(
+            ObjectType.ScriptCollision,
+            ObjectType.ScriptCollisionA,
+            ObjectType.TargetableObject,
+            ObjectType.ChatSensor,
+            ObjectType.ForestConsole,
+            ObjectType.RicoMessagePod,
+            ObjectType.ComputerLikeCalus,
+            ObjectType.RuinsCrystal,
+            ObjectType.VRLink,
+            ObjectType.GBAStation,
+            ObjectType.TalkLinkToSupport,
+            ObjectType.LabInvisibleObject,
+        ).map(::createQuestObjectModel)
+        components.questEditorStore.setCurrentQuest(createQuestModel(objects = objects))
+
+        for ((index, obj) in objects.withIndex()) {
+            components.questEditorStore.setSelectedEntity(obj)
+            if (obj.type == ObjectType.TalkLinkToSupport ||
+                obj.type == ObjectType.LabInvisibleObject
+            ) {
+                assertIs<EntityInfoPropModel.I32>(
+                    ctrl.props.value.single { it.label == "Activator:" },
+                ).setValue(0)
+            }
+            val scriptProp = assertIs<EntityInfoPropModel.I32>(
+                ctrl.props.value.single { it.isScriptLabel },
+            )
+            scriptProp.setValue(100 + index)
+            assertEquals(100 + index, scriptProp.scriptLabelId.value, obj.type.uniqueName)
+        }
+    }
+
+    @Test
+    fun conditional_script_navigation_updates_when_object_mode_changes() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val obj = createQuestObjectModel(ObjectType.TalkLinkToSupport)
+        components.questEditorStore.setCurrentQuest(createQuestModel(objects = listOf(obj)))
+        components.questEditorStore.setSelectedEntity(obj)
+
+        val scriptProp = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.isScriptLabel },
+        )
+        val activatorProp = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label == "Activator:" },
+        )
+        scriptProp.setValue(123)
+        activatorProp.setValue(1)
+        assertFalse(scriptProp.canGoToScriptLabel.value)
+
+        activatorProp.setValue(0)
+
+        assertTrue(scriptProp.canGoToScriptLabel.value)
+        assertEquals(123, scriptProp.scriptLabelId.value)
     }
 }

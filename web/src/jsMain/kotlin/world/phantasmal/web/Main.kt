@@ -6,6 +6,7 @@ import mu.KotlinLoggingConfiguration
 import mu.KotlinLoggingLevel
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.PopStateEvent
+import org.w3c.dom.events.Event
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.core.disposable.TrackedDisposable
@@ -15,6 +16,7 @@ import world.phantasmal.web.core.Clock
 import world.phantasmal.web.core.loading.AssetLoader
 import world.phantasmal.web.core.persistence.LocalStorageKeyValueStore
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.core.rendering.WebGlContextManager
 import world.phantasmal.web.core.stores.ApplicationUrl
 import world.phantasmal.web.externals.three.WebGLRenderer
 import world.phantasmal.web.shared.logging.LogAppender
@@ -64,14 +66,41 @@ private fun createThreeRenderer(canvas: HTMLCanvasElement): DisposableThreeRende
             antialias = true
             alpha = true
         })
+        private val contextManager = WebGlContextManager(
+            renderer::forceContextLoss,
+            renderer::forceContextRestore,
+        )
+        private val contextLostListener = canvas.disposableListener<Event>(
+            "webglcontextlost",
+            { event ->
+                // Allow restoration and keep our lifecycle state aligned with the browser event.
+                event.preventDefault()
+                contextManager.onContextLost()
+            },
+        )
+        private val contextRestoredListener = canvas.disposableListener<Event>(
+            "webglcontextrestored",
+            { contextManager.onContextRestored() },
+        )
 
         init {
             renderer.debug.checkShaderErrors = false
             renderer.setPixelRatio(window.devicePixelRatio)
         }
 
+        override fun releaseContext() {
+            contextManager.releaseContext()
+        }
+
+        override fun restoreContext() {
+            contextManager.restoreContext()
+        }
+
         override fun dispose() {
+            releaseContext()
             renderer.dispose()
+            contextLostListener.dispose()
+            contextRestoredListener.dispose()
             super.dispose()
         }
     }

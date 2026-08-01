@@ -15,6 +15,7 @@ import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.BattleParamRepository
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.FogAssetLoader
 import world.phantasmal.web.questEditor.loading.QuestLoader
 import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
@@ -42,6 +43,7 @@ class QuestEditor(
         val entityAssetLoader = addDisposable(EntityAssetLoader(assetLoader))
         val battleParamRepository = addDisposable(BattleParamRepository(assetLoader))
         val symbolChatColliRepository = addDisposable(SymbolChatColliRepository(assetLoader))
+        val fogAssetLoader = FogAssetLoader(assetLoader)
 
         // Pre-warm the SymbolChatRenderer atlas so the first hover/selection
         // that paints SC stages doesn't flash a blank canvas while the four
@@ -96,6 +98,11 @@ class QuestEditor(
                     QuestEditorController.ASM_WIDGET_ID
                 )
             },
+            onActivateEventsWidget = {
+                questEditorController.requestActivateWidget(
+                    QuestEditorController.EVENTS_WIDGET_ID
+                )
+            },
         ))
         val characterClassAssetLoader = addDisposable(CharacterClassAssetLoader(assetLoader))
         val particleAssetLoader = addDisposable(ParticleAssetLoader(assetLoader))
@@ -114,6 +121,7 @@ class QuestEditor(
                 areaAssetLoader,
                 entityAssetLoader,
                 particleAssetLoader,
+                fogAssetLoader,
                 questEditorStore,
                 questEditorUiStore,
                 playbackVisualizationStore,
@@ -127,6 +135,11 @@ class QuestEditor(
                         QuestEditorController.ASM_WIDGET_ID
                     )
                     asmStore.goToLabel(label)
+                },
+                onActivateEventsWidget = {
+                    questEditorController.requestActivateWidget(
+                        QuestEditorController.EVENTS_WIDGET_ID
+                    )
                 },
                 createThreeRenderer = createThreeRenderer,
             )

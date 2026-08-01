@@ -259,6 +259,10 @@ open external class WebGLRenderer(
     fun clearColor()
 
     fun dispose()
+
+    fun forceContextLoss()
+
+    fun forceContextRestore()
 }
 
 external interface WebGLDebug {
