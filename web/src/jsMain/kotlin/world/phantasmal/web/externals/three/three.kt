@@ -693,6 +693,16 @@ external class MeshBasicMaterial(
     var opacity: Double
 }
 
+external interface MeshMatcapMaterialParameters : MaterialParameters {
+    var color: Color
+    var matcap: Texture?
+    var skinning: Boolean
+}
+
+external class MeshMatcapMaterial(
+    parameters: MeshMatcapMaterialParameters = definedExternally,
+) : Material
+
 external interface SpriteMaterialParameters : MaterialParameters {
     var color: Color
     var map: Texture?

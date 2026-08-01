@@ -9,6 +9,7 @@ class ItemPmt(
     val units: List<PmtUnit>,
     val tools: List<List<PmtTool>>,
     val weapons: List<List<PmtWeapon>>,
+    val weaponKinds: List<Int>,
 )
 
 class PmtStatBoost(
@@ -97,7 +98,8 @@ class PmtWeapon(
 )
 
 fun parseItemPmt(cursor: Cursor): ItemPmt {
-    val index = parseRel(cursor, parseIndex = true).index
+    val rel = parseRel(cursor, parseIndex = true)
+    val index = rel.index
 
     // index[305] is in Region C of the First System (First[291-313]), where entries are single
     // int32 pointer values (Second System ptrs), not [size, offset] pairs. So index[305].size
@@ -119,6 +121,13 @@ fun parseItemPmt(cursor: Cursor): ItemPmt {
         weapons.add(parseWeapons(cursor, index[i].offset, index[i].size))
     }
 
+    // BB's REL root stores the weapon-kind table pointer at offset 0x14. Each byte maps an
+    // ItemPMT weapon category to the base weapon kind used by the client.
+    cursor.seekStart(rel.dataOffset + 0x14)
+    val weaponKindTableOffset = cursor.int()
+    cursor.seekStart(weaponKindTableOffset)
+    val weaponKinds = cursor.uByteArray(weapons.size).map { it.toInt() }
+
     return ItemPmt(
         statBoosts,
         frames,
@@ -126,6 +135,7 @@ fun parseItemPmt(cursor: Cursor): ItemPmt {
         units,
         tools,
         weapons,
+        weaponKinds,
     )
 }
 

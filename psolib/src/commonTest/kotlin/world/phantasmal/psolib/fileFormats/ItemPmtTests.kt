@@ -18,5 +18,8 @@ class ItemPmtTests : LibTestSuite {
         assertEquals(30, saber.ata)
         assertEquals(35, saber.maxGrind)
         assertEquals(30, saber.reqAtp)
+
+        assertEquals(itemPmt.weapons.size, itemPmt.weaponKinds.size)
+        assertEquals((0..14).toList(), itemPmt.weaponKinds.take(15))
     }
 }

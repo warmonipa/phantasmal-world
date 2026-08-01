@@ -35,18 +35,20 @@ class MeshBuilder(
         textureIndex: Int?,
         alpha: Boolean,
         additiveBlending: Boolean,
+        environmentMapping: Boolean = false,
     ): Int {
         val textureIndex = textureIndex?.let { textureIndexOverrides[it] ?: it }
         val groupIndex = groups.indexOfFirst {
             it.textureIndex == textureIndex &&
                     it.alpha == alpha &&
-                    it.additiveBlending == additiveBlending
+                    it.additiveBlending == additiveBlending &&
+                    it.environmentMapping == environmentMapping
         }
 
         return if (groupIndex != -1) {
             groupIndex
         } else {
-            groups.add(Group(textureIndex, alpha, additiveBlending))
+            groups.add(Group(textureIndex, alpha, additiveBlending, environmentMapping))
             groups.lastIndex
         }
     }
@@ -208,6 +210,23 @@ class MeshBuilder(
 
             val mat = if (tex == null) {
                 defaultMaterial
+            } else if (group.environmentMapping) {
+                MeshMatcapMaterial(obj {
+                    this.skinning = skinning
+                    matcap = tex
+                    side = DoubleSide
+
+                    if (group.alpha) {
+                        transparent = true
+                        alphaTest = 0.01
+                    }
+
+                    if (group.additiveBlending) {
+                        transparent = true
+                        alphaTest = 0.01
+                        blending = AdditiveBlending
+                    }
+                })
             } else {
                 MeshBasicMaterial(obj {
                     this.skinning = skinning
@@ -245,6 +264,7 @@ class MeshBuilder(
         val textureIndex: Int?,
         val alpha: Boolean,
         val additiveBlending: Boolean,
+        val environmentMapping: Boolean,
     ) {
         val indices = jsArrayOf<Short>()
     }

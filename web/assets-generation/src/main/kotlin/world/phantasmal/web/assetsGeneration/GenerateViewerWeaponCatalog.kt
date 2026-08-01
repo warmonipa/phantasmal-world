@@ -14,6 +14,7 @@ private data class ViewerWeaponEntry(
     val name: String,
     val modelIndex: Int,
     val textureIndex: Int,
+    val weaponKind: Int,
 )
 
 /**
@@ -47,6 +48,7 @@ internal fun generateViewerWeaponCatalog(outputFile: File) {
                             name = name,
                             modelIndex = modelIndex,
                             textureIndex = textureIndex,
+                            weaponKind = itemPmt.weaponKinds[categoryIndex],
                         )
                     )
                 }
@@ -83,6 +85,7 @@ private fun buildViewerWeaponCatalogSource(entries: List<ViewerWeaponEntry>): St
         appendLine("    val name: String,")
         appendLine("    val modelIndex: Int,")
         appendLine("    val textureIndex: Int,")
+        appendLine("    val weaponKind: Int,")
         appendLine(")")
         appendLine()
         appendLine("/**")
@@ -100,6 +103,8 @@ private fun buildViewerWeaponCatalogSource(entries: List<ViewerWeaponEntry>): St
             append(entry.modelIndex)
             append(", ")
             append(entry.textureIndex)
+            append(", ")
+            append(entry.weaponKind)
             appendLine("),")
         }
         appendLine(")")

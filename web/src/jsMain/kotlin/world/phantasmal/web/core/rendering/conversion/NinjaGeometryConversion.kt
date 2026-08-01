@@ -18,6 +18,7 @@ import world.phantasmal.psolib.fileFormats.ninja.NinjaObject
 import world.phantasmal.psolib.fileFormats.ninja.NjModel
 import world.phantasmal.psolib.fileFormats.ninja.NjObject
 import world.phantasmal.psolib.fileFormats.ninja.XjModel
+import world.phantasmal.psolib.fileFormats.ninja.XjMesh
 import world.phantasmal.psolib.fileFormats.ninja.XjObject
 import world.phantasmal.psolib.fileFormats.ninja.XvrTexture
 import world.phantasmal.web.core.dot
@@ -553,6 +554,7 @@ private class NinjaToMeshConverter(private val builder: MeshBuilder) {
                 currentTextureIdx,
                 alpha = true,
                 additiveBlending = currentSrcAlpha != 4 || currentDstAlpha != 5,
+                environmentMapping = usesEnvironmentMapping(model, mesh, currentTextureIdx),
             )
 
             var clockwise = false
@@ -604,7 +606,16 @@ private class NinjaToMeshConverter(private val builder: MeshBuilder) {
             }
         }
     }
+
 }
+
+internal fun usesEnvironmentMapping(
+    model: XjModel,
+    mesh: XjMesh,
+    textureIndex: Int?,
+): Boolean =
+    textureIndex != null && mesh.indices.isNotEmpty() &&
+        mesh.indices.all { model.vertices[it].uv == null }
 
 private class Vertex(
     val boneIndex: Int,

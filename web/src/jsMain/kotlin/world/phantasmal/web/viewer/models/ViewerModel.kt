@@ -36,6 +36,7 @@ sealed class ViewerModel {
         val kind: ItemKind,
         val textureIndex: Int = index,
         val itemTypeId: Int? = null,
+        val weaponKind: Int? = null,
     ) : ViewerModel() {
         override val uiName: String = displayName
         override val slug: String = when {
@@ -375,6 +376,7 @@ sealed class ViewerModel {
                 kind = ItemKind.Weapon,
                 textureIndex = entry.textureIndex,
                 itemTypeId = entry.itemTypeId,
+                weaponKind = entry.weaponKind,
             )
         }
 
