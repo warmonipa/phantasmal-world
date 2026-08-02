@@ -3,7 +3,9 @@ package world.phantasmal.web.questEditor.controllers
 import kotlinx.browser.window
 import world.phantasmal.cell.*
 import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.list.mapToList
 import world.phantasmal.cell.list.listCell
+import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.core.disposable.disposable
 import world.phantasmal.web.questEditor.commands.*
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
@@ -24,9 +26,15 @@ class EventsController(
     private val playbackVisualizationStore: PlaybackVisualizationStore,
 ) : Controller() {
     val unavailable: Cell<Boolean> = store.currentQuest.isNull()
-    val enabled: Cell<Boolean> = store.questEditingEnabled
+    val enabled: Cell<Boolean> = store.questEditingEnabled and store.challengeSeedSimulation.isNull()
     val removeEventEnabled: Cell<Boolean> = enabled and store.selectedEvent.isNotNull()
-    val events: ListCell<QuestEventModel> = store.currentAreaEvents
+    val events: ListCell<QuestEventModel> = mapToList(
+        store.challengeSeedSimulation,
+        store.currentAreaEvents,
+    ) { simulation, sourceEvents ->
+        if (simulation == null) sourceEvents
+        else materializeChallengeEventModels(simulation, sourceEvents)
+    }
 
     // Playback state
     private val _playbackState: MutableCell<PlaybackState> = mutableCell(PlaybackState.Stopped)
@@ -68,6 +76,15 @@ class EventsController(
         }
 
     init {
+        // Seed changes replace preview Event1 models. Do not retain selections that point to the
+        // previous materialization (or to the source Event2 list after toggling simulation).
+        observe(events) { currentEvents ->
+            val selected = store.selectedEvents.value
+            if (selected.any { old -> currentEvents.none { it === old } }) {
+                mutateDeferred { store.setSelectedEvent(null) }
+            }
+        }
+
         // Stop playback when area changes.
         observe(store.currentArea) {
             mutateDeferred { stopPlayback() }
@@ -267,14 +284,10 @@ class EventsController(
     }
 
     fun isSelected(event: QuestEventModel): Cell<Boolean> =
-        map(store.selectedEvent, event.id) { selectedEvent, eventId ->
-            selectedEvent?.id?.value == eventId
-        }
+        store.selectedEvent.map { selectedEvent -> selectedEvent === event }
 
     fun isMultiSelected(event: QuestEventModel): Cell<Boolean> =
-        map(store.selectedEvents, event.id) { selectedEvents, eventId ->
-            selectedEvents.any { it.id.value == eventId }
-        }
+        store.selectedEvents.map { selectedEvents -> selectedEvents.any { it === event } }
 
     fun selectEvent(event: QuestEventModel?, ctrlKey: Boolean = false) {
         if (ctrlKey && event != null) {
@@ -546,3 +559,50 @@ class EventsController(
         private const val DEFAULT_WAVE_ID = 1
     }
 }
+
+/**
+ * Replaces source Event2 room-generation configurations with the Event1 chain that newserv/the
+ * client materializes for a seed. Fixed Event1 entries are kept unchanged.
+ */
+internal fun materializeChallengeEventModels(
+    simulation: ChallengeModeSeedSimulation,
+    sourceEvents: List<QuestEventModel>,
+): List<QuestEventModel> {
+    val wavesBySource = simulation.waves.groupBy { it.floorId to it.sourceEventId }
+
+    return sourceEvents.flatMap { source ->
+        if (source.cmWaveSettings.value == null) {
+            listOf(source)
+        } else {
+            wavesBySource[source.floorId to source.id.value].orEmpty().map { wave ->
+                val actions = wave.triggeredEventId?.let { nextEventId ->
+                    mutableListOf<QuestEventActionModel>(QuestEventActionModel.TriggerEvent(nextEventId))
+                } ?: source.actions.value.mapTo(mutableListOf(), ::copyEventAction)
+
+                QuestEventModel(
+                    id = wave.materializedEventId,
+                    floorId = wave.floorId,
+                    sectionId = wave.roomId,
+                    waveId = wave.waveNumber,
+                    delay = wave.delay,
+                    unknown = 0,
+                    actions = actions,
+                    cmWaveSettings = null,
+                    challengeSourceEventId = wave.sourceEventId,
+                )
+            }
+        }
+    }
+}
+
+private fun copyEventAction(action: QuestEventActionModel): QuestEventActionModel =
+    when (action) {
+        is QuestEventActionModel.SpawnNpcs ->
+            QuestEventActionModel.SpawnNpcs(action.sectionId.value, action.appearFlag.value)
+        is QuestEventActionModel.Door.Unlock ->
+            QuestEventActionModel.Door.Unlock(action.doorId.value)
+        is QuestEventActionModel.Door.Lock ->
+            QuestEventActionModel.Door.Lock(action.doorId.value)
+        is QuestEventActionModel.TriggerEvent ->
+            QuestEventActionModel.TriggerEvent(action.eventId.value)
+    }

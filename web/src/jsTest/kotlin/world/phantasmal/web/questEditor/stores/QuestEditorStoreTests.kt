@@ -4,6 +4,12 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
+import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPoolEntry
+import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
+import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMappingEntry
+import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
+import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawnEntry
 import world.phantasmal.web.questEditor.controllers.EntityListController
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.test.WebTestSuite
@@ -12,10 +18,60 @@ import world.phantasmal.web.test.createQuestNpcModel
 import world.phantasmal.web.test.createQuestObjectModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class QuestEditorStoreTests : WebTestSuite {
+    @Test
+    fun challenge_seed_switch_materializes_the_full_unsigned_seed() = testAsync {
+        val store = components.questEditorStore
+        store.setCurrentQuest(createQuestModel())
+
+        assertFalse(store.challengeSeedSimulationEnabled.value)
+        assertEquals(null, store.challengeSeedSimulation.value)
+
+        store.setChallengeSeed(0xFFFFFFFFu.toInt())
+        store.setChallengeSeedSimulationEnabled(true)
+
+        assertEquals(0xFFFFFFFFu.toInt(), store.challengeSeed.value)
+        assertEquals(0xFFFFFFFFu, assertNotNull(store.challengeSeedSimulation.value).seed)
+    }
+
+    @Test
+    fun challenge_seed_preview_recomputes_after_event_property_edits() = testAsync {
+        val event = QuestEventModel(
+            id = 1,
+            floorId = 0,
+            sectionId = 1,
+            waveId = 1,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(),
+            cmWaveSettings = 0x010101,
+        )
+        val quest = createQuestModel(events = listOf(event))
+        quest.addCmRandomSpawn(DatCmRandomSpawn(
+            0, 1, mutableListOf(DatCmRandomSpawnEntry(0f, 0f, 0f, 0, 0, 0, 0, 0)),
+        ))
+        quest.addCmConfigPool(DatCmConfigPool(0, mutableListOf(
+            DatCmConfigPoolEntry(0f, 0f, 0f, 0f, 0f, 0, 0, 1, 0, 0, 0),
+        )))
+        quest.addCmMonsterMapping(DatCmMonsterMapping(0, mutableListOf(
+            DatCmMonsterMappingEntry(0, 1, 1, 0),
+        )))
+        val store = components.questEditorStore
+        store.setCurrentQuest(quest)
+        store.setChallengeSeedSimulationEnabled(true)
+        assertTrue(assertNotNull(store.challengeSeedSimulation.value).problems.isEmpty())
+
+        store.setEventProperty(event, QuestEventModel::setSectionId, 2)
+
+        assertTrue(assertNotNull(store.challengeSeedSimulation.value).problems.any {
+            it.floorId < 0 && "Simulation stopped" in it.message
+        })
+    }
+
     @Test
     fun cross_episode_floor_uses_effective_episode_for_area_and_entity_catalog() = testAsync {
         val store = components.questEditorStore
@@ -67,6 +123,30 @@ class QuestEditorStoreTests : WebTestSuite {
         assertEquals(setOf(0), store.currentFloorIds.value)
         assertEquals("Lab", store.currentArea.value?.name)
         assertEquals(Episode.II, store.currentAreaVariant.value?.episode)
+    }
+
+    @Test
+    fun challenge_logical_floors_react_when_mappings_change_within_the_same_variant() = testAsync {
+        val store = components.questEditorStore
+        val quest = createQuestModel(
+            episode = Episode.I,
+            floorMappings = listOf(
+                FloorMapping(0, 0, 0, 0),
+                FloorMapping(1, 0, 0, 0),
+            ),
+        )
+        store.setCurrentQuest(quest)
+        assertEquals(listOf(0, 1), store.challengeLogicalFloors.value)
+
+        store.setFloorMappings(
+            listOf(
+                FloorMapping(0, 0, 0, 0),
+                FloorMapping(1, 0, 0, 0),
+                FloorMapping(2, 0, 0, 0),
+            ),
+        )
+
+        assertEquals(listOf(0, 1, 2), store.challengeLogicalFloors.value)
     }
 
     @Test

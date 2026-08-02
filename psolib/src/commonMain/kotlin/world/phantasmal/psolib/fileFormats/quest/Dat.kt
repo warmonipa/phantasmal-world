@@ -35,6 +35,7 @@ const val DAT_ENTITY_TYPE_NPC = 2
 const val DAT_ENTITY_TYPE_EVENT = 3
 private const val DAT_ENTITY_TYPE_CM_RANDOM_SPAWN = 4
 private const val DAT_ENTITY_TYPE_CM_MONSTER_DATA = 5
+const val CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM = 0x20
 
 class DatFile(
     val objs: List<DatEntity>,
@@ -65,8 +66,7 @@ class DatEvent(
      * Challenge mode wave settings (4 bytes packed as int):
      * - Byte 0: Min enemies per wave
      * - Byte 1: Max enemies per wave
-     * - Byte 2: Max number of waves
-     * - Byte 3: Always zero
+     * - Bytes 2-3: Max number of waves (u16)
      *
      * Non-null if and only if this event belongs to a challenge mode area.
      */
@@ -81,7 +81,7 @@ class DatEvent(
     val cmMaxEnemies: Int get() = cmWaveSettings?.let { (it shr 8) and 0xFF } ?: 0
 
     /** Max number of waves (challenge mode only) */
-    val cmMaxWaves: Int get() = cmWaveSettings?.let { (it shr 16) and 0xFF } ?: 0
+    val cmMaxWaves: Int get() = cmWaveSettings?.let { (it ushr 16) and 0xFFFF } ?: 0
 }
 
 sealed class DatEventAction {
@@ -127,32 +127,22 @@ class DatCmRandomSpawn(
 
 /**
  * A single random spawn entry.
- * Structure: 4 floats + 2 shorts + 1 int + 2 shorts  = 28 bytes total.
+ * Structure: 3 floats + 3 ints + 2 shorts = 28 bytes total.
  */
 class DatCmRandomSpawnEntry(
-    /** X coordinate */
-    var x: Float,           // offset 0
-    /** Unknown (possibly Z or height) */
-    var unknown1: Float,    // offset 4
-    /** Y coordinate */
-    var y: Float,           // offset 8
-    /** Unknown */
-    var unknown2: Float,    // offset 12
-    /** Rotation angle */
-    var rotation: Short,    // offset 16
-    /** Unknown */
-    var unknown3: Short,    // offset 18
-    /** Unknown */
-    var unknown4: Int,      // offset 20
-    /** Map section ID */
-    var sectionId: Short,   // offset 24
-    /** Unknown */
-    var unknown5: Short,    // offset 26
+    var x: Float,
+    var y: Float,
+    var z: Float,
+    var angleX: Int,
+    var angleY: Int,
+    var angleZ: Int,
+    var unknownA9: Short,
+    var unknownA10: Short,
 ) // Total: 28 bytes per entry
 
 /**
  * Challenge mode monster type mapping (DAT entity type 5).
- * Maps configuration IDs to specific monster types and spawn ratios.
+ * Maps challenge monster types to random-enemy definitions and selection weights.
  */
 class DatCmMonsterMapping(
     /** Logical client floor from the DAT section header. */
@@ -161,8 +151,8 @@ class DatCmMonsterMapping(
 )
 
 /**
- * Maps a monster type index to a configuration ID with a spawn ratio.
- * Structure: 1 byte + 1 byte + 2 bytes = 4 bytes total.
+ * Maps a challenge monster type to a random-enemy definition and weight.
+ * Structure: 4 bytes total.
  */
 class DatCmMonsterMappingEntry(
     /**
@@ -171,15 +161,16 @@ class DatCmMonsterMappingEntry(
      * Includes EP1 and EP2 monsters (max index 41 for Ill Gill in BB).
      */
     var monsterTypeIndex: Byte,
-    /** Configuration ID - matches configId in DatCmRandomSpawnEntry */
-    var configId: Byte,
-    /** Spawn ratio/weight for this monster type */
-    var spawnRatio: Short,
+    /** Index into the random enemy definition table. */
+    var definitionIndex: Byte,
+    /** Relative selection weight. */
+    var weight: Byte,
+    var unknown: Byte,
 )
 
 /**
  * Challenge mode config pool (DAT entity type 5, Table 5A).
- * Configuration parameters for spawn points.
+ * Random-enemy definitions used when materializing Challenge Mode waves.
  */
 class DatCmConfigPool(
     /** Logical client floor from the DAT section header. */
@@ -189,19 +180,20 @@ class DatCmConfigPool(
 
 /**
  * A single config pool entry.
- * Structure: 3 floats + 1 float + 1 dword + 2 words + 1 dword + 2 words = 32 bytes total.
+ * Structure: 5 floats + 6 shorts = 32 bytes total.
  */
 class DatCmConfigPoolEntry(
-    var baseX: Float,         // offset 0, "Base X"
-    var baseZ: Float,         // offset 4, "Base Z"
-    var baseY: Float,         // offset 8, "Base Y"
-    var unknownFloat: Float,  // offset 12, "Float: unkn"
-    var unknownDword: Int,    // offset 16, "32b: unkn"
-    var unknownWord1: Short,  // offset 20, "16b: unkn"
-    var unknownWord2: Short,  // offset 22, "16b: unkn"
-    var configId: Int,        // offset 24, "Config #"
-    var unknownWord3: Short,  // offset 28, "16b: unkn"
-    var padding: Short,       // offset 30
+    var param1: Float,
+    var param2: Float,
+    var param3: Float,
+    var param4: Float,
+    var param5: Float,
+    var param7: Short,
+    var param6: Short,
+    var entryIndex: Short,
+    var unknown: Short,
+    var minChildren: Short,
+    var maxChildren: Short,
 ) // Total: 32 bytes per entry
 
 fun parseDat(cursor: Cursor): DatFile {
@@ -308,38 +300,51 @@ private fun parseChallengeRandomSpawns(
 ) {
     logger.debug { "Parsing CM random spawns for floor $floorId, cursor size=${cursor.size}, bytesLeft=${cursor.bytesLeft}" }
 
+    if (cursor.size < 12) {
+        logger.warn { "CM random spawns floor $floorId: section is smaller than its 12-byte header, skipping." }
+        return
+    }
+
     // Header format:
     //   offset 0: tableHeaderSize (4 bytes) — size of this header (always 12)
     //   offset 4: startOffset (4 bytes) — byte offset where 28-byte entries begin
     //   offset 8: numRooms (4 bytes) — number of room table entries
-    val tableHeaderSize = cursor.int()  // offset 0
-    val startOffset = cursor.int()      // offset 4
-    val numRooms = cursor.int()         // offset 8
+    val roomTableOffset = cursor.uInt().toLong() // offset 0
+    val startOffset = cursor.uInt().toLong()     // offset 4
+    val numRooms = cursor.uInt().toLong()        // offset 8
 
-    logger.debug { "CM spawn header: tableHeaderSize=$tableHeaderSize, startOffset=$startOffset, numRooms=$numRooms" }
+    logger.debug { "CM spawn header: roomTableOffset=$roomTableOffset, startOffset=$startOffset, numRooms=$numRooms" }
 
-    if (numRooms < 0 || numRooms > 1000) {
+    if (numRooms > 1000L) {
         logger.warn { "CM random spawns: suspicious numRooms=$numRooms, skipping." }
         return
     }
 
-    val minStartOffset = tableHeaderSize + numRooms * 8
-    if (startOffset < minStartOffset) {
+    val roomTableEnd = roomTableOffset + numRooms * 8L
+    if (roomTableOffset < 12L || roomTableEnd > cursor.size.toLong()) {
         logger.warn {
-            "CM random spawns: startOffset=$startOffset < tableHeaderSize($tableHeaderSize) + numRooms($numRooms)*8, skipping."
+            "CM random spawns floor $floorId: room table range $roomTableOffset..$roomTableEnd " +
+                    "is outside section size ${cursor.size}, skipping."
+        }
+        return
+    }
+    if (startOffset < roomTableEnd || startOffset > cursor.size.toLong()) {
+        logger.warn {
+            "CM random spawns floor $floorId: entries offset $startOffset is invalid, skipping."
         }
         return
     }
 
     // Room table: numRooms entries, each 8 bytes:
     //   roomId (u16), entryCount (u16), byteOffset (u32)
-    data class RoomTableEntry(val roomId: Int, val entryCount: Int, val byteOffset: Int)
+    data class RoomTableEntry(val roomId: Int, val entryCount: Int, val byteOffset: Long)
 
     val roomTable = mutableListOf<RoomTableEntry>()
-    for (i in 0 until numRooms) {
+    cursor.seekStart(roomTableOffset.toInt())
+    for (i in 0 until numRooms.toInt()) {
         val roomId = cursor.uShort().toInt()
         val entryCount = cursor.uShort().toInt()
-        val byteOffset = cursor.int()
+        val byteOffset = cursor.uInt().toLong()
         roomTable.add(RoomTableEntry(roomId, entryCount, byteOffset))
         logger.debug { "  Room table[$i]: roomId=$roomId, entryCount=$entryCount, byteOffset=$byteOffset" }
     }
@@ -347,32 +352,30 @@ private fun parseChallengeRandomSpawns(
     // Parse entries for each room.
     for (room in roomTable) {
         val seekPos = startOffset + room.byteOffset
-        if (seekPos < 0 || seekPos >= cursor.size) {
+        // An empty room may legitimately point at the end of the entries table. Non-empty rooms
+        // still need their complete location data to fit in the section.
+        val entryBytes = room.entryCount.toLong() * 28L
+        if (seekPos > cursor.size.toLong() || seekPos + entryBytes > cursor.size.toLong()) {
             logger.warn {
                 "CM random spawns floor $floorId: room ${room.roomId} data offset $seekPos " +
                     "out of bounds (cursor size=${cursor.size}), skipping room."
             }
             continue
         }
-        cursor.seekStart(seekPos)
+        cursor.seekStart(seekPos.toInt())
         val entries = mutableListOf<DatCmRandomSpawnEntry>()
 
         for (entryIdx in 0 until room.entryCount) {
-            val x = cursor.float()
-            val u1 = cursor.float()
-            val y = cursor.float()
-            val u2 = cursor.float()
-            val rot = cursor.short()
-            val u3 = cursor.short()
-            val u4 = cursor.int()
-            val sec = cursor.short()
-            val u5 = cursor.short()
-
             entries.add(
                 DatCmRandomSpawnEntry(
-                    x = x, unknown1 = u1, y = y, unknown2 = u2,
-                    rotation = rot, unknown3 = u3, unknown4 = u4,
-                    sectionId = sec, unknown5 = u5,
+                    x = cursor.float(),
+                    y = cursor.float(),
+                    z = cursor.float(),
+                    angleX = cursor.int(),
+                    angleY = cursor.int(),
+                    angleZ = cursor.int(),
+                    unknownA9 = cursor.short(),
+                    unknownA10 = cursor.short(),
                 )
             )
         }
@@ -402,36 +405,53 @@ private fun parseChallengeMonsterData(
 ) {
     logger.debug { "Parsing CM monster data for floor $floorId, cursor size=${cursor.size}" }
 
+    if (cursor.size < 16) {
+        logger.warn { "CM monster data floor $floorId: section is smaller than its 16-byte header, skipping." }
+        return
+    }
+
     // Read 16-byte header.
-    val headerSize = cursor.int()       // offset 0
-    val table5bOffset = cursor.int()    // offset 4
-    val numConfigs = cursor.int()       // offset 8
-    val numMonsters = cursor.int()      // offset 12
+    val headerSize = cursor.uInt().toLong()       // offset 0
+    val table5bOffset = cursor.uInt().toLong()    // offset 4
+    val numConfigs = cursor.uInt().toLong()       // offset 8
+    val numMonsters = cursor.uInt().toLong()      // offset 12
 
     logger.debug { "CM monster header: headerSize=$headerSize, table5bOffset=$table5bOffset, numConfigs=$numConfigs, numMonsters=$numMonsters" }
 
-    if (numConfigs < 0 || numConfigs > 10000 || numMonsters < 0 || numMonsters > 10000) {
+    if (numConfigs > 10000L || numMonsters > 10000L) {
         logger.warn { "CM monster data: suspicious counts (configs=$numConfigs, monsters=$numMonsters), skipping." }
         return
     }
 
+    val definitionsEnd = headerSize + numConfigs * 32L
+    val weightsEnd = table5bOffset + numMonsters * 4L
+    if (headerSize < 16L || definitionsEnd > cursor.size.toLong() ||
+        table5bOffset < definitionsEnd || weightsEnd > cursor.size.toLong()
+    ) {
+        logger.warn {
+            "CM monster data floor $floorId: table offsets or counts exceed section size ${cursor.size}, skipping."
+        }
+        return
+    }
+
     // Parse Table 5A (Config Pool) — 32 bytes per entry, starts at headerSize.
-    cursor.seekStart(headerSize)
+    cursor.seekStart(headerSize.toInt())
     val configEntries = mutableListOf<DatCmConfigPoolEntry>()
 
-    for (i in 0 until numConfigs) {
+    for (i in 0 until numConfigs.toInt()) {
         configEntries.add(
             DatCmConfigPoolEntry(
-                baseX = cursor.float(),           // offset 0
-                baseZ = cursor.float(),           // offset 4
-                baseY = cursor.float(),           // offset 8
-                unknownFloat = cursor.float(),    // offset 12
-                unknownDword = cursor.int(),      // offset 16
-                unknownWord1 = cursor.short(),    // offset 20
-                unknownWord2 = cursor.short(),    // offset 22
-                configId = cursor.int(),          // offset 24
-                unknownWord3 = cursor.short(),    // offset 28
-                padding = cursor.short(),         // offset 30
+                param1 = cursor.float(),
+                param2 = cursor.float(),
+                param3 = cursor.float(),
+                param4 = cursor.float(),
+                param5 = cursor.float(),
+                param7 = cursor.short(),
+                param6 = cursor.short(),
+                entryIndex = cursor.short(),
+                unknown = cursor.short(),
+                minChildren = cursor.short(),
+                maxChildren = cursor.short(),
             )
         )
     }
@@ -440,15 +460,16 @@ private fun parseChallengeMonsterData(
     configPool.add(DatCmConfigPool(floorId, configEntries))
 
     // Parse Table 5B (Monsters Setting) — 4 bytes per entry, starts at table5bOffset.
-    cursor.seekStart(table5bOffset)
+    cursor.seekStart(table5bOffset.toInt())
     val monsterEntries = mutableListOf<DatCmMonsterMappingEntry>()
 
-    for (i in 0 until numMonsters) {
+    for (i in 0 until numMonsters.toInt()) {
         monsterEntries.add(
             DatCmMonsterMappingEntry(
                 monsterTypeIndex = cursor.byte(),
-                configId = cursor.byte(),
-                spawnRatio = cursor.short(),
+                definitionIndex = cursor.byte(),
+                weight = cursor.byte(),
+                unknown = cursor.byte(),
             )
         )
     }
@@ -884,7 +905,17 @@ private fun writeChallengeRandomSpawns(
     // Group rooms by the logical floor stored in the DAT section header.
     val grouped = spawns.groupBy { it.floorId }
 
-    for ((floorId, roomSpawns) in grouped) {
+    for ((floorId, unsortedRoomSpawns) in grouped) {
+        val roomSpawns = unsortedRoomSpawns.sortedBy { it.roomId }
+        require(roomSpawns.all { it.roomId in 0..0xFFFF }) {
+            "Challenge Mode room IDs must be between 0 and 65535."
+        }
+        require(roomSpawns.map { it.roomId }.distinct().size == roomSpawns.size) {
+            "Challenge Mode floor $floorId has duplicate room IDs."
+        }
+        require(roomSpawns.all { it.entries.size <= CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM }) {
+            "Challenge Mode rooms can contain at most $CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM random locations."
+        }
         val numRooms = roomSpawns.size
         val tableHeaderSize = 12                      // 3 ints: headerSize, startOffset, numRooms
         val roomTableSize = numRooms * 8              // 8 bytes per room table entry
@@ -917,14 +948,13 @@ private fun writeChallengeRandomSpawns(
         for (roomSpawn in roomSpawns) {
             for (entry in roomSpawn.entries) {
                 cursor.writeFloat(entry.x)
-                cursor.writeFloat(entry.unknown1)
                 cursor.writeFloat(entry.y)
-                cursor.writeFloat(entry.unknown2)
-                cursor.writeShort(entry.rotation)
-                cursor.writeShort(entry.unknown3)
-                cursor.writeInt(entry.unknown4)
-                cursor.writeShort(entry.sectionId)
-                cursor.writeShort(entry.unknown5)
+                cursor.writeFloat(entry.z)
+                cursor.writeInt(entry.angleX)
+                cursor.writeInt(entry.angleY)
+                cursor.writeInt(entry.angleZ)
+                cursor.writeShort(entry.unknownA9)
+                cursor.writeShort(entry.unknownA10)
             }
         }
     }
@@ -939,12 +969,32 @@ private fun writeChallengeMonsterData(
     configPool: List<DatCmConfigPool>,
     mappings: List<DatCmMonsterMapping>
 ) {
+    require(configPool.map { it.floorId }.distinct().size == configPool.size) {
+        "Challenge Mode has multiple random-enemy definition tables for the same floor."
+    }
+    require(mappings.map { it.floorId }.distinct().size == mappings.size) {
+        "Challenge Mode has multiple random-enemy weight tables for the same floor."
+    }
+
     // Collect all area IDs from both config pool and mappings.
     val floorIds = (configPool.map { it.floorId } + mappings.map { it.floorId }).distinct().sorted()
 
     for (floorId in floorIds) {
-        val configs = configPool.find { it.floorId == floorId }?.entries ?: emptyList()
+        val configs = configPool.find { it.floorId == floorId }?.entries
+            ?.sortedBy { it.entryIndex.toInt() and 0xFFFF }
+            ?: emptyList()
         val monsters = mappings.find { it.floorId == floorId }?.entries ?: emptyList()
+        require(configs.map { it.entryIndex.toInt() and 0xFFFF }.distinct().size == configs.size) {
+            "Challenge Mode floor $floorId has duplicate random-enemy definition indexes."
+        }
+        require(monsters.filter { (it.weight.toInt() and 0xFF) != 0 }.all { entry ->
+            val index = entry.monsterTypeIndex.toInt() and 0xFF
+            index == 0xFF ||
+                    (index in CHALLENGE_MODE_MONSTER_TYPE_IDS.indices &&
+                            CHALLENGE_MODE_MONSTER_TYPE_IDS[index] != 0)
+        }) {
+            "Challenge Mode floor $floorId has invalid random-enemy monster type indexes."
+        }
 
         val headerSize = 16
         val table5aSize = configs.size * 32
@@ -966,23 +1016,25 @@ private fun writeChallengeMonsterData(
 
         // Table 5A (Config Pool) — 32 bytes per entry.
         for (entry in configs) {
-            cursor.writeFloat(entry.baseX)
-            cursor.writeFloat(entry.baseZ)
-            cursor.writeFloat(entry.baseY)
-            cursor.writeFloat(entry.unknownFloat)
-            cursor.writeInt(entry.unknownDword)
-            cursor.writeShort(entry.unknownWord1)
-            cursor.writeShort(entry.unknownWord2)
-            cursor.writeInt(entry.configId)
-            cursor.writeShort(entry.unknownWord3)
-            cursor.writeShort(entry.padding)
+            cursor.writeFloat(entry.param1)
+            cursor.writeFloat(entry.param2)
+            cursor.writeFloat(entry.param3)
+            cursor.writeFloat(entry.param4)
+            cursor.writeFloat(entry.param5)
+            cursor.writeShort(entry.param7)
+            cursor.writeShort(entry.param6)
+            cursor.writeShort(entry.entryIndex)
+            cursor.writeShort(entry.unknown)
+            cursor.writeShort(entry.minChildren)
+            cursor.writeShort(entry.maxChildren)
         }
 
         // Table 5B (Monsters Setting) — 4 bytes per entry.
         for (entry in monsters) {
             cursor.writeByte(entry.monsterTypeIndex)
-            cursor.writeByte(entry.configId)
-            cursor.writeShort(entry.spawnRatio)
+            cursor.writeByte(entry.definitionIndex)
+            cursor.writeByte(entry.weight)
+            cursor.writeByte(entry.unknown)
         }
     }
 }

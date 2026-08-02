@@ -10,6 +10,8 @@ import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.core.externals.browser.FileSystemDirectoryHandle
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
+import world.phantasmal.psolib.fileFormats.quest.simulateChallengeModeSeed
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.commands.Command
 import world.phantasmal.web.core.stores.UiStore
@@ -50,6 +52,10 @@ class QuestEditorStore(
     private val mainUndo = UndoStack(undoManager)
     private val _sectionsUpdated = mutableCell(0) // Trigger to update sections
     private val _selectedSection = mutableCell<SectionModel?>(null)
+    private val _challengeSeedSimulationEnabled = mutableCell(false)
+    private val _challengeSeed = mutableCell(0)
+    private val _selectedChallengeLogicalFloor = mutableCell<Int?>(null)
+    private val _selectedChallengeRoomId = mutableCell<Int?>(null)
 
     private val runner = QuestRunner()
     val currentQuest: Cell<QuestModel?> = _currentQuest
@@ -86,7 +92,7 @@ class QuestEditorStore(
      * [focused] is null or contained in [events].
      */
     private fun updateEventSelection(events: Set<QuestEventModel>, focused: QuestEventModel?) {
-        require(focused == null || events.any { it.id.value == focused.id.value }) {
+        require(focused == null || events.any { it === focused }) {
             "Focused event must be null or contained in the selection set."
         }
         _selectedEvents.value = events
@@ -137,6 +143,41 @@ class QuestEditorStore(
     val canSaveChanges: Cell<Boolean> = !undoManager.allAtSavePoint
 
     val selectedSection: Cell<SectionModel?> = _selectedSection
+    val challengeSeedSimulationEnabled: Cell<Boolean> = _challengeSeedSimulationEnabled
+    val challengeSeed: Cell<Int> = _challengeSeed
+    private val currentFloorMappingRevision: Cell<Int> =
+        currentQuest.flatMap { quest -> quest?.floorMappingRevision ?: cell(0) }
+    val challengeLogicalFloors: Cell<List<Int>> =
+        map(currentQuest, currentArea, currentAreaVariant, currentFloorMappingRevision) {
+                quest, area, areaVariant, _ ->
+            when {
+                quest == null || area == null -> emptyList()
+                quest.floorMappings.isEmpty() -> listOf(area.id)
+                areaVariant == null ->
+                    quest.getFloorIdsForArea(quest.episode, area.id).orEmpty().sorted()
+                else ->
+                    quest.getFloorIdsForVariant(
+                        areaVariant.episode,
+                        area.id,
+                        areaVariant.id,
+                    ).orEmpty().sorted()
+            }
+        }
+    val selectedChallengeLogicalFloor: Cell<Int?> =
+        map(challengeLogicalFloors, _selectedChallengeLogicalFloor) { floors, selected ->
+            selected?.takeIf { it in floors } ?: floors.firstOrNull()
+        }
+    val selectedChallengeRoomId: Cell<Int?> = _selectedChallengeRoomId
+    val challengeSeedSimulation: Cell<ChallengeModeSeedSimulation?> =
+        currentQuest.flatMap { quest ->
+            if (quest == null) {
+                cell(null)
+            } else {
+                map(_challengeSeedSimulationEnabled, _challengeSeed, quest.cmDataRevision) { enabled, seed, _ ->
+                    if (enabled) simulateChallengeModeSeed(convertQuestFromModel(quest), seed.toUInt()) else null
+                }
+            }
+        }
 
     init {
         observeNow(uiStore.currentTool) { tool ->
@@ -155,6 +196,27 @@ class QuestEditorStore(
                 clearIncompatibleEntitySelections(sectionWaves)
             }
         }
+    }
+
+    fun setChallengeSeedSimulationEnabled(enabled: Boolean) {
+        _challengeSeedSimulationEnabled.value = enabled
+    }
+
+    fun setChallengeSeed(seed: Int) {
+        _challengeSeed.value = seed
+    }
+
+    fun setSelectedChallengeLogicalFloor(floorId: Int) {
+        if (floorId in challengeLogicalFloors.value) {
+            mutate {
+                _selectedChallengeLogicalFloor.value = floorId
+                _selectedChallengeRoomId.value = null
+            }
+        }
+    }
+
+    fun setSelectedChallengeRoomId(roomId: Int?) {
+        _selectedChallengeRoomId.value = roomId
     }
 
     /**
@@ -444,12 +506,11 @@ class QuestEditorStore(
      * Toggle event selection for multi-selection with Ctrl+click
      */
     fun toggleEventSelection(event: QuestEventModel) {
-        val eventId = event.id.value
         val oldSelection = _selectedEvents.value
-        val wasInSelection = oldSelection.any { it.id.value == eventId }
+        val wasInSelection = oldSelection.any { it === event }
 
         val newSet = if (wasInSelection) {
-            oldSelection.filterNot { it.id.value == eventId }.toSet()
+            oldSelection.filterNot { it === event }.toSet()
         } else {
             oldSelection + event
         }
@@ -457,7 +518,7 @@ class QuestEditorStore(
         val newFocused = when {
             newSet.isEmpty() -> null
             !wasInSelection -> event
-            _focusedEvent.value?.id?.value == eventId -> newSet.firstOrNull()
+            _focusedEvent.value === event -> newSet.firstOrNull()
             else -> _focusedEvent.value
         }
 
@@ -473,6 +534,7 @@ class QuestEditorStore(
             // Preserve multi-selection state when editing properties
             ensureEventInSelection(event)
             setter(event, value)
+            _currentQuest.value?.bumpCmRevision()
         }
     }
 

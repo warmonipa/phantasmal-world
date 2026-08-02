@@ -22,6 +22,48 @@ class MonsterRandomnessWidget(
                 className = "pw-quest-editor-monster-randomness-inner"
                 hidden(ctrl.unavailable)
 
+                addChild(Toolbar(
+                    children = listOf(
+                        Checkbox(
+                            label = "Simulate seed",
+                            tooltip = cell("Materialize Challenge Mode waves as if joining a game with this 32-bit seed"),
+                            checked = ctrl.simulateSeed,
+                            onChange = ctrl::setSimulateSeed,
+                        ),
+                        TextInput(
+                            label = "Seed (hex):",
+                            enabled = ctrl.simulateSeed,
+                            value = ctrl.seedHex,
+                            onChange = ctrl::setSeedHex,
+                            maxLength = 10,
+                            placeholder = "00000000",
+                        ),
+                        Button(
+                            text = "Next seed (new run)",
+                            enabled = ctrl.simulateSeed,
+                            tooltip = cell("Increment the seed and materialize again"),
+                            onClick = { ctrl.nextSeed() },
+                        ),
+                        ComboBox(
+                            label = "Logical floor:",
+                            items = ctrl.logicalFloors,
+                            itemToString = { "$it" },
+                            selected = ctrl.selectedLogicalFloor,
+                            onSelect = ctrl::setLogicalFloor,
+                        ),
+                    ),
+                ))
+
+                div {
+                    className = "pw-quest-editor-mr-problems"
+                    hidden(ctrl.simulationProblems.map { it.isEmpty() })
+                    bindChildWidgetsTo(ctrl.simulationProblems) { message, _ ->
+                        object : Widget() {
+                            override fun Node.createElement() = div { textContent = message }
+                        }
+                    }
+                }
+
                 addChild(TabContainer(
                     ctrl = ctrl,
                     createWidget = { tab ->
@@ -56,7 +98,7 @@ class MonsterRandomnessWidget(
                                 onClick = { ctrl.addRoom() },
                             ),
                             Button(
-                                enabled = map(ctrl.enabled, ctrl.selectedRoomIndex) { e, i -> e && i >= 0 },
+                                enabled = ctrl.canDeleteRoom,
                                 text = "Delete",
                                 iconLeft = Icon.Remove,
                                 tooltip = cell("Delete selected room"),
@@ -78,7 +120,7 @@ class MonsterRandomnessWidget(
                     addChild(Toolbar(
                         children = listOf(
                             Button(
-                                enabled = map(ctrl.enabled, ctrl.selectedRoomIndex) { e, i -> e && i >= 0 },
+                                enabled = ctrl.canAddSpawnEntry,
                                 text = "Add entry",
                                 iconLeft = Icon.Plus,
                                 tooltip = cell("Add a new spawn entry"),
@@ -88,6 +130,7 @@ class MonsterRandomnessWidget(
                     ))
                     div {
                         className = "pw-quest-editor-mr-table-container"
+                        hidden(ctrl.simulateSeed)
 
                         table {
                             className = "pw-quest-editor-mr-table"
@@ -101,14 +144,42 @@ class MonsterRandomnessWidget(
                                     th { textContent = "Rot. X" }
                                     th { textContent = "Rot. Y" }
                                     th { textContent = "Rot. Z" }
-                                    th { textContent = "Room ID" }
-                                    th { textContent = "Entry #" }
+                                    th { textContent = "Unknown A9" }
+                                    th { textContent = "Unknown A10" }
                                     th { }
                                 }
                             }
                             tbody {
                                 bindChildWidgetsTo(ctrl.selectedRoomEntries) { indexed, _ ->
                                     SpawnEntryRowWidget(ctrl, indexed)
+                                }
+                            }
+                        }
+                    }
+                    div {
+                        className = "pw-quest-editor-mr-table-container"
+                        hidden(ctrl.simulateSeed.map { !it })
+
+                        table {
+                            className = "pw-quest-editor-mr-table"
+
+                            thead {
+                                tr {
+                                    th { textContent = "#" }
+                                    th { textContent = "Event" }
+                                    th { textContent = "Wave" }
+                                    th { textContent = "Room" }
+                                    th { textContent = "Monster" }
+                                    th { textContent = "Definition" }
+                                    th { textContent = "Children" }
+                                    th { textContent = "Pos X" }
+                                    th { textContent = "Pos Y" }
+                                    th { textContent = "Pos Z" }
+                                }
+                            }
+                            tbody {
+                                bindChildWidgetsTo(ctrl.simulatedMonsters) { monster, idx ->
+                                    SimulatedMonsterRowWidget(ctrl, monster, idx)
                                 }
                             }
                         }
@@ -128,12 +199,12 @@ class MonsterRandomnessWidget(
 
                     div {
                         className = "pw-quest-editor-mr-section-header"
-                        span { textContent = "Config pool" }
+                        span { textContent = "Enemy definitions" }
                         addWidget(Button(
                             enabled = ctrl.enabled,
                             text = "Add",
                             iconLeft = Icon.Plus,
-                            tooltip = cell("Add config pool entry"),
+                            tooltip = cell("Add enemy definition"),
                             onClick = { ctrl.addConfigPoolEntry() },
                         ))
                     }
@@ -146,15 +217,17 @@ class MonsterRandomnessWidget(
                             thead {
                                 tr {
                                     th { textContent = "#" }
-                                    th { textContent = "Base X" }
-                                    th { textContent = "Base Z" }
-                                    th { textContent = "Base Y" }
-                                    th { textContent = "Float: unkn" }
-                                    th { textContent = "32b: unkn" }
-                                    th { textContent = "16b: unkn" }
-                                    th { textContent = "16b: unkn" }
-                                    th { textContent = "Config #" }
-                                    th { textContent = "16b: unkn" }
+                                    th { textContent = "Param 1" }
+                                    th { textContent = "Param 2" }
+                                    th { textContent = "Param 3" }
+                                    th { textContent = "Param 4" }
+                                    th { textContent = "Param 5" }
+                                    th { textContent = "Param 7" }
+                                    th { textContent = "Param 6" }
+                                    th { textContent = "Entry index" }
+                                    th { textContent = "Unknown" }
+                                    th { textContent = "Min children" }
+                                    th { textContent = "Max children" }
                                     th { }
                                 }
                             }
@@ -173,12 +246,12 @@ class MonsterRandomnessWidget(
 
                     div {
                         className = "pw-quest-editor-mr-section-header"
-                        span { textContent = "Monsters setting" }
+                        span { textContent = "Monster weights" }
                         addWidget(Button(
                             enabled = ctrl.enabled,
                             text = "Add",
                             iconLeft = Icon.Plus,
-                            tooltip = cell("Add monster setting entry"),
+                            tooltip = cell("Add monster weight entry"),
                             onClick = { ctrl.addMappingEntry() },
                         ))
                     }
@@ -192,8 +265,9 @@ class MonsterRandomnessWidget(
                                 tr {
                                     th { textContent = "#" }
                                     th { textContent = "Monster Type" }
-                                    th { textContent = "Config ID" }
-                                    th { textContent = "Ratio" }
+                                    th { textContent = "Definition" }
+                                    th { textContent = "Weight" }
+                                    th { textContent = "Unknown" }
                                     th { }
                                 }
                             }
@@ -238,6 +312,15 @@ class MonsterRandomnessWidget(
                     width: 100%;
                     height: 100%;
                     overflow: hidden;
+                }
+
+                .pw-quest-editor-mr-problems {
+                    flex: 0 0 auto;
+                    padding: 6px 10px;
+                    color: hsl(35, 90%, 75%);
+                    background: hsl(35, 35%, 14%);
+                    border-bottom: 1px solid hsl(35, 45%, 30%);
+                    font-size: 12px;
                 }
 
                 .pw-quest-editor-mr-rooms {
@@ -385,14 +468,6 @@ private class SpawnEntryRowWidget(
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknown1.toDouble() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknown1 = it.toFloat() } },
-                    roundTo = 4,
-                ))
-            }
-            td {
-                addWidget(DoubleInput(
-                    enabled = ctrl.enabled,
                     value = rev.map { entry.y.toDouble() },
                     onChange = { ctrl.setSpawnField(idx) { e -> e.y = it.toFloat() } },
                     roundTo = 4,
@@ -401,37 +476,48 @@ private class SpawnEntryRowWidget(
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknown2.toDouble() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknown2 = it.toFloat() } },
+                    value = rev.map { entry.z.toDouble() },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.z = it.toFloat() } },
                     roundTo = 4,
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.rotation.toInt() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.rotation = it.toShort() } },
+                    value = rev.map { entry.angleX },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.angleX = it } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknown3.toInt() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknown3 = it.toShort() } },
+                    value = rev.map { entry.angleY },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.angleY = it } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.sectionId.toInt() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.sectionId = it.toShort() } },
+                    value = rev.map { entry.angleZ },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.angleZ = it } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknown5.toInt() },
-                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknown5 = it.toShort() } },
+                    value = rev.map { entry.unknownA9.toInt() and 0xFFFF },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknownA9 = it.toShort() } },
+                    min = 0,
+                    max = 65535,
+                ))
+            }
+            td {
+                addWidget(IntInput(
+                    enabled = ctrl.enabled,
+                    value = rev.map { entry.unknownA10.toInt() and 0xFFFF },
+                    onChange = { ctrl.setSpawnField(idx) { e -> e.unknownA10 = it.toShort() } },
+                    min = 0,
+                    max = 65535,
                 ))
             }
             td {
@@ -452,75 +538,98 @@ private class ConfigPoolEntryRowWidget(
     override fun Node.createElement() =
         tr {
             val entry = indexed.entry
-            val idx = indexed.index
+            val displayIndex = indexed.displayIndex
             val rev = ctrl.cmDataRevision
 
-            td { textContent = "${idx + 1}" }
+            td { textContent = "${displayIndex + 1}" }
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.baseX.toDouble() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.baseX = it.toFloat() } },
+                    value = rev.map { entry.param1.toDouble() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param1 = it.toFloat() } },
                     roundTo = 4,
                 ))
             }
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.baseZ.toDouble() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.baseZ = it.toFloat() } },
+                    value = rev.map { entry.param2.toDouble() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param2 = it.toFloat() } },
                     roundTo = 4,
                 ))
             }
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.baseY.toDouble() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.baseY = it.toFloat() } },
+                    value = rev.map { entry.param3.toDouble() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param3 = it.toFloat() } },
                     roundTo = 4,
                 ))
             }
             td {
                 addWidget(DoubleInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknownFloat.toDouble() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.unknownFloat = it.toFloat() } },
+                    value = rev.map { entry.param4.toDouble() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param4 = it.toFloat() } },
+                    roundTo = 4,
+                ))
+            }
+            td {
+                addWidget(DoubleInput(
+                    enabled = ctrl.enabled,
+                    value = rev.map { entry.param5.toDouble() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param5 = it.toFloat() } },
                     roundTo = 4,
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknownDword },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.unknownDword = it } },
+                    value = rev.map { entry.param7.toInt() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param7 = it.toShort() } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknownWord1.toInt() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.unknownWord1 = it.toShort() } },
+                    value = rev.map { entry.param6.toInt() },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.param6 = it.toShort() } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknownWord2.toInt() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.unknownWord2 = it.toShort() } },
+                    value = rev.map { entry.entryIndex.toInt() and 0xFFFF },
+                    onChange = { ctrl.setConfigPoolEntryIndex(indexed, it) },
+                    min = 0,
+                    max = 65535,
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.configId },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.configId = it } },
+                    value = rev.map { entry.unknown.toInt() and 0xFFFF },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.unknown = it.toShort() } },
+                    min = 0,
+                    max = 65535,
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.unknownWord3.toInt() },
-                    onChange = { ctrl.setConfigPoolField(idx) { e -> e.unknownWord3 = it.toShort() } },
+                    value = rev.map { entry.minChildren.toInt() and 0xFFFF },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.minChildren = it.toShort() } },
+                    min = 0,
+                    max = 65535,
+                ))
+            }
+            td {
+                addWidget(IntInput(
+                    enabled = ctrl.enabled,
+                    value = rev.map { entry.maxChildren.toInt() and 0xFFFF },
+                    onChange = { ctrl.setConfigPoolField(indexed) { e -> e.maxChildren = it.toShort() } },
+                    min = 0,
+                    max = 65535,
                 ))
             }
             td {
@@ -528,7 +637,7 @@ private class ConfigPoolEntryRowWidget(
                     enabled = ctrl.enabled,
                     iconLeft = Icon.Remove,
                     tooltip = cell("Delete this entry"),
-                    onClick = { ctrl.deleteConfigPoolEntry(idx) },
+                    onClick = { ctrl.deleteConfigPoolEntry(indexed) },
                 ))
             }
         }
@@ -553,6 +662,7 @@ private class RoomItemWidget(
                 value = ctrl.cmDataRevision.map { room.roomId },
                 onChange = { ctrl.setRoomId(room.globalIndex, it) },
                 min = 0,
+                max = 65535,
             ))
             span { textContent = " (${room.entryCount} entries)" }
         }
@@ -565,10 +675,10 @@ private class MappingEntryRowWidget(
     override fun Node.createElement() =
         tr {
             val entry = indexed.entry
-            val idx = indexed.index
+            val displayIndex = indexed.displayIndex
             val rev = ctrl.cmDataRevision
 
-            td { textContent = "${idx + 1}" }
+            td { textContent = "${displayIndex + 1}" }
             td {
                 addWidget(ComboBox(
                     enabled = ctrl.enabled,
@@ -578,14 +688,14 @@ private class MappingEntryRowWidget(
                         val typeIdx = entry.monsterTypeIndex.toInt() and 0xFF
                         ctrl.monsterTypeOptions.find { opt -> opt.index == typeIdx }
                     },
-                    onSelect = { ctrl.setMappingField(idx) { e -> e.monsterTypeIndex = it.index.toByte() } },
+                    onSelect = { ctrl.setMappingField(indexed) { e -> e.monsterTypeIndex = it.index.toByte() } },
                 ))
             }
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.configId.toInt() and 0xFF },
-                    onChange = { ctrl.setMappingField(idx) { e -> e.configId = it.toByte() } },
+                    value = rev.map { entry.definitionIndex.toInt() and 0xFF },
+                    onChange = { ctrl.setMappingField(indexed) { e -> e.definitionIndex = it.toByte() } },
                     min = 0,
                     max = 255,
                 ))
@@ -593,10 +703,19 @@ private class MappingEntryRowWidget(
             td {
                 addWidget(IntInput(
                     enabled = ctrl.enabled,
-                    value = rev.map { entry.spawnRatio.toInt() and 0xFFFF },
-                    onChange = { ctrl.setMappingField(idx) { e -> e.spawnRatio = it.toShort() } },
+                    value = rev.map { entry.weight.toInt() and 0xFF },
+                    onChange = { ctrl.setMappingField(indexed) { e -> e.weight = it.toByte() } },
                     min = 0,
-                    max = 65535,
+                    max = 255,
+                ))
+            }
+            td {
+                addWidget(IntInput(
+                    enabled = ctrl.enabled,
+                    value = rev.map { entry.unknown.toInt() and 0xFF },
+                    onChange = { ctrl.setMappingField(indexed) { e -> e.unknown = it.toByte() } },
+                    min = 0,
+                    max = 255,
                 ))
             }
             td {
@@ -604,8 +723,28 @@ private class MappingEntryRowWidget(
                     enabled = ctrl.enabled,
                     iconLeft = Icon.Remove,
                     tooltip = cell("Delete this entry"),
-                    onClick = { ctrl.deleteMappingEntry(idx) },
+                    onClick = { ctrl.deleteMappingEntry(indexed) },
                 ))
             }
+        }
+}
+
+private class SimulatedMonsterRowWidget(
+    private val ctrl: MonsterRandomnessController,
+    private val monster: world.phantasmal.psolib.fileFormats.quest.ChallengeModeSimulatedMonster,
+    private val index: Int,
+) : Widget() {
+    override fun Node.createElement() =
+        tr {
+            td { textContent = "${index + 1}" }
+            td { textContent = monster.sourceEventId.toString() }
+            td { textContent = monster.waveNumber.toString() }
+            td { textContent = monster.roomId.toString() }
+            td { textContent = ctrl.simulatedMonsterName(monster) }
+            td { textContent = monster.definitionIndex.toString() }
+            td { textContent = monster.numChildren.toString() }
+            td { textContent = monster.location.x.toString() }
+            td { textContent = monster.location.y.toString() }
+            td { textContent = monster.location.z.toString() }
         }
 }

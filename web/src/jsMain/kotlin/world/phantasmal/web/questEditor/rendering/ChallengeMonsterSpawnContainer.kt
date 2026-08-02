@@ -84,7 +84,7 @@ class ChallengeMonsterSpawnContainer : TrackedDisposable() {
             val rot = model.rotation.value
 
             helper.position.set(pos.x, pos.y, pos.z)
-            helper.rotation.set(rot.x, rot.y, rot.z)
+            helper.rotation.set(rot.x, rot.y, rot.z, "ZXY")
             helper.updateMatrix()
 
             mesh.setMatrixAt(instanceIndex, helper.matrix)

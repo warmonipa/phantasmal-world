@@ -51,7 +51,7 @@ class ChallengeWaveSettingsTests : LibTestSuite {
                 // Verify decoding is correct
                 assertEquals(settings and 0xFF, event.cmMinEnemies, "Min enemies should match")
                 assertEquals((settings shr 8) and 0xFF, event.cmMaxEnemies, "Max enemies should match")
-                assertEquals((settings shr 16) and 0xFF, event.cmMaxWaves, "Max waves should match")
+                assertEquals((settings ushr 16) and 0xFFFF, event.cmMaxWaves, "Max waves should match")
             }
         }
 

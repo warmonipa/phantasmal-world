@@ -164,6 +164,7 @@ class QuestModel(
     val cmMonsterMappings: ListCell<DatCmMonsterMapping> = _cmMonsterMappings
     val cmConfigPool: ListCell<DatCmConfigPool> = _cmConfigPool
     val cmDataRevision: Cell<Int> = _cmDataRevision
+    val floorMappingRevision: Cell<Int> = _floorMappingRevision
 
     var bytecodeIr: BytecodeIr = bytecodeIr
         private set
@@ -351,10 +352,12 @@ class QuestModel(
 
     fun addEvent(index: Int, event: QuestEventModel) {
         _events.add(index, event)
+        bumpCmRevision()
     }
 
     fun removeEvent(event: QuestEventModel) {
         _events.remove(event)
+        bumpCmRevision()
     }
 
     fun setBytecodeIr(bytecodeIr: BytecodeIr) {
@@ -364,6 +367,11 @@ class QuestModel(
 
     fun addCmRandomSpawn(spawn: DatCmRandomSpawn) {
         _cmRandomSpawns.add(spawn)
+        bumpCmRevision()
+    }
+
+    fun addCmRandomSpawn(index: Int, spawn: DatCmRandomSpawn) {
+        _cmRandomSpawns.add(index, spawn)
         bumpCmRevision()
     }
 

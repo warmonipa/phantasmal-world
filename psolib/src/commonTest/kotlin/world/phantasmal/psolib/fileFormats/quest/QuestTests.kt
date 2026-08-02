@@ -502,14 +502,16 @@ class QuestTests : LibTestSuite {
         // Every spawn entry must have a valid section ID (not negative) and valid coords.
         for (spawn in spawns) {
             for (entry in spawn.entries) {
-                assertTrue(entry.sectionId >= 0, "Section ID must be non-negative in spawn ${spawn.floorId}/${spawn.roomId}")
+                assertTrue(entry.x.isFinite(), "Spawn X must be finite in ${spawn.floorId}/${spawn.roomId}")
+                assertTrue(entry.y.isFinite(), "Spawn Y must be finite in ${spawn.floorId}/${spawn.roomId}")
+                assertTrue(entry.z.isFinite(), "Spawn Z must be finite in ${spawn.floorId}/${spawn.roomId}")
             }
         }
 
         // Config IDs in pool entries should be positive.
         for (pool in configPool) {
             for (entry in pool.entries) {
-                assertTrue(entry.configId > 0, "Config ID must be positive")
+                assertTrue((entry.entryIndex.toInt() and 0xFFFF) > 0, "Entry index must be positive")
             }
         }
     }

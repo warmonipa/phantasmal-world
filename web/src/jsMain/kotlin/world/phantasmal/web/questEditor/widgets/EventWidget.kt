@@ -159,6 +159,7 @@ class EventWidget(
         label: String,
         value: world.phantasmal.cell.Cell<Int>,
         min: Int,
+        max: Int? = null,
         onChange: (Int) -> Unit,
     ) {
         tr {
@@ -168,6 +169,7 @@ class EventWidget(
                 onChange = onChange,
                 label = label,
                 min = min,
+                max = max,
                 step = 1,
             )
             th { addChild(input.label!!) }
@@ -186,9 +188,15 @@ class EventWidget(
             }
 
             if (settings != null) {
-                container.createInputRow("CM Min:", event.cmMinEnemies, min = 0) { ctrl.setCmMinEnemies(event, it) }
-                container.createInputRow("CM Max:", event.cmMaxEnemies, min = 0) { ctrl.setCmMaxEnemies(event, it) }
-                container.createInputRow("CM Max Waves:", event.cmMaxWaves, min = 0) { ctrl.setCmMaxWaves(event, it) }
+                container.createInputRow("CM Min:", event.cmMinEnemies, min = 0, max = 0xFF) {
+                    ctrl.setCmMinEnemies(event, it)
+                }
+                container.createInputRow("CM Max:", event.cmMaxEnemies, min = 0, max = 0xFF) {
+                    ctrl.setCmMaxEnemies(event, it)
+                }
+                container.createInputRow("CM Max Waves:", event.cmMaxWaves, min = 0, max = 0xFFFF) {
+                    ctrl.setCmMaxWaves(event, it)
+                }
             }
         }
     }

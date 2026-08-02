@@ -16,6 +16,8 @@ class QuestEventModel(
     val unknown: Int,
     actions: MutableList<QuestEventActionModel>,
     cmWaveSettings: Int? = null,
+    /** Source Event2 ID when this model is a seed-materialized, read-only Event1 preview. */
+    val challengeSourceEventId: Int? = null,
 ) {
     private val _id = mutableCell(id)
     private val _sectionId = mutableCell(sectionId)
@@ -36,7 +38,7 @@ class QuestEventModel(
     // Challenge mode wave settings - decoded from cmWaveSettings
     val cmMinEnemies: Cell<Int> = _cmWaveSettings.map { it?.let { v -> v and 0xFF } ?: 0 }
     val cmMaxEnemies: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v shr 8) and 0xFF } ?: 0 }
-    val cmMaxWaves: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v shr 16) and 0xFF } ?: 0 }
+    val cmMaxWaves: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v ushr 16) and 0xFFFF } ?: 0 }
 
     fun setId(id: Int) {
         _id.value = id
@@ -66,7 +68,7 @@ class QuestEventModel(
 
     fun setCmMaxWaves(value: Int) {
         val current = _cmWaveSettings.value ?: 0
-        _cmWaveSettings.value = (current and 0xFF00FFFF.toInt()) or ((value and 0xFF) shl 16)
+        _cmWaveSettings.value = (current and 0xFFFF) or ((value and 0xFFFF) shl 16)
     }
 
     fun addAction(action: QuestEventActionModel) {
