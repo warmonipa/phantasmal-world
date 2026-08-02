@@ -49,16 +49,25 @@ class EventsControllerTests : WebTestSuite {
 
         assertSame(source, ctrl.events.value.single())
         assertTrue(ctrl.enabled.value)
+        assertTrue(ctrl.hasChallengeEvents.value)
+        assertFalse(ctrl.simulateSeed.value)
+        assertEquals("00000000", ctrl.seedHex.value)
 
-        store.setChallengeSeedSimulationEnabled(true)
+        ctrl.setSeedHex("0x12345678")
+        ctrl.setSimulateSeed(true)
 
         val generated = ctrl.events.value.single()
+        assertEquals("12345678", ctrl.seedHex.value)
+        assertTrue(ctrl.simulateSeed.value)
         assertEquals(100, generated.id.value)
         assertEquals(100, generated.challengeSourceEventId)
         assertEquals(null, generated.cmWaveSettings.value)
         assertFalse(ctrl.enabled.value, "Materialized Event1 preview must be read-only.")
 
-        store.setChallengeSeedSimulationEnabled(false)
+        ctrl.nextSeed()
+        assertEquals("12345679", ctrl.seedHex.value)
+
+        ctrl.setSimulateSeed(false)
 
         assertSame(source, ctrl.events.value.single())
         assertTrue(ctrl.enabled.value)

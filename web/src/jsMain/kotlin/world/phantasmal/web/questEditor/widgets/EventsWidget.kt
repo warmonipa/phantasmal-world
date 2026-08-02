@@ -10,6 +10,8 @@ import world.phantasmal.webui.dom.Icon
 import world.phantasmal.webui.dom.div
 import world.phantasmal.webui.dom.span
 import world.phantasmal.webui.widgets.Button
+import world.phantasmal.webui.widgets.Checkbox
+import world.phantasmal.webui.widgets.TextInput
 import world.phantasmal.webui.widgets.Toolbar
 import world.phantasmal.webui.widgets.Widget
 
@@ -44,6 +46,35 @@ class EventsWidget(private val ctrl: EventsController) : Widget() {
                         ),
                     )
                 ))
+                div {
+                    className = "pw-quest-editor-events-seed-toolbar"
+                    hidden(ctrl.hasChallengeEvents.map { !it })
+
+                    addChild(Toolbar(
+                        children = listOf(
+                            Checkbox(
+                                label = "Simulate seed",
+                                tooltip = cell("Materialize Challenge Mode waves as if joining a game with this 32-bit seed"),
+                                checked = ctrl.simulateSeed,
+                                onChange = ctrl::setSimulateSeed,
+                            ),
+                            TextInput(
+                                label = "Seed:",
+                                enabled = ctrl.simulateSeed,
+                                value = ctrl.seedHex,
+                                onChange = ctrl::setSeedHex,
+                                maxLength = 10,
+                                placeholder = "00000000",
+                            ),
+                            Button(
+                                text = "Next run",
+                                enabled = ctrl.simulateSeed,
+                                tooltip = cell("Increment the seed and materialize again"),
+                                onClick = { ctrl.nextSeed() },
+                            ),
+                        ),
+                    ))
+                }
                 addChild(Toolbar(
                     children = listOf(
                         Button(

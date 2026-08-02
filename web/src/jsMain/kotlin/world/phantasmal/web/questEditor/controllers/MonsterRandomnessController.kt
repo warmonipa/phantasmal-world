@@ -46,11 +46,6 @@ data class IndexedMappingEntry(
 )
 data class MonsterTypeOption(val index: Int, val name: String)
 
-internal fun parseChallengeSeed(value: String): Int? {
-    val normalized = value.trim().removePrefix("0x").removePrefix("0X")
-    return normalized.toUIntOrNull(16)?.toInt()
-}
-
 class MonsterRandomnessController(
     private val store: QuestEditorStore,
 ) : TabContainerController<MonsterRandomnessTab>() {
@@ -67,29 +62,9 @@ class MonsterRandomnessController(
     val unavailable: Cell<Boolean> = store.currentQuest.isNull()
     val enabled: Cell<Boolean> = store.questEditingEnabled
     val simulateSeed: Cell<Boolean> = store.challengeSeedSimulationEnabled
-    val seed: Cell<Int> = store.challengeSeed
-    val seedHex: Cell<String> = seed.map {
-        it.toUInt().toString(16).uppercase().padStart(8, '0')
-    }
     val logicalFloors: Cell<List<Int>> = store.challengeLogicalFloors
     val selectedLogicalFloor: Cell<Int?> = store.selectedChallengeLogicalFloor
     val selectedRoomId: Cell<Int?> = store.selectedChallengeRoomId
-
-    fun setSimulateSeed(enabled: Boolean) {
-        store.setChallengeSeedSimulationEnabled(enabled)
-    }
-
-    fun setSeed(seed: Int) {
-        store.setChallengeSeed(seed)
-    }
-
-    fun setSeedHex(seed: String) {
-        parseChallengeSeed(seed)?.let(store::setChallengeSeed)
-    }
-
-    fun nextSeed() {
-        store.setChallengeSeed(store.challengeSeed.value + 1)
-    }
 
     fun setLogicalFloor(floorId: Int) {
         store.setSelectedChallengeLogicalFloor(floorId)

@@ -1,40 +1,24 @@
 package world.phantasmal.web.questEditor.widgets
 
-import org.w3c.dom.HTMLInputElement
 import world.phantasmal.web.questEditor.controllers.MonsterRandomnessController
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class MonsterRandomnessWidgetTests : WebTestSuite {
     @Test
-    fun seed_controls_follow_controller_state_in_the_dom() = testAsync {
+    fun seed_controls_are_not_duplicated_in_the_randomness_dialog() = testAsync {
         components.questEditorStore.setCurrentQuest(createQuestModel())
         val controller = disposer.add(MonsterRandomnessController(components.questEditorStore))
         val widget = disposer.add(MonsterRandomnessWidget(controller))
 
-        val inputs = widget.element.querySelectorAll("input")
-        val checkbox = inputs.item(0) as HTMLInputElement
-        val seed = inputs.item(1) as HTMLInputElement
-
-        assertEquals("checkbox", checkbox.type)
-        assertFalse(checkbox.checked)
-        assertTrue(seed.disabled)
-        assertEquals("00000000", seed.value)
-
-        controller.setSeedHex("FFFFFFFF")
-        controller.setSimulateSeed(true)
-
-        assertTrue(checkbox.checked)
-        assertFalse(seed.disabled)
-        assertEquals("FFFFFFFF", seed.value)
-
-        controller.nextSeed()
-        assertEquals("00000000", seed.value, "The 32-bit JoinGame seed wraps around.")
+        val text = widget.element.textContent.orEmpty()
+        assertFalse("Simulate seed" in text)
+        assertFalse("Seed (hex)" in text)
+        assertFalse("Next seed" in text)
     }
 
     @Test

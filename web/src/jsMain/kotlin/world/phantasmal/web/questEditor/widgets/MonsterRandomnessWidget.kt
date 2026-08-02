@@ -24,26 +24,6 @@ class MonsterRandomnessWidget(
 
                 addChild(Toolbar(
                     children = listOf(
-                        Checkbox(
-                            label = "Simulate seed",
-                            tooltip = cell("Materialize Challenge Mode waves as if joining a game with this 32-bit seed"),
-                            checked = ctrl.simulateSeed,
-                            onChange = ctrl::setSimulateSeed,
-                        ),
-                        TextInput(
-                            label = "Seed (hex):",
-                            enabled = ctrl.simulateSeed,
-                            value = ctrl.seedHex,
-                            onChange = ctrl::setSeedHex,
-                            maxLength = 10,
-                            placeholder = "00000000",
-                        ),
-                        Button(
-                            text = "Next seed (new run)",
-                            enabled = ctrl.simulateSeed,
-                            tooltip = cell("Increment the seed and materialize again"),
-                            onClick = { ctrl.nextSeed() },
-                        ),
                         ComboBox(
                             label = "Logical floor:",
                             items = ctrl.logicalFloors,

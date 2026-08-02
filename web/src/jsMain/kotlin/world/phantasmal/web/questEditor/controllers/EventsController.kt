@@ -21,6 +21,11 @@ enum class PlaybackState {
     Paused,
 }
 
+internal fun parseChallengeSeed(value: String): Int? {
+    val normalized = value.trim().removePrefix("0x").removePrefix("0X")
+    return normalized.toUIntOrNull(16)?.toInt()
+}
+
 class EventsController(
     private val store: QuestEditorStore,
     private val playbackVisualizationStore: PlaybackVisualizationStore,
@@ -28,6 +33,13 @@ class EventsController(
     val unavailable: Cell<Boolean> = store.currentQuest.isNull()
     val enabled: Cell<Boolean> = store.questEditingEnabled and store.challengeSeedSimulation.isNull()
     val removeEventEnabled: Cell<Boolean> = enabled and store.selectedEvent.isNotNull()
+    val hasChallengeEvents: Cell<Boolean> = store.currentAreaEvents.map { areaEvents ->
+        areaEvents.any { it.cmWaveSettings.value != null }
+    }
+    val simulateSeed: Cell<Boolean> = store.challengeSeedSimulationEnabled
+    val seedHex: Cell<String> = store.challengeSeed.map {
+        it.toUInt().toString(16).uppercase().padStart(8, '0')
+    }
     val events: ListCell<QuestEventModel> = mapToList(
         store.challengeSeedSimulation,
         store.currentAreaEvents,
@@ -125,6 +137,18 @@ class EventsController(
         QuestEventActionModel.Door.Lock.SHORT_NAME,
         QuestEventActionModel.TriggerEvent.SHORT_NAME,
     )
+
+    fun setSimulateSeed(enabled: Boolean) {
+        store.setChallengeSeedSimulationEnabled(enabled)
+    }
+
+    fun setSeedHex(seed: String) {
+        parseChallengeSeed(seed)?.let(store::setChallengeSeed)
+    }
+
+    fun nextSeed() {
+        store.setChallengeSeed(store.challengeSeed.value + 1)
+    }
 
     fun play() {
         val evts = events.value
