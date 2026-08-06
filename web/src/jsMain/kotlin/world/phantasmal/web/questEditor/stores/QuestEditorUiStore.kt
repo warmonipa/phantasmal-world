@@ -22,6 +22,7 @@ class QuestEditorUiStore(
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
     private val _showQuestParticles = mutableCell(true)
+    private val _showFogBoundaries = mutableCell(false)
     private val _ultimate = mutableCell(true)
     private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
 
@@ -33,6 +34,7 @@ class QuestEditorUiStore(
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
     val showQuestParticles: Cell<Boolean> = _showQuestParticles
+    val showFogBoundaries: Cell<Boolean> = _showFogBoundaries
 
     /**
      * Whether to render the Ultimate-difficulty visual skins of areas and entities.
@@ -78,6 +80,10 @@ class QuestEditorUiStore(
 
     fun setShowQuestParticles(show: Boolean) {
         _showQuestParticles.value = show
+    }
+
+    fun setShowFogBoundaries(show: Boolean) {
+        _showFogBoundaries.value = show
     }
 
     fun setUltimate(ultimate: Boolean) {

@@ -152,6 +152,12 @@ class QuestEditorToolbarWidget(
                                 onChange = ctrl::setShowQuestParticles,
                             ),
                             MenuItem.Check(
+                                label = "Fog Boundaries",
+                                tooltip = "Show all Fog Collision trigger boundaries in the current area",
+                                checked = ctrl.showFogBoundaries,
+                                onChange = ctrl::setShowFogBoundaries,
+                            ),
+                            MenuItem.Check(
                                 label = "Ultimate",
                                 tooltip = "Show the Ultimate-difficulty skins of areas and enemies",
                                 checked = ctrl.ultimate,

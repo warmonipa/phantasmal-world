@@ -188,6 +188,31 @@ class QuestEditorRendererWidget(
                     }
                 }
 
+                // Fog boundaries toggle
+                div {
+                    className = "pw-toolbar-menu-item pw-toolbar-menu-item-check"
+                    title = "Show all Fog Collision trigger boundaries in the current area"
+
+                    val checkIcon = span {
+                        className = "pw-toolbar-menu-item-check-icon"
+                    }
+                    span {
+                        className = "pw-toolbar-menu-item-label"
+                        textContent = "Fog Boundaries"
+                    }
+
+                    observeNow(questEditorUiStore.showFogBoundaries) { checked ->
+                        checkIcon.textContent = if (checked) "\u2713" else ""
+                    }
+
+                    onclick = { e ->
+                        e.stopPropagation()
+                        questEditorUiStore.setShowFogBoundaries(
+                            !questEditorUiStore.showFogBoundaries.value
+                        )
+                    }
+                }
+
                 // Separator shown when any contextual action below is visible.
                 val hasContextualAction: Cell<Boolean> =
                     map(hasCmData, isSymbolChatObjectSelected) { cm, sc -> cm || sc }

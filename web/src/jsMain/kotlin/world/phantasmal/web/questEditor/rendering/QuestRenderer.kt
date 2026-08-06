@@ -69,8 +69,13 @@ class QuestRenderer(
             readSegmentData,
         ),
     )
-    private val fogPreviewManager = addDisposable(
-        FogPreviewManager(context, fogAssetLoader, questEditorStore)
+    private val fogBoundaryVisualizationManager = addDisposable(
+        FogBoundaryVisualizationManager(
+            context,
+            fogAssetLoader,
+            questEditorStore,
+            questEditorUiStore,
+        )
     )
 
     init {
@@ -89,7 +94,7 @@ class QuestRenderer(
     }
 
     override fun render() {
-        fogPreviewManager.beforeRender()
+        fogBoundaryVisualizationManager.beforeRender()
         meshManager.beforeRender()
         super.render()
     }

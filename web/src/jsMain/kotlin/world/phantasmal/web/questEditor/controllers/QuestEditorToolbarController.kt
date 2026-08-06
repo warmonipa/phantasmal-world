@@ -309,6 +309,7 @@ class QuestEditorToolbarController(
     val spawnMonstersOnGround: Cell<Boolean> = questEditorUiStore.spawnMonstersOnGround
     val showOriginPoint: Cell<Boolean> = questEditorUiStore.showOriginPoint
     val showQuestParticles: Cell<Boolean> = questEditorUiStore.showQuestParticles
+    val showFogBoundaries: Cell<Boolean> = questEditorUiStore.showFogBoundaries
     val ultimate: Cell<Boolean> = questEditorUiStore.ultimate
 
     // Lobby event (Pioneer 2 / city seasonal decoration) filter.
@@ -898,6 +899,10 @@ class QuestEditorToolbarController(
 
     fun setShowQuestParticles(show: Boolean) {
         questEditorUiStore.setShowQuestParticles(show)
+    }
+
+    fun setShowFogBoundaries(show: Boolean) {
+        questEditorUiStore.setShowFogBoundaries(show)
     }
 
     fun setSelectedSection(section: SectionModel?) {

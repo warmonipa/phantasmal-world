@@ -24,6 +24,23 @@ import kotlin.test.*
 
 class QuestEditorToolbarControllerTests : WebTestSuite {
     @Test
+    fun fog_boundaries_are_disabled_by_default_and_share_the_ui_store_state() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        assertFalse(ctrl.showFogBoundaries.value)
+
+        ctrl.setShowFogBoundaries(true)
+
+        assertTrue(ctrl.showFogBoundaries.value)
+        assertTrue(components.questEditorUiStore.showFogBoundaries.value)
+    }
+
+    @Test
     fun can_create_a_new_quest() = testAsync {
         val ctrl = disposer.add(QuestEditorToolbarController(
             components.uiStore,
