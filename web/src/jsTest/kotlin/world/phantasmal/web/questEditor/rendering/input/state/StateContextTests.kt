@@ -10,7 +10,11 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.QuestNpc
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcCreationOpcode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.web.core.rendering.OrbitalCameraInputManager
+import world.phantasmal.web.externals.three.InstancedMesh
 import world.phantasmal.web.externals.three.Mesh
 import world.phantasmal.web.externals.three.MeshBasicMaterial
 import world.phantasmal.web.externals.three.PerspectiveCamera
@@ -18,10 +22,13 @@ import world.phantasmal.web.externals.three.SphereGeometry
 import world.phantasmal.web.externals.three.Vector2
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.controllers.EventsController
+import world.phantasmal.web.questEditor.rendering.EntityInstanceContainer
 import world.phantasmal.web.questEditor.rendering.QuestRenderContext
 import world.phantasmal.web.questEditor.rendering.input.PointerDownEvt
 import world.phantasmal.web.questEditor.rendering.input.PointerUpEvt
+import world.phantasmal.web.questEditor.rendering.input.KeyboardEvt
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.WebTestContext
 import world.phantasmal.web.test.createQuestModel
@@ -131,6 +138,51 @@ class StateContextTests : WebTestSuite {
         state.processEvent(PointerUpEvt(0, false, false, pointer, false))
 
         assertEquals(217, navigatedLabel)
+    }
+
+    @Test
+    fun nearest_script_npc_is_selectable_but_does_not_enter_manipulation_state() = testAsync {
+        val editableNpc = createQuestNpcModel(NpcType.NpcHUmar, Episode.I).apply {
+            setWorldPosition(Vector3(0.0, 0.0, 0.0))
+        }
+        val scriptNpc = QuestNpcModel(
+            QuestNpc(NpcType.NpcHUmar, Episode.I, floorId = 0, wave = 0),
+            waveId = 0,
+            scriptSpawn = ScriptNpcSpawn(
+                opcode = ScriptNpcCreationOpcode.NpcCrp,
+                x = 0,
+                y = 0,
+                z = 3,
+                angle = 0,
+                templateIndex = 0,
+                executionFloorIds = setOf(0),
+            ),
+        ).apply {
+            setWorldPosition(Vector3(0.0, 0.0, 3.0))
+        }
+        components.questEditorStore.setCurrentQuest(createQuestModel(npcs = listOf(editableNpc)))
+        val context = createStateContext()
+        val mesh = InstancedMesh(SphereGeometry(1.0), MeshBasicMaterial(), 2).apply {
+            count = 0
+        }
+        val container = disposer.add(EntityInstanceContainer(mesh) {})
+        container.addInstance(editableNpc)
+        container.addInstance(scriptNpc)
+        context.renderContext.entities.add(mesh)
+        context.renderContext.entities.updateMatrixWorld(true)
+        val state = IdleState(context, entityManipulationEnabled = true)
+
+        val nextState = state.processEvent(
+            PointerDownEvt(1, false, false, Vector2(0.0, 0.0), false)
+        )
+
+        assertEquals(state, nextState)
+        assertEquals(scriptNpc, components.questEditorStore.selectedEntity.value)
+
+        val afterDelete = state.processEvent(KeyboardEvt("Delete"))
+
+        assertEquals(state, afterDelete)
+        assertEquals(scriptNpc, components.questEditorStore.selectedEntity.value)
     }
 
     private fun WebTestContext.createStateContext(

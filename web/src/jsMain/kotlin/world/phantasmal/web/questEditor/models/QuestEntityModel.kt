@@ -34,6 +34,9 @@ abstract class QuestEntityModel<Type : EntityType, Entity : QuestEntity<Type>>(
 
     val type: Type get() = entity.type
 
+    /** Whether editor commands may mutate this entity. */
+    open val isEditable: Boolean = true
+
     /** Logical quest floor; use the selected AreaVariantModel for actual map-area identity. */
     val floorId: Int get() = entity.floorId
 

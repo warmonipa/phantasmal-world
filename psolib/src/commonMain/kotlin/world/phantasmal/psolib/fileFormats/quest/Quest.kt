@@ -11,8 +11,10 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getFloorMappings
 import world.phantasmal.psolib.asm.dataFlowAnalysis.getParticleSpawns
+import world.phantasmal.psolib.asm.dataFlowAnalysis.getScriptNpcSpawns
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.compression.prs.prsCompress
 import world.phantasmal.psolib.compression.prs.prsDecompress
@@ -57,6 +59,8 @@ class Quest(
     var version: Version = Version.BB_V4,
     /** Fixed quest particle emitters from DAT objects and statically resolved BIN opcodes. */
     val particleSpawns: List<ParticleSpawn> = emptyList(),
+    /** Positioned NPCs created by statically resolved V2, V3, or V4 quest opcodes. */
+    val scriptNpcSpawns: List<ScriptNpcSpawn> = emptyList(),
 )
 
 /**
@@ -203,6 +207,11 @@ private fun parseBinDatFromDecompressed(
         binFormat = bin.format,
         version = version,
         particleSpawns = getQuestParticleSpawns(bytecodeIr, objects, npcs),
+        scriptNpcSpawns = if (version.supportsScriptNpcPreview) {
+            getQuestScriptNpcSpawns(version, episode, bytecodeIr, objects, npcs)
+        } else {
+            emptyList()
+        },
     ))
 }
 
@@ -695,6 +704,34 @@ fun getQuestParticleSpawns(
     )
     return spawns
 }
+
+/** Derives positioned, client-reachable NPC creations from V2, V3, or V4 quest bytecode. */
+fun getQuestScriptNpcSpawns(
+    version: Version,
+    episode: Episode,
+    bytecodeIr: BytecodeIr,
+    objects: List<QuestObject>,
+    npcs: List<QuestNpc>,
+): List<ScriptNpcSpawn> {
+    val instructionSegments = bytecodeIr.instructionSegments()
+    if (instructionSegments.none { 0 in it.labels }) return emptyList()
+
+    var cfg: ControlFlowGraph? = null
+    return getScriptNpcSpawns(
+        version,
+        episode,
+        instructionSegments,
+        extractScriptEntryPointFloorIds(objects, npcs),
+    ) {
+        cfg ?: ControlFlowGraph.create(bytecodeIr).also { cfg = it }
+    }
+}
+
+val Version.supportsScriptNpcPreview: Boolean
+    get() = this == Version.DC_V2 ||
+        this == Version.PC_V2 ||
+        this == Version.GC_V3 ||
+        this == Version.BB_V4
 
 /**
  * DAT objects and NPCs invoke their script labels on the logical floor stored in their DAT

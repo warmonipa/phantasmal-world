@@ -7,6 +7,7 @@ import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
@@ -23,6 +24,7 @@ fun WebTestContext.createQuestModel(
     objects: List<QuestObjectModel> = emptyList(),
     events: List<QuestEventModel> = emptyList(),
     bytecodeIr: BytecodeIr = BytecodeIr(emptyList()),
+    version: Version = Version.BB_V4,
 ): QuestModel =
     QuestModel(
         id,
@@ -42,6 +44,7 @@ fun WebTestContext.createQuestModel(
         UIntArray(0),
         floorMappings,
         components.areaStore::getVariant,
+        version = version,
     )
 
 fun createQuestNpcModel(

@@ -250,11 +250,11 @@ fun paramsToCode(params: List<Map<String, Any>>, indent: Int): String {
             "slabel" -> "SLabelType"
             "string" -> "StringType"
             "ilabel_var" -> "ILabelVarType"
-            "reg" -> """RegType(${
+            "reg", "reg32" -> """RegType(${
                 (param["registers"] as List<Map<String, Any>>?)?.let {
                     paramsToCode(it, indent + 4)
                 } ?: "null"
-            })"""
+            }, ${if (param["type"] == "reg32") 4 else 1})"""
 
             "reg_var" -> "RegVarType"
             "pointer" -> "PointerType"

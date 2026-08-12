@@ -5,6 +5,7 @@ import kotlinx.coroutines.launch
 import org.w3c.dom.Node
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.cell
+import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.Disposer
@@ -47,6 +48,39 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                     td { text(ctrl.name) }
                 }
                 tr {
+                    hidden(ctrl.scriptInfoHidden)
+                    th { textContent = "Source:" }
+                    td { text(ctrl.scriptSource) }
+                }
+                tr {
+                    hidden(ctrl.scriptInfoHidden)
+                    th { textContent = "Template:" }
+                    td { text(ctrl.scriptTemplate) }
+                }
+                tr {
+                    hidden(ctrl.scriptInteractionDetailsHidden)
+                    th { textContent = "Interaction labels:" }
+                    td {
+                        span {
+                            hidden(ctrl.scriptInteractions.map { it.isNotEmpty() })
+                            textContent = "None"
+                        }
+                        bindDisposableChildrenTo(ctrl.scriptInteractions) { interaction, _ ->
+                            val button = Button(
+                                tooltip = cell("Go to script label"),
+                                text = "${interaction.kind} 0x${interaction.label.toString(16).uppercase()}",
+                                iconRight = Icon.ArrowRight,
+                                onClick = { event ->
+                                    event.stopPropagation()
+                                    ctrl.goToScriptLabel(interaction.label)
+                                },
+                            )
+                            val node = span { addChild(button) }
+                            Pair(node, button)
+                        }
+                    }
+                }
+                tr {
                     hidden(ctrl.appearFlagHidden)
 
                     th { textContent = "Appear Flag:" }
@@ -54,7 +88,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                 }
                 tr {
                     val sectionInput = IntInput(
-                        enabled = ctrl.enabled,
+                        enabled = ctrl.editingEnabled,
                         value = ctrl.sectionId,
                         onChange = { scope.launch { ctrl.setSectionId(it) } },
                         label = "Section:",
@@ -68,7 +102,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                     hidden(ctrl.waveHidden)
 
                     val waveInput = IntInput(
-                        enabled = ctrl.enabled,
+                        enabled = ctrl.editingEnabled,
                         value = ctrl.waveId,
                         onChange = ctrl::setWaveId,
                         label = "Wave:",
@@ -132,7 +166,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
             }
 
             val input = DoubleInput(
-                enabled = ctrl.enabled,
+                enabled = ctrl.editingEnabled,
                 value = inputValue,
                 onChange = onChange,
                 label = label,
@@ -155,7 +189,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
             is EntityInfoPropModel.I32 -> prop.colorOptions?.let { options ->
                 disposer.add(
                     Select(
-                        enabled = ctrl.enabled,
+                        enabled = ctrl.editingEnabled,
                         label = prop.label,
                         items = cell(options),
                         selected = prop.selectedColor,
@@ -167,7 +201,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
             is EntityInfoPropModel.F32 -> prop.colorOptions?.let { options ->
                 disposer.add(
                     Select(
-                        enabled = ctrl.enabled,
+                        enabled = ctrl.editingEnabled,
                         label = prop.label,
                         items = cell(options),
                         selected = prop.selectedColor,
@@ -190,7 +224,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
         val input = disposer.add(
             when (prop) {
                 is EntityInfoPropModel.I32 -> IntInput(
-                    enabled = ctrl.enabled,
+                    enabled = ctrl.editingEnabled,
                     label = prop.label,
                     min = Int.MIN_VALUE,
                     max = Int.MAX_VALUE,
@@ -199,14 +233,14 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                     onChange = prop::setValue,
                 )
                 is EntityInfoPropModel.F32 -> DoubleInput(
-                    enabled = ctrl.enabled,
+                    enabled = ctrl.editingEnabled,
                     label = prop.label,
                     roundTo = 3,
                     value = prop.value,
                     onChange = prop::setValue,
                 )
                 is EntityInfoPropModel.Angle -> DoubleInput(
-                    enabled = ctrl.enabled,
+                    enabled = ctrl.editingEnabled,
                     label = prop.label,
                     roundTo = 1,
                     value = prop.value,

@@ -59,6 +59,10 @@ setup:
 
 The code base is divided up into the following gradle subprojects.
 
+Reverse-engineering reference documentation:
+
+- [Quest VM NPC opcodes (V2, V3, and V4)](psolib/QUEST_VM_NPC_OPCODES.md)
+
 #### core
 
 Core contains the basic utilities that all other subprojects directly or indirectly depend on.

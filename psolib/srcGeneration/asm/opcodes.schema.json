@@ -75,16 +75,16 @@
                 },
                 "read": {
                     "type": "boolean",
-                    "description": "Does this opcode read the given register. Should only be specified if type is \"reg\" or \"reg_var\"."
+                    "description": "Does this opcode read the given register. Should only be specified if type is \"reg\", \"reg32\", or \"reg_var\"."
                 },
                 "write": {
                     "type": "boolean",
-                    "description": "Does this opcode write to the given register. Should only be specified if type is \"reg\" or \"reg_var\"."
+                    "description": "Does this opcode write to the given register. Should only be specified if type is \"reg\", \"reg32\", or \"reg_var\"."
                 },
                 "registers": {
                     "type": "array",
                     "minItems": 1,
-                    "description": "Specifies the way the referenced registers will be interpreted. Should only be specified if the parameter type is \"reg\".",
+                    "description": "Specifies the way the referenced registers will be interpreted. Should only be specified if the parameter type is \"reg\" or \"reg32\".",
                     "items": {
                         "type": "object",
                         "required": [
@@ -127,6 +127,7 @@
                 "string",
                 "ilabel_var",
                 "reg",
+                "reg32",
                 "reg_var",
                 "pointer"
             ]

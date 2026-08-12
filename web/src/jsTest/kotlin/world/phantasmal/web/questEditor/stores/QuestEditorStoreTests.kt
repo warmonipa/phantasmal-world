@@ -2,6 +2,8 @@ package world.phantasmal.web.questEditor.stores
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcCreationOpcode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
@@ -10,8 +12,12 @@ import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMappingEntry
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawnEntry
+import world.phantasmal.psolib.fileFormats.quest.QuestNpc
+import world.phantasmal.web.core.euler
+import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.controllers.EntityListController
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -20,9 +26,55 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class QuestEditorStoreTests : WebTestSuite {
+    @Test
+    fun script_npc_preview_rejects_every_store_mutation_boundary() = testAsync {
+        val store = components.questEditorStore
+        val quest = createQuestModel()
+        val npc = QuestNpcModel(
+            QuestNpc(NpcType.NpcRAmar, Episode.I, floorId = 0, wave = 0),
+            waveId = 0,
+            scriptSpawn = ScriptNpcSpawn(
+                opcode = ScriptNpcCreationOpcode.NpcCrp,
+                x = 0,
+                y = 0,
+                z = 0,
+                angle = 0,
+                templateIndex = 27,
+                executionFloorIds = setOf(0),
+            ),
+        )
+        store.setCurrentQuest(quest)
+
+        assertFailsWith<IllegalArgumentException> { store.removeEntity(quest, npc) }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityPosition(npc, null, Vector3(1.0, 2.0, 3.0))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityWorldPosition(npc, null, Vector3(1.0, 2.0, 3.0))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityRotation(npc, euler(1.0, 2.0, 3.0))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityWorldRotation(npc, euler(1.0, 2.0, 3.0))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityProperty(npc, QuestNpcModel::setWaveId, 1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.setEntityProp(npc, npc.properties.value.first(), 1f)
+        }
+        assertFailsWith<IllegalArgumentException> { store.setEntitySectionId(npc, 1) }
+
+        assertEquals(Vector3(0.0, 0.0, 0.0), npc.position.value)
+        assertEquals(0, npc.wave.value.id)
+        assertEquals(0, npc.sectionId.value)
+    }
+
     @Test
     fun challenge_seed_switch_materializes_the_full_unsigned_seed() = testAsync {
         val store = components.questEditorStore

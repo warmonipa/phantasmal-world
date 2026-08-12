@@ -12,8 +12,8 @@ import world.phantasmal.psolib.fileFormats.quest.Version
 
 private val logger = KotlinLogging.logger {}
 
-/** PSOBB allocates its floor designation/entity tables for logical floor IDs 0 through 17. */
-private const val CLIENT_LOGICAL_FLOOR_COUNT = 0x12
+/** The client allocates its floor designation/entity tables for logical floor IDs 0 through 17. */
+internal const val CLIENT_LOGICAL_FLOOR_COUNT = 0x12
 
 /**
  * Where the client obtains entities for a designated floor.

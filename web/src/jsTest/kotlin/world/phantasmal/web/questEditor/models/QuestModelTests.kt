@@ -16,6 +16,7 @@ import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
 import world.phantasmal.web.test.createQuestObjectModel
+import world.phantasmal.web.questEditor.stores.convertQuestFromModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -23,6 +24,52 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
+    @Test
+    fun script_npc_spawns_follow_v2_v3_v4_bytecode_edits_and_remain_out_of_dat_npcs() = test {
+        fun bytecode(version: Version, templateIndex: Int): BytecodeIr {
+            val mnemonic = if (version == Version.GC_V3 || version == Version.BB_V4) {
+                "npc_crp_v3 r0"
+            } else {
+                "npc_crp r0, 0"
+            }
+            val result = assemble(
+                asm = listOf(
+                    "0:",
+                    "leti r0, 10",
+                    "leti r1, 20",
+                    "leti r2, 30",
+                    "leti r3, 40",
+                    "leti r4, 0",
+                    "leti r5, $templateIndex",
+                    mnemonic,
+                    "ret",
+                ),
+                version = version,
+            )
+            assertTrue(result is Success, "$version assembly failed: $result")
+            return result.value
+        }
+
+        for (version in listOf(Version.DC_V2, Version.PC_V2, Version.GC_V3, Version.BB_V4)) {
+            val quest = createQuestModel(version = version, bytecodeIr = bytecode(version, 15))
+            assertEquals(15, quest.scriptNpcSpawns.value.single().templateIndex, version.toString())
+
+            quest.setBytecodeIr(bytecode(version, 27))
+            assertEquals(27, quest.scriptNpcSpawns.value.single().templateIndex, version.toString())
+
+            val exported = convertQuestFromModel(quest)
+            assertTrue(exported.npcs.isEmpty(), "$version script previews must not become DAT NPCs")
+            assertEquals(27, exported.scriptNpcSpawns.single().templateIndex)
+            assertEquals(version, exported.version)
+        }
+
+        val unsupported = createQuestModel(
+            version = Version.DC_V1,
+            bytecodeIr = bytecode(Version.DC_V1, 15),
+        )
+        assertTrue(unsupported.scriptNpcSpawns.value.isEmpty())
+    }
+
     @Test
     fun setFloorMappings_updates_npc_effective_episode() = test {
         val npc = createQuestNpcModel(NpcType.Boota, Episode.IV, floorId = 0)

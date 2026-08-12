@@ -230,7 +230,7 @@ class Instruction(
 
                 // Check RegRefType and LabelType last, because "is" checks are very slow in JS.
 
-                is RegType -> 1
+                is RegType -> type.inlineWidthBytes
 
                 is LabelType -> 2
 

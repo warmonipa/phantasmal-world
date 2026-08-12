@@ -6,6 +6,7 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnOrigin
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawnSource
 import world.phantasmal.web.core.minus
 import world.phantasmal.web.externals.three.Mesh
+import world.phantasmal.web.externals.three.Intersection
 import world.phantasmal.web.externals.three.Vector2
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.models.QuestEntityModel
@@ -42,7 +43,7 @@ class IdleState(
                     val quest = ctx.quest.value
                     val entity = ctx.selectedEntity.value
 
-                    if (quest != null && entity != null && event.key == "Delete") {
+                    if (quest != null && entity?.isEditable == true && event.key == "Delete") {
                         ctx.finalizeEntityDelete(quest, entity)
                     }
                 }
@@ -72,7 +73,7 @@ class IdleState(
                         } else {
                             ctx.selectViewportEntity(pick.entity)
 
-                            if (entityManipulationEnabled) {
+                            if (entityManipulationEnabled && pick.entity.isEditable) {
                                 return TranslationState(
                                     ctx,
                                     pick.entity,
@@ -88,7 +89,7 @@ class IdleState(
                         } else {
                             ctx.selectViewportEntity(pick.entity)
 
-                            if (entityManipulationEnabled) {
+                            if (entityManipulationEnabled && pick.entity.isEditable) {
                                 return RotationState(
                                     ctx,
                                     pick.entity,
@@ -222,18 +223,11 @@ class IdleState(
         val intersection = ctx.intersectObject(
             pointerPosition,
             ctx.renderContext.entities,
-        ) { it.`object`.visible }
+        ) { entity(it) != null }
 
         intersection ?: return null
 
-        val entityInstancedMesh = intersection.`object`.userData
-        val instanceIndex = intersection.instanceId
-
-        if (instanceIndex == null || entityInstancedMesh !is EntityInstanceContainer) {
-            return null
-        }
-
-        val entity = entityInstancedMesh.getInstanceAt(instanceIndex).entity
+        val entity = entity(intersection) ?: return null
         val entityPosition = entity.worldPosition.value
 
         // Vector from the point where we grab the entity to its position.
@@ -253,6 +247,15 @@ class IdleState(
         }
 
         return Pick(entity, grabOffset, dragAdjust)
+    }
+
+    private fun entity(intersection: Intersection): QuestEntityModel<*, *>? {
+        if (!intersection.`object`.visible) return null
+
+        val entityInstanceContainer = intersection.`object`.userData as? EntityInstanceContainer
+            ?: return null
+        val instanceIndex = intersection.instanceId ?: return null
+        return entityInstanceContainer.getInstanceAt(instanceIndex).entity
     }
 
     private fun pickAndHighlightMesh() {

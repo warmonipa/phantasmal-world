@@ -11,6 +11,7 @@ import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.fileFormats.quest.BinFormat
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
@@ -18,6 +19,9 @@ import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatUnknown
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
 import world.phantasmal.psolib.fileFormats.quest.getQuestParticleSpawns
+import world.phantasmal.psolib.fileFormats.quest.getQuestScriptNpcSpawns
+import world.phantasmal.psolib.fileFormats.quest.supportsScriptNpcPreview
+import world.phantasmal.psolib.fileFormats.quest.Version
 
 class QuestModel(
     id: Int,
@@ -55,6 +59,8 @@ class QuestModel(
     val bytecodeOffset: Int? = null,
     /** Original BIN format from the loaded file, used to restore the correct version on save. */
     val binFormat: BinFormat = BinFormat.BB,
+    /** Quest version detected while loading. */
+    val version: Version = Version.BB_V4,
 ) {
     private val _id = mutableCell(0)
     private val _language = mutableCell(0)
@@ -197,6 +203,30 @@ class QuestModel(
             objects = objects.map { it.entity },
             npcs = npcs.map { it.entity },
         )
+    }
+
+    /** Positioned NPCs derived from reachable V2, V3, or V4 quest instructions. */
+    val scriptNpcSpawns: Cell<List<ScriptNpcSpawn>> = map(
+        _objects.dependingOnElements { obj ->
+            obj.properties.value.map { it.value }.toTypedArray()
+        },
+        _npcs.dependingOnElements { npc ->
+            npc.properties.value.map { it.value }.toTypedArray()
+        },
+        _bytecodeRevision,
+        _floorMappingRevision,
+    ) { objects, npcs, _, _ ->
+        if (version.supportsScriptNpcPreview) {
+            getQuestScriptNpcSpawns(
+                version = version,
+                episode = episode,
+                bytecodeIr = this.bytecodeIr,
+                objects = objects.map { it.entity },
+                npcs = npcs.map { it.entity },
+            )
+        } else {
+            emptyList()
+        }
     }
 
     init {

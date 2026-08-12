@@ -3,11 +3,20 @@ package world.phantasmal.web.questEditor.models
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.web.externals.three.Vector3
 
-class QuestNpcModel(npc: QuestNpc, waveId: Int) : QuestEntityModel<NpcType, QuestNpc>(npc) {
+class QuestNpcModel(
+    npc: QuestNpc,
+    waveId: Int,
+    /** Present for a read-only preview derived from a quest VM creation opcode. */
+    val scriptSpawn: ScriptNpcSpawn? = null,
+) : QuestEntityModel<NpcType, QuestNpc>(npc) {
+    val isScriptCreated: Boolean get() = scriptSpawn != null
+    override val isEditable: Boolean = !isScriptCreated
+
     private val _waveId = mutableCell(waveId)
 
     private val _typeId = mutableCell(npc.typeId.toInt())

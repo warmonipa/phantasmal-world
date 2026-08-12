@@ -138,7 +138,7 @@ fun getParticleSpawns(
 ): List<ParticleSpawn> {
     val spawns = mutableListOf<ParticleSpawn>()
     var cfg: ControlFlowGraph? = null
-    var executionFloors: ParticleExecutionFloors? = null
+    var executionFloors: ExecutionFloors? = null
 
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
@@ -153,7 +153,7 @@ fun getParticleSpawns(
 
             if (cfg == null) cfg = createCfg()
             if (executionFloors == null) {
-                executionFloors = computeParticleExecutionFloors(
+                executionFloors = computeExecutionFloors(
                     cfg,
                     instructionSegments,
                     entityEntryPointFloorIds,
@@ -267,7 +267,7 @@ private data class ParticleInteractionRegion(
 private fun getParticleInteractionRegions(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
-    executionFloors: ParticleExecutionFloors,
+    executionFloors: ExecutionFloors,
 ): List<ParticleInteractionRegion> {
     val regions = mutableListOf<ParticleInteractionRegion>()
 
@@ -350,7 +350,7 @@ private fun getParticleInteractionRegions(
  * current floor handler is started, so its reachable blocks are seeded as floor 0. Blocks not
  * reachable from a client entry point are absent from the map and never create an emitter.
  */
-private data class ParticleExecutionFloors(
+internal data class ExecutionFloors(
     val floorsByInstruction: Map<Instruction, Set<Int>>,
 )
 
@@ -389,11 +389,12 @@ private data class CallbackHandlerSlot(
     val index: Int = 0,
 )
 
-private fun computeParticleExecutionFloors(
+internal fun computeExecutionFloors(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
     entityEntryPointFloorIds: Map<Int, Set<Int>>,
-): ParticleExecutionFloors {
+    logicalFloorCount: Int = 0x12,
+): ExecutionFloors {
     // Step 1: build label -> entry block (the first block of the segment carrying that label).
     val labelToEntryBlock = mutableMapOf<Int, BasicBlock>()
     for (block in cfg.blocks) {
@@ -495,8 +496,7 @@ private fun computeParticleExecutionFloors(
 
     fun enqueueResume(block: BasicBlock, instructionIndex: Int) {
         // A persistent QuestThread2 resumes against whatever g_CurrentFloor is at that time.
-        // The client supports exactly 18 logical floor slots.
-        for (floor in 0 until 0x12) {
+        for (floor in 0 until logicalFloorCount) {
             val entry = ExecutionPoint(block, instructionIndex, floor, floorBound = false)
             if (discoveredEntries.add(entry)) pendingEntries.add(entry)
         }
@@ -518,7 +518,7 @@ private fun computeParticleExecutionFloors(
                     -> enqueueEntry(label, 0, floorBound = false)
                     CallbackHandlerKind.QuestBoard -> enqueueEntry(label, 0, floorBound = true)
                     CallbackHandlerKind.QuestExit -> {
-                        for (floor in 0 until 0x12) {
+                        for (floor in 0 until logicalFloorCount) {
                             enqueueEntry(label, floor, floorBound = true)
                         }
                     }
@@ -609,14 +609,13 @@ private fun computeParticleExecutionFloors(
                             OP_SET_FLOOR_HANDLER_V3_V4.code -> {
                                 val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
                                 val label = (inst.args.getOrNull(1) as? IntArg)?.value ?: continue
-                                // PSOBB's set_floor_handler accepts only logical floors 0..17.
-                                if (floor in 0 until 0x12) {
+                                if (floor in 0 until logicalFloorCount) {
                                     floorHandlerWrites = floorHandlerWrites + (floor to setOf(label))
                                 }
                             }
                             OP_CLR_FLOOR_HANDLER.code -> {
                                 val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                                if (floor in 0 until 0x12) {
+                                if (floor in 0 until logicalFloorCount) {
                                     floorHandlerWrites = floorHandlerWrites + (floor to emptySet())
                                 }
                             }
@@ -862,7 +861,7 @@ private fun computeParticleExecutionFloors(
             }
     }
 
-    return ParticleExecutionFloors(result)
+    return ExecutionFloors(result)
 }
 
 /** Opcodes after which the same client quest thread can resume on a later frame. */

@@ -5,10 +5,13 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.cell.list.listMap
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcInteractionKind
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.core.math.degToRad
 import world.phantasmal.core.math.radToDeg
 import world.phantasmal.psolib.fileFormats.quest.EntityPropType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.fileFormats.quest.displayName
 import world.phantasmal.web.core.euler
 import world.phantasmal.web.externals.three.Euler
@@ -23,6 +26,7 @@ import world.phantasmal.web.questEditor.stores.AsmStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.controllers.Controller
+import kotlin.math.roundToInt
 
 sealed class EntityInfoPropModel(
     protected val store: QuestEditorStore,
@@ -37,7 +41,17 @@ sealed class EntityInfoPropModel(
     }
     val scriptLabelId: Cell<Int?> = when (val entity = selectedEntity) {
         is QuestNpcModel -> {
-            if (isScriptLabel) prop.value.map { it.toScriptLabelId() } else nullCell()
+            if (!isScriptLabel) {
+                nullCell()
+            } else if (entity.scriptSpawn != null) {
+                cell(
+                    entity.scriptSpawn.interactions
+                        .minWithOrNull(compareBy({ it.label }, { it.kind.ordinal }))
+                        ?.label
+                )
+            } else {
+                prop.value.map { it.toScriptLabelId() }
+            }
         }
         is QuestObjectModel -> objectScriptLabelId(entity)
         else -> nullCell()
@@ -59,8 +73,7 @@ sealed class EntityInfoPropModel(
     }
 
     private fun Any.toScriptLabelId(): Int? = when (this) {
-        is Int -> this
-        is Float -> toInt()
+        is Number -> toDouble().let { if (it.isFinite()) it.roundToInt() else null }
         else -> null
     }
 
@@ -157,7 +170,14 @@ sealed class EntityInfoPropModel(
         val colorOptions: List<ColorOption>? =
             if (prop.name == "Color" && isFenceColorProp(store)) COLOR_OPTIONS else null
 
-        val value: Cell<Double> = prop.value.map { (it as Float).toDouble() }
+        val value: Cell<Double> =
+            if (isScriptLabel &&
+                (store.selectedEntity.value as? QuestNpcModel)?.scriptSpawn != null
+            ) {
+                scriptLabelId.map { (it ?: 0).toDouble() }
+            } else {
+                prop.value.map { (it as Float).toDouble() }
+            }
 
         val selectedColor: Cell<ColorOption?> =
             if (colorOptions != null) {
@@ -224,6 +244,46 @@ class EntityInfoController(
 ) : Controller() {
     val unavailable: Cell<Boolean> = questEditorStore.selectedEntity.isNull()
     val enabled: Cell<Boolean> = questEditorStore.questEditingEnabled
+    val editingEnabled: Cell<Boolean> =
+        map(enabled, questEditorStore.selectedEntity) { en, entity ->
+            en && entity?.isEditable == true
+        }
+
+    private val scriptSpawn = questEditorStore.selectedEntity.map { entity ->
+        (entity as? QuestNpcModel)?.scriptSpawn
+    }
+    val scriptInfoHidden: Cell<Boolean> = scriptSpawn.map { it == null }
+    val scriptSource: Cell<String> =
+        map(scriptSpawn, questEditorStore.currentQuest) { spawn, quest ->
+            if (spawn == null) "" else buildString {
+                append(spawn.opcode.mnemonicFor(quest?.version ?: world.phantasmal.psolib.fileFormats.quest.Version.BB_V4))
+                append(" (0x")
+                append(spawn.opcode.code.toString(16).uppercase())
+                append(')')
+            }
+        }
+    val scriptTemplate: Cell<String> = scriptSpawn.map { spawn ->
+        if (spawn == null) "" else {
+            val name = scriptNpcTemplate(spawn.templateIndex)?.name ?: "Unknown"
+            "$name (${spawn.templateIndex})"
+        }
+    }
+    val scriptInteractions: Cell<List<ScriptInteractionInfo>> = scriptSpawn.map { spawn ->
+        spawn?.interactions.orEmpty()
+            .sortedWith(compareBy({ it.label }, { it.kind.ordinal }))
+            .map { interaction ->
+                ScriptInteractionInfo(
+                    interaction.label,
+                    when (interaction.kind) {
+                        ScriptNpcInteractionKind.Target -> "Target"
+                        ScriptNpcInteractionKind.Talk -> "Talk"
+                    },
+                )
+            }
+    }
+    val scriptInteractionDetailsHidden: Cell<Boolean> = scriptSpawn.map { spawn ->
+        spawn == null || spawn.interactions.size == 1
+    }
 
     /**
      * Raw type ID at offset 0 of the entity data. Editable for NPCs; editing it changes the
@@ -239,13 +299,19 @@ class EntityInfoController(
 
     /** Only NPC type IDs are editable; object type IDs stay read-only. */
     val typeIdEnabled: Cell<Boolean> =
-        map(enabled, questEditorStore.selectedEntity) { en, entity -> en && entity is QuestNpcModel }
+        map(editingEnabled, questEditorStore.selectedEntity) { en, entity ->
+            en && entity is QuestNpcModel
+        }
 
     val type: Cell<String> = questEditorStore.selectedEntity.flatMap { entity ->
         when (entity) {
             // Re-resolve the kind when the raw type ID or effective map changes.
             is QuestNpcModel -> entity.resolvedTypeRevision.map {
-                if (entity.type.enemy) "Enemy" else "NPC"
+                when {
+                    entity.isScriptCreated -> "NPC (Script)"
+                    entity.type.enemy -> "Enemy"
+                    else -> "NPC"
+                }
             }
             null -> cell("")
             else -> cell("Object")
@@ -330,11 +396,13 @@ class EntityInfoController(
     }
 
     fun goToScriptLabel(labelId: Int) {
+        val range = asmStore.findLabelRange(labelId) ?: return
         onActivateAsmEditor()
-        asmStore.goToLabel(labelId)
+        asmStore.goToLabelRange(range)
     }
 
     suspend fun setSectionId(sectionId: Int) {
+        if (!editingEnabled.value) return
         questEditorStore.currentQuest.value?.let { quest ->
             questEditorStore.selectedEntity.value?.let { entity ->
                 val variant = quest.floorToVariantMap[entity.floorId]
@@ -360,6 +428,7 @@ class EntityInfoController(
     }
 
     fun setWaveId(waveId: Int) {
+        if (!editingEnabled.value) return
         (questEditorStore.selectedEntity.value as? QuestNpcModel)?.let { npc ->
             questEditorStore.executeAction(
                 EditEntityPropertyCommand(
@@ -375,6 +444,7 @@ class EntityInfoController(
     }
 
     fun setTypeId(typeId: Int) {
+        if (!editingEnabled.value) return
         (questEditorStore.selectedEntity.value as? QuestNpcModel)?.let { npc ->
             questEditorStore.executeAction(
                 EditEntityPropertyCommand(
@@ -411,7 +481,7 @@ class EntityInfoController(
     }
 
     private fun setPos(entity: QuestEntityModel<*, *>, x: Double, y: Double, z: Double) {
-        if (!enabled.value) return
+        if (!editingEnabled.value) return
 
         questEditorStore.executeAction(
             TranslateEntityCommand(
@@ -448,7 +518,7 @@ class EntityInfoController(
     }
 
     private fun setWorldPos(entity: QuestEntityModel<*, *>, x: Double, y: Double, z: Double) {
-        if (!enabled.value) return
+        if (!editingEnabled.value) return
 
         questEditorStore.executeAction(
             TranslateEntityCommand(
@@ -485,7 +555,7 @@ class EntityInfoController(
     }
 
     private fun setRot(entity: QuestEntityModel<*, *>, x: Double, y: Double, z: Double) {
-        if (!enabled.value) return
+        if (!editingEnabled.value) return
 
         questEditorStore.executeAction(
             RotateEntityCommand(
@@ -502,4 +572,6 @@ class EntityInfoController(
         private val DEFAULT_POSITION = cell(Vector3(0.0, 0.0, 0.0))
         private val DEFAULT_ROTATION = cell(euler(0.0, 0.0, 0.0))
     }
+
+    data class ScriptInteractionInfo(val label: Int, val kind: String)
 }

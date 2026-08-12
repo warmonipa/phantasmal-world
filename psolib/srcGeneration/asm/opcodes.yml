@@ -916,11 +916,11 @@ opcodes:
 
   - code: 0x60
     mnemonic: npc_crt_v3
-    doc: "Creates an NPC as client ID 1. Sends 6x69 with command = 0"
+    doc: "Creates a networked follower NPC. Sends 6x69 with command = 0. On V4 the first argument is the owner/follow player slot, not an alive/dead state."
     params:
       - type: int
-        name: "initial state"
-        doc: "initial state (see npc_crp; 0 = alive, 1 = dead, 2 = invisible text box)"
+        name: "owner player slot"
+        doc: "Player slot that owns/controls the follower NPC."
       - type: int
         name: "template index"
         doc: "template index (see 6x69 in CommandFormats.hh)"
@@ -928,38 +928,40 @@ opcodes:
 
   - code: 0x61
     mnemonic: npc_stop
-    doc: "Tells an NPC (by client ID) to stop following"
+    doc: "On V4, stops the networked NPC in the specified player slot and clears its follow owner."
     params:
       - type: int
+        name: "NPC player slot"
     stack: pop
 
   - code: 0x62
     mnemonic: npc_play
-    doc: "Tells an NPC (by client ID) to follow the player"
+    doc: "On V4, resumes challenge-style NPCs and makes them follow the specified owner player slot. The argument is not an NPC ID."
     params:
       - type: int
     stack: pop
 
   - code: 0x63
     mnemonic: npc_kill
-    doc: "Destroys an NPC (by client ID)"
+    doc: "On V4, destroys the NPC in the specified player slot and clears its tracking state."
     params:
       - type: int
+        name: "NPC player slot"
     stack: pop
 
   - code: 0x64
     mnemonic: npc_nont
-    doc: "Disables or enables the ability to talk to NPCs"
+    doc: "On V4, disables automatic contextual NPC chat bubbles."
     params: []
 
   - code: 0x65
     mnemonic: npc_talk
-    doc: "Disables or enables the ability to talk to NPCs"
+    doc: "On V4, enables automatic contextual NPC chat bubbles."
     params: []
 
   - code: 0x66
     mnemonic: npc_crp
-    doc: "Creates an NPC as client ID 1. V0_V2 inline form: 6 registers (4-byte encoding) + one 32-bit extra argument that V3_V4 does not have. (newserv QuestScript.cc:631)"
+    doc: "Creates an NPC as client ID 1. V0_V2 inline form: a 1-byte base register for 6 consecutive registers, followed by one ignored 32-bit argument."
     params:
       - type: reg
         registers:
@@ -985,12 +987,12 @@ opcodes:
             doc: "template index (see 6x69 in CommandFormats.hh)"
       - type: int
         name: "extra_arg"
-        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+        doc: "Ignored 32-bit argument present in V0_V2 form but not V3_V4."
     versions: V0_V2
 
   - code: 0x66
     mnemonic: npc_crp_v3
-    doc: "Creates an NPC as client ID 1. Sends 6x69 with command = 0. (newserv QuestScript.cc:632)"
+    doc: "Creates a networked follower NPC at a position. Sends 6x69 with command = 0. The V4 receiver interprets register 4 as the owner/follow player slot."
     params:
       - type: reg
         registers:
@@ -1008,8 +1010,8 @@ opcodes:
             name: "angle"
           - type: int
             read: true
-            name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+            name: "owner player slot"
+            doc: "Player slot that owns/controls the follower NPC."
           - type: int
             read: true
             name: "template index"
@@ -1188,9 +1190,9 @@ opcodes:
 
   - code: 0x79
     mnemonic: npc_talk_pl
-    doc: "Creates an NPC which only appears near a given location. V0_V2 inline form; register number is 4 bytes in actual binary (psolib models as 1 byte). (newserv QuestScript.cc:695)"
+    doc: "Creates an NPC which only appears near a given location. V0_V2 encodes the base register as a 32-bit integer."
     params:
-      - type: reg
+      - type: reg32
         registers:
           - type: int
             read: true
@@ -1222,7 +1224,7 @@ opcodes:
 
   - code: 0x79
     mnemonic: npc_talk_pl_v3
-    doc: "Creates an NPC which only appears near a given location. (newserv QuestScript.cc:696)"
+    doc: "Creates a V4 proximity controller. It constructs a local talk NPC in slot 3 while the local player is inside the radius and removes it outside the radius."
     params:
       - type: reg
         registers:
@@ -1247,56 +1249,79 @@ opcodes:
             doc: "template index (see 6x69 in CommandFormats.hh)"
           - type: int
             read: true
-            name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+            name: "state"
+            doc: "State 1 installs the dead/incapacitated state object. State 2 is not established for V4."
           - type: int
             read: true
-            name: "client ID"
+            name: "controller token"
+            doc: "Selector used by npc_talk_kill; this is not the spawned NPC slot."
     versions: V3_V4
 
   - code: 0x7a
     mnemonic: npc_talk_kill
-    doc: "Destroys an NPC created with npc_talk_pl. This opcode cannot be executed multiple times on the same frame; if it is, only the last one will take effect."
+    doc: "On V4, deletes npc_talk_pl controllers matching the token. Multiple calls in one frame overwrite the global selector, so only the final token takes effect."
     params:
       - type: int
+        name: "controller token"
     stack: pop
 
   - code: 0x7b
     mnemonic: npc_crtpk
-    doc: "Creates attacker NPC"
+    doc: "On V4, creates a networked attacker NPC with 6x69 command = 3. The examined handler uses NPC slot 1."
     params:
       - type: int
+        name: "owner player slot"
       - type: int
+        name: "template index"
     stack: pop
 
   - code: 0x7c
     mnemonic: npc_crppk
-    doc: "Creates attacker NPC. V0_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:707)"
+    doc: "Creates an attacker NPC. V0_V2 encodes the base register as a 32-bit integer and includes one ignored 32-bit argument."
     params:
-      - type: reg
+      - type: reg32
         registers:
           - type: int
             read: true
       - type: int
         name: "extra_arg"
-        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+        doc: "Ignored 32-bit argument present in V0_V2 form but not V3_V4."
     versions: V0_V2
 
   - code: 0x7c
     mnemonic: npc_crppk_v3
-    doc: "Creates attacker NPC. (newserv QuestScript.cc:708)"
+    doc: "Creates a networked attacker NPC at a position. V4 registers are x, y, z, angle, owner player slot, template index, and NPC slot."
     params:
       - type: reg
         registers:
           - type: int
             read: true
+            name: "position X"
+          - type: int
+            read: true
+            name: "position Y"
+          - type: int
+            read: true
+            name: "position Z"
+          - type: int
+            read: true
+            name: "angle"
+          - type: int
+            read: true
+            name: "owner player slot"
+          - type: int
+            read: true
+            name: "template index"
+          - type: int
+            read: true
+            name: "NPC player slot"
     versions: V3_V4
 
   - code: 0x7d
     mnemonic: npc_crptalk
-    doc: "Creates an NPC with client ID 1. V0_V2 inline form: 6 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:716)"
+    doc: "Creates an NPC with client ID 1. V0_V2 encodes the base register as a 32-bit integer and includes one ignored 32-bit argument."
     params:
-      - type: reg
+      - type: reg32
         registers:
           - type: int
             read: true
@@ -1320,12 +1345,12 @@ opcodes:
             doc: "template index (see 6x69 in CommandFormats.hh)"
       - type: int
         name: "extra_arg"
-        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+        doc: "Ignored 32-bit argument present in V0_V2 form but not V3_V4."
     versions: V0_V2
 
   - code: 0x7d
     mnemonic: npc_crptalk_v3
-    doc: "Creates an NPC with client ID 1. It is not recommended to use this opcode if a player can be in that slot; use npc_crptalk_id instead. (newserv QuestScript.cc:717)"
+    doc: "Creates a local talk NPC in slot 3 on V4. It does not send 6x69. State 1 installs the dead/incapacitated state object; state 2 has no confirmed special V4 handler branch."
     params:
       - type: reg
         registers:
@@ -1343,8 +1368,8 @@ opcodes:
             name: "angle"
           - type: int
             read: true
-            name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+            name: "state"
+            doc: "State 1 installs the dead/incapacitated state object. State 2 is not established for V4."
           - type: int
             read: true
             name: "template index"
@@ -1363,9 +1388,9 @@ opcodes:
 
   - code: 0x7f
     mnemonic: npc_crp_id
-    doc: "Creates an NPC. V0_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:728)"
+    doc: "Creates an NPC. V0_V2 encodes the base register as a 32-bit integer and includes one ignored 32-bit argument."
     params:
-      - type: reg
+      - type: reg32
         registers:
           - type: int
             read: true
@@ -1392,12 +1417,12 @@ opcodes:
             doc: "template index (see 6x69 in CommandFormats.hh)"
       - type: int
         name: "extra_arg"
-        doc: "Extra 32-bit argument present in V0_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+        doc: "Ignored 32-bit argument present in V0_V2 form but not V3_V4."
     versions: V0_V2
 
   - code: 0x7f
     mnemonic: npc_crp_id_v3
-    doc: "Creates an NPC. (newserv QuestScript.cc:729)"
+    doc: "Creates a networked follower NPC in an explicit player slot. V4 registers are x, y, z, angle, owner player slot, NPC slot, and template index."
     params:
       - type: reg
         registers:
@@ -1415,11 +1440,11 @@ opcodes:
             name: "angle"
           - type: int
             read: true
-            name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+            name: "owner player slot"
+            doc: "Player slot that owns/controls the follower NPC."
           - type: int
             read: true
-            name: "client ID"
+            name: "NPC player slot"
           - type: int
             read: true
             name: "template index"
@@ -2397,9 +2422,9 @@ opcodes:
 
   - code: 0xce
     mnemonic: npc_crptalk_id
-    doc: "Creates an NPC. V1_V2 inline form: 7 registers (4-byte encoding) + one extra 32-bit argument. (newserv QuestScript.cc:1047, F_V05_V2)"
+    doc: "Creates an NPC. V1_V2 encodes the base register as a 32-bit integer and includes one ignored 32-bit argument."
     params:
-      - type: reg
+      - type: reg32
         registers:
           - type: int
             read: true
@@ -2426,12 +2451,12 @@ opcodes:
             name: "client ID"
       - type: int
         name: "extra_arg"
-        doc: "Extra 32-bit argument present in V1_V2 form but not V3_V4. (Note: register number is 4 bytes in actual binary, but psolib models as 1 byte.)"
+        doc: "Ignored 32-bit argument present in V1_V2 form but not V3_V4."
     versions: V1_V2
 
   - code: 0xce
     mnemonic: npc_crptalk_id_v3
-    doc: "Creates an NPC. (newserv QuestScript.cc:1048)"
+    doc: "Creates a local talk NPC in an explicit player slot on V4. It does not send 6x69."
     params:
       - type: reg
         registers:
@@ -2449,15 +2474,15 @@ opcodes:
             name: "angle"
           - type: int
             read: true
-            name: "initial state"
-            doc: "initial state (0 = alive, 1 = dead, 2 = invisible text box, according to qedit.info)"
+            name: "state"
+            doc: "State 1 installs the dead/incapacitated state object. State 2 is not established for V4."
           - type: int
             read: true
             name: "template index"
             doc: "template index (see 6x69 in CommandFormats.hh)"
           - type: int
             read: true
-            name: "client ID"
+            name: "NPC player slot"
     versions: V3_V4
 
   - code: 0xcf
@@ -3458,12 +3483,12 @@ opcodes:
 
   - code: 0xf840
     mnemonic: load_npc_data
-    doc: "Loads a custom visual config for creating NPCs. Generally the sequence should go like this: prepare_npc_visual label_containing_PlayerVisualConfig enable_npc_visual <opcode that creates an NPC> After any NPC is created, the effects of these opcodes are undone; if the script wants to create another NPC with a custom visual config, it must run these opcodes again."
+    doc: "On V4, enables one-shot use of the staged custom NPC character data. The next applicable NPC creation clears this flag. It may run before or after get_npc_data, but both must complete before the creation."
     params: []
 
   - code: 0xf841
     mnemonic: get_npc_data
-    doc: "Loads a custom visual config for creating NPCs. Generally the sequence should go like this: prepare_npc_visual label_containing_PlayerVisualConfig enable_npc_visual <opcode that creates an NPC> After any NPC is created, the effects of these opcodes are undone; if the script wants to create another NPC with a custom visual config, it must run these opcodes again."
+    doc: "On V4, copies 0x70 bytes from the data label into the staged custom NPC character-data buffer. It may run before or after load_npc_data, but both must complete before the consuming creation."
     params:
       - type: dlabel
 

@@ -134,13 +134,14 @@ class AsmStore(
     }
 
     fun goToLabel(labelId: Int) {
-        val range = labels.value.find { it.name == labelId }?.range
-            ?: textModel.value
-                ?.getLinesContent()
-                ?.let { lines -> findLabelLineNo(lines, labelId) }
-                ?.let { lineNo -> AsmRange(lineNo, 1, lineNo, 1) }
+        findLabelRange(labelId)?.let(::goToLabelRange)
+    }
 
-        range?.let(::goToLabelRange)
+    fun findLabelRange(labelId: Int): AsmRange? {
+        val analysedRange = labels.value.find { it.name == labelId }?.range
+        val lines = textModel.value?.getLinesContent()
+        val lineNo = lines?.let { findLabelLineNo(it, labelId) }
+        return analysedRange ?: lineNo?.let { AsmRange(it, 1, it, 1) }
     }
 
     fun setHexFormat(hex: Boolean) {

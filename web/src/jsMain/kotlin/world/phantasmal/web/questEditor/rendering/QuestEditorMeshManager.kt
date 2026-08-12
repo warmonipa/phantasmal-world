@@ -6,14 +6,22 @@ import world.phantasmal.cell.cell
 import world.phantasmal.cell.flatMap
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.filteredCell
+import world.phantasmal.cell.list.mapToList
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcClass
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.NpcType
+import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.psolib.fileFormats.particle.GLOBAL_PARTICLE_EFFECT_COUNT
 import world.phantasmal.web.questEditor.asm.SymbolChatTriggerInfo
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
+import world.phantasmal.web.questEditor.models.QuestModel
+import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.lobbyEventSeasonOk
 import world.phantasmal.web.questEditor.stores.*
 
@@ -109,7 +117,7 @@ class QuestEditorMeshManager(
         ) { quest, area, floorIds, selectedSectionWaves, _ ->
             loadNpcMeshes(
                 if (quest != null && area != null) {
-                    quest.npcs.filteredCell {
+                    val datNpcs = quest.npcs.filteredCell {
                         val areaMatch = if (floorIds != null) {
                             it.floorId in floorIds
                         } else {
@@ -123,6 +131,14 @@ class QuestEditorMeshManager(
                         }
 
                         it.sectionInitialized and areaMatch and matchesSelectedEvent
+                    }
+                    val visibleFloorIds = floorIds ?: setOf(area.id)
+                    mapToList(datNpcs, quest.scriptNpcSpawns) { editableNpcs, scriptSpawns ->
+                        editableNpcs + scriptNpcPreviewModels(
+                            scriptSpawns,
+                            visibleFloorIds,
+                            quest,
+                        )
                     }
                 } else {
                     emptyListCell()
@@ -218,4 +234,41 @@ class QuestEditorMeshManager(
         gotoIndicatorManager.update()
     }
 
+}
+
+internal fun scriptNpcPreviewModels(
+    spawns: List<ScriptNpcSpawn>,
+    visibleFloorIds: Set<Int>,
+    quest: QuestModel,
+): List<QuestNpcModel> = spawns.flatMap { spawn ->
+    val template = scriptNpcTemplate(spawn.templateIndex) ?: return@flatMap emptyList()
+    spawn.executionFloorIds.asSequence()
+        .filter { it in visibleFloorIds }
+        .map { floorId ->
+            val episode = quest.floorMappings
+                .firstOrNull { it.floorId == floorId }
+                ?.mapEpisode
+                ?: quest.episode
+            val type = when (template.characterClass) {
+                ScriptNpcClass.HUmar -> NpcType.NpcHUmar
+                ScriptNpcClass.HUnewearl -> NpcType.NpcHUnewearl
+                ScriptNpcClass.HUcast -> NpcType.NpcHUcast
+                ScriptNpcClass.RAmar -> NpcType.NpcRAmar
+                ScriptNpcClass.RAcast -> NpcType.NpcRAcast
+                ScriptNpcClass.RAcaseal -> NpcType.NpcRAcaseal
+                ScriptNpcClass.FOmarl -> NpcType.NpcFOmarl
+                ScriptNpcClass.FOnewm -> NpcType.NpcFOnewm
+                ScriptNpcClass.FOnewearl -> NpcType.NpcFOnewearl
+            }
+            val npc = QuestNpc(type, episode, floorId, wave = 0).apply {
+                setPosition(spawn.x.toFloat(), spawn.y.toFloat(), spawn.z.toFloat())
+                // Quest VM angles are degrees; the client converts them with signed integer division.
+                data.setInt(36, (spawn.angle.toLong() * 0x10000L / 360L).toInt())
+            }
+            QuestNpcModel(npc, waveId = 0, scriptSpawn = spawn).apply {
+                // Script coordinates are already map/world coordinates rather than section-local.
+                setSectionInitialized()
+            }
+        }
+        .toList()
 }

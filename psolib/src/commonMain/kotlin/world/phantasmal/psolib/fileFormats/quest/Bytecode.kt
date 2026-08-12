@@ -1027,7 +1027,10 @@ private fun parseInstructionArguments(
                 }
 
                 is RegType -> {
-                    args.add(IntArg(cursor.uByte().toInt()))
+                    args.add(IntArg(
+                        if (param.type.inlineWidthBytes == 4) cursor.int()
+                        else cursor.uByte().toInt()
+                    ))
                 }
 
                 is RegVarType -> {
@@ -1363,7 +1366,11 @@ private fun writeInlineArgs(
             }
 
             is RegType -> {
-                cursor.writeByte(arg.coerceInt().toByte())
+                if (param.type.inlineWidthBytes == 4) {
+                    cursor.writeInt(arg.coerceInt())
+                } else {
+                    cursor.writeByte(arg.coerceInt().toByte())
+                }
             }
 
             RegVarType -> {

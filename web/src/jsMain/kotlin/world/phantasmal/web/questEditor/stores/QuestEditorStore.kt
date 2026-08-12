@@ -642,6 +642,7 @@ class QuestEditorStore(
     }
 
     fun removeEntity(quest: QuestModel, entity: QuestEntityModel<*, *>) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be removed." }
         mutate {
             if (entity == _selectedEntity.value) {
                 _selectedEntity.value = null
@@ -652,6 +653,7 @@ class QuestEditorStore(
     }
 
     fun setEntityPosition(entity: QuestEntityModel<*, *>, sectionId: Int?, position: Vector3) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             sectionId?.let { setEntitySection(entity, it) }
@@ -660,6 +662,7 @@ class QuestEditorStore(
     }
 
     fun setEntityWorldPosition(entity: QuestEntityModel<*, *>, sectionId: Int?, position: Vector3) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             sectionId?.let { setEntitySection(entity, it) }
@@ -668,6 +671,7 @@ class QuestEditorStore(
     }
 
     fun setEntityRotation(entity: QuestEntityModel<*, *>, rotation: Euler) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             entity.setRotation(rotation)
@@ -675,6 +679,7 @@ class QuestEditorStore(
     }
 
     fun setEntityWorldRotation(entity: QuestEntityModel<*, *>, rotation: Euler) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             entity.setWorldRotation(rotation)
@@ -686,6 +691,7 @@ class QuestEditorStore(
         setter: (Entity, T) -> Unit,
         value: T,
     ) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             setter(entity, value)
@@ -693,6 +699,7 @@ class QuestEditorStore(
     }
 
     fun setEntityProp(entity: QuestEntityModel<*, *>, prop: QuestEntityPropModel, value: Any) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             prop.setValue(value)
@@ -721,6 +728,7 @@ class QuestEditorStore(
     }
 
     fun setEntitySectionId(entity: QuestEntityModel<*, *>, sectionId: Int) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             entity.setSectionId(sectionId)
@@ -728,6 +736,7 @@ class QuestEditorStore(
     }
 
     fun setEntitySection(entity: QuestEntityModel<*, *>, section: SectionModel) {
+        require(entity.isEditable) { "Script-created NPC previews cannot be edited." }
         mutate {
             setSelectedEntity(entity)
             entity.setSection(section)

@@ -1,13 +1,20 @@
 package world.phantasmal.web.questEditor.controllers
 
 import world.phantasmal.psolib.Episode
+import world.phantasmal.core.Success
+import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcCreationOpcode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcInteraction
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcInteractionKind
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.fileFormats.Vec3
 import world.phantasmal.psolib.fileFormats.quest.NPC_BYTE_SIZE
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.testUtils.assertCloseTo
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
@@ -93,6 +100,65 @@ class EntityInfoControllerTests : WebTestSuite {
 
         assertFalse(ctrl.unavailable.value)
         assertTrue(ctrl.enabled.value)
+    }
+
+    @Test
+    fun script_npc_exposes_read_only_source_template_and_interaction_labels() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val npc = QuestNpcModel(
+            QuestNpc(NpcType.NpcRAmar, Episode.I, floorId = 0, wave = 0),
+            waveId = 0,
+            scriptSpawn = ScriptNpcSpawn(
+                opcode = ScriptNpcCreationOpcode.NpcCrptalk,
+                x = 113,
+                y = 0,
+                z = 64,
+                angle = 60,
+                templateIndex = 27,
+                executionFloorIds = setOf(0),
+                interactions = setOf(
+                    ScriptNpcInteraction(0x141, ScriptNpcInteractionKind.Talk),
+                    ScriptNpcInteraction(0x140, ScriptNpcInteractionKind.Target),
+                ),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(createQuestModel())
+        components.questEditorStore.setSelectedEntity(npc)
+
+        assertFalse(ctrl.scriptInfoHidden.value)
+        assertFalse(ctrl.editingEnabled.value)
+        assertEquals("NPC (Script)", ctrl.type.value)
+        assertEquals("npc_crptalk_v3 (0x7D)", ctrl.scriptSource.value)
+        assertEquals("DACCI (27)", ctrl.scriptTemplate.value)
+        assertEquals(
+            listOf(
+                EntityInfoController.ScriptInteractionInfo(0x140, "Target"),
+                EntityInfoController.ScriptInteractionInfo(0x141, "Talk"),
+            ),
+            ctrl.scriptInteractions.value,
+        )
+        assertFalse(ctrl.waveHidden.value)
+        assertTrue(ctrl.props.value.isNotEmpty())
+        val scriptLabel = assertIs<EntityInfoPropModel.F32>(
+            ctrl.props.value.single { it.isScriptLabel },
+        )
+        assertEquals(0x140.toDouble(), scriptLabel.value.value)
+        assertEquals(0x140, scriptLabel.scriptLabelId.value)
+
+        ctrl.setPosX(999.0)
+        ctrl.setRotY(90.0)
+        ctrl.setWaveId(12)
+        ctrl.setTypeId(123)
+
+        assertEquals(0.0, npc.position.value.x)
+        assertEquals(0.0, ctrl.rotY.value)
+        assertEquals(0, npc.wave.value.id)
+        assertEquals(NpcType.NpcRAmar.typeId, npc.typeId.value)
     }
 
     @Test
@@ -233,6 +299,32 @@ class EntityInfoControllerTests : WebTestSuite {
     }
 
     @Test
+    fun regular_npc_keeps_and_navigates_to_its_script_label() = testAsync {
+        val bytecode = assemble(listOf("0:", "ret", "310:", "ret"), Version.BB_V4)
+        assertTrue(bytecode is Success)
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val npc = createQuestNpcModel(NpcType.Principal, Episode.I)
+        components.questEditorStore.setCurrentQuest(createQuestModel(
+            npcs = listOf(npc),
+            bytecodeIr = bytecode.value,
+        ))
+        components.questEditorStore.setSelectedEntity(npc)
+        val scriptLabel = assertIs<EntityInfoPropModel.F32>(
+            ctrl.props.value.single { it.isScriptLabel },
+        )
+        scriptLabel.setValue(310.0001220703125)
+
+        assertEquals(310.0001220703125, scriptLabel.value.value)
+        assertEquals(310, scriptLabel.scriptLabelId.value)
+        assertTrue(scriptLabel.canGoToScriptLabel.value)
+    }
+
+    @Test
     fun when_focused_main_undo_becomes_current_undo() = testAsync {
         val store = components.questEditorStore
         val ctrl = disposer.add(EntityInfoController(
@@ -342,6 +434,8 @@ class EntityInfoControllerTests : WebTestSuite {
 
     @Test
     fun conditional_script_navigation_updates_when_object_mode_changes() = testAsync {
+        val bytecode = assemble(listOf("0:", "ret", "123:", "ret"), Version.BB_V4)
+        assertTrue(bytecode is Success)
         val ctrl = disposer.add(EntityInfoController(
             components.areaStore,
             components.questEditorStore,
@@ -349,7 +443,10 @@ class EntityInfoControllerTests : WebTestSuite {
             components.asmStore,
         ))
         val obj = createQuestObjectModel(ObjectType.TalkLinkToSupport)
-        components.questEditorStore.setCurrentQuest(createQuestModel(objects = listOf(obj)))
+        components.questEditorStore.setCurrentQuest(createQuestModel(
+            objects = listOf(obj),
+            bytecodeIr = bytecode.value,
+        ))
         components.questEditorStore.setSelectedEntity(obj)
 
         val scriptProp = assertIs<EntityInfoPropModel.I32>(

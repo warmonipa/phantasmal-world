@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.ListChangeEvent
+import world.phantasmal.cell.mutateDeferred
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.psolib.Episode
@@ -138,6 +139,8 @@ abstract class QuestMeshManager protected constructor(
     }
 
     private fun npcsChanged(event: ListChangeEvent<QuestNpcModel>) {
+        reconcileDetachedScriptNpcSelection(questEditorStore, event)
+
         for (change in event.changes) {
             change.removed.forEach(npcMeshManager::remove)
             change.inserted.forEach(npcMeshManager::add)
@@ -180,6 +183,45 @@ abstract class QuestMeshManager protected constructor(
         // Update origin point axis labels (billboard + constant screen size)
         originGroup?.let { group ->
             originPointRenderer.updateLabels(renderContext.camera, group)
+        }
+    }
+}
+
+/**
+ * Script NPC preview models are derived values and are recreated when their analysis changes.
+ * Keep selection/highlight attached to an equivalent replacement, or clear it when that preview
+ * no longer exists. Otherwise the editor keeps exposing a model that has been removed from the
+ * scene.
+ */
+internal fun reconcileDetachedScriptNpcSelection(
+    store: QuestEditorStore,
+    event: ListChangeEvent<QuestNpcModel>,
+) {
+    val removed = event.changes.flatMap { it.removed }
+    val inserted = event.changes.flatMap { it.inserted }
+
+    fun replacementFor(entity: QuestNpcModel?): QuestNpcModel? {
+        val spawn = entity?.scriptSpawn ?: return entity
+        if (removed.none { it === entity }) return entity
+
+        return inserted.firstOrNull { candidate ->
+            candidate.floorId == entity.floorId && candidate.scriptSpawn == spawn
+        }
+    }
+
+    val selected = store.selectedEntity.value as? QuestNpcModel
+    val highlighted = store.highlightedEntity.value as? QuestNpcModel
+    val selectedReplacement = replacementFor(selected)
+    val highlightedReplacement = replacementFor(highlighted)
+
+    if (selectedReplacement === selected && highlightedReplacement === highlighted) return
+
+    mutateDeferred {
+        if (store.selectedEntity.value === selected) {
+            store.setSelectedEntity(selectedReplacement)
+        }
+        if (store.highlightedEntity.value === highlighted) {
+            store.setHighlightedEntity(highlightedReplacement)
         }
     }
 }

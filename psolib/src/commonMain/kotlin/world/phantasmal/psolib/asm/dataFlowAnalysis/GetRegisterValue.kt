@@ -36,7 +36,7 @@ private class RegisterValueFinder {
         register: Int,
     ): ValueSet {
         if (++iterations > 100) {
-            logger.warn { "Too many iterations." }
+            logger.debug { "Register value analysis exceeded its iteration limit." }
             return ValueSet.all()
         }
 

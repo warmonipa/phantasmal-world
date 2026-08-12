@@ -92,7 +92,15 @@ sealed class RegRefType : AnyType()
  * type (only stack_pushm and stack_popm use this). If [registers] is not null, references a fixed
  * amount of consecutive registers of specific types. [Param.type] can't be a variadic type.
  */
-class RegType(val registers: List<Param>?) : RegRefType()
+class RegType(
+    val registers: List<Param>?,
+    /** Width of an inline register number. V0_V2 has a few opcodes that encode it as 32 bits. */
+    val inlineWidthBytes: Int = 1,
+) : RegRefType() {
+    init {
+        require(inlineWidthBytes == 1 || inlineWidthBytes == 4)
+    }
+}
 
 /**
  * Arbitrary amount of register references (variadic arguments).
