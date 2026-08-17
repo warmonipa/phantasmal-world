@@ -134,6 +134,12 @@ class QuestEditorToolbarWidget(
                                 onChange = ctrl::setShowDoorIds,
                             ),
                             MenuItem.Check(
+                                label = "Object & NPC Directions",
+                                tooltip = "Show arrows indicating the facing direction of objects and NPCs",
+                                checked = ctrl.showEntityDirections,
+                                onChange = ctrl::setShowEntityDirections,
+                            ),
+                            MenuItem.Check(
                                 label = "Spawn Ground",
                                 tooltip = "Whether monsters should spawn directly at ground level (section height)",
                                 checked = ctrl.spawnMonstersOnGround,

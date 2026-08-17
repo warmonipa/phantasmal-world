@@ -24,6 +24,23 @@ import kotlin.test.*
 
 class QuestEditorToolbarControllerTests : WebTestSuite {
     @Test
+    fun entity_directions_are_disabled_by_default_and_share_the_ui_store_state() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        assertFalse(ctrl.showEntityDirections.value)
+
+        ctrl.setShowEntityDirections(true)
+
+        assertTrue(ctrl.showEntityDirections.value)
+        assertTrue(components.questEditorUiStore.showEntityDirections.value)
+    }
+
+    @Test
     fun fog_boundaries_are_disabled_by_default_and_share_the_ui_store_state() = testAsync {
         val ctrl = disposer.add(QuestEditorToolbarController(
             components.uiStore,

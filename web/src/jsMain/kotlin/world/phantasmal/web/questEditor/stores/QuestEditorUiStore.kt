@@ -18,6 +18,7 @@ class QuestEditorUiStore(
     private val _showCollisionGeometry = mutableCell(true)
     private val _showSectionIds = mutableCell(false)
     private val _showDoorIds = mutableCell(false)
+    private val _showEntityDirections = mutableCell(false)
     private val _spawnMonstersOnGround = mutableCell(false)
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
@@ -30,6 +31,7 @@ class QuestEditorUiStore(
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
     val showSectionIds: Cell<Boolean> = _showSectionIds
     val showDoorIds: Cell<Boolean> = _showDoorIds
+    val showEntityDirections: Cell<Boolean> = _showEntityDirections
     val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
@@ -63,6 +65,10 @@ class QuestEditorUiStore(
 
     fun setShowDoorIds(show: Boolean) {
         _showDoorIds.value = show
+    }
+
+    fun setShowEntityDirections(show: Boolean) {
+        _showEntityDirections.value = show
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {

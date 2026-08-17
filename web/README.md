@@ -105,6 +105,18 @@ Quest-created particle previews use the native dimensions and per-frame scale cu
 game's particle effect data. Small effects are not enlarged solely to make them easier to inspect in
 the full-map editor view.
 
+## Quest Editor Entity Directions
+
+The quest editor can display cyan facing-direction arrows for every object and NPC in the current
+area. The shared **Object & NPC Directions** setting is available from both the **View** menu and the
+3D view context menu, and is disabled by default.
+
+PSO entities face local negative Z before rotation. Each arrow uses the entity's world position and
+world rotation, so it shows the final facing direction after section-relative transforms are
+applied. The arrows are rendered as instanced helper geometry and update when entities move, rotate,
+are added, or are removed. Keep the direction geometry, visibility binding, and transform/lifecycle
+coverage together in `EntityDirectionIndicatorContainer` and its tests.
+
 ### web:shared
 
 Contains code used by web, web:assembly-worker and web:assets-generation.

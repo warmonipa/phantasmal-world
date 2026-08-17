@@ -65,6 +65,12 @@ class EntityMeshManager(
         labelManager?.sectionIdRenderer ?: SectionIdRenderer(),
     ))
 
+    private val directionIndicators = addDisposable(
+        EntityDirectionIndicatorContainer(questEditorUiStore.showEntityDirections).also {
+            renderContext.helpers.add(it.mesh)
+        }
+    )
+
     /**
      * Contains one [EntityInstanceContainer] per [EntityType] and model.
      */
@@ -282,6 +288,10 @@ class EntityMeshManager(
     }
 
     fun add(entity: QuestEntityModel<*, *>) {
+        if (directionIndicators.getInstance(entity) == null) {
+            directionIndicators.addInstance(entity)
+        }
+
         loadingEntities.getOrPut(entity) {
             scope.launch {
                 try {
@@ -323,6 +333,8 @@ class EntityMeshManager(
     fun remove(entity: QuestEntityModel<*, *>) {
         loadingEntities.remove(entity)?.cancel("Removed.")
 
+        directionIndicators.removeInstance(entity)
+
         entityMeshCache.getIfPresentNow(
             TypeAndModel(
                 entity.type,
@@ -352,6 +364,7 @@ class EntityMeshManager(
         }
 
         destinationInstanceContainer.clearInstances()
+        directionIndicators.clearInstances()
         // Note: Don't clear challengeMonsterSpawnContainer here - it's managed by updateChallengeMonsterSpawns()
         // which observes area changes directly. Clearing it here causes spawns to disappear when NPCs are loaded.
     }

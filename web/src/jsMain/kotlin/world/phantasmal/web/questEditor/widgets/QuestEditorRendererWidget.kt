@@ -142,6 +142,31 @@ class QuestEditorRendererWidget(
                     }
                 }
 
+                // Object & NPC directions toggle
+                div {
+                    className = "pw-toolbar-menu-item pw-toolbar-menu-item-check"
+                    title = "Show arrows indicating the facing direction of objects and NPCs"
+
+                    val checkIcon = span {
+                        className = "pw-toolbar-menu-item-check-icon"
+                    }
+                    span {
+                        className = "pw-toolbar-menu-item-label"
+                        textContent = "Object & NPC Directions"
+                    }
+
+                    observeNow(questEditorUiStore.showEntityDirections) { checked ->
+                        checkIcon.textContent = if (checked) "\u2713" else ""
+                    }
+
+                    onclick = { e ->
+                        e.stopPropagation()
+                        questEditorUiStore.setShowEntityDirections(
+                            !questEditorUiStore.showEntityDirections.value
+                        )
+                    }
+                }
+
                 // Spawn Ground toggle
                 div {
                     className = "pw-toolbar-menu-item pw-toolbar-menu-item-check"

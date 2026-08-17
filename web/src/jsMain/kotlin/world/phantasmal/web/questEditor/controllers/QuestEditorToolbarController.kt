@@ -306,6 +306,7 @@ class QuestEditorToolbarController(
     val showCollisionGeometry: Cell<Boolean> = questEditorUiStore.showCollisionGeometry
     val showSectionIds: Cell<Boolean> = questEditorUiStore.showSectionIds
     val showDoorIds: Cell<Boolean> = questEditorUiStore.showDoorIds
+    val showEntityDirections: Cell<Boolean> = questEditorUiStore.showEntityDirections
     val spawnMonstersOnGround: Cell<Boolean> = questEditorUiStore.spawnMonstersOnGround
     val showOriginPoint: Cell<Boolean> = questEditorUiStore.showOriginPoint
     val showQuestParticles: Cell<Boolean> = questEditorUiStore.showQuestParticles
@@ -887,6 +888,10 @@ class QuestEditorToolbarController(
 
     fun setShowDoorIds(show: Boolean) {
         questEditorUiStore.setShowDoorIds(show)
+    }
+
+    fun setShowEntityDirections(show: Boolean) {
+        questEditorUiStore.setShowEntityDirections(show)
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {
