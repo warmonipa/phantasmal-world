@@ -144,6 +144,7 @@ class EntityInfoWidgetTests : WebTestSuite {
         val npc = QuestNpcModel(
             QuestNpc(NpcType.NpcRAmar, Episode.I, floorId = 0, wave = 0),
             waveId = 0,
+            components.npcPlacementPolicy,
             scriptSpawn = ScriptNpcSpawn(
                 opcode = ScriptNpcCreationOpcode.NpcCrptalk,
                 x = 113,

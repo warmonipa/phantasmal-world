@@ -57,7 +57,7 @@ class QuestEditorMeshManager(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
     particleAssetLoader: ParticleAssetLoader,
-    questEditorStore: QuestEditorStore,
+    questEditorStore: QuestEditorRenderAccess,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
     viewportStore: ViewportStore,
@@ -66,7 +66,16 @@ class QuestEditorMeshManager(
     symbolChatColliRepository: SymbolChatColliRepository,
     symbolChatTriggers: Cell<List<SymbolChatTriggerInfo>>,
     readSegmentData: (Int) -> Buffer?,
-) : QuestMeshManager(areaAssetLoader, entityAssetLoader, particleAssetLoader, questEditorStore, questEditorUiStore, playbackVisualizationStore, areaStore, renderContext) {
+) : QuestMeshManager(
+    areaAssetLoader,
+    entityAssetLoader,
+    particleAssetLoader,
+    questEditorStore,
+    questEditorUiStore,
+    playbackVisualizationStore,
+    areaStore,
+    renderContext,
+) {
     private val questParticleSpawns = questEditorStore.currentQuest.flatMap { quest ->
         quest?.particleSpawns ?: cell(emptyList())
     }
@@ -265,7 +274,12 @@ internal fun scriptNpcPreviewModels(
                 // Quest VM angles are degrees; the client converts them with signed integer division.
                 data.setInt(36, (spawn.angle.toLong() * 0x10000L / 360L).toInt())
             }
-            QuestNpcModel(npc, waveId = 0, scriptSpawn = spawn).apply {
+            QuestNpcModel(
+                npc,
+                waveId = 0,
+                quest.npcPlacementPolicy,
+                scriptSpawn = spawn,
+            ).apply {
                 // Script coordinates are already map/world coordinates rather than section-local.
                 setSectionInitialized()
             }

@@ -113,6 +113,7 @@ class EntityInfoControllerTests : WebTestSuite {
         val npc = QuestNpcModel(
             QuestNpc(NpcType.NpcRAmar, Episode.I, floorId = 0, wave = 0),
             waveId = 0,
+            components.npcPlacementPolicy,
             scriptSpawn = ScriptNpcSpawn(
                 opcode = ScriptNpcCreationOpcode.NpcCrptalk,
                 x = 113,
@@ -175,7 +176,7 @@ class EntityInfoControllerTests : WebTestSuite {
         questNpc.sectionId = 7
         questNpc.position = Vec3(8f, 16f, 32f)
         questNpc.rotation = Vec3(PI.toFloat() / 4, PI.toFloat() / 2, PI.toFloat())
-        val npc = QuestNpcModel(questNpc, 5)
+        val npc = QuestNpcModel(questNpc, 5, components.npcPlacementPolicy)
         components.questEditorStore.setCurrentQuest(createQuestModel(npcs = listOf(npc)))
         components.questEditorStore.setSelectedEntity(npc)
 
@@ -209,6 +210,7 @@ class EntityInfoControllerTests : WebTestSuite {
                 mapAreaId = 6
             },
             waveId = 0,
+            components.npcPlacementPolicy,
         )
         val store = components.questEditorStore
         store.setCurrentQuest(createQuestModel(episode = Episode.II, npcs = listOf(npc)))

@@ -9,7 +9,7 @@ import world.phantasmal.web.externals.three.Object3D
 import world.phantasmal.web.questEditor.models.QuestEntityModel
 import world.phantasmal.web.questEditor.models.QuestEntityPropModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
-import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestSelectionState
 import world.phantasmal.webui.DisposableContainer
 
 private val logger = KotlinLogging.logger {}
@@ -19,7 +19,7 @@ private val logger = KotlinLogging.logger {}
  * for the currently selected entity.
  */
 class SelectionVisualizationManager(
-    private val questEditorStore: QuestEditorStore,
+    private val questEditorStore: QuestSelectionState,
     private val renderContext: QuestRenderContext,
     private val sectionIdRenderer: SectionIdRenderer,
 ) : DisposableContainer() {
@@ -29,43 +29,37 @@ class SelectionVisualizationManager(
     private var selectedEntityRangeCircle: Object3D? = null
     private var selectedEntityCollisionRect: Object3D? = null
     private var rangeCircleObserverDisposer = addDisposable(Disposer())
+    private var visibleObjects: Set<QuestObjectModel> = emptySet()
 
-    /**
-     * Updates visualizations for the currently selected entity.
-     * Called by EntityMeshManager when selection changes.
-     */
-    fun updateForSelectedEntity(entity: QuestEntityModel<*, *>?) {
+    init {
+        observeNow(questEditorStore.selectedEntity, ::updateForSelectedEntity)
+    }
+
+    private fun updateForSelectedEntity(entity: QuestEntityModel<*, *>?) {
         clearAll()
 
-        if (entity is QuestObjectModel && (
-                entity.type == ObjectType.EventCollision ||
-                entity.type == ObjectType.ScriptCollision
-            )
+        if (entity !is QuestObjectModel || entity !in visibleObjects) return
+
+        if (entity.type == ObjectType.EventCollision ||
+            entity.type == ObjectType.ScriptCollision
         ) {
             createRangeCircleForEntity(entity)
         }
 
-        if (entity is QuestObjectModel && entity.type == ObjectType.ObjRoomID) {
+        if (entity.type == ObjectType.ObjRoomID) {
             createSclTamaCircleForSelectedEntity(entity)
         }
 
-        if (entity is QuestObjectModel &&
-            (entity.type == ObjectType.LaserFenceEx || entity.type == ObjectType.LaserSquareFenceEx)
+        if (entity.type == ObjectType.LaserFenceEx ||
+            entity.type == ObjectType.LaserSquareFenceEx
         ) {
             createCollisionRectForEntity(entity)
         }
     }
 
-    /**
-     * Clears visualization if the given entity is currently selected.
-     * Called when an entity is removed.
-     */
-    fun clearIfSelected(entity: QuestEntityModel<*, *>) {
-        if (entity is QuestObjectModel && entity.type == ObjectType.ObjRoomID &&
-            questEditorStore.selectedEntity.value == entity
-        ) {
-            clearAll()
-        }
+    fun setVisibleObjects(objects: Collection<QuestObjectModel>) {
+        visibleObjects = objects.toSet()
+        updateForSelectedEntity(questEditorStore.selectedEntity.value)
     }
 
     override fun dispose() {

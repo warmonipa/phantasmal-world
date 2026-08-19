@@ -12,6 +12,7 @@ import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
+import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 
 fun WebTestContext.createQuestModel(
     id: Int = 1,
@@ -25,6 +26,7 @@ fun WebTestContext.createQuestModel(
     events: List<QuestEventModel> = emptyList(),
     bytecodeIr: BytecodeIr = BytecodeIr(emptyList()),
     version: Version = Version.BB_V4,
+    npcPlacementPolicy: NpcPlacementPolicy = components.npcPlacementPolicy,
 ): QuestModel =
     QuestModel(
         id,
@@ -33,6 +35,7 @@ fun WebTestContext.createQuestModel(
         shortDescription,
         longDescription,
         episode,
+        npcPlacementPolicy,
         npcs.toMutableList(),
         objects.toMutableList(),
         events.toMutableList(),
@@ -47,14 +50,16 @@ fun WebTestContext.createQuestModel(
         version = version,
     )
 
-fun createQuestNpcModel(
+fun WebTestContext.createQuestNpcModel(
     type: NpcType,
     episode: Episode,
     floorId: Int = 0,
+    placementPolicy: NpcPlacementPolicy = components.npcPlacementPolicy,
 ): QuestNpcModel =
     QuestNpcModel(
         QuestNpc(type, episode, floorId = floorId, wave = 0),
         waveId = 0,
+        placementPolicy,
     )
 
 fun createQuestObjectModel(type: ObjectType, floorId: Int = 0): QuestObjectModel =

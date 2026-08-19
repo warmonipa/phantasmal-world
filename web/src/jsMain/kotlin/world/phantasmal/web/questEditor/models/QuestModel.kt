@@ -30,6 +30,7 @@ class QuestModel(
     shortDescription: String,
     longDescription: String,
     val episode: Episode,
+    internal val npcPlacementPolicy: NpcPlacementPolicy,
     npcs: MutableList<QuestNpcModel>,
     objects: MutableList<QuestObjectModel>,
     events: MutableList<QuestEventModel>,
@@ -230,6 +231,9 @@ class QuestModel(
     }
 
     init {
+        require(npcs.all { it.placementPolicy === npcPlacementPolicy }) {
+            "Every NPC must use its Quest Model's placement policy."
+        }
         setId(id)
         setLanguage(language)
         setName(name)
@@ -362,6 +366,9 @@ class QuestModel(
     }
 
     fun addNpc(npc: QuestNpcModel) {
+        require(npc.placementPolicy === npcPlacementPolicy) {
+            "The NPC must use this Quest Model's placement policy."
+        }
         _npcs.add(npc)
         // Keep areaVariants in sync when a new area is introduced (no floor mappings path).
         if (floorMappings.isEmpty()) rebuildFloorVariants()

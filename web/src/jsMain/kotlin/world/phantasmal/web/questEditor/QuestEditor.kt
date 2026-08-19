@@ -19,6 +19,7 @@ import world.phantasmal.web.questEditor.loading.FogAssetLoader
 import world.phantasmal.web.questEditor.loading.QuestLoader
 import world.phantasmal.web.questEditor.loading.ParticleAssetLoader
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
+import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 import world.phantasmal.web.questEditor.persistence.QuestEditorUiPersister
 import world.phantasmal.web.questEditor.rendering.EntityImageRenderer
 import world.phantasmal.web.questEditor.rendering.QuestRenderer
@@ -56,10 +57,11 @@ class QuestEditor(
 
         // Undo
         val undoManager = UndoManager()
+        val npcPlacementPolicy = NpcPlacementPolicy()
 
         // Stores
         val areaStore = addDisposable(AreaStore(areaAssetLoader))
-        val questEditorUiStore = addDisposable(QuestEditorUiStore(uiStore))
+        val questEditorUiStore = addDisposable(QuestEditorUiStore(uiStore, npcPlacementPolicy))
         val playbackVisualizationStore = addDisposable(PlaybackVisualizationStore())
         val viewportStore = addDisposable(ViewportStore())
         val questEditorStore = addDisposable(
@@ -69,6 +71,7 @@ class QuestEditor(
                 areaStore,
                 undoManager,
                 viewportStore,
+                npcPlacementPolicy,
                 initializeNewQuest = true,
             )
         )

@@ -11,6 +11,7 @@ import world.phantasmal.web.questEditor.models.*
 fun convertQuestToModel(
     quest: Quest,
     getVariant: (Episode, mapAreaId: Int, mapVariation: Int) -> AreaVariantModel?,
+    npcPlacementPolicy: NpcPlacementPolicy,
 ): QuestModel =
     QuestModel(
         quest.id,
@@ -19,7 +20,8 @@ fun convertQuestToModel(
         quest.shortDescription,
         quest.longDescription,
         quest.episode,
-        quest.npcs.mapTo(mutableListOf()) { QuestNpcModel(it, it.wave.toInt()) },
+        npcPlacementPolicy,
+        quest.npcs.mapTo(mutableListOf()) { QuestNpcModel(it, it.wave.toInt(), npcPlacementPolicy) },
         quest.objects.mapTo(mutableListOf()) { QuestObjectModel(it) },
         quest.events.mapTo(mutableListOf()) { event ->
             QuestEventModel(

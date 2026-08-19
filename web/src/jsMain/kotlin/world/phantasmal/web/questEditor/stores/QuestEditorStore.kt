@@ -39,8 +39,9 @@ class QuestEditorStore(
     private val areaStore: AreaStore,
     private val undoManager: UndoManager,
     private val viewportStore: ViewportStore,
+    override val npcPlacementPolicy: NpcPlacementPolicy,
     initializeNewQuest: Boolean,
-) : Store() {
+) : Store(), QuestEditorRenderAccess {
     private val _currentQuest = mutableCell<QuestModel?>(null)
     private val _currentArea = mutableCell<AreaModel?>(null)
     private val _currentAreaVariant = mutableCell<AreaVariantModel?>(null)
@@ -58,23 +59,23 @@ class QuestEditorStore(
     private val _selectedChallengeRoomId = mutableCell<Int?>(null)
 
     private val runner = QuestRunner()
-    val currentQuest: Cell<QuestModel?> = _currentQuest
-    val currentArea: Cell<AreaModel?> = _currentArea
-    val currentAreaVariant: Cell<AreaVariantModel?> = _currentAreaVariant
+    override val currentQuest: Cell<QuestModel?> = _currentQuest
+    override val currentArea: Cell<AreaModel?> = _currentArea
+    override val currentAreaVariant: Cell<AreaVariantModel?> = _currentAreaVariant
     /** Episode that owns the currently displayed map, which can differ from the quest episode. */
     val currentMapEpisode: Cell<Episode?> =
         map(currentQuest, currentAreaVariant) { quest, variant ->
             variant?.episode ?: quest?.episode
         }
     /** When set, entity filtering uses these specific floor IDs instead of area+variant lookup. */
-    val currentFloorIds: Cell<Set<Int>?> = _currentFloorIds
+    override val currentFloorIds: Cell<Set<Int>?> = _currentFloorIds
 
     val currentAreaNpcs: ListCell<QuestNpcModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
             filterEntitiesByFloor(quest, area, floorIds, quest?.npcs) { it.floorId }
         }
 
-    val currentAreaObjects: ListCell<QuestObjectModel> =
+    override val currentAreaObjects: ListCell<QuestObjectModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
             filterEntitiesByFloor(quest, area, floorIds, quest?.objects) { it.floorId }
         }
@@ -85,7 +86,7 @@ class QuestEditorStore(
         }
 
     val selectedEvent: Cell<QuestEventModel?> = _focusedEvent
-    val selectedEvents: Cell<Set<QuestEventModel>> = _selectedEvents
+    override val selectedEvents: Cell<Set<QuestEventModel>> = _selectedEvents
 
     /**
      * Atomically updates both event selection cells, enforcing the invariant that
@@ -103,7 +104,7 @@ class QuestEditorStore(
      * Get section and wave info from selected events for NPC filtering.
      * Only NPCs that match both the section and wave of selected events will be shown.
      */
-    val selectedEventsSectionWaves: Cell<Set<Pair<Int, Int>>> = selectedEvents.map { events ->
+    override val selectedEventsSectionWaves: Cell<Set<Pair<Int, Int>>> = selectedEvents.map { events ->
         events.map { event -> Pair(event.sectionId.value, event.wave.value.id) }.toSet()
     }
 
@@ -123,12 +124,12 @@ class QuestEditorStore(
     /**
      * The entity the user is currently hovering over.
      */
-    val highlightedEntity: Cell<QuestEntityModel<*, *>?> = _highlightedEntity
+    override val highlightedEntity: Cell<QuestEntityModel<*, *>?> = _highlightedEntity
 
     /**
      * The entity the user has selected, typically by clicking it.
      */
-    val selectedEntity: Cell<QuestEntityModel<*, *>?> = _selectedEntity
+    override val selectedEntity: Cell<QuestEntityModel<*, *>?> = _selectedEntity
 
     val questEditingEnabled: Cell<Boolean> = currentQuest.isNotNull() and !runner.running
 
@@ -142,7 +143,7 @@ class QuestEditorStore(
      */
     val canSaveChanges: Cell<Boolean> = !undoManager.allAtSavePoint
 
-    val selectedSection: Cell<SectionModel?> = _selectedSection
+    override val selectedSection: Cell<SectionModel?> = _selectedSection
     val challengeSeedSimulationEnabled: Cell<Boolean> = _challengeSeedSimulationEnabled
     val challengeSeed: Cell<Int> = _challengeSeed
     private val currentFloorMappingRevision: Cell<Int> =
@@ -163,12 +164,12 @@ class QuestEditorStore(
                     ).orEmpty().sorted()
             }
         }
-    val selectedChallengeLogicalFloor: Cell<Int?> =
+    override val selectedChallengeLogicalFloor: Cell<Int?> =
         map(challengeLogicalFloors, _selectedChallengeLogicalFloor) { floors, selected ->
             selected?.takeIf { it in floors } ?: floors.firstOrNull()
         }
-    val selectedChallengeRoomId: Cell<Int?> = _selectedChallengeRoomId
-    val challengeSeedSimulation: Cell<ChallengeModeSeedSimulation?> =
+    override val selectedChallengeRoomId: Cell<Int?> = _selectedChallengeRoomId
+    override val challengeSeedSimulation: Cell<ChallengeModeSeedSimulation?> =
         currentQuest.flatMap { quest ->
             if (quest == null) {
                 cell(null)
@@ -274,6 +275,9 @@ class QuestEditorStore(
     }
 
     suspend fun setCurrentQuest(quest: QuestModel?) {
+        require(quest == null || quest.npcPlacementPolicy === npcPlacementPolicy) {
+            "The Quest Model must use this Quest Editor's NPC placement policy."
+        }
         undoManager.reset()
 
         runner.stop()
@@ -381,13 +385,13 @@ class QuestEditorStore(
     }
 
     suspend fun getDefaultQuest(episode: Episode): QuestModel =
-        convertQuestToModel(questLoader.loadDefaultQuest(episode), areaStore::getVariant)
+        convertQuestToModel(questLoader.loadDefaultQuest(episode), areaStore::getVariant, npcPlacementPolicy)
 
     suspend fun getCityQuest(episode: Episode): QuestModel =
-        convertQuestToModel(questLoader.loadCityQuest(episode), areaStore::getVariant)
+        convertQuestToModel(questLoader.loadCityQuest(episode), areaStore::getVariant, npcPlacementPolicy)
 
     suspend fun getLobbyQuest(variant: Int): QuestModel =
-        convertQuestToModel(questLoader.loadLobbyQuest(variant), areaStore::getVariant)
+        convertQuestToModel(questLoader.loadLobbyQuest(variant), areaStore::getVariant, npcPlacementPolicy)
 
     suspend fun getFreeRoamQuest(
         gameDirHandle: FileSystemDirectoryHandle,
@@ -396,7 +400,7 @@ class QuestEditorStore(
         v2: Int = 0,
     ): FreeRoamQuestResult {
         val result = questLoader.loadFreeRoamQuest(gameDirHandle, info, v1, v2)
-        val questModel = convertQuestToModel(result.quest, areaStore::getVariant)
+        val questModel = convertQuestToModel(result.quest, areaStore::getVariant, npcPlacementPolicy)
         return FreeRoamQuestResult(questModel, result.binName, result.datFilesByFloor)
     }
 
@@ -591,11 +595,11 @@ class QuestEditorStore(
         }
     }
 
-    fun setHighlightedEntity(entity: QuestEntityModel<*, *>?) {
+    override fun setHighlightedEntity(entity: QuestEntityModel<*, *>?) {
         _highlightedEntity.value = entity
     }
 
-    fun setSelectedEntity(entity: QuestEntityModel<*, *>?) {
+    override fun setSelectedEntity(entity: QuestEntityModel<*, *>?) {
         mutate {
             entity?.let {
                 currentQuest.value?.let { quest ->

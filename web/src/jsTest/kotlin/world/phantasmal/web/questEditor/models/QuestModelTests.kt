@@ -19,11 +19,39 @@ import world.phantasmal.web.test.createQuestObjectModel
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
+    @Test
+    fun constructor_rejects_npcs_from_a_different_placement_scope() = test {
+        val foreignNpc = createQuestNpcModel(
+            NpcType.Booma,
+            Episode.I,
+            placementPolicy = NpcPlacementPolicy(),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            createQuestModel(npcs = listOf(foreignNpc))
+        }
+    }
+
+    @Test
+    fun add_npc_rejects_an_npc_from_a_different_placement_scope() = test {
+        val quest = createQuestModel()
+        val foreignNpc = createQuestNpcModel(
+            NpcType.Booma,
+            Episode.I,
+            placementPolicy = NpcPlacementPolicy(),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            quest.addNpc(foreignNpc)
+        }
+    }
+
     @Test
     fun script_npc_spawns_follow_v2_v3_v4_bytecode_edits_and_remain_out_of_dat_npcs() = test {
         fun bytecode(version: Version, templateIndex: Int): BytecodeIr {
@@ -152,7 +180,7 @@ class QuestModelTests : WebTestSuite {
         val entity = QuestNpc(Episode.II, floorId = 16, data = data).apply {
             mapAreaId = 6
         }
-        val npc = QuestNpcModel(entity, waveId = 0)
+        val npc = QuestNpcModel(entity, waveId = 0, components.npcPlacementPolicy)
         val quest = createQuestModel(
             episode = Episode.II,
             npcs = listOf(npc),
@@ -343,6 +371,7 @@ class QuestModelTests : WebTestSuite {
             shortDescription = "Test",
             longDescription = "Test",
             episode = Episode.IV,
+            npcPlacementPolicy = components.npcPlacementPolicy,
             npcs = mutableListOf(),
             objects = mutableListOf(),
             events = mutableListOf(),
@@ -397,6 +426,7 @@ class QuestModelTests : WebTestSuite {
             shortDescription = "Test",
             longDescription = "Test",
             episode = Episode.IV,
+            npcPlacementPolicy = components.npcPlacementPolicy,
             npcs = mutableListOf(),
             objects = mutableListOf(),
             events = mutableListOf(),

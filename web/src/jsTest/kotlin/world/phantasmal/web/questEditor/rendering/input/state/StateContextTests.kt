@@ -148,6 +148,7 @@ class StateContextTests : WebTestSuite {
         val scriptNpc = QuestNpcModel(
             QuestNpc(NpcType.NpcHUmar, Episode.I, floorId = 0, wave = 0),
             waveId = 0,
+            components.npcPlacementPolicy,
             scriptSpawn = ScriptNpcSpawn(
                 opcode = ScriptNpcCreationOpcode.NpcCrp,
                 x = 0,

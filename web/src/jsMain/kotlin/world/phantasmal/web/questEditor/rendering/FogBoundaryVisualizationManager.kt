@@ -14,7 +14,7 @@ import world.phantasmal.web.externals.three.MeshBasicMaterial
 import world.phantasmal.web.externals.three.SphereGeometry
 import world.phantasmal.web.questEditor.loading.FogAssetLoader
 import world.phantasmal.web.questEditor.models.QuestObjectModel
-import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestEditorRenderState
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.webui.obj
@@ -31,7 +31,7 @@ internal fun normalizeFogIndex(rawFogIndex: Int): Int? {
 class FogBoundaryVisualizationManager(
     private val renderContext: QuestRenderContext,
     fogAssetLoader: FogAssetLoader,
-    private val questEditorStore: QuestEditorStore,
+    private val questEditorStore: QuestEditorRenderState,
     private val questEditorUiStore: QuestEditorUiStore,
     private val loadEntries: suspend () -> List<FogEntry> = fogAssetLoader::load,
 ) : DisposableContainer() {

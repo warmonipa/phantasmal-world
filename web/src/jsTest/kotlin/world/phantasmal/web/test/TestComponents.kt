@@ -18,6 +18,7 @@ import world.phantasmal.web.huntOptimizer.persistence.HuntMethodPersister
 import world.phantasmal.web.huntOptimizer.stores.HuntMethodStore
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.loading.QuestLoader
+import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.AsmStore
 import world.phantasmal.web.questEditor.stores.PlaybackVisualizationStore
@@ -101,10 +102,22 @@ class TestComponents(private val ctx: TestContext) {
 
     var playbackVisualizationStore: PlaybackVisualizationStore by default { PlaybackVisualizationStore() }
 
-    var questEditorUiStore: QuestEditorUiStore by default { QuestEditorUiStore(uiStore) }
+    var npcPlacementPolicy: NpcPlacementPolicy by default { NpcPlacementPolicy() }
+
+    var questEditorUiStore: QuestEditorUiStore by default {
+        QuestEditorUiStore(uiStore, npcPlacementPolicy)
+    }
 
     var questEditorStore: QuestEditorStore by default {
-        QuestEditorStore(questLoader, uiStore, areaStore, undoManager, viewportStore, initializeNewQuest = false)
+        QuestEditorStore(
+            questLoader,
+            uiStore,
+            areaStore,
+            undoManager,
+            viewportStore,
+            npcPlacementPolicy,
+            initializeNewQuest = false,
+        )
     }
 
     var asmStore: AsmStore by default {

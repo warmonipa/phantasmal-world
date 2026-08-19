@@ -19,7 +19,7 @@ import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.questEditor.models.SectionModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.PlaybackVisualizationStore
-import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestEditorRenderState
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 
@@ -29,7 +29,7 @@ private val logger = KotlinLogging.logger {}
  * Manages section ID labels, door ID labels, and playback spawn labels.
  */
 class LabelManager(
-    private val questEditorStore: QuestEditorStore,
+    private val questEditorStore: QuestEditorRenderState,
     private val questEditorUiStore: QuestEditorUiStore,
     private val playbackVisualizationStore: PlaybackVisualizationStore,
     private val renderContext: QuestRenderContext,

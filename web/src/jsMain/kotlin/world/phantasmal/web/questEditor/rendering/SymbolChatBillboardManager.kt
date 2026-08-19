@@ -9,7 +9,7 @@ import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.models.QuestObjectModel
-import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestSelectionState
 import world.phantasmal.web.questEditor.widgets.SymbolChatRenderer
 import world.phantasmal.web.questEditor.widgets.SymbolChatStageRenderer
 import world.phantasmal.webui.DisposableContainer
@@ -36,7 +36,7 @@ import world.phantasmal.webui.obj
  * visual language.
  */
 class SymbolChatBillboardManager(
-    private val questEditorStore: QuestEditorStore,
+    private val questEditorStore: QuestSelectionState,
     private val symbolChatColliRepository: SymbolChatColliRepository,
     private val renderContext: QuestRenderContext,
 ) : DisposableContainer() {

@@ -31,7 +31,7 @@ class CreationState(
                 wave?.let {
                     npc.sectionId = wave.sectionId.toShort()
                 }
-                QuestNpcModel(npc, waveId).also {
+                QuestNpcModel(npc, waveId, quest.npcPlacementPolicy).also {
                     it.setSectionInitialized()
                     quest.addNpc(it)
                 }

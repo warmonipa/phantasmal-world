@@ -6,20 +6,20 @@ import world.phantasmal.cell.mutableCell
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.stores.UiStore
 import world.phantasmal.web.questEditor.models.LobbyEventFilter
-import world.phantasmal.web.questEditor.models.NpcDisplaySettings
+import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 import world.phantasmal.webui.stores.Store
 
 private val logger = KotlinLogging.logger {}
 
 class QuestEditorUiStore(
     uiStore: UiStore,
+    private val npcPlacementPolicy: NpcPlacementPolicy,
 ) : Store() {
     private val _devMode = mutableCell(false)
     private val _showCollisionGeometry = mutableCell(true)
     private val _showSectionIds = mutableCell(false)
     private val _showDoorIds = mutableCell(false)
     private val _showEntityDirections = mutableCell(false)
-    private val _spawnMonstersOnGround = mutableCell(false)
     private val _omnispawn = mutableCell(false)
     private val _showOriginPoint = mutableCell(false)
     private val _showQuestParticles = mutableCell(true)
@@ -32,7 +32,7 @@ class QuestEditorUiStore(
     val showSectionIds: Cell<Boolean> = _showSectionIds
     val showDoorIds: Cell<Boolean> = _showDoorIds
     val showEntityDirections: Cell<Boolean> = _showEntityDirections
-    val spawnMonstersOnGround: Cell<Boolean> = _spawnMonstersOnGround
+    val spawnMonstersOnGround: Cell<Boolean> = npcPlacementPolicy.spawnOnGround
     val omnispawn: Cell<Boolean> = _omnispawn
     val showOriginPoint: Cell<Boolean> = _showOriginPoint
     val showQuestParticles: Cell<Boolean> = _showQuestParticles
@@ -72,8 +72,7 @@ class QuestEditorUiStore(
     }
 
     fun setSpawnMonstersOnGround(spawn: Boolean) {
-        _spawnMonstersOnGround.value = spawn
-        NpcDisplaySettings.setSpawnOnGround(spawn)
+        npcPlacementPolicy.setSpawnOnGround(spawn)
     }
 
     fun setOmnispawn(omnispawn: Boolean) {

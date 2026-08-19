@@ -1124,7 +1124,11 @@ class QuestEditorToolbarController(
         version: Version,
         quest: Quest,
     ) {
-        setCurrentQuest(fileHolder, version, convertQuestToModel(quest, areaStore::getVariant))
+        setCurrentQuest(
+            fileHolder,
+            version,
+            convertQuestToModel(quest, areaStore::getVariant, questEditorStore.npcPlacementPolicy),
+        )
     }
 
     private fun setResult(result: PwResult<*>) {

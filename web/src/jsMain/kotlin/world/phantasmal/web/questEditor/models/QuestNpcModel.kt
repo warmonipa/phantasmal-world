@@ -11,6 +11,7 @@ import world.phantasmal.web.externals.three.Vector3
 class QuestNpcModel(
     npc: QuestNpc,
     waveId: Int,
+    internal val placementPolicy: NpcPlacementPolicy,
     /** Present for a read-only preview derived from a quest VM creation opcode. */
     val scriptSpawn: ScriptNpcSpawn? = null,
 ) : QuestEntityModel<NpcType, QuestNpc>(npc) {
@@ -59,6 +60,9 @@ class QuestNpcModel(
      */
     private val yOffset: Double get() = computeYOffset(type)
 
+    private val displayRevision: Cell<Unit> =
+        map(resolvedTypeRevision, placementPolicy.groundHeightRevision) { _, _ -> }
+
     val wave: Cell<WaveModel> = map(_waveId, sectionId) { id, sectionId ->
         WaveModel(id, floorId, sectionId)
     }
@@ -72,9 +76,9 @@ class QuestNpcModel(
     override val worldPosition: Cell<Vector3> =
         map(
             super.worldPosition,
-            NpcDisplaySettings.spawnOnGround,
+            placementPolicy.spawnOnGround,
             section,
-            resolvedTypeRevision,
+            displayRevision,
         ) { basePos, spawnOnGround, section, _ ->
             if (isStageNpc && section != null) {
                 val groundY = calculateGroundHeight(basePos.x, basePos.z, section)
@@ -90,7 +94,7 @@ class QuestNpcModel(
         }
 
     private fun calculateGroundHeight(x: Double, z: Double, section: SectionModel): Double =
-        NpcDisplaySettings.groundHeightCalculator?.invoke(x, z, section) ?: section.position.y
+        placementPolicy.groundHeight(x, z, section)
 
     companion object {
         /**

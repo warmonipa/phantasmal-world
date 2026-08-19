@@ -27,10 +27,8 @@ import world.phantasmal.webui.dom.disposableListener
  * stage strips so the user can see WHAT each trigger shows without
  * switching to the Script tab.
  *
- * Rings are rebuilt whenever [triggers] emits — which reacts to both
- * [QuestEditorStore.currentQuest] changes AND the current quest's
- * `bytecodeRevision` tick, so ASM-editor reassembles refresh the rings
- * without requiring a quest reload.
+ * Rings are rebuilt whenever [triggers] emits, including after the current quest's bytecode is
+ * reassembled, without requiring a quest reload.
  */
 class SymbolChatTriggerManager(
     triggers: Cell<List<SymbolChatTriggerInfo>>,

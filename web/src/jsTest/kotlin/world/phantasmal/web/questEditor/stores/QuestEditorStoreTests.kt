@@ -18,6 +18,7 @@ import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.controllers.EntityListController
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
+import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -31,12 +32,23 @@ import kotlin.test.assertTrue
 
 class QuestEditorStoreTests : WebTestSuite {
     @Test
+    fun rejects_a_quest_from_a_different_editor_placement_scope() = testAsync {
+        val foreignPolicy = NpcPlacementPolicy()
+        val quest = createQuestModel(npcPlacementPolicy = foreignPolicy)
+
+        assertFailsWith<IllegalArgumentException> {
+            components.questEditorStore.setCurrentQuest(quest)
+        }
+    }
+
+    @Test
     fun script_npc_preview_rejects_every_store_mutation_boundary() = testAsync {
         val store = components.questEditorStore
         val quest = createQuestModel()
         val npc = QuestNpcModel(
             QuestNpc(NpcType.NpcRAmar, Episode.I, floorId = 0, wave = 0),
             waveId = 0,
+            components.npcPlacementPolicy,
             scriptSpawn = ScriptNpcSpawn(
                 opcode = ScriptNpcCreationOpcode.NpcCrp,
                 x = 0,

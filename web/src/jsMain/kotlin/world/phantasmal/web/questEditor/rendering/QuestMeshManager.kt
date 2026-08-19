@@ -6,7 +6,7 @@ import kotlinx.coroutines.launch
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.ListChangeEvent
 import world.phantasmal.cell.mutateDeferred
-import world.phantasmal.core.disposable.Disposable
+import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
@@ -18,7 +18,8 @@ import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.PlaybackVisualizationStore
-import world.phantasmal.web.questEditor.stores.QuestEditorStore
+import world.phantasmal.web.questEditor.stores.QuestEditorRenderAccess
+import world.phantasmal.web.questEditor.stores.QuestSelectionActions
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.web.core.rendering.disposeObject3DResources
@@ -32,35 +33,58 @@ abstract class QuestMeshManager protected constructor(
     areaAssetLoader: AreaAssetLoader,
     entityAssetLoader: EntityAssetLoader,
     particleAssetLoader: ParticleAssetLoader,
-    private val questEditorStore: QuestEditorStore,
+    private val questEditorStore: QuestEditorRenderAccess,
     questEditorUiStore: QuestEditorUiStore,
     playbackVisualizationStore: PlaybackVisualizationStore,
     areaStore: AreaStore,
     private val renderContext: QuestRenderContext,
 ) : DisposableContainer() {
     private val scope = addDisposable(DisposableSupervisedScope(this::class, Dispatchers.Default))
+    private val npcObserver = addDisposable(Disposer())
+    private val objectObserver = addDisposable(Disposer())
     private val areaMeshManager = AreaMeshManager(renderContext, areaAssetLoader)
-    private val npcMeshManager = addDisposable(
-        EntityMeshManager(
+    private val npcGroundingManager = addDisposable(
+        NpcGroundingManager(questEditorStore.npcPlacementPolicy, renderContext)
+    )
+    private val challengePreviewMeshManager = addDisposable(
+        ChallengePreviewMeshManager(
+            questEditorStore,
+            questEditorUiStore,
+            renderContext,
+            entityAssetLoader,
+        )
+    )
+    private val labelManager = addDisposable(
+        LabelManager(
             questEditorStore,
             questEditorUiStore,
             playbackVisualizationStore,
             renderContext,
-            entityAssetLoader,
             areaStore,
-            enableSectionLabels = true
-        ) // Only NPC manager handles section labels
+        )
+    )
+    private val selectionVisualizationManager = addDisposable(
+        SelectionVisualizationManager(
+            questEditorStore,
+            renderContext,
+            labelManager.sectionIdRenderer,
+        )
+    )
+    private val npcMeshManager = addDisposable(
+        EntityMeshManager(
+            questEditorStore,
+            questEditorUiStore,
+            renderContext,
+            entityAssetLoader,
+        )
     )
     private val objectMeshManager = addDisposable(
         EntityMeshManager(
             questEditorStore,
             questEditorUiStore,
-            playbackVisualizationStore,
             renderContext,
             entityAssetLoader,
-            areaStore,
-            enableSectionLabels = false
-        ) // Object manager doesn't handle section labels
+        )
     )
     private val particleMarkerManager = addDisposable(ParticleMarkerManager(renderContext, particleAssetLoader))
 
@@ -72,9 +96,6 @@ abstract class QuestMeshManager protected constructor(
     private var npcLoadJob: Job? = null
     private var objectLoadJob: Job? = null
     private var particleLoadJob: Job? = null
-
-    private var npcObserver: Disposable? = null
-    private var objectObserver: Disposable? = null
 
     init {
         // Observe origin point show/hide state
@@ -90,6 +111,7 @@ abstract class QuestMeshManager protected constructor(
             originGroup = null
         }
         super.dispose()
+        renderContext.entities.clear()
     }
 
     protected fun loadAreaMeshes(
@@ -106,24 +128,28 @@ abstract class QuestMeshManager protected constructor(
     protected fun loadNpcMeshes(npcs: ListCell<QuestNpcModel>) {
         npcLoadJob?.cancel()
         npcLoadJob = scope.launch {
-            npcObserver?.dispose()
+            npcObserver.disposeAll()
             npcMeshManager.removeAll()
 
             npcs.value.forEach(npcMeshManager::add)
 
-            npcObserver = npcs.observeListChange(::npcsChanged)
+            npcObserver.add(npcs.observeListChange(::npcsChanged))
         }
     }
 
     protected fun loadObjectMeshes(objects: ListCell<QuestObjectModel>) {
         objectLoadJob?.cancel()
         objectLoadJob = scope.launch {
-            objectObserver?.dispose()
+            objectObserver.disposeAll()
             objectMeshManager.removeAll()
 
             objects.value.forEach(objectMeshManager::add)
+            selectionVisualizationManager.setVisibleObjects(objects.value)
 
-            objectObserver = objects.observeListChange(::objectsChanged)
+            objectObserver.add(objects.observeListChange { event ->
+                objectsChanged(event)
+                selectionVisualizationManager.setVisibleObjects(objects.value)
+            })
         }
     }
 
@@ -176,8 +202,7 @@ abstract class QuestMeshManager protected constructor(
      * Called before each render to update text scales for constant screen size.
      */
     open fun beforeRender() {
-        // Update text scales in the NPC mesh manager (which handles section labels and playback labels)
-        npcMeshManager.beforeRender()
+        labelManager.beforeRender()
         particleMarkerManager.beforeRender()
 
         // Update origin point axis labels (billboard + constant screen size)
@@ -194,7 +219,7 @@ abstract class QuestMeshManager protected constructor(
  * scene.
  */
 internal fun reconcileDetachedScriptNpcSelection(
-    store: QuestEditorStore,
+    store: QuestSelectionActions,
     event: ListChangeEvent<QuestNpcModel>,
 ) {
     val removed = event.changes.flatMap { it.removed }
