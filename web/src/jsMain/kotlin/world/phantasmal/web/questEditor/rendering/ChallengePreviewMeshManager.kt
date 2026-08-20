@@ -20,7 +20,7 @@ import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawnEntry
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
 import world.phantasmal.psolib.fileFormats.quest.getNpcTypeForChallengeMonsterIndex
-import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.EntityMeshLoader
 import world.phantasmal.web.questEditor.models.AreaModel
 import world.phantasmal.web.questEditor.models.AreaVariantModel
 import world.phantasmal.web.questEditor.models.ChallengeMonsterSpawnModel
@@ -102,7 +102,7 @@ internal class ChallengePreviewMeshManager(
     private val questEditorStore: QuestEditorRenderState,
     private val questEditorUiStore: QuestEditorUiStore,
     private val renderContext: QuestRenderContext,
-    private val entityAssetLoader: EntityAssetLoader,
+    private val entityMeshLoader: EntityMeshLoader,
 ) : DisposableContainer() {
     private val scope = addDisposable(DisposableSupervisedScope(this::class, Dispatchers.Main))
     private val spawnContainer = addDisposable(
@@ -111,7 +111,7 @@ internal class ChallengePreviewMeshManager(
     private val monsterMeshCache = addDisposable(
         LoadingCache<MonsterMeshKey, EntityInstanceContainer>(
             { key ->
-                val mesh = entityAssetLoader.loadInstancedMesh(
+                val mesh = entityMeshLoader.loadInstancedMesh(
                     key.type,
                     model = null,
                     ultimate = key.ultimate,
@@ -119,7 +119,10 @@ internal class ChallengePreviewMeshManager(
                 renderContext.entities.add(mesh)
                 EntityInstanceContainer(mesh, modelChanged = {})
             },
-            EntityInstanceContainer::dispose,
+            { container ->
+                renderContext.entities.remove(container.mesh)
+                container.dispose()
+            },
         )
     )
     private var loadingJob: Job? = null
@@ -187,6 +190,7 @@ internal class ChallengePreviewMeshManager(
     override fun dispose() {
         loadingJob?.cancel(CancellationException("Disposed."))
         spawnContainer.clearInstances()
+        renderContext.helpers.remove(spawnContainer.mesh)
         super.dispose()
     }
 

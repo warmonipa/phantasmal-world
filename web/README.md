@@ -59,14 +59,17 @@ selected entity in the quest editor.
 
 Quest Editor rendering components consume focused capability interfaces from `QuestEditorState.kt`
 instead of the concrete `QuestEditorStore`. Cross-cutting editor invariants remain atomic inside the
-store, while each renderer receives only the state and actions it uses. Renderer-backed capabilities
-such as NPC ground placement are scoped to one Quest Editor instance and have a single explicit
-lifecycle owner.
+store without making that concrete store the rendering API. Event selection and viewport entity
+selection are separate capabilities. Renderer-backed capabilities such as NPC ground placement are
+scoped to one Quest Editor instance and have a single explicit lifecycle owner.
+Mesh consumers depend on the `EntityMeshLoader` capability rather than the asset-cache
+implementation.
 
 `QuestMeshManager` is the rendering composition root. It owns one manager each for labels, selection
 visualizations, Challenge previews, and NPC grounding; `EntityMeshManager` is limited to instanced
 entity meshes and their per-instance indicators. Selection helpers consume the same visible-object
-list as object meshes, and NPC grounding is invalidated whenever collision geometry changes.
+list as object meshes, and NPC grounding is invalidated whenever collision geometry changes. Each
+manager removes its owned scene nodes and disposes their resources when its lifecycle ends.
 
 ## Subprojects
 

@@ -22,7 +22,19 @@ import world.phantasmal.webui.obj
 
 private val logger = KotlinLogging.logger {}
 
-class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer() {
+/** Supplies independently owned instanced meshes to Quest Editor renderers. */
+interface EntityMeshLoader {
+    suspend fun loadInstancedMesh(
+        type: EntityType,
+        model: Int?,
+        ultimate: Boolean = false,
+        renderVariant: Int? = null,
+    ): InstancedMesh
+}
+
+class EntityAssetLoader(private val assetLoader: AssetLoader) :
+    DisposableContainer(),
+    EntityMeshLoader {
     private val instancedMeshCache = addDisposable(
         LoadingCache<EntityMeshKey, InstancedMesh>(
             { key ->
@@ -38,11 +50,11 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) : DisposableContai
         )
     )
 
-    suspend fun loadInstancedMesh(
+    override suspend fun loadInstancedMesh(
         type: EntityType,
         model: Int?,
-        ultimate: Boolean = false,
-        renderVariant: Int? = null,
+        ultimate: Boolean,
+        renderVariant: Int?,
     ): InstancedMesh {
         val normalizedVariant = if (type == ObjectType.ForestDoor) {
             forestDoorDigitTextureIndex(renderVariant ?: 0)

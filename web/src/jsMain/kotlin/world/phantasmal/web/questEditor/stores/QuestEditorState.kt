@@ -24,9 +24,12 @@ interface QuestMapState {
     val selectedSection: Cell<SectionModel?>
 }
 
-interface QuestSelectionState {
+interface QuestEventSelectionState {
     val selectedEvents: Cell<Set<QuestEventModel>>
     val selectedEventsSectionWaves: Cell<Set<Pair<Int, Int>>>
+}
+
+interface QuestEntitySelectionState {
     val highlightedEntity: Cell<QuestEntityModel<*, *>?>
     val selectedEntity: Cell<QuestEntityModel<*, *>?>
 }
@@ -37,7 +40,7 @@ interface QuestChallengePreviewState {
     val selectedChallengeRoomId: Cell<Int?>
 }
 
-interface QuestSelectionActions : QuestSelectionState {
+interface QuestEntitySelectionActions : QuestEntitySelectionState {
     fun setHighlightedEntity(entity: QuestEntityModel<*, *>?)
     fun setSelectedEntity(entity: QuestEntityModel<*, *>?)
 }
@@ -46,10 +49,11 @@ interface QuestSelectionActions : QuestSelectionState {
 interface QuestEditorRenderState :
     QuestDocumentState,
     QuestMapState,
-    QuestSelectionState,
+    QuestEventSelectionState,
+    QuestEntitySelectionState,
     QuestChallengePreviewState
 
 /** Rendering state plus the mutations and placement capability owned by the renderer. */
-interface QuestEditorRenderAccess : QuestEditorRenderState, QuestSelectionActions {
+interface QuestEditorRenderAccess : QuestEditorRenderState, QuestEntitySelectionActions {
     val npcPlacementPolicy: NpcPlacementPolicy
 }

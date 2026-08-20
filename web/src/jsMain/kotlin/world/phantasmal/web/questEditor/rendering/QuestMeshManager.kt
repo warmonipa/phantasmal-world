@@ -19,7 +19,7 @@ import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.PlaybackVisualizationStore
 import world.phantasmal.web.questEditor.stores.QuestEditorRenderAccess
-import world.phantasmal.web.questEditor.stores.QuestSelectionActions
+import world.phantasmal.web.questEditor.stores.QuestEntitySelectionActions
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.web.core.rendering.disposeObject3DResources
@@ -111,7 +111,6 @@ abstract class QuestMeshManager protected constructor(
             originGroup = null
         }
         super.dispose()
-        renderContext.entities.clear()
     }
 
     protected fun loadAreaMeshes(
@@ -219,7 +218,7 @@ abstract class QuestMeshManager protected constructor(
  * scene.
  */
 internal fun reconcileDetachedScriptNpcSelection(
-    store: QuestSelectionActions,
+    store: QuestEntitySelectionActions,
     event: ListChangeEvent<QuestNpcModel>,
 ) {
     val removed = event.changes.flatMap { it.removed }

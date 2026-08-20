@@ -11,9 +11,9 @@ import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.core.loading.LoadingCache
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
-import world.phantasmal.web.questEditor.loading.EntityAssetLoader
+import world.phantasmal.web.questEditor.loading.EntityMeshLoader
 import world.phantasmal.web.questEditor.models.*
-import world.phantasmal.web.questEditor.stores.QuestSelectionState
+import world.phantasmal.web.questEditor.stores.QuestEntitySelectionState
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.webui.obj
@@ -21,10 +21,10 @@ import world.phantasmal.webui.obj
 private val logger = KotlinLogging.logger {}
 
 class EntityMeshManager(
-    private val questEditorStore: QuestSelectionState,
+    private val questEditorStore: QuestEntitySelectionState,
     private val questEditorUiStore: QuestEditorUiStore,
     private val renderContext: QuestRenderContext,
-    private val entityAssetLoader: EntityAssetLoader,
+    private val entityMeshLoader: EntityMeshLoader,
 ) : DisposableContainer() {
     private val scope = addDisposable(DisposableSupervisedScope(this::class, Dispatchers.Main))
 
@@ -40,7 +40,7 @@ class EntityMeshManager(
     private val entityMeshCache = addDisposable(
         LoadingCache<TypeAndModel, EntityInstanceContainer>(
             { (type, model, ultimate, renderVariant) ->
-                val mesh = entityAssetLoader.loadInstancedMesh(
+                val mesh = entityMeshLoader.loadInstancedMesh(
                     type,
                     model,
                     ultimate,
@@ -50,10 +50,14 @@ class EntityMeshManager(
                 EntityInstanceContainer(mesh, modelChanged = { entity ->
                     // When an entity's model changes, add it again. At this point it has already
                     // been removed from its previous EntityInstancedMesh.
+                    detachMarkersFor(entity)
                     add(entity)
                 })
             },
-            EntityInstanceContainer::dispose,
+            { container ->
+                renderContext.entities.remove(container.mesh)
+                container.dispose()
+            },
         )
     )
 
@@ -122,7 +126,14 @@ class EntityMeshManager(
 
     override fun dispose() {
         removeAll()
+        renderContext.helpers.remove(directionIndicators.mesh)
+        renderContext.entities.remove(destinationInstanceContainer.mesh)
+        renderContext.helpers.remove(warpLines)
+        renderContext.scene.remove(highlightedBox)
+        renderContext.scene.remove(selectedBox)
         disposeObject3DResources(warpLines)
+        disposeObject3DResources(highlightedBox)
+        disposeObject3DResources(selectedBox)
         super.dispose()
     }
 
@@ -131,8 +142,8 @@ class EntityMeshManager(
             directionIndicators.addInstance(entity)
         }
 
-        loadingEntities.getOrPut(entity) {
-            scope.launch {
+        if (entity !in loadingEntities) {
+            val loadingJob = scope.launch(start = CoroutineStart.LAZY) {
                 try {
                     val entityInstancedMesh = entityMeshCache.get(
                         TypeAndModel(
@@ -163,15 +174,20 @@ class EntityMeshManager(
                         "Couldn't load mesh for entity of type ${entity.type}."
                     }
                 } finally {
-                    loadingEntities.remove(entity)
+                    if (loadingEntities[entity] === coroutineContext.job) {
+                        loadingEntities.remove(entity)
+                    }
                 }
             }
+            loadingEntities[entity] = loadingJob
+            loadingJob.start()
         }
     }
 
     fun remove(entity: QuestEntityModel<*, *>) {
         loadingEntities.remove(entity)?.cancel("Removed.")
 
+        detachMarkersFor(entity)
         directionIndicators.removeInstance(entity)
 
         entityMeshCache.getIfPresentNow(
@@ -194,10 +210,21 @@ class EntityMeshManager(
         loadingEntities.values.forEach { it.cancel("Removed.") }
         loadingEntities.clear()
 
+        markSelected(null)
+        markHighlighted(null)
         entityMeshCache.loadedValues.forEach(EntityInstanceContainer::clearInstances)
 
         destinationInstanceContainer.clearInstances()
         directionIndicators.clearInstances()
+    }
+
+    private fun detachMarkersFor(entity: QuestEntityModel<*, *>) {
+        if (selectedEntityInstance?.entity === entity) {
+            markSelected(null)
+        }
+        if (highlightedEntityInstance?.entity === entity) {
+            markHighlighted(null)
+        }
     }
 
     private fun markHighlighted(instance: EntityInstance?) {

@@ -9,7 +9,7 @@ import world.phantasmal.web.externals.three.Object3D
 import world.phantasmal.web.questEditor.models.QuestEntityModel
 import world.phantasmal.web.questEditor.models.QuestEntityPropModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
-import world.phantasmal.web.questEditor.stores.QuestSelectionState
+import world.phantasmal.web.questEditor.stores.QuestEntitySelectionState
 import world.phantasmal.webui.DisposableContainer
 
 private val logger = KotlinLogging.logger {}
@@ -19,7 +19,7 @@ private val logger = KotlinLogging.logger {}
  * for the currently selected entity.
  */
 class SelectionVisualizationManager(
-    private val questEditorStore: QuestSelectionState,
+    private val questEditorStore: QuestEntitySelectionState,
     private val renderContext: QuestRenderContext,
     private val sectionIdRenderer: SectionIdRenderer,
 ) : DisposableContainer() {
