@@ -51,6 +51,7 @@ class DockWidget(
 
                 val goldenLayout = GoldenLayout(config, outerElement)
                 this@DockWidget.goldenLayout = goldenLayout
+                disableLegacyWindowLifecycleBinding(goldenLayout)
 
                 dockedWidgetIds.forEach { id ->
                     // registerComponent expects a regular function and not an arrow function. This
@@ -413,4 +414,13 @@ class DockWidget(
             )
         }
     }
+}
+
+/**
+ * GoldenLayout 1.5.9 unconditionally binds `unload` and `beforeunload` during init. Popouts are
+ * disabled in [DockWidget], and container sizing is driven by the widget's size cell, so neither
+ * window-level handler is needed. Modern browsers may reject `unload` through Permissions Policy.
+ */
+internal fun disableLegacyWindowLifecycleBinding(goldenLayout: GoldenLayout) {
+    goldenLayout.asDynamic()._bindEvents = {}
 }

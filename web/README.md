@@ -79,6 +79,10 @@ Challenge seed previews use each DAT room table's declared location count. The o
 32-location implementation limit is not a file-format limit: patched Ephinea quests such as the AO
 series can contain larger tables, which remain editable, serializable, and seed-materializable.
 
+Dock layouts use GoldenLayout 1.5.9 with popouts disabled. `DockWidget` suppresses that version's
+legacy window `unload`/`beforeunload` binding before initialization; widget size cells and explicit
+disposal remain the owners of resize and teardown behavior.
+
 ## Subprojects
 
 ### web:assembly-worker
