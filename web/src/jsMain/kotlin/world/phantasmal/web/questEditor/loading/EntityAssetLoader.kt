@@ -247,7 +247,12 @@ private fun cloneMaterialWithOwnedTexture(source: Material): Material {
     val clone = source.asDynamic().clone().unsafeCast<Material>()
     val sourceMap = source.asDynamic().map
     if (sourceMap != null) {
-        clone.asDynamic().map = sourceMap.clone()
+        val clonedMap = sourceMap.clone().unsafeCast<Texture>()
+        // Texture.copy(), which Three.js clone() uses, does not copy the upload version. The
+        // cached prototype is never rendered, so explicitly schedule this independently owned
+        // texture for its first GPU upload.
+        clonedMap.needsUpdate = true
+        clone.asDynamic().map = clonedMap
     }
     return clone
 }

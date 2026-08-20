@@ -64,7 +64,8 @@ selection are separate capabilities. Renderer-backed capabilities such as NPC gr
 scoped to one Quest Editor instance and have a single explicit lifecycle owner.
 Mesh consumers depend on the `EntityMeshLoader` capability rather than the asset-cache
 implementation. `EntityAssetLoader` keeps cached mesh prototypes and gives each consumer a clone
-with independently disposable geometry, materials, and textures.
+with independently disposable geometry, materials, and textures. Cloned textures are explicitly
+marked for their first GPU upload because Three.js does not preserve that state when cloning.
 
 `QuestMeshManager` is the rendering composition root. It owns one manager each for labels, selection
 visualizations, Challenge previews, and NPC grounding; `EntityMeshManager` is limited to instanced

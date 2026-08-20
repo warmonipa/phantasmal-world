@@ -12,6 +12,7 @@ import kotlin.js.unsafeCast
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
+import kotlin.test.assertTrue
 
 class EntityAssetLoaderTests {
     @Test
@@ -50,7 +51,7 @@ class EntityAssetLoaderTests {
 
     @Test
     fun cloned_mesh_owns_its_disposable_resources() {
-        val texture = DataTexture(Uint8Array(4), 1, 1)
+        val texture = DataTexture(Uint8Array(4), 1, 1).apply { needsUpdate = true }
         val material = MeshBasicMaterial(obj { map = texture })
         val source = InstancedMesh(
             PlaneGeometry(),
@@ -64,6 +65,7 @@ class EntityAssetLoaderTests {
         assertNotSame(source.geometry, first.geometry)
         assertNotSame(material, firstMaterial(first))
         assertNotSame(texture, firstMaterial(first).map)
+        assertTrue(firstMaterial(first).map!!.asDynamic().version > 0)
         assertNotSame(first.geometry, second.geometry)
         assertNotSame(firstMaterial(first), firstMaterial(second))
         assertNotSame(firstMaterial(first).map, firstMaterial(second).map)
