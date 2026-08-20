@@ -63,7 +63,8 @@ store without making that concrete store the rendering API. Event selection and 
 selection are separate capabilities. Renderer-backed capabilities such as NPC ground placement are
 scoped to one Quest Editor instance and have a single explicit lifecycle owner.
 Mesh consumers depend on the `EntityMeshLoader` capability rather than the asset-cache
-implementation.
+implementation. `EntityAssetLoader` keeps cached mesh prototypes and gives each consumer a clone
+with independently disposable geometry, materials, and textures.
 
 `QuestMeshManager` is the rendering composition root. It owns one manager each for labels, selection
 visualizations, Challenge previews, and NPC grounding; `EntityMeshManager` is limited to instanced

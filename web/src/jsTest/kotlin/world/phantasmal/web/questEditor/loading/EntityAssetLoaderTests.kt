@@ -1,9 +1,17 @@
 package world.phantasmal.web.questEditor.loading
 
+import org.khronos.webgl.Uint8Array
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
+import world.phantasmal.web.externals.three.DataTexture
+import world.phantasmal.web.externals.three.InstancedMesh
+import world.phantasmal.web.externals.three.MeshBasicMaterial
+import world.phantasmal.web.externals.three.PlaneGeometry
+import world.phantasmal.webui.obj
+import kotlin.js.unsafeCast
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 
 class EntityAssetLoaderTests {
     @Test
@@ -39,4 +47,28 @@ class EntityAssetLoaderTests {
             )
         }
     }
+
+    @Test
+    fun cloned_mesh_owns_its_disposable_resources() {
+        val texture = DataTexture(Uint8Array(4), 1, 1)
+        val material = MeshBasicMaterial(obj { map = texture })
+        val source = InstancedMesh(
+            PlaneGeometry(),
+            arrayOf(material),
+            1,
+        )
+
+        val first = cloneInstancedMeshWithOwnedResources(source)
+        val second = cloneInstancedMeshWithOwnedResources(source)
+
+        assertNotSame(source.geometry, first.geometry)
+        assertNotSame(material, firstMaterial(first))
+        assertNotSame(texture, firstMaterial(first).map)
+        assertNotSame(first.geometry, second.geometry)
+        assertNotSame(firstMaterial(first), firstMaterial(second))
+        assertNotSame(firstMaterial(first).map, firstMaterial(second).map)
+    }
+
+    private fun firstMaterial(mesh: InstancedMesh): MeshBasicMaterial =
+        mesh.material.unsafeCast<Array<MeshBasicMaterial>>().single()
 }

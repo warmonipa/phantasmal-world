@@ -19,6 +19,7 @@ import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.webui.obj
+import kotlin.js.unsafeCast
 
 private val logger = KotlinLogging.logger {}
 
@@ -61,9 +62,9 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) :
         } else {
             null
         }
-        return instancedMeshCache.get(
+        return cloneInstancedMeshWithOwnedResources(instancedMeshCache.get(
             EntityMeshKey(type, model, ultimate, normalizedVariant)
-        ).clone() as InstancedMesh
+        ))
     }
 
     private suspend fun loadMesh(
@@ -222,6 +223,33 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) :
                 count = 0
             }
     }
+}
+
+/**
+ * Three.js object cloning shares geometry, materials, and textures. Renderer consumers dispose
+ * those resources, so clone every disposable resource while still sharing immutable source data
+ * (such as a texture's image) with the cached prototype.
+ */
+internal fun cloneInstancedMeshWithOwnedResources(source: InstancedMesh): InstancedMesh {
+    val clone = source.clone().unsafeCast<InstancedMesh>()
+    clone.geometry = source.geometry.clone()
+    clone.material = if (source.material is Array<*>) {
+        source.material.unsafeCast<Array<Material>>()
+            .map(::cloneMaterialWithOwnedTexture)
+            .toTypedArray()
+    } else {
+        cloneMaterialWithOwnedTexture(source.material.unsafeCast<Material>())
+    }
+    return clone
+}
+
+private fun cloneMaterialWithOwnedTexture(source: Material): Material {
+    val clone = source.asDynamic().clone().unsafeCast<Material>()
+    val sourceMap = source.asDynamic().map
+    if (sourceMap != null) {
+        clone.asDynamic().map = sourceMap.clone()
+    }
+    return clone
 }
 
 /**

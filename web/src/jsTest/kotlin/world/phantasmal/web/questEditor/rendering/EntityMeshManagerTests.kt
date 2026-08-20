@@ -107,6 +107,35 @@ class EntityMeshManagerTests : WebTestSuite {
             assertEquals(emptyList(), selectionMarkers(context))
         }
 
+    @Test
+    fun deselecting_a_hovered_entity_restores_its_highlight_marker() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val assetLoader = disposer.add(EntityAssetLoader(components.assetLoader))
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                assetLoader,
+            )
+        )
+        val entity = createQuestObjectModel(ObjectType.Probe)
+
+        manager.add(entity)
+        components.questEditorStore.setHighlightedEntity(entity)
+        components.questEditorStore.setSelectedEntity(entity)
+        awaitVisibleSelectionMarker(context)
+
+        components.questEditorStore.setSelectedEntity(null)
+
+        assertEquals(1, selectionMarkers(context).count { it.visible })
+    }
+
     private suspend fun awaitVisibleSelectionMarker(context: QuestRenderContext) {
         withTimeout(5_000) {
             while (selectionMarkers(context).none { it.visible }) yield()

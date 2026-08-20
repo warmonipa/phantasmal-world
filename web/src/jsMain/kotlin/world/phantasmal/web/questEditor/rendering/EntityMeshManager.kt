@@ -120,8 +120,12 @@ class EntityMeshManager(
             // getEntityInstance can return null at this point because the entity mesh might not be
             // loaded yet.
             markSelected(entity?.let(::getEntityInstance))
+            // Selection takes precedence over highlighting. Re-evaluate highlighting when that
+            // precedence changes so deselecting a hovered entity restores its highlight marker.
+            markHighlighted(
+                questEditorStore.highlightedEntity.value?.let(::getEntityInstance)
+            )
         }
-
     }
 
     override fun dispose() {
