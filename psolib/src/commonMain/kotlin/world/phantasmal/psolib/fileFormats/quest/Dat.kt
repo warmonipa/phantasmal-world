@@ -35,7 +35,7 @@ const val DAT_ENTITY_TYPE_NPC = 2
 const val DAT_ENTITY_TYPE_EVENT = 3
 private const val DAT_ENTITY_TYPE_CM_RANDOM_SPAWN = 4
 private const val DAT_ENTITY_TYPE_CM_MONSTER_DATA = 5
-const val CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM = 0x20
+const val CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM = 0xFFFF
 
 class DatFile(
     val objs: List<DatEntity>,
@@ -914,7 +914,7 @@ private fun writeChallengeRandomSpawns(
             "Challenge Mode floor $floorId has duplicate room IDs."
         }
         require(roomSpawns.all { it.entries.size <= CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM }) {
-            "Challenge Mode rooms can contain at most $CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM random locations."
+            "Challenge Mode random-location counts must fit in the DAT room table."
         }
         val numRooms = roomSpawns.size
         val tableHeaderSize = 12                      // 3 ints: headerSize, startOffset, numRooms

@@ -2,7 +2,6 @@ package world.phantasmal.web.questEditor.controllers
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
-import world.phantasmal.psolib.fileFormats.quest.CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPoolEntry
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
@@ -29,7 +28,7 @@ class MonsterRandomnessControllerTests : WebTestSuite {
     }
 
     @Test
-    fun enforces_client_room_constraints() = testAsync {
+    fun supports_patched_client_room_sizes_and_enforces_unique_room_ids() = testAsync {
         val quest = createQuestModel()
         quest.addCmRandomSpawn(DatCmRandomSpawn(0, 1, mutableListOf()))
         quest.addCmRandomSpawn(DatCmRandomSpawn(0, 2, mutableListOf()))
@@ -37,15 +36,12 @@ class MonsterRandomnessControllerTests : WebTestSuite {
         val controller = disposer.add(MonsterRandomnessController(components.questEditorStore))
         controller.selectRoom(0)
 
-        repeat(CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM + 5) {
+        repeat(37) {
             controller.addSpawnEntry()
         }
-        assertEquals(
-            CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM,
-            quest.cmRandomSpawns.value[0].entries.size,
-        )
-        assertEquals(false, controller.canAddSpawnEntry.value)
-        assertTrue(controller.canDeleteRoom.value, "A full room must still be deletable.")
+        assertEquals(37, quest.cmRandomSpawns.value[0].entries.size)
+        assertTrue(controller.canAddSpawnEntry.value)
+        assertTrue(controller.canDeleteRoom.value)
 
         controller.setRoomId(1, 1)
         assertEquals(2, quest.cmRandomSpawns.value[1].roomId, "Duplicate room IDs must be rejected.")

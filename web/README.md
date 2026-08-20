@@ -65,13 +65,19 @@ scoped to one Quest Editor instance and have a single explicit lifecycle owner.
 Mesh consumers depend on the `EntityMeshLoader` capability rather than the asset-cache
 implementation. `EntityAssetLoader` keeps cached mesh prototypes and gives each consumer a clone
 with independently disposable geometry, materials, and textures. Cloned textures are explicitly
-marked for their first GPU upload because Three.js does not preserve that state when cloning.
+marked for their first GPU upload because Three.js does not preserve that state when cloning;
+materials that share a source texture continue sharing one owned clone. Failed prototype loads are
+evicted so transient asset errors can be retried instead of caching a fallback mesh.
 
 `QuestMeshManager` is the rendering composition root. It owns one manager each for labels, selection
 visualizations, Challenge previews, and NPC grounding; `EntityMeshManager` is limited to instanced
 entity meshes and their per-instance indicators. Selection helpers consume the same visible-object
 list as object meshes, and NPC grounding is invalidated whenever collision geometry changes. Each
 manager removes its owned scene nodes and disposes their resources when its lifecycle ends.
+
+Challenge seed previews use each DAT room table's declared location count. The original client's
+32-location implementation limit is not a file-format limit: patched Ephinea quests such as the AO
+series can contain larger tables, which remain editable, serializable, and seed-materializable.
 
 ## Subprojects
 

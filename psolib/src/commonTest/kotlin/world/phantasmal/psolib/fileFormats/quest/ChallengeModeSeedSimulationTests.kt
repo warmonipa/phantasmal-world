@@ -328,28 +328,28 @@ class ChallengeModeSeedSimulationTests : LibTestSuite {
         assertTrue(noDefinitionsSimulation.waves.isEmpty())
         assertTrue(noDefinitionsSimulation.problems.any { "definition table" in it.message })
 
-        val oversizedRooms = quest.challengeData.cmRandomSpawns.map { room ->
+        val patchedClientRooms = quest.challengeData.cmRandomSpawns.map { room ->
             if (room.entries.isEmpty()) {
                 room
             } else {
                 DatCmRandomSpawn(
                     room.floorId,
                     room.roomId,
-                    MutableList(CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM + 1) {
+                    MutableList(33) {
                         room.entries.first()
                     },
                 )
             }
         }
-        val oversizedSimulation = simulateChallengeModeSeed(
+        val patchedClientSimulation = simulateChallengeModeSeed(
             copyWithChallengeData(
                 quest,
-                quest.challengeData.copy(cmRandomSpawns = oversizedRooms),
+                quest.challengeData.copy(cmRandomSpawns = patchedClientRooms),
             ),
             1u,
         )
-        assertTrue(oversizedSimulation.monsters.isEmpty())
-        assertTrue(oversizedSimulation.problems.any { "more than 32" in it.message })
+        assertTrue(patchedClientSimulation.monsters.isNotEmpty())
+        assertTrue(patchedClientSimulation.problems.none { "random locations" in it.message })
 
         val duplicateConfigFloor = simulateChallengeModeSeed(
             copyWithChallengeData(

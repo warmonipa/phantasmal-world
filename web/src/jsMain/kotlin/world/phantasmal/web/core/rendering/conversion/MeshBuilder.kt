@@ -198,7 +198,7 @@ class MeshBuilder(
             var tex: Texture? = null
 
             if (group.textureIndex != null) {
-                textureCache.get(group.textureIndex)
+                tex = textureCache.get(group.textureIndex)
 
                 if (tex == null) {
                     tex = textures.getOrNull(group.textureIndex)?.let { xvm ->

@@ -238,7 +238,7 @@ class DatTests : LibTestSuite {
     }
 
     @Test
-    fun challenge_writer_sorts_lookup_tables_and_rejects_location_overflow() {
+    fun challenge_writer_sorts_lookup_tables_and_preserves_patched_location_counts() {
         fun location(x: Float) = DatCmRandomSpawnEntry(x, 0f, 0f, 0, 0, 0, 0, 0)
         fun definition(index: Int) = DatCmConfigPoolEntry(
             0f, 0f, 0f, 0f, 0f, 0, 0, index.toShort(), 0, 0, 0,
@@ -267,7 +267,7 @@ class DatTests : LibTestSuite {
             sorted.cmConfigPool.single().entries.map { it.entryIndex.toInt() and 0xFFFF },
         )
 
-        val tooManyLocations = DatFile(
+        val patchedLocations = DatFile(
             objs = emptyList(),
             npcs = emptyList(),
             events = emptyList(),
@@ -275,12 +275,29 @@ class DatTests : LibTestSuite {
             cmRandomSpawns = listOf(DatCmRandomSpawn(
                 1,
                 2,
-                MutableList(CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM + 1) { location(it.toFloat()) },
+                MutableList(33) { location(it.toFloat()) },
             )),
             cmConfigPool = emptyList(),
             cmMonsterMappings = emptyList(),
         )
-        assertFailsWith<IllegalArgumentException> { writeDat(tooManyLocations) }
+        val roundTrippedPatchedLocations = parseDat(writeDat(patchedLocations).cursor())
+        assertEquals(33, roundTrippedPatchedLocations.cmRandomSpawns.single().entries.size)
+        assertEquals(32f, roundTrippedPatchedLocations.cmRandomSpawns.single().entries.last().x)
+
+        val unrepresentableLocationCount = DatCmRandomSpawn(
+            floorId = 1,
+            roomId = 2,
+            entries = MutableList(CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM + 1) { location(0f) },
+        )
+        assertFailsWith<IllegalArgumentException> {
+            writeDat(DatFile(
+                objs = emptyList(),
+                npcs = emptyList(),
+                events = emptyList(),
+                unknowns = emptyList(),
+                cmRandomSpawns = listOf(unrepresentableLocationCount),
+            ))
+        }
 
         fun dat(
             spawns: List<DatCmRandomSpawn> = emptyList(),

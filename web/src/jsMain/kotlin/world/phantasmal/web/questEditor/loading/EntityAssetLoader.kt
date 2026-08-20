@@ -4,6 +4,7 @@ import mu.KotlinLogging
 import org.khronos.webgl.ArrayBuffer
 import world.phantasmal.core.PwResult
 import world.phantasmal.core.Success
+import world.phantasmal.core.unsafe.UnsafeMap
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.cursor.Cursor
 import world.phantasmal.psolib.cursor.cursor
@@ -33,19 +34,18 @@ interface EntityMeshLoader {
     ): InstancedMesh
 }
 
-class EntityAssetLoader(private val assetLoader: AssetLoader) :
+class EntityAssetLoader internal constructor(
+    private val loadArrayBuffer: suspend (String) -> ArrayBuffer,
+) :
     DisposableContainer(),
     EntityMeshLoader {
+    constructor(assetLoader: AssetLoader) : this(assetLoader::loadArrayBuffer)
+
     private val instancedMeshCache = addDisposable(
         LoadingCache<EntityMeshKey, InstancedMesh>(
             { key ->
-                try {
-                    loadMesh(key.type, key.model, key.ultimate, key.renderVariant)
-                        ?: if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
-                } catch (e: Exception) {
-                    logger.error(e) { "Couldn't load mesh for ${key.type} (model: ${key.model})." }
-                    if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
-                }
+                loadMesh(key.type, key.model, key.ultimate, key.renderVariant)
+                    ?: if (key.type is NpcType) DEFAULT_NPC_MESH else DEFAULT_OBJECT_MESH
             },
             ::disposeObject3DResources
         )
@@ -126,13 +126,13 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) :
             ?: return null
 
         return try {
-            Pair(path, assetLoader.loadArrayBuffer(path))
+            Pair(path, loadArrayBuffer(path))
         } catch (e: Exception) {
             if (!ultimate) throw e
 
             val fallback = entityTypeToPath(type, assetType, suffix, model, geomFormat, false)
                 ?: return null
-            Pair(fallback, assetLoader.loadArrayBuffer(fallback))
+            Pair(fallback, loadArrayBuffer(fallback))
         }
     }
 
@@ -232,26 +232,33 @@ class EntityAssetLoader(private val assetLoader: AssetLoader) :
  */
 internal fun cloneInstancedMeshWithOwnedResources(source: InstancedMesh): InstancedMesh {
     val clone = source.clone().unsafeCast<InstancedMesh>()
+    val clonedTextures = UnsafeMap<Texture, Texture>()
     clone.geometry = source.geometry.clone()
     clone.material = if (source.material is Array<*>) {
         source.material.unsafeCast<Array<Material>>()
-            .map(::cloneMaterialWithOwnedTexture)
+            .map { cloneMaterialWithOwnedTexture(it, clonedTextures) }
             .toTypedArray()
     } else {
-        cloneMaterialWithOwnedTexture(source.material.unsafeCast<Material>())
+        cloneMaterialWithOwnedTexture(source.material.unsafeCast<Material>(), clonedTextures)
     }
     return clone
 }
 
-private fun cloneMaterialWithOwnedTexture(source: Material): Material {
+private fun cloneMaterialWithOwnedTexture(
+    source: Material,
+    clonedTextures: UnsafeMap<Texture, Texture>,
+): Material {
     val clone = source.asDynamic().clone().unsafeCast<Material>()
-    val sourceMap = source.asDynamic().map
+    val sourceMap = source.asDynamic().map?.unsafeCast<Texture>()
     if (sourceMap != null) {
-        val clonedMap = sourceMap.clone().unsafeCast<Texture>()
-        // Texture.copy(), which Three.js clone() uses, does not copy the upload version. The
-        // cached prototype is never rendered, so explicitly schedule this independently owned
-        // texture for its first GPU upload.
-        clonedMap.needsUpdate = true
+        val clonedMap = clonedTextures.get(sourceMap)
+            ?: sourceMap.asDynamic().clone().unsafeCast<Texture>().also {
+                // Texture.copy(), which Three.js clone() uses, does not copy the upload version. The
+                // cached prototype is never rendered, so explicitly schedule this independently
+                // owned texture for its first GPU upload.
+                it.needsUpdate = true
+                clonedTextures.set(sourceMap, it)
+            }
         clone.asDynamic().map = clonedMap
     }
     return clone

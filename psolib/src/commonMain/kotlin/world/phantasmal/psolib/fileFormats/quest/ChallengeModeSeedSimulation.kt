@@ -122,11 +122,6 @@ fun simulateChallengeModeSeed(quest: Quest, seed: UInt): ChallengeModeSeedSimula
         }
         if (mappings.isEmpty()) report(floorId, "Random enemy weight table is missing or empty.")
         if (mappings.isNotEmpty() && weightTotal <= 0) report(floorId, "Random enemy weight total is zero.")
-        val oversizedRoomIds = locationsByRoom.values
-            .filter { it.entries.size > CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM }
-            .map { it.roomId }
-        oversizedRoomIds.forEach { report(floorId, "Room $it has more than 32 random locations.") }
-
         val invalidMonsterTypeIndexes = mappings
             .filter { (it.weight.toInt() and 0xFF) != 0 }
             .map { it.monsterTypeIndex.toInt() and 0xFF }
@@ -164,8 +159,7 @@ fun simulateChallengeModeSeed(quest: Quest, seed: UInt): ChallengeModeSeedSimula
             weightTotal <= 0 ||
             duplicateRoomIds.isNotEmpty() || configTables.size > 1 || mappingTables.size > 1 ||
             duplicateDefinitionIndexes.isNotEmpty() || invalidMonsterTypeIndexes.isNotEmpty() ||
-            oversizedRoomIds.isNotEmpty() || missingRoomIds.isNotEmpty() ||
-            missingDefinitionIndexes.isNotEmpty()
+            missingRoomIds.isNotEmpty() || missingDefinitionIndexes.isNotEmpty()
         ) {
             report(-1, "Simulation stopped at floor $floorId because later floors depend on its RNG state.")
             break
@@ -299,9 +293,6 @@ internal class ChallengeRandomState(seed: UInt) {
 
     fun shuffledLocations(entries: List<DatCmRandomSpawnEntry>): List<DatCmRandomSpawnEntry> {
         if (entries.isEmpty()) return emptyList()
-        // The client uses a fixed 0x20-entry index table. Treat oversized rooms as invalid rather
-        // than presenting a preview that the client could never materialize safely.
-        if (entries.size > CHALLENGE_MODE_MAX_RANDOM_LOCATIONS_PER_ROOM) return emptyList()
         val result = entries.toMutableList()
         repeat(4) {
             for (index in result.indices) {
