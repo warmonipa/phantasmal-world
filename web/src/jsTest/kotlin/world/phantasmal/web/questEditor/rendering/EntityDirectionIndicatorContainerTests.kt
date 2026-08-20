@@ -88,13 +88,13 @@ class EntityDirectionIndicatorContainerTests : WebTestSuite {
     }
 
     @Test
-    fun arrow_geometry_points_along_local_negative_z() = testAsync {
+    fun arrow_geometry_points_along_local_positive_z() = testAsync {
         val geometry = createEntityDirectionArrowGeometry()
         try {
             val bounds = requireNotNull(geometry.boundingBox)
 
-            assertTrue(bounds.min.z < -25.0)
-            assertTrue(bounds.max.z <= 0.0)
+            assertTrue(bounds.min.z >= 0.0)
+            assertTrue(bounds.max.z > 25.0)
             assertTrue(bounds.min.x < 0.0)
             assertTrue(bounds.max.x > 0.0)
         } finally {

@@ -1,17 +1,45 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlinx.browser.document
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import org.w3c.dom.HTMLCanvasElement
+import world.phantasmal.cell.Cell
+import world.phantasmal.cell.cell
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.observe
+import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSimulatedMonster
 import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSimulatedWave
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawnEntry
+import world.phantasmal.psolib.fileFormats.quest.EntityType
+import world.phantasmal.web.core.euler
+import world.phantasmal.web.externals.three.InstancedMesh
+import world.phantasmal.web.externals.three.MeshBasicMaterial
+import world.phantasmal.web.externals.three.PerspectiveCamera
+import world.phantasmal.web.externals.three.PlaneGeometry
+import world.phantasmal.web.externals.three.Vector3
+import world.phantasmal.web.questEditor.loading.EntityMeshLoader
+import world.phantasmal.web.questEditor.models.AreaModel
+import world.phantasmal.web.questEditor.models.AreaVariantModel
+import world.phantasmal.web.questEditor.models.QuestEntityModel
+import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.models.QuestModel
+import world.phantasmal.web.questEditor.models.QuestObjectModel
+import world.phantasmal.web.questEditor.models.SectionModel
+import world.phantasmal.web.questEditor.stores.QuestEditorRenderState
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
+import kotlin.js.unsafeCast
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class ChallengeSpawnRenderingTests : WebTestSuite {
     @Test
@@ -174,6 +202,106 @@ class ChallengeSpawnRenderingTests : WebTestSuite {
         assertEquals(1, focused.size)
         assertEquals(18, focused.single().roomId)
         assertSame(room18, focused.single().entry)
+    }
+
+    @Test
+    fun seeded_monsters_follow_the_shared_direction_toggle() = testAsync {
+        val floorId = 3
+        val roomId = 17
+        val location = location(2f)
+        val quest = createQuestModel()
+        quest.addCmRandomSpawn(DatCmRandomSpawn(floorId, roomId, mutableListOf(location)))
+        val simulation = ChallengeModeSeedSimulation(
+            0x12345678u,
+            listOf(
+                ChallengeModeSimulatedWave(
+                    floorId = floorId,
+                    sourceEventId = 9,
+                    waveNumber = 4,
+                    roomId = roomId,
+                    delay = 30,
+                    monsters = listOf(
+                        ChallengeModeSimulatedMonster(
+                            floorId = floorId,
+                            sourceEventId = 9,
+                            waveNumber = 4,
+                            roomId = roomId,
+                            monsterTypeIndex = 0,
+                            definitionIndex = 1,
+                            numChildren = 0,
+                            location = location,
+                        )
+                    ),
+                )
+            ),
+        )
+        val area = AreaModel(floorId, "Test Area", bossArea = false, order = 0, emptyList())
+        val variant = AreaVariantModel(0, area, Episode.I).apply {
+            setSections(listOf(SectionModel(roomId, Vector3(), euler(0.0, 0.0, 0.0), this)))
+        }
+        val state = challengeRenderState(quest, area, variant, simulation)
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        disposer.add(
+            ChallengePreviewMeshManager(
+                state,
+                components.questEditorUiStore,
+                context,
+                TestEntityMeshLoader(),
+            )
+        )
+
+        val directionMesh = withTimeout(5_000) {
+            while (true) {
+                context.helpers.children
+                    .filterIsInstance<InstancedMesh>()
+                    .firstOrNull { it.count == 1 }
+                    ?.let { return@withTimeout it }
+                yield()
+            }
+            error("Unreachable")
+        }
+        assertFalse(directionMesh.visible)
+
+        components.questEditorUiStore.setShowEntityDirections(true)
+
+        assertTrue(directionMesh.visible)
+    }
+
+    private fun challengeRenderState(
+        quest: QuestModel,
+        area: AreaModel,
+        variant: AreaVariantModel,
+        simulation: ChallengeModeSeedSimulation,
+    ): QuestEditorRenderState = object : QuestEditorRenderState {
+        override val currentQuest: Cell<QuestModel?> = cell(quest)
+        override val currentArea: Cell<AreaModel?> = cell(area)
+        override val currentAreaVariant: Cell<AreaVariantModel?> = cell(variant)
+        override val currentFloorIds: Cell<Set<Int>?> = cell(setOf(area.id))
+        override val currentAreaObjects: ListCell<QuestObjectModel> = emptyListCell()
+        override val selectedSection: Cell<SectionModel?> = cell(null)
+        override val selectedEvents: Cell<Set<QuestEventModel>> = cell(emptySet())
+        override val selectedEventsSectionWaves: Cell<Set<Pair<Int, Int>>> = cell(emptySet())
+        override val highlightedEntity: Cell<QuestEntityModel<*, *>?> = cell(null)
+        override val selectedEntity: Cell<QuestEntityModel<*, *>?> = cell(null)
+        override val challengeSeedSimulation: Cell<ChallengeModeSeedSimulation?> = cell(simulation)
+        override val selectedChallengeLogicalFloor: Cell<Int?> = cell(null)
+        override val selectedChallengeRoomId: Cell<Int?> = cell(null)
+    }
+
+    private class TestEntityMeshLoader : EntityMeshLoader {
+        override suspend fun loadInstancedMesh(
+            type: EntityType,
+            model: Int?,
+            ultimate: Boolean,
+            renderVariant: Int?,
+        ): InstancedMesh = InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply {
+            count = 0
+        }
     }
 
     private fun location(x: Float) = DatCmRandomSpawnEntry(x, 0f, 0f, 0, 0, 0, 0, 0)

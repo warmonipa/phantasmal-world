@@ -15,7 +15,7 @@ import world.phantasmal.webui.obj
 import kotlin.math.PI
 
 /**
- * Renders lightweight arrows in front of quest objects and NPCs. PSO entities face local -Z.
+ * Renders lightweight arrows in front of quest objects and NPCs. PSO entities face local +Z.
  */
 internal class EntityDirectionIndicatorContainer(showDirections: Cell<Boolean>) :
     InstanceContainer<QuestEntityModel<*, *>, EntityDirectionIndicatorInstance>(
@@ -72,19 +72,19 @@ internal class EntityDirectionIndicatorInstance(
     }
 }
 
-/** Creates a shaft and arrowhead extending from the entity origin along local -Z. */
+/** Creates a shaft and arrowhead extending from the entity origin along local +Z. */
 internal fun createEntityDirectionArrowGeometry(): BufferGeometry {
     val shaftLength = 22.0
     val headLength = 8.0
     val height = 4.0
 
     val shaft = CylinderGeometry(0.8, 0.8, shaftLength, 6).apply {
-        rotateX(-PI / 2)
-        translate(0.0, height, -shaftLength / 2)
+        rotateX(PI / 2)
+        translate(0.0, height, shaftLength / 2)
     }
     val head = ConeGeometry(3.5, headLength, 8).apply {
-        rotateX(-PI / 2)
-        translate(0.0, height, -shaftLength - headLength / 2)
+        rotateX(PI / 2)
+        translate(0.0, height, shaftLength + headLength / 2)
     }
 
     return BufferGeometryUtils.mergeBufferGeometries(arrayOf(shaft, head), false)!!.apply {

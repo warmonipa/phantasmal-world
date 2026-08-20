@@ -108,6 +108,11 @@ internal class ChallengePreviewMeshManager(
     private val spawnContainer = addDisposable(
         ChallengeMonsterSpawnContainer().also { renderContext.helpers.add(it.mesh) }
     )
+    private val directionIndicators = addDisposable(
+        EntityDirectionIndicatorContainer(questEditorUiStore.showEntityDirections).also {
+            renderContext.helpers.add(it.mesh)
+        }
+    )
     private val monsterMeshCache = addDisposable(
         LoadingCache<MonsterMeshKey, EntityInstanceContainer>(
             { key ->
@@ -190,7 +195,9 @@ internal class ChallengePreviewMeshManager(
     override fun dispose() {
         loadingJob?.cancel(CancellationException("Disposed."))
         spawnContainer.clearInstances()
+        directionIndicators.clearInstances()
         renderContext.helpers.remove(spawnContainer.mesh)
+        renderContext.helpers.remove(directionIndicators.mesh)
         super.dispose()
     }
 
@@ -201,6 +208,7 @@ internal class ChallengePreviewMeshManager(
         selection: PreviewSelection,
     ) {
         spawnContainer.clearInstances()
+        directionIndicators.clearInstances()
         clearMonsterMeshes()
 
         if (quest == null || area == null || quest.cmRandomSpawns.value.isEmpty()) return
@@ -316,6 +324,7 @@ internal class ChallengePreviewMeshManager(
             model.setWorldPosition(transform.position.value)
             val rotation = transform.rotation.value
             model.setWorldRotation(euler(rotation.x, rotation.y, rotation.z))
+            directionIndicators.addInstance(model)
             previews += MonsterPreview(monster, section, npcType, model)
         }
 
