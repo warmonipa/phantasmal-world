@@ -38,7 +38,8 @@ class QuestEventModel(
     // Challenge mode wave settings - decoded from cmWaveSettings
     val cmMinEnemies: Cell<Int> = _cmWaveSettings.map { it?.let { v -> v and 0xFF } ?: 0 }
     val cmMaxEnemies: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v shr 8) and 0xFF } ?: 0 }
-    val cmMaxWaves: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v ushr 16) and 0xFFFF } ?: 0 }
+    val cmMaxWaves: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v ushr 16) and 0xFF } ?: 0 }
+    val cmWaveExtension: Cell<Int> = _cmWaveSettings.map { it?.let { v -> (v ushr 24) and 0xFF } ?: 0 }
 
     fun setId(id: Int) {
         _id.value = id
@@ -68,7 +69,12 @@ class QuestEventModel(
 
     fun setCmMaxWaves(value: Int) {
         val current = _cmWaveSettings.value ?: 0
-        _cmWaveSettings.value = (current and 0xFFFF) or ((value and 0xFFFF) shl 16)
+        _cmWaveSettings.value = (current and 0xFF00FFFF.toInt()) or ((value and 0xFF) shl 16)
+    }
+
+    fun setCmWaveExtension(value: Int) {
+        val current = _cmWaveSettings.value ?: 0
+        _cmWaveSettings.value = (current and 0x00FFFFFF) or ((value and 0xFF) shl 24)
     }
 
     fun addAction(action: QuestEventActionModel) {

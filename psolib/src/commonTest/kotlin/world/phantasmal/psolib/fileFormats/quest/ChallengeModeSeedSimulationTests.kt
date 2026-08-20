@@ -427,6 +427,43 @@ class ChallengeModeSeedSimulationTests : LibTestSuite {
     }
 
     @Test
+    fun zero_enemy_control_event_does_not_require_random_locations() = testAsync {
+        val quest = load1c1()
+        val floorId = quest.events.first { it.isChallengeMode }.floorId
+        val controlEvent = DatEvent(
+            id = 0x7000,
+            sectionId = 0x7000,
+            wave = 1,
+            delay = 10,
+            actions = mutableListOf(),
+            floorId = floorId,
+            unknown = 20,
+            cmWaveSettings = 0x00010000,
+        )
+        val simulation = simulateChallengeModeSeed(
+            copyWithEvents(quest, listOf(controlEvent) + quest.events),
+            0x12345678u,
+        )
+
+        val materializedControl = simulation.waves.single { it.sourceEventId == controlEvent.id }
+        assertTrue(materializedControl.monsters.isEmpty())
+        assertTrue(simulation.monsters.isNotEmpty())
+        assertTrue(simulation.problems.none { "room 28672" in it.message })
+    }
+
+    @Test
+    fun extended_high_byte_metadata_does_not_inflate_wave_count() = testAsync {
+        val quest = load1c1()
+        val event = quest.events.first { it.isChallengeMode }
+        event.cmWaveSettings = 0x0A010000 // Extension metadata 0x0A, one materialized wave.
+
+        val simulation = simulateChallengeModeSeed(copyWithEvents(quest, listOf(event)), 0u)
+
+        assertEquals(1, simulation.waves.size)
+        assertTrue(simulation.problems.none { "work limit" in it.message })
+    }
+
+    @Test
     fun sentinel_only_mappings_do_not_require_enemy_definitions() = testAsync {
         val quest = load1c1()
         val sentinelMappings = quest.challengeData.cmMonsterMappings.map { table ->
@@ -490,25 +527,16 @@ class ChallengeModeSeedSimulationTests : LibTestSuite {
     }
 
     @Test
-    fun simulation_work_budget_stops_legal_extreme_values() = testAsync {
+    fun simulation_work_budget_stops_many_legal_events() = testAsync {
         val quest = load1c1()
         val event = quest.events.first { it.isChallengeMode }
-        event.cmWaveSettings = 0xFFFF0000u.toInt() // 0 enemies, up to 65535 waves
-        var seed = 0u
-        while (ChallengeRandomState(seed).biasedInt(1, 0xFFFF) <=
-            CHALLENGE_MODE_SIMULATION_MAX_WAVES
-        ) {
-            seed++
-        }
-        val singleEventQuest = Quest(
-            quest.id, quest.language, quest.name, quest.shortDescription, quest.longDescription,
-            quest.episode, quest.objects, quest.npcs, listOf(event), quest.datUnknowns,
-            quest.challengeData, quest.bytecodeIr, quest.shopItems, quest.floorMappings,
-            quest.bytecodeOffset, quest.shiftJis, quest.binFormat, quest.version,
-            quest.particleSpawns,
+        event.cmWaveSettings = 0x00010000 // 0 enemies, exactly one wave.
+        val manyEventQuest = copyWithEvents(
+            quest,
+            List(CHALLENGE_MODE_SIMULATION_MAX_WAVES + 1) { event },
         )
 
-        val simulation = simulateChallengeModeSeed(singleEventQuest, seed)
+        val simulation = simulateChallengeModeSeed(manyEventQuest, 0u)
 
         assertEquals(CHALLENGE_MODE_SIMULATION_MAX_WAVES, simulation.waves.size)
         assertTrue(simulation.problems.any { "work limit reached" in it.message })
@@ -567,6 +595,28 @@ class ChallengeModeSeedSimulationTests : LibTestSuite {
         quest.events,
         quest.datUnknowns,
         challengeData,
+        quest.bytecodeIr,
+        quest.shopItems,
+        quest.floorMappings,
+        quest.bytecodeOffset,
+        quest.shiftJis,
+        quest.binFormat,
+        quest.version,
+        quest.particleSpawns,
+    )
+
+    private fun copyWithEvents(quest: Quest, events: List<DatEvent>) = Quest(
+        quest.id,
+        quest.language,
+        quest.name,
+        quest.shortDescription,
+        quest.longDescription,
+        quest.episode,
+        quest.objects.toMutableList(),
+        quest.npcs.toMutableList(),
+        events,
+        quest.datUnknowns,
+        quest.challengeData,
         quest.bytecodeIr,
         quest.shopItems,
         quest.floorMappings,

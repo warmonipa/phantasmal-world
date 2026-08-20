@@ -194,8 +194,11 @@ class EventWidget(
                 container.createInputRow("CM Max:", event.cmMaxEnemies, min = 0, max = 0xFF) {
                     ctrl.setCmMaxEnemies(event, it)
                 }
-                container.createInputRow("CM Max Waves:", event.cmMaxWaves, min = 0, max = 0xFFFF) {
+                container.createInputRow("CM Max Waves:", event.cmMaxWaves, min = 0, max = 0xFF) {
                     ctrl.setCmMaxWaves(event, it)
+                }
+                container.createInputRow("CM Wave Extension:", event.cmWaveExtension, min = 0, max = 0xFF) {
+                    ctrl.setCmWaveExtension(event, it)
                 }
             }
         }

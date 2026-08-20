@@ -440,6 +440,16 @@ class EventsController(
         editEventProperty(event, "Edit CM max waves", QuestEventModel::setCmMaxWaves, value, event.cmMaxWaves.value)
     }
 
+    fun setCmWaveExtension(event: QuestEventModel, value: Int) {
+        editEventProperty(
+            event,
+            "Edit CM wave extension",
+            QuestEventModel::setCmWaveExtension,
+            value,
+            event.cmWaveExtension.value,
+        )
+    }
+
     private fun <T> editEventProperty(
         event: QuestEventModel,
         description: String,

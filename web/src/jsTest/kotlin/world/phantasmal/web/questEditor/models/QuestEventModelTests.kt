@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class QuestEventModelTests {
     @Test
-    fun challenge_max_waves_uses_both_bytes() {
+    fun challenge_wave_extension_is_preserved_when_editing_max_waves() {
         val event = QuestEventModel(
             id = 1,
             floorId = 2,
@@ -19,9 +19,13 @@ class QuestEventModelTests {
 
         assertEquals(6, event.cmMinEnemies.value)
         assertEquals(7, event.cmMaxEnemies.value)
-        assertEquals(0x1234, event.cmMaxWaves.value)
+        assertEquals(0x34, event.cmMaxWaves.value)
+        assertEquals(0x12, event.cmWaveExtension.value)
 
-        event.setCmMaxWaves(0xABCD)
+        event.setCmMaxWaves(0xCD)
+        assertEquals(0x12CD_0706, event.cmWaveSettings.value)
+
+        event.setCmWaveExtension(0xAB)
         assertEquals(0xABCD_0706u.toInt(), event.cmWaveSettings.value)
     }
 }

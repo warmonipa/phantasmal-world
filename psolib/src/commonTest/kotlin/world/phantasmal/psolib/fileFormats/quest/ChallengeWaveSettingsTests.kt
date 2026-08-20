@@ -51,7 +51,8 @@ class ChallengeWaveSettingsTests : LibTestSuite {
                 // Verify decoding is correct
                 assertEquals(settings and 0xFF, event.cmMinEnemies, "Min enemies should match")
                 assertEquals((settings shr 8) and 0xFF, event.cmMaxEnemies, "Max enemies should match")
-                assertEquals((settings ushr 16) and 0xFFFF, event.cmMaxWaves, "Max waves should match")
+                assertEquals((settings ushr 16) and 0xFF, event.cmMaxWaves, "Max waves should match")
+                assertEquals((settings ushr 24) and 0xFF, event.cmWaveExtension, "Extension should match")
             }
         }
 
@@ -70,7 +71,8 @@ class ChallengeWaveSettingsTests : LibTestSuite {
                 nonZeroWaveSettings++
 
                 // If wave settings is not zero, at least one of the decoded values should be non-zero
-                val hasNonZero = event.cmMinEnemies > 0 || event.cmMaxEnemies > 0 || event.cmMaxWaves > 0
+                val hasNonZero = event.cmMinEnemies > 0 || event.cmMaxEnemies > 0 ||
+                        event.cmMaxWaves > 0 || event.cmWaveExtension > 0
                 assertTrue(
                     hasNonZero,
                     "Event ${event.id} has cmWaveSettings=${event.cmWaveSettings} but all decoded values are 0"

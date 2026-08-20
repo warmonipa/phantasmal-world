@@ -78,6 +78,9 @@ manager removes its owned scene nodes and disposes their resources when its life
 Challenge seed previews use each DAT room table's declared location count. The original client's
 32-location implementation limit is not a file-format limit: patched Ephinea quests such as the AO
 series can contain larger tables, which remain editable, serializable, and seed-materializable.
+The same extended format uses the high byte of the Event2 wave field as metadata, while the low byte
+remains the materialization wave limit. Event2 entries that generate zero enemies are control events
+and do not require a random-location room table.
 
 Dock layouts use GoldenLayout 1.5.9 with popouts disabled. `DockWidget` suppresses that version's
 legacy window `unload`/`beforeunload` binding before initialization; widget size cells and explicit

@@ -66,7 +66,8 @@ class DatEvent(
      * Challenge mode wave settings (4 bytes packed as int):
      * - Byte 0: Min enemies per wave
      * - Byte 1: Max enemies per wave
-     * - Bytes 2-3: Max number of waves (u16)
+     * - Byte 2: Maximum number of waves
+     * - Byte 3: Extended random-spawn metadata used by patched quests
      *
      * Non-null if and only if this event belongs to a challenge mode area.
      */
@@ -80,8 +81,11 @@ class DatEvent(
     /** Max enemies per wave (challenge mode only) */
     val cmMaxEnemies: Int get() = cmWaveSettings?.let { (it shr 8) and 0xFF } ?: 0
 
-    /** Max number of waves (challenge mode only) */
-    val cmMaxWaves: Int get() = cmWaveSettings?.let { (it ushr 16) and 0xFFFF } ?: 0
+    /** Maximum number of waves materialized by the patched client. */
+    val cmMaxWaves: Int get() = cmWaveSettings?.let { (it ushr 16) and 0xFF } ?: 0
+
+    /** Opaque extended random-spawn metadata preserved for patched quests. */
+    val cmWaveExtension: Int get() = cmWaveSettings?.let { (it ushr 24) and 0xFF } ?: 0
 }
 
 sealed class DatEventAction {

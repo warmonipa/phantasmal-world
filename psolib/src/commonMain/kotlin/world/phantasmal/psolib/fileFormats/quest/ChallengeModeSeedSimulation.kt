@@ -140,6 +140,7 @@ fun simulateChallengeModeSeed(quest: Quest, seed: UInt): ChallengeModeSeedSimula
         }
 
         val missingRoomIds = events
+            .filter { it.cmMaxEnemies > 0 }
             .map { it.sectionId.toInt() and 0xFFFF }
             .filter { locationsByRoom[it]?.entries.isNullOrEmpty() }
             .distinct()
@@ -187,7 +188,7 @@ fun simulateChallengeModeSeed(quest: Quest, seed: UInt): ChallengeModeSeedSimula
                 }
                 var remainingEnemies = random.biasedInt(event.cmMinEnemies, event.cmMaxEnemies)
                 val roomLocations = locationsByRoom[roomId]?.entries.orEmpty()
-                if (roomLocations.isEmpty()) {
+                if (remainingEnemies > 0 && roomLocations.isEmpty()) {
                     report(floorId, "Event ${event.id} references room $roomId without random locations.")
                 }
                 val shuffledLocations = random.shuffledLocations(roomLocations)
