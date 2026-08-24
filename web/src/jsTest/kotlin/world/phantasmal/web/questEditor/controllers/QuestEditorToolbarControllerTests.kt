@@ -5,8 +5,11 @@ import world.phantasmal.core.Failure
 import world.phantasmal.core.Severity
 import world.phantasmal.core.Success
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.buffer.Buffer
+import world.phantasmal.psolib.fileFormats.quest.OBJECT_BYTE_SIZE
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.Version
@@ -101,6 +104,60 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         val quest = components.questEditorStore.currentQuest.value
         assertNotNull(quest)
         assertEquals(Episode.I, quest.episode)
+    }
+
+    @Test
+    fun can_load_all_ephinea_lobby_categories() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        for (number in listOf(1, 11, 21, 30)) {
+            ctrl.loadLobbyQuest(number)
+
+            assertFalse(ctrl.result.value is Failure)
+            assertEquals(SaveFormat.LOBBY_DAT, ctrl.saveFormat.value)
+            assertEquals(listOf(SaveFormat.LOBBY_DAT), ctrl.availableSaveFormats.value)
+            assertEquals(15, components.questEditorStore.currentArea.value?.id)
+            assertEquals(number, components.questEditorStore.currentAreaVariant.value?.id)
+            assertTrue(
+                components.questEditorStore.currentQuest.value?.objects?.value?.isNotEmpty() == true
+            )
+            val variant = assertNotNull(components.questEditorStore.currentAreaVariant.value)
+            assertTrue(
+                components.areaAssetLoader
+                    .loadRenderGeometry(Episode.I, variant)
+                    .children
+                    .isNotEmpty()
+            )
+        }
+    }
+
+    @Test
+    fun can_open_a_loose_lobby_dat() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+        val objectData = Buffer.withSize(OBJECT_BYTE_SIZE, Endianness.Little)
+
+        ctrl.openFiles(
+            listOf(
+                FileHandle.Simple(
+                    File(arrayOf(objectData.arrayBuffer), "map_lobby_01o.dat")
+                )
+            )
+        )
+
+        assertFalse(ctrl.result.value is Failure)
+        assertEquals(1, components.questEditorStore.currentQuest.value?.objects?.value?.size)
+        assertEquals(15, components.questEditorStore.currentArea.value?.id)
+        assertEquals(1, components.questEditorStore.currentAreaVariant.value?.id)
     }
 
     @Test
@@ -678,8 +735,8 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.questEditorUiStore,
         ))
 
-        assertTrue(ctrl.availableSaveFormats.contains(SaveFormat.QST))
-        assertTrue(ctrl.availableSaveFormats.contains(SaveFormat.BIN_DAT))
+        assertTrue(ctrl.availableSaveFormats.value.contains(SaveFormat.QST))
+        assertTrue(ctrl.availableSaveFormats.value.contains(SaveFormat.BIN_DAT))
     }
 
     @Test

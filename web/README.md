@@ -149,6 +149,22 @@ applied. The arrows are rendered as instanced helper geometry and update when en
 are added, or are removed. Keep the direction geometry, visibility binding, and transform/lifecycle
 coverage together in `EntityDirectionIndicatorContainer` and its tests.
 
+## Quest Editor Free-Roam Lobbies
+
+The Quest Editor's built-in free-roam menu mirrors Ephinea's 30-lobby layout: Lobby 1–10 use the
+standard Section ID themes, Lobby 11–20 use the Version 2 color reskins, Lobby 21–25 use the
+Episode III card lobbies, and Lobby 26–30 use the Go Ball maps. Lobby quests use floor/Section ID
+15 (`0x0F`). Their render assets and default object DAT files are bundled under
+`src/jsMain/resources/assets/areas` and `src/jsMain/resources/assets/quests/lobby/data`.
+
+A loose lobby object DAT can be opened directly when its filename matches a supported lobby asset,
+including the legacy Episode III soccer aliases. Because these files contain objects only, a
+built-in or loose lobby is saved as a `.dat`; it is not offered as a synthetic `.bin` or `.qst`.
+
+Keep lobby numbers, asset basenames, and DAT filenames together in `FreeRoamAreaDefs.kt` via
+`LOBBY_VARIANTS`. Loading, menu construction, and asset lookup consume that table so the 30-entry
+layout stays synchronized.
+
 ### web:shared
 
 Contains code used by web, web:assembly-worker and web:assets-generation.

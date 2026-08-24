@@ -7,6 +7,23 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class FreeRoamLoadingTests {
+    @Test
+    fun parse_lobby_dat_variants() {
+        assertEquals(1, parseLobbyDatFilename("map_lobby_01o.dat"))
+        assertEquals(10, parseLobbyDatFilename("map_lobby_10o.dat"))
+        assertEquals(11, parseLobbyDatFilename("map_lobby_black_be00o.dat"))
+        assertEquals(14, parseLobbyDatFilename("map_lobby_green_be00o.dat"))
+        assertEquals(20, parseLobbyDatFilename("map_lobby_yellow_be00o.dat"))
+        assertEquals(21, parseLobbyDatFilename("map_cardlobby01o.dat"))
+        assertEquals(25, parseLobbyDatFilename("map_cardlobby05o.dat"))
+        assertEquals(26, parseLobbyDatFilename("map_lobby_soccer01o.dat"))
+        assertEquals(27, parseLobbyDatFilename("map_lobby_soccer02o.dat"))
+        assertEquals(26, parseLobbyDatFilename("map_soccer11o.dat"))
+        assertEquals(30, parseLobbyDatFilename("map_soccer15o.dat"))
+        assertNull(parseLobbyDatFilename("map_lobby_11o.dat"))
+        assertNull(parseLobbyDatFilename("map_city00_00o.dat"))
+    }
+
 
     // --- Bin filename parsing ---
 

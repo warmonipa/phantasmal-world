@@ -39,7 +39,8 @@ private val AREAS by lazy {
         createArea(12, 0x0C, "Underground Channel", order++, bossArea = true),
         createArea(13, 0x0D, "Monitor Room", order++, bossArea = true),
         createArea(14, 0x0E, "Dark Falz", order++, bossArea = true),
-        createArea(15, 0x0F, "Lobby", order++, 15),
+        // Variant 0 is retained for legacy quests; variants 1-30 are Ephinea lobby numbers.
+        createArea(15, 0x0F, "Lobby", order++, 31),
         createArea(16, 0x10, "BA Spaceship", order++, 3),
         createArea(17, 0x11, "BA Palace", order++, 3),
     )

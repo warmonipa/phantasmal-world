@@ -55,6 +55,47 @@ private val FIELD_BIN_REGEX =
 private val FREE_ROAM_DAT_REGEX =
     Regex("""^map_([a-z]+\d*)(?:_\d+)*(?:[oe]|a?d)(_s)?\.dat$""")
 
+data class LobbyVariantDef(
+    val number: Int,
+    val assetBaseName: String,
+    val datFileName: String = "${assetBaseName}o.dat",
+)
+
+/** Ephinea's 30-lobby layout, introduced in July 2024. */
+val LOBBY_VARIANTS: List<LobbyVariantDef> =
+    (1..10).map { number ->
+        LobbyVariantDef(number, "map_lobby_${number.toString().padStart(2, '0')}")
+    } + listOf(
+        LobbyVariantDef(11, "map_lobby_black_be00"),
+        LobbyVariantDef(12, "map_lobby_blue_be00"),
+        LobbyVariantDef(13, "map_lobby_bluegreen_be00"),
+        LobbyVariantDef(14, "map_lobby_green_be00"),
+        LobbyVariantDef(15, "map_lobby_orange_be00"),
+        LobbyVariantDef(16, "map_lobby_purple_be00"),
+        LobbyVariantDef(17, "map_lobby_red_be00"),
+        LobbyVariantDef(18, "map_lobby_white_be00"),
+        LobbyVariantDef(19, "map_lobby_y_green_be00"),
+        LobbyVariantDef(20, "map_lobby_yellow_be00"),
+    ) + (1..5).map { index ->
+        LobbyVariantDef(20 + index, "map_cardlobby${index.toString().padStart(2, '0')}")
+    } + (11..15).map { index ->
+        LobbyVariantDef(15 + index, "map_soccer$index")
+    }
+
+private val LOBBY_VARIANTS_BY_FILE_NAME =
+    LOBBY_VARIANTS.associateBy { it.datFileName }.toMutableMap().apply {
+        // Original Episode III filenames used by older clients.
+        this["map_lobby_soccer01o.dat"] = LOBBY_VARIANTS[25]
+        this["map_lobby_soccer02o.dat"] = LOBBY_VARIANTS[26]
+    }
+
+fun getLobbyVariant(number: Int): LobbyVariantDef? =
+    LOBBY_VARIANTS.getOrNull(number - 1)?.takeIf { it.number == number }
+
+/** Returns the Ephinea lobby number associated with a loose lobby object DAT. */
+fun parseLobbyDatFilename(fileName: String): Int? =
+    LOBBY_VARIANTS_BY_FILE_NAME[fileName.lowercase()]?.number
+
 /**
  * Single source of truth for all free roam area definitions.
  * Each entry: group key → (episode, floor range, bin prefix or null, isCity).

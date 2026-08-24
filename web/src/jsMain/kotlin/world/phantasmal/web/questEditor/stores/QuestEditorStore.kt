@@ -10,6 +10,7 @@ import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.core.externals.browser.FileSystemDirectoryHandle
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.psolib.fileFormats.quest.simulateChallengeModeSeed
 import world.phantasmal.web.core.PwToolType
@@ -390,8 +391,12 @@ class QuestEditorStore(
     suspend fun getCityQuest(episode: Episode): QuestModel =
         convertQuestToModel(questLoader.loadCityQuest(episode), areaStore::getVariant, npcPlacementPolicy)
 
-    suspend fun getLobbyQuest(variant: Int): QuestModel =
-        convertQuestToModel(questLoader.loadLobbyQuest(variant), areaStore::getVariant, npcPlacementPolicy)
+    suspend fun getLobbyQuest(variant: Int, objectData: Buffer? = null): QuestModel =
+        convertQuestToModel(
+            questLoader.loadLobbyQuest(variant, objectData),
+            areaStore::getVariant,
+            npcPlacementPolicy,
+        )
 
     suspend fun getFreeRoamQuest(
         gameDirHandle: FileSystemDirectoryHandle,
