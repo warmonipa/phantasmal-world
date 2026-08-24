@@ -208,6 +208,14 @@ class GetScriptNpcSpawnsTests : LibTestSuite {
                 ControlFlowGraph.create(segments)
             }.single()
 
+            assertEquals("npc_crptalk_v3", spawn.sourceInstruction?.opcode?.mnemonic)
+            assertEquals(
+                setOf("set_obj_param", "at_coords_talk"),
+                spawn.interactions.mapNotNullTo(mutableSetOf()) {
+                    it.sourceInstruction?.opcode?.mnemonic
+                },
+            )
+
             assertEquals(
                 setOf(
                     ScriptNpcInteraction(320, ScriptNpcInteractionKind.Target),

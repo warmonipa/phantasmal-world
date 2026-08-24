@@ -29,6 +29,7 @@ import world.phantasmal.web.questEditor.models.SectionModel
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
+import world.phantasmal.web.questEditor.stores.WalkthroughPlayer
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
 import world.phantasmal.web.questEditor.stores.convertQuestToModel
 import world.phantasmal.webui.UserAgentFeatures
@@ -74,6 +75,9 @@ class QuestEditorToolbarController(
     // Lobby menu visibility (hidden by default, toggled via Ctrl+L)
     private val _showLobbyMenu = mutableCell(false)
     val showLobbyMenu: Cell<Boolean> = _showLobbyMenu
+
+    val walkthroughPlayers: Cell<List<WalkthroughPlayer>> = cell(WalkthroughPlayer.entries)
+    val walkthroughPlayer: Cell<WalkthroughPlayer> = questEditorUiStore.walkthroughPlayer
 
     // Free roam variant state (delegated to FreeRoamController)
     val freeRoam = FreeRoamController()
@@ -904,6 +908,10 @@ class QuestEditorToolbarController(
 
     fun setShowQuestParticles(show: Boolean) {
         questEditorUiStore.setShowQuestParticles(show)
+    }
+
+    fun setWalkthroughPlayer(player: WalkthroughPlayer) {
+        questEditorUiStore.setWalkthroughPlayer(player)
     }
 
     fun setShowFogBoundaries(show: Boolean) {

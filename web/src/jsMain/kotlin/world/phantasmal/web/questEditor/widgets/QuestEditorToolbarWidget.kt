@@ -224,6 +224,13 @@ class QuestEditorToolbarWidget(
                         selected = ctrl.currentArea,
                         onSelect = ctrl::setCurrentArea,
                     ),
+                    Select(
+                        label = "Route:",
+                        items = ctrl.walkthroughPlayers,
+                        itemToString = { it.label },
+                        selected = ctrl.walkthroughPlayer,
+                        onSelect = ctrl::setWalkthroughPlayer,
+                    ),
                     // Goto Section (moved after Area selector)
                     ComboBox(
                         className = "pw-goto-section",

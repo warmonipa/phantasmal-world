@@ -5,12 +5,12 @@ import world.phantasmal.cell.*
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.mapToList
 import world.phantasmal.cell.list.listCell
-import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.core.disposable.disposable
 import world.phantasmal.web.questEditor.commands.*
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
+import world.phantasmal.web.questEditor.models.effectiveQuestEvents
 import world.phantasmal.web.questEditor.stores.PlaybackVisualizationStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.webui.controllers.Controller
@@ -44,8 +44,7 @@ class EventsController(
         store.challengeSeedSimulation,
         store.currentAreaEvents,
     ) { simulation, sourceEvents ->
-        if (simulation == null) sourceEvents
-        else materializeChallengeEventModels(simulation, sourceEvents)
+        effectiveQuestEvents(simulation, sourceEvents)
     }
 
     // Playback state
@@ -593,50 +592,3 @@ class EventsController(
         private const val DEFAULT_WAVE_ID = 1
     }
 }
-
-/**
- * Replaces source Event2 room-generation configurations with the Event1 chain that newserv/the
- * client materializes for a seed. Fixed Event1 entries are kept unchanged.
- */
-internal fun materializeChallengeEventModels(
-    simulation: ChallengeModeSeedSimulation,
-    sourceEvents: List<QuestEventModel>,
-): List<QuestEventModel> {
-    val wavesBySource = simulation.waves.groupBy { it.floorId to it.sourceEventId }
-
-    return sourceEvents.flatMap { source ->
-        if (source.cmWaveSettings.value == null) {
-            listOf(source)
-        } else {
-            wavesBySource[source.floorId to source.id.value].orEmpty().map { wave ->
-                val actions = wave.triggeredEventId?.let { nextEventId ->
-                    mutableListOf<QuestEventActionModel>(QuestEventActionModel.TriggerEvent(nextEventId))
-                } ?: source.actions.value.mapTo(mutableListOf(), ::copyEventAction)
-
-                QuestEventModel(
-                    id = wave.materializedEventId,
-                    floorId = wave.floorId,
-                    sectionId = wave.roomId,
-                    waveId = wave.waveNumber,
-                    delay = wave.delay,
-                    unknown = 0,
-                    actions = actions,
-                    cmWaveSettings = null,
-                    challengeSourceEventId = wave.sourceEventId,
-                )
-            }
-        }
-    }
-}
-
-private fun copyEventAction(action: QuestEventActionModel): QuestEventActionModel =
-    when (action) {
-        is QuestEventActionModel.SpawnNpcs ->
-            QuestEventActionModel.SpawnNpcs(action.sectionId.value, action.appearFlag.value)
-        is QuestEventActionModel.Door.Unlock ->
-            QuestEventActionModel.Door.Unlock(action.doorId.value)
-        is QuestEventActionModel.Door.Lock ->
-            QuestEventActionModel.Door.Lock(action.doorId.value)
-        is QuestEventActionModel.TriggerEvent ->
-            QuestEventActionModel.TriggerEvent(action.eventId.value)
-    }

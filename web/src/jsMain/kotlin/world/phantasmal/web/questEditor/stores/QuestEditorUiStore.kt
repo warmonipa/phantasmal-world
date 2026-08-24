@@ -11,6 +11,13 @@ import world.phantasmal.webui.stores.Store
 
 private val logger = KotlinLogging.logger {}
 
+enum class WalkthroughPlayer(val clientId: Int, val label: String, val color: Int) {
+    Red(0, "Red", 0xF04444),
+    Green(1, "Green", 0x33C96B),
+    Yellow(2, "Yellow", 0xF2C94C),
+    Blue(3, "Blue", 0x3D7DFF),
+}
+
 class QuestEditorUiStore(
     uiStore: UiStore,
     private val npcPlacementPolicy: NpcPlacementPolicy,
@@ -26,6 +33,7 @@ class QuestEditorUiStore(
     private val _showFogBoundaries = mutableCell(false)
     private val _ultimate = mutableCell(true)
     private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
+    private val _walkthroughPlayer = mutableCell(WalkthroughPlayer.Red)
 
     val devMode: Cell<Boolean> = _devMode
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry
@@ -44,6 +52,7 @@ class QuestEditorUiStore(
      */
     val ultimate: Cell<Boolean> = _ultimate
     val selectedLobbyEvent: Cell<LobbyEventFilter> = _selectedLobbyEvent
+    val walkthroughPlayer: Cell<WalkthroughPlayer> = _walkthroughPlayer
 
     init {
         addDisposables(
@@ -97,5 +106,9 @@ class QuestEditorUiStore(
 
     fun setSelectedLobbyEvent(filter: LobbyEventFilter) {
         _selectedLobbyEvent.value = filter
+    }
+
+    fun setWalkthroughPlayer(player: WalkthroughPlayer) {
+        _walkthroughPlayer.value = player
     }
 }

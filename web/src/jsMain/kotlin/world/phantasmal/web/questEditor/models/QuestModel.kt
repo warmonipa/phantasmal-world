@@ -12,6 +12,7 @@ import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptSpatialInteraction
 import world.phantasmal.psolib.fileFormats.quest.BinFormat
 import world.phantasmal.psolib.fileFormats.quest.DatCmConfigPool
 import world.phantasmal.psolib.fileFormats.quest.DatCmMonsterMapping
@@ -20,6 +21,7 @@ import world.phantasmal.psolib.fileFormats.quest.DatUnknown
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
 import world.phantasmal.psolib.fileFormats.quest.getQuestParticleSpawns
 import world.phantasmal.psolib.fileFormats.quest.getQuestScriptNpcSpawns
+import world.phantasmal.psolib.fileFormats.quest.getQuestScriptSpatialInteractions
 import world.phantasmal.psolib.fileFormats.quest.supportsScriptNpcPreview
 import world.phantasmal.psolib.fileFormats.quest.Version
 
@@ -229,6 +231,43 @@ class QuestModel(
             emptyList()
         }
     }
+
+    /** Fixed script call/talk regions, including regions with no particle emitter. */
+    val scriptSpatialInteractions: Cell<List<ScriptSpatialInteraction>> = map(
+        _objects.dependingOnElements { obj ->
+            obj.properties.value.map { it.value }.toTypedArray()
+        },
+        _npcs.dependingOnElements { npc ->
+            npc.properties.value.map { it.value }.toTypedArray()
+        },
+        _bytecodeRevision,
+        _floorMappingRevision,
+    ) { objects, npcs, _, _ ->
+        getQuestScriptSpatialInteractions(
+            bytecodeIr = this.bytecodeIr,
+            objects = objects.map { it.entity },
+            npcs = npcs.map { it.entity },
+        )
+    }
+
+    private val walkthroughSpatialRevision: Cell<Unit> = map(
+        _objects.dependingOnElements { obj ->
+            arrayOf(obj.sectionId, obj.worldPosition, obj.destinationPosition) +
+                obj.properties.value.map { it.value }
+        },
+        _npcs.dependingOnElements { npc ->
+            arrayOf(npc.sectionId, npc.wave, npc.worldPosition) +
+                npc.properties.value.map { it.value }
+        },
+        _events.dependingOnElements { event -> arrayOf(event.walkthroughRevision) },
+    ) { _, _, _ -> }
+
+    /** Invalidates the spatial/causal walkthrough after any relevant nested quest edit. */
+    val walkthroughRevision: Cell<Unit> = map(
+        walkthroughSpatialRevision,
+        _bytecodeRevision,
+        _floorMappingRevision,
+    ) { _, _, _ -> }
 
     init {
         require(npcs.all { it.placementPolicy === npcPlacementPolicy }) {

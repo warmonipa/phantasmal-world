@@ -705,6 +705,30 @@ fun getQuestParticleSpawns(
     return spawns
 }
 
+/** Derives fixed spatial callback registrations from reachable quest script paths. */
+fun getQuestScriptSpatialInteractions(
+    bytecodeIr: BytecodeIr,
+    objects: List<QuestObject>,
+    npcs: List<QuestNpc>,
+): List<world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptSpatialInteraction> {
+    val instructionSegments = bytecodeIr.instructionSegments()
+    if (instructionSegments.none { 0 in it.labels }) return emptyList()
+    val cfg = ControlFlowGraph.create(bytecodeIr)
+    val executionFloors = world.phantasmal.psolib.asm.dataFlowAnalysis.computeExecutionFloors(
+        cfg,
+        instructionSegments,
+        extractScriptEntryPointFloorIds(objects, npcs),
+    )
+    return world.phantasmal.psolib.asm.dataFlowAnalysis.getScriptSpatialInteractions(
+        cfg,
+        instructionSegments,
+        executionFloors,
+    )
+}
+
+/** Active DAT NPC callback label, excluding enemy records that reuse param5 for other data. */
+fun QuestNpc.activeScriptLabelOrNull(): Int? = scriptLabel.takeIf { isScriptedNpc(this) }
+
 /** Derives positioned, client-reachable NPC creations from V2, V3, or V4 quest bytecode. */
 fun getQuestScriptNpcSpawns(
     version: Version,

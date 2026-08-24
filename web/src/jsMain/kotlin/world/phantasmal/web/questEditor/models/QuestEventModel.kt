@@ -3,6 +3,7 @@ package world.phantasmal.web.questEditor.models
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.mutableListCell
+import world.phantasmal.cell.list.dependingOnElements
 import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
 
@@ -34,6 +35,21 @@ class QuestEventModel(
     val delay: Cell<Int> = _delay
     val actions: ListCell<QuestEventActionModel> = _actions
     val cmWaveSettings: Cell<Int?> = _cmWaveSettings
+
+    /** Invalidates derived walkthroughs after any nested event/action edit. */
+    val walkthroughRevision: Cell<Unit> = map(
+        _id,
+        _sectionId,
+        _waveId,
+        _actions.dependingOnElements { action ->
+            when (action) {
+                is QuestEventActionModel.SpawnNpcs ->
+                    arrayOf(action.sectionId, action.appearFlag)
+                is QuestEventActionModel.Door -> arrayOf(action.doorId)
+                is QuestEventActionModel.TriggerEvent -> arrayOf(action.eventId)
+            }
+        },
+    ) { _, _, _, _ -> }
 
     // Challenge mode wave settings - decoded from cmWaveSettings
     val cmMinEnemies: Cell<Int> = _cmWaveSettings.map { it?.let { v -> v and 0xFF } ?: 0 }

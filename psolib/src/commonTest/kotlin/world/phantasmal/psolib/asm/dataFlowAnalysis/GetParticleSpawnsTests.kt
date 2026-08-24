@@ -41,6 +41,29 @@ class GetParticleSpawnsTests : LibTestSuite {
     }
 
     @Test
+    fun floor_handler_stack_register_arguments_are_resolved() {
+        val segments = toInstructions("""
+            0:
+                leti r20, 5
+                leti r21, 100
+                set_floor_handler r20, r21
+                ret
+            100:
+                leti r0, 1000
+                leti r1, 0
+                leti r2, 2000
+                leti r3, 42
+                leti r4, 60
+                particle_v3 r0
+                ret
+        """.trimIndent())
+
+        val spawns = getParticleSpawns(segments) { ControlFlowGraph.create(segments) }
+
+        assertEquals(setOf(5), spawns.single().executionFloorIds)
+    }
+
+    @Test
     fun resolves_all_psobb_particle_opcode_variants() {
         val segments = toInstructions("""
             0:

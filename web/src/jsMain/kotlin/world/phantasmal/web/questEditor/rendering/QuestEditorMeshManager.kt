@@ -1,14 +1,17 @@
 package world.phantasmal.web.questEditor.rendering
 
+import mu.KotlinLogging
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.and
 import world.phantasmal.cell.cell
 import world.phantasmal.cell.flatMap
+import world.phantasmal.cell.map
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.filteredCell
 import world.phantasmal.cell.list.mapToList
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcClass
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptSpatialInteraction
 import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ParticleSpawn
 import world.phantasmal.psolib.buffer.Buffer
@@ -24,6 +27,8 @@ import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.lobbyEventSeasonOk
 import world.phantasmal.web.questEditor.stores.*
+
+private val questEditorMeshLogger = KotlinLogging.logger {}
 
 internal fun particleTemplateMapIds(
     spawn: ParticleSpawn,
@@ -76,8 +81,24 @@ class QuestEditorMeshManager(
     areaStore,
     renderContext,
 ) {
+    private data class WalkthroughInputs(
+        val quest: QuestModel,
+        val scriptNpcs: List<ScriptNpcSpawn>,
+        val spatialInteractions: List<ScriptSpatialInteraction>,
+    )
+
     private val questParticleSpawns = questEditorStore.currentQuest.flatMap { quest ->
         quest?.particleSpawns ?: cell(emptyList())
+    }
+    private val walkthroughInputs = questEditorStore.currentQuest.flatMap { quest ->
+        if (quest == null) cell(null)
+        else map(
+            quest.walkthroughRevision,
+            quest.scriptNpcSpawns,
+            quest.scriptSpatialInteractions,
+        ) { _, scriptNpcs, interactions ->
+            WalkthroughInputs(quest, scriptNpcs, interactions)
+        }
     }
 
     private val symbolChatTriggerManager = addDisposable(
@@ -92,6 +113,7 @@ class QuestEditorMeshManager(
         SymbolChatBillboardManager(questEditorStore, symbolChatColliRepository, renderContext)
     )
     private val gotoIndicatorManager = addDisposable(GotoIndicatorManager(renderContext))
+    private val walkthroughRenderer = addDisposable(WalkthroughRouteRenderer(renderContext))
 
     init {
         observeNow(
@@ -234,6 +256,33 @@ class QuestEditorMeshManager(
 
         observeNow(viewportStore.gotoIndicatorPosition) { pos ->
             gotoIndicatorManager.setPosition(pos)
+        }
+
+        observeNow(
+            walkthroughInputs,
+            questEditorStore.currentArea,
+            questEditorStore.currentFloorIds,
+            questEditorUiStore.walkthroughPlayer,
+            questEditorStore.challengeSeedSimulation,
+        ) { inputs, area, floorIds, player, simulation ->
+            if (inputs == null || area == null) {
+                walkthroughRenderer.setRoute(WalkthroughRoute(emptyList(), emptyList()), player.color)
+            } else {
+                val route = planWalkthroughRoute(
+                    quest = inputs.quest,
+                    visibleFloorIds = floorIds ?: setOf(area.id),
+                    clientId = player.clientId,
+                    scriptNpcSpawns = inputs.scriptNpcs,
+                    scriptSpatialInteractions = inputs.spatialInteractions,
+                    challengeSimulation = simulation,
+                )
+                if (route.diagnostics.isNotEmpty()) {
+                    questEditorMeshLogger.debug {
+                        "Walkthrough diagnostics:\n${route.diagnostics.joinToString("\n")}"
+                    }
+                }
+                walkthroughRenderer.setRoute(route, player.color)
+            }
         }
     }
 

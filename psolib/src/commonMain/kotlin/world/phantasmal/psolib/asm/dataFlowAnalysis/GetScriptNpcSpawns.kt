@@ -2,6 +2,7 @@ package world.phantasmal.psolib.asm.dataFlowAnalysis
 
 import mu.KotlinLogging
 import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
 import world.phantasmal.psolib.asm.OP_NPC_CRP_ID_V3_V3_V4
@@ -34,7 +35,15 @@ enum class ScriptNpcInteractionKind {
 data class ScriptNpcInteraction(
     val label: Int,
     val kind: ScriptNpcInteractionKind,
-)
+) {
+    /** Registration opcode used for client-specific walkthrough reachability. */
+    var sourceInstruction: Instruction? = null
+        internal set
+
+    /** Floors on which the registration instruction can execute for any client. */
+    var executionFloorIds: Set<Int> = emptySet()
+        internal set
+}
 
 enum class ScriptNpcCreationOpcode(
     val code: Int,
@@ -76,6 +85,10 @@ data class ScriptNpcSpawn(
     val interactions: Set<ScriptNpcInteraction> = emptySet(),
 ) {
     val kind: ScriptNpcSpawnKind get() = opcode.kind
+
+    /** Creation opcode used for client-specific walkthrough reachability. */
+    var sourceInstruction: Instruction? = null
+        internal set
 }
 
 enum class ScriptNpcClass {
@@ -274,7 +287,10 @@ fun getScriptNpcSpawns(
                 else -> continue
             }
 
-            if (scriptNpcTemplate(spawn.templateIndex) != null) spawns.add(spawn)
+            if (scriptNpcTemplate(spawn.templateIndex) != null) {
+                spawn.sourceInstruction = inst
+                spawns.add(spawn)
+            }
         }
     }
 
@@ -295,7 +311,9 @@ fun getScriptNpcSpawns(
             }
             .mapTo(linkedSetOf()) { it.interaction }
 
-        if (interactions.isEmpty()) spawn else spawn.copy(interactions = interactions)
+        if (interactions.isEmpty()) spawn else spawn.copy(interactions = interactions).also {
+            it.sourceInstruction = spawn.sourceInstruction
+        }
     }
 }
 
@@ -351,7 +369,10 @@ private fun getScriptNpcInteractionRegions(
                 y = values[1]!!,
                 z = values[2]!!,
                 radius = values[3]!!,
-                interaction = ScriptNpcInteraction(values[4]!!, kind),
+                interaction = ScriptNpcInteraction(values[4]!!, kind).also {
+                    it.sourceInstruction = inst
+                    it.executionFloorIds = executionFloorIds
+                },
                 executionFloorIds = executionFloorIds,
             ))
         }

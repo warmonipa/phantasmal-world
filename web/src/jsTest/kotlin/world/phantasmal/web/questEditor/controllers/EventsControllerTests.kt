@@ -11,6 +11,7 @@ import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawn
 import world.phantasmal.psolib.fileFormats.quest.DatCmRandomSpawnEntry
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.models.effectiveQuestEvents
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import kotlin.test.Test
@@ -102,7 +103,7 @@ class EventsControllerTests : WebTestSuite {
             ),
         )
 
-        val displayed = materializeChallengeEventModels(simulation, listOf(fixed, source))
+        val displayed = effectiveQuestEvents(simulation, listOf(fixed, source))
 
         assertTrue(displayed[0] === fixed, "Fixed Event1 entries must remain unchanged.")
         assertEquals(listOf(100, 10104), displayed.drop(1).map { it.id.value })

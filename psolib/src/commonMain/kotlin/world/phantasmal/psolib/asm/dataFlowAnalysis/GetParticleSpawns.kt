@@ -93,6 +93,18 @@ data class ParticleInteractionEvent(
     }
 }
 
+/** A fixed floor-local player interaction registered directly by quest bytecode. */
+data class ScriptSpatialInteraction(
+    val origin: ParticleSpawnOrigin.WorldPosition,
+    val radius: Int,
+    val event: ParticleInteractionEvent,
+    val executionFloorIds: Set<Int>,
+) {
+    /** Registration opcode used for client-specific walkthrough reachability. */
+    lateinit var sourceInstruction: Instruction
+        internal set
+}
+
 /**
  * A quest particle emitter created by a DAT object or a statically resolved BIN opcode.
  *
@@ -228,7 +240,7 @@ fun getParticleSpawns(
 
     val resolvedCfg = cfg ?: return spawns
     val resolvedExecutionFloors = executionFloors ?: return spawns
-    val interactions = getParticleInteractionRegions(
+    val interactions = getScriptSpatialInteractions(
         resolvedCfg,
         instructionSegments,
         resolvedExecutionFloors,
@@ -249,44 +261,33 @@ fun getParticleSpawns(
     }
 }
 
-private data class ParticleInteractionRegion(
-    val origin: ParticleSpawnOrigin.WorldPosition,
-    val radius: Int,
-    val event: ParticleInteractionEvent,
-    val executionFloorIds: Set<Int>,
-) {
-    fun contains(position: ParticleSpawnOrigin.WorldPosition): Boolean {
-        val dx = position.x.toDouble() - origin.x
-        val dy = position.y.toDouble() - origin.y
-        val dz = position.z.toDouble() - origin.z
-        val r = abs(radius.toDouble())
-        return dx * dx + dy * dy + dz * dz <= r * r
-    }
+private fun ScriptSpatialInteraction.contains(position: ParticleSpawnOrigin.WorldPosition): Boolean {
+    val dx = position.x.toDouble() - origin.x
+    val dy = position.y.toDouble() - origin.y
+    val dz = position.z.toDouble() - origin.z
+    val r = abs(radius.toDouble())
+    return dx * dx + dy * dy + dz * dz <= r * r
 }
 
-private fun getParticleInteractionRegions(
+internal fun getScriptSpatialInteractions(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
     executionFloors: ExecutionFloors,
-): List<ParticleInteractionRegion> {
-    val regions = mutableListOf<ParticleInteractionRegion>()
+): List<ScriptSpatialInteraction> {
+    val regions = mutableListOf<ScriptSpatialInteraction>()
 
     for (segment in instructionSegments) {
         for (inst in segment.instructions) {
+            val labelOffset = spatialCallbackLabelRegisterOffset(inst.opcode.code) ?: continue
             val kind = when (inst.opcode.code) {
-                OP_AT_COORDS_CALL.code,
-                OP_AT_COORDS_CALL_EX.code,
-                -> ParticleInteractionEvent.Kind.Call
-
                 OP_AT_COORDS_TALK.code,
                 OP_AT_COORDS_TALK_EX.code,
                 -> ParticleInteractionEvent.Kind.Talk
-
-                else -> continue
+                else -> ParticleInteractionEvent.Kind.Call
             }
             val firstReg = (inst.args.firstOrNull() as? IntArg)?.value ?: continue
-            if (firstReg !in 0..(256 - 5)) continue
-            val values = (0 until 5).map { offset ->
+            if (firstReg !in 0 until (256 - labelOffset)) continue
+            val values = (0..labelOffset).map { offset ->
                 val value = getRegisterValue(cfg, inst, firstReg + offset)
                 if (value.size == 1L) value[0] else null
             }
@@ -294,12 +295,12 @@ private fun getParticleInteractionRegions(
             val executionFloorIds = executionFloors.floorsByInstruction[inst] ?: emptySet()
             if (executionFloorIds.isEmpty()) continue
 
-            regions.add(ParticleInteractionRegion(
+            regions.add(ScriptSpatialInteraction(
                 origin = ParticleSpawnOrigin.WorldPosition(values[0]!!, values[1]!!, values[2]!!),
                 radius = values[3]!!,
-                event = ParticleInteractionEvent(values[4]!!, kind),
+                event = ParticleInteractionEvent(values[labelOffset]!!, kind),
                 executionFloorIds = executionFloorIds,
-            ))
+            ).also { it.sourceInstruction = inst })
         }
     }
 
@@ -406,14 +407,13 @@ internal fun computeExecutionFloors(
         }
     }
 
-    // Pre-compute next-in-segment lookup. cfg.blocks is in segment-traversal order, so the
-    // following block in the global list is the segment-sequential successor — but only when
-    // it shares the same segment.
-    val nextInSegment = mutableMapOf<BasicBlock, BasicBlock>()
+    // Pre-compute the physical sequential successor. A label starts a new InstructionSegment,
+    // but calls and conditional branches can still fall through across that label boundary.
+    val sequentialNext = mutableMapOf<BasicBlock, BasicBlock>()
     for (i in cfg.blocks.indices) {
         val b = cfg.blocks[i]
         val n = cfg.blocks.getOrNull(i + 1) ?: continue
-        if (n.segment === b.segment) nextInSegment[b] = n
+        sequentialNext[b] = n
     }
 
     // Step 2: pre-compute callback edges. For each block that registers a callback whose
@@ -607,15 +607,23 @@ internal fun computeExecutionFloors(
                         result.getOrPut(inst) { mutableSetOf() }.add(currentFloor)
                         when (inst.opcode.code) {
                             OP_SET_FLOOR_HANDLER_V3_V4.code -> {
-                                val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                                val label = (inst.args.getOrNull(1) as? IntArg)?.value ?: continue
-                                if (floor in 0 until logicalFloorCount) {
-                                    floorHandlerWrites = floorHandlerWrites + (floor to setOf(label))
+                                val labels = resolveInstructionInts(cfg, inst, 1)
+                                val floors = resolveInstructionInts(cfg, inst, 0)
+                                for (floor in floors) {
+                                    if (floor in 0 until logicalFloorCount && labels.isNotEmpty()) {
+                                        val possibleLabels = if (floors.size == 1) {
+                                            labels
+                                        } else {
+                                            floorHandlerWrites[floor].orEmpty() + labels
+                                        }
+                                        floorHandlerWrites = floorHandlerWrites +
+                                            (floor to possibleLabels)
+                                    }
                                 }
                             }
                             OP_CLR_FLOOR_HANDLER.code -> {
-                                val floor = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                                if (floor in 0 until logicalFloorCount) {
+                                val floor = resolveInstructionInts(cfg, inst, 0).singleOrNull()
+                                if (floor != null && floor in 0 until logicalFloorCount) {
                                     floorHandlerWrites = floorHandlerWrites + (floor to emptySet())
                                 }
                             }
@@ -624,7 +632,8 @@ internal fun computeExecutionFloors(
                             OP_SET_QT_CANCEL_V3_V4.code,
                             OP_SET_QT_EXIT_V3_V4.code,
                             -> {
-                                val label = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
+                                val labels = resolveInstructionInts(cfg, inst, 0)
+                                if (labels.isEmpty()) continue
                                 val kind = when (inst.opcode.code) {
                                     OP_SET_QT_FAILURE_V3_V4.code -> CallbackHandlerKind.QuestFailure
                                     OP_SET_QT_SUCCESS_V3_V4.code -> CallbackHandlerKind.QuestSuccess
@@ -632,7 +641,7 @@ internal fun computeExecutionFloors(
                                     else -> CallbackHandlerKind.QuestExit
                                 }
                                 callbackHandlerWrites = callbackHandlerWrites +
-                                        (CallbackHandlerSlot(kind) to setOf(label))
+                                        (CallbackHandlerSlot(kind) to labels)
                             }
                             OP_CLR_QT_FAILURE.code,
                             OP_CLR_QT_SUCCESS.code,
@@ -649,17 +658,26 @@ internal fun computeExecutionFloors(
                                         (CallbackHandlerSlot(kind) to emptySet())
                             }
                             OP_SET_QUEST_BOARD_HANDLER_V3_V4.code -> {
-                                val index = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                                if (index !in 0..5) continue
-                                val label = (inst.args.getOrNull(1) as? IntArg)?.value ?: continue
-                                val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
-                                callbackHandlerWrites = callbackHandlerWrites + (slot to setOf(label))
+                                val labels = resolveInstructionInts(cfg, inst, 1)
+                                val indices = resolveInstructionInts(cfg, inst, 0)
+                                for (index in indices) {
+                                    if (index !in 0..5 || labels.isEmpty()) continue
+                                    val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
+                                    val possibleLabels = if (indices.size == 1) {
+                                        labels
+                                    } else {
+                                        callbackHandlerWrites[slot].orEmpty() + labels
+                                    }
+                                    callbackHandlerWrites = callbackHandlerWrites +
+                                        (slot to possibleLabels)
+                                }
                             }
                             OP_CLEAR_QUEST_BOARD_HANDLER.code -> {
-                                val index = (inst.args.getOrNull(0) as? IntArg)?.value ?: continue
-                                if (index !in 0..5) continue
-                                val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
-                                callbackHandlerWrites = callbackHandlerWrites + (slot to emptySet())
+                                val index = resolveInstructionInts(cfg, inst, 0).singleOrNull()
+                                if (index != null && index in 0..5) {
+                                    val slot = CallbackHandlerSlot(CallbackHandlerKind.QuestBoard, index)
+                                    callbackHandlerWrites = callbackHandlerWrites + (slot to emptySet())
+                                }
                             }
                         }
                         ordinaryThreadEdges[inst]?.forEach {
@@ -767,7 +785,7 @@ internal fun computeExecutionFloors(
                                     }
                                 }
                             }
-                            nextInSegment[b]?.let {
+                            sequentialNext[b]?.let {
                                 if (suspendedCallee && !floorBound) enqueueResume(it, it.start)
                                 if (!anyCallee || fixedCalleeReturned) {
                                     val afterCallState = if (anyCallee) {
@@ -811,7 +829,7 @@ internal fun computeExecutionFloors(
                         BranchType.ConditionalJump -> {
                             val pruned = tryPruneConditional(
                                 b, terminator, outgoing, currentFloor,
-                                labelToEntryBlock, nextInSegment,
+                                labelToEntryBlock, sequentialNext,
                             )
                             val succs = pruned ?: b.to
                             for (s in succs) {
@@ -863,6 +881,20 @@ internal fun computeExecutionFloors(
 
     return ExecutionFloors(result)
 }
+
+private fun resolveInstructionInts(
+    cfg: ControlFlowGraph,
+    instruction: Instruction,
+    argumentIndex: Int,
+): Set<Int> {
+    val argument = instruction.args.getOrNull(argumentIndex) as? IntArg ?: return emptySet()
+    if (!argument.isRegRef) return setOf(argument.value)
+    val values = getRegisterValue(cfg, instruction, argument.value)
+    if (values.size > MAX_STATIC_HANDLER_ALTERNATIVES) return emptySet()
+    return values.toSet()
+}
+
+private const val MAX_STATIC_HANDLER_ALTERNATIVES = 256L
 
 /** Opcodes after which the same client quest thread can resume on a later frame. */
 private fun isResumableYield(inst: Instruction): Boolean = when (inst.opcode.mnemonic) {
@@ -1010,7 +1042,7 @@ private fun tryPruneConditional(
     floorRegs: Set<Int>,
     currentFloor: Int,
     labelToEntryBlock: Map<Int, BasicBlock>,
-    nextInSegment: Map<BasicBlock, BasicBlock>,
+    sequentialNext: Map<BasicBlock, BasicBlock>,
 ): List<BasicBlock>? {
     if (inst == null) return null
 
@@ -1031,7 +1063,7 @@ private fun tryPruneConditional(
         return if (takeBranch) {
             listOfNotNull(labelToEntryBlock[labelArg.value])
         } else {
-            listOfNotNull(nextInSegment[b])
+            listOfNotNull(sequentialNext[b])
         }
     }
 

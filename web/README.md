@@ -136,6 +136,24 @@ Quest-created particle previews use the native dimensions and per-frame scale cu
 game's particle effect data. Small effects are not enlarged solely to make them easier to inspect in
 the full-map editor view.
 
+## Quest Walkthrough Routes
+
+The Quest Editor 3D view derives a directed walkthrough from quest data; it is not authored Guide
+content. Each currently visible logical floor is planned independently from that player's forward
+Player Set entrance to local interactions and outgoing exits. DAT event collisions, active
+object/NPC script callbacks, script-created NPC interactions, spatial callback opcodes, event
+trigger actions, and player-specific palette callbacks contribute explicit edges. Spawn actions
+connect to their NPC wave anchors, door actions connect to the native door-ID range, and same-floor
+warps connect to their destinations. Deterministic same-section/proximity edges join the remaining
+components so the displayed walkthrough is continuous without inventing cross-floor lines.
+
+The Route selector maps Red, Green, Yellow, and Blue to client IDs 0 through 3. Changing it replans
+from the matching Player Set without changing the editor's entity selection; Red is the default.
+Direct client/floor dispatch is pruned for that route, while unresolved runtime branches remain
+conservative. Challenge seed simulation uses the materialized Event1 chain rather than source
+Event2 templates. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking,
+and own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
+
 ## Quest Editor Entity Directions
 
 The quest editor can display cyan facing-direction arrows for every object and NPC in the current

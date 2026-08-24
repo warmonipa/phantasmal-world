@@ -10,7 +10,6 @@ import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.Episode
-import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.Group
 import world.phantasmal.web.externals.three.Object3D
@@ -229,17 +228,15 @@ class LabelManager(
                 )
             ) continue
 
-            if (obj.type !in doorObjectTypes) continue
-            val doorIdValue = getEffectiveDoorId(obj)
-            if (doorIdValue < 0) continue
-
-            val switchAmount = getSwitchAmount(obj)
-            val doorIds = (doorIdValue until doorIdValue + switchAmount).toSet()
+            val controlledIds = obj.controlledDoorIds() ?: continue
+            val doorIdValue = controlledIds.first
+            val switchAmount = controlledIds.count()
+            val doorIds = controlledIds.toSet()
             val matchedUnlockIds = doorIds.intersect(unlockIds)
             val matchedLockIds = doorIds.intersect(lockIds)
             val isAction = matchedUnlockIds.isNotEmpty() || matchedLockIds.isNotEmpty()
 
-            val isFence = obj.type in fenceObjectTypes
+            val isFence = obj.isFenceObject()
             val rangeStr =
                 if (switchAmount > 1) "$doorIdValue-${doorIdValue + switchAmount - 1}"
                 else "$doorIdValue"
@@ -324,79 +321,4 @@ class LabelManager(
         playbackLabels.clear()
     }
 
-    // ---- Door helper functions and constants ----
-
-    private fun getEffectiveDoorId(obj: QuestObjectModel): Int {
-        val raw = obj.entity.data.getInt(52)
-        if (raw == -1) return -1
-        return if (obj.type == ObjectType.ForestDoor) raw and 0xFF else raw
-    }
-
-    private fun getSwitchAmount(obj: QuestObjectModel): Int {
-        if (obj.type == ObjectType.Ruins4ButtonDoor) return 4
-        if (obj.type == ObjectType.Ruins2ButtonDoor) return 2
-
-        if (obj.type in configurableSwitchDoorTypes) {
-            val amount = obj.entity.data.getInt(56)
-            if (amount > 1) return amount
-            return configurableSwitchDefaults[obj.type] ?: 1
-        }
-        return 1
-    }
-
-    private val fenceObjectTypes: Set<ObjectType> = setOf(
-        ObjectType.LaserFence,
-        ObjectType.LaserSquareFence,
-        ObjectType.ForestLaserFenceSwitch,
-        ObjectType.LaserFenceEx,
-        ObjectType.LaserSquareFenceEx,
-        ObjectType.RuinsLaserFence4x2,
-        ObjectType.RuinsLaserFence6x2,
-        ObjectType.RuinsLaserFence4x4,
-        ObjectType.RuinsLaserFence6x4,
-    )
-
-    private val doorObjectTypes: Set<ObjectType> = setOf(
-        ObjectType.ForestDoor,
-        ObjectType.EnergyBarrier,
-        ObjectType.ForestRisingBridge,
-        ObjectType.Caves4ButtonDoor,
-        ObjectType.CavesNormalDoor,
-        ObjectType.CavesSwitchDoor,
-        ObjectType.MinesDoor,
-        ObjectType.MinesSwitchDoor,
-        ObjectType.Ruins1Door,
-        ObjectType.Ruins2Door,
-        ObjectType.Ruins3Door,
-        ObjectType.Ruins11ButtonDoor,
-        ObjectType.Ruins21ButtonDoor,
-        ObjectType.Ruins31ButtonDoor,
-        ObjectType.Ruins4ButtonDoor,
-        ObjectType.Ruins2ButtonDoor,
-        ObjectType.LaserFence,
-        ObjectType.LaserSquareFence,
-        ObjectType.ForestLaserFenceSwitch,
-        ObjectType.LaserFenceEx,
-        ObjectType.LaserSquareFenceEx,
-        ObjectType.RuinsLaserFence4x2,
-        ObjectType.RuinsLaserFence6x2,
-        ObjectType.RuinsLaserFence4x4,
-        ObjectType.RuinsLaserFence6x4,
-        ObjectType.SpaceshipDoor,
-        ObjectType.TempleNormalDoor,
-        ObjectType.CcaDoor,
-        ObjectType.SeabedDoorWithBlueEdges,
-    )
-
-    private val configurableSwitchDoorTypes: Set<ObjectType> = setOf(
-        ObjectType.Caves4ButtonDoor,
-        ObjectType.MinesDoor,
-        ObjectType.MinesSwitchDoor,
-        ObjectType.CcaDoor,
-        ObjectType.SeabedDoorWithBlueEdges,
-    )
-
-    private val configurableSwitchDefaults: Map<ObjectType, Int> = mapOf(
-        ObjectType.Caves4ButtonDoor to 4,
-    )
 }
