@@ -1,6 +1,8 @@
 package world.phantasmal.web.questEditor.rendering
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import mu.KotlinLogging
 import world.phantasmal.psolib.Episode
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
@@ -21,12 +23,15 @@ class AreaMeshManager(
         }
 
         try {
-            renderContext.collisionGeometry =
+            val collisionGeometry =
                 areaAssetLoader.loadCollisionGeometry(episode, areaVariant, ultimate)
-            renderContext.renderGeometry =
+            val renderGeometry =
                 areaAssetLoader.loadRenderGeometry(episode, areaVariant, ultimate)
+            coroutineContext.ensureActive()
+            renderContext.renderGeometry = renderGeometry
+            renderContext.collisionGeometry = collisionGeometry
         } catch (e: CancellationException) {
-            // Do nothing.
+            throw e
         } catch (e: Exception) {
             logger.error(e) {
                 "Couldn't load models for area ${areaVariant.area.id}, variant ${areaVariant.id}."

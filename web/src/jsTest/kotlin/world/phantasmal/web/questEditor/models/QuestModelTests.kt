@@ -1,5 +1,6 @@
 package world.phantasmal.web.questEditor.models
 
+import world.phantasmal.cell.observeNow
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.asm.BytecodeIr
@@ -25,6 +26,18 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
+    @Test
+    fun walkthrough_revision_does_not_change_for_non_spatial_section_initialization() = test {
+        val obj = createQuestObjectModel(ObjectType.Teleporter, floorId = 1)
+        val quest = createQuestModel(objects = listOf(obj))
+        var revisionCount = 0
+        disposer.add(quest.walkthroughRevision.observeNow { revisionCount++ })
+
+        obj.setSectionInitialized()
+
+        assertEquals(1, revisionCount)
+    }
+
     @Test
     fun constructor_rejects_npcs_from_a_different_placement_scope() = test {
         val foreignNpc = createQuestNpcModel(

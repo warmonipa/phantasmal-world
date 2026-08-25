@@ -104,19 +104,9 @@ class QuestEditorMeshManager(
             WalkthroughInputs(quest, scriptNpcs, interactions)
         }
     }
-    private var walkthroughCollisionGeometry: world.phantasmal.web.externals.three.Object3D? = null
-    private var cachedWalkthroughPathfinder: WalkthroughPathfinder? = null
-    private val walkthroughEnvironment = renderContext.collisionGeometryBoundingBox.map { boundingBox ->
-        val collisionGeometry = renderContext.collisionGeometry
-        if (boundingBox != null && collisionGeometry !== walkthroughCollisionGeometry) {
-            walkthroughCollisionGeometry = collisionGeometry
-            cachedWalkthroughPathfinder = CollisionWalkthroughPathfinder.create(collisionGeometry)
-        } else if (boundingBox == null) {
-            walkthroughCollisionGeometry = null
-            cachedWalkthroughPathfinder = null
-        }
+    private val walkthroughEnvironment = renderContext.collisionGeometryObject.map { collisionGeometry ->
         WalkthroughEnvironment(
-            cachedWalkthroughPathfinder,
+            collisionGeometry?.let(CollisionWalkthroughPathfinder::create),
         )
     }
 

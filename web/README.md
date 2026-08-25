@@ -170,6 +170,13 @@ Direct client/floor dispatch is pruned for that route, while unresolved runtime 
 conservative. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking, and
 own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
 
+Logical floors, map areas, and variants are published as one editor-state transaction. Area geometry
+loads asynchronously: the previous collision/render pair is cleared immediately, canceled loads
+cannot publish stale or partial geometry, and a route is planned only after the matching collision
+object and its bounding box are both ready. Route planning currently runs synchronously on that
+stable snapshot, so only semantic spatial or script changes invalidate it; entity section readiness
+without a position change must not trigger another plan.
+
 ## Quest Editor Object Visual Classes
 
 An object without a static model is not necessarily invisible. `ObjectVisualClass` distinguishes

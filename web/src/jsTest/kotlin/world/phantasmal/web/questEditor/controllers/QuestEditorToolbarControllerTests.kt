@@ -1,6 +1,8 @@
 package world.phantasmal.web.questEditor.controllers
 
 import org.w3c.files.File
+import world.phantasmal.cell.map
+import world.phantasmal.cell.observeNow
 import world.phantasmal.core.Failure
 import world.phantasmal.core.Severity
 import world.phantasmal.core.Success
@@ -23,6 +25,33 @@ import world.phantasmal.webui.files.FileHandle
 import kotlin.test.*
 
 class QuestEditorToolbarControllerTests : WebTestSuite {
+    @Test
+    fun area_selection_publishes_one_consistent_store_state() = test {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+        val store = components.questEditorStore
+        val states = mutableListOf<Triple<Set<Int>?, Int?, Int?>>()
+        disposer.add(
+            map(store.currentFloorIds, store.currentArea, store.currentAreaVariant) {
+                    floorIds, area, variant ->
+                Triple(floorIds, area?.id, variant?.area?.id)
+            }.observeNow(states::add),
+        )
+        val area = components.areaStore.getArea(Episode.IV, 8)!!
+        val variant = area.areaVariants.first()
+
+        ctrl.setCurrentArea(AreaAndLabel(area, "Floor 8", variant, setOf(8)))
+
+        assertEquals(
+            listOf(Triple(null, null, null), Triple(setOf(8), 8, 8)),
+            states,
+        )
+    }
+
     @Test
     fun entity_directions_are_disabled_by_default_and_share_the_ui_store_state() = testAsync {
         val ctrl = disposer.add(QuestEditorToolbarController(

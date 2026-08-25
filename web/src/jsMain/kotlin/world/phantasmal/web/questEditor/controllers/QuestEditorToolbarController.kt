@@ -869,10 +869,13 @@ class QuestEditorToolbarController(
         _selectedAreaAndLabel.value = areaAndLabel
         settingAreaFromDropdown = true
         try {
-            // Set logical floors first so setCurrentArea can validate selection against the new map.
-            questEditorStore.setCurrentFloorIds(areaAndLabel.floorIds)
-            questEditorStore.setCurrentArea(areaAndLabel.area)
-            questEditorStore.setCurrentAreaVariant(areaAndLabel.variant)
+            // Publish one consistent area selection so renderers never observe a new logical floor
+            // with the previous area's variant while asynchronous meshes are being loaded.
+            mutate {
+                questEditorStore.setCurrentFloorIds(areaAndLabel.floorIds)
+                questEditorStore.setCurrentArea(areaAndLabel.area)
+                questEditorStore.setCurrentAreaVariant(areaAndLabel.variant)
+            }
         } finally {
             settingAreaFromDropdown = false
         }

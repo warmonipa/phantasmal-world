@@ -51,12 +51,16 @@ class QuestRenderContext(
         }
 
     private val _collisionGeometryBoundingBox = mutableCell<Box3?>(null)
+    private val _collisionGeometryObject = mutableCell<Object3D?>(null)
 
     /**
      * Axis-aligned bounding box of the current collision geometry, recomputed when
      * [collisionGeometry] is assigned. `null` means no geometry is loaded.
      */
     val collisionGeometryBoundingBox: Cell<Box3?> = _collisionGeometryBoundingBox
+
+    /** The currently loaded collision object, or `null` while no area is loaded. */
+    val collisionGeometryObject: Cell<Object3D?> = _collisionGeometryObject
 
     var collisionGeometry: Object3D = DEFAULT_COLLISION_GEOMETRY
         set(geom) {
@@ -69,6 +73,7 @@ class QuestRenderContext(
             } else {
                 Box3().setFromObject(geom).takeUnless { it.isEmpty() }
             }
+            _collisionGeometryObject.value = geom.takeUnless { it === DEFAULT_COLLISION_GEOMETRY }
         }
 
     var renderGeometry: Object3D = DEFAULT_RENDER_GEOMETRY
