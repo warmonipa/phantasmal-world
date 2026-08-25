@@ -7,13 +7,21 @@ import mu.KotlinLogging
 import world.phantasmal.psolib.Episode
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
 import world.phantasmal.web.questEditor.models.AreaVariantModel
+import world.phantasmal.web.externals.three.Object3D
 
 private val logger = KotlinLogging.logger {}
 
-class AreaMeshManager(
+class AreaMeshManager internal constructor(
     private val renderContext: QuestRenderContext,
-    private val areaAssetLoader: AreaAssetLoader,
+    private val loadCollisionGeometry: suspend (Episode, AreaVariantModel, Boolean) -> Object3D,
+    private val loadRenderGeometry: suspend (Episode, AreaVariantModel, Boolean) -> Object3D,
 ) {
+    constructor(renderContext: QuestRenderContext, areaAssetLoader: AreaAssetLoader) : this(
+        renderContext,
+        areaAssetLoader::loadCollisionGeometry,
+        areaAssetLoader::loadRenderGeometry,
+    )
+
     suspend fun load(episode: Episode?, areaVariant: AreaVariantModel?, ultimate: Boolean) {
         renderContext.clearCollisionGeometry()
         renderContext.clearRenderGeometry()
@@ -24,9 +32,9 @@ class AreaMeshManager(
 
         try {
             val collisionGeometry =
-                areaAssetLoader.loadCollisionGeometry(episode, areaVariant, ultimate)
+                loadCollisionGeometry(episode, areaVariant, ultimate)
             val renderGeometry =
-                areaAssetLoader.loadRenderGeometry(episode, areaVariant, ultimate)
+                loadRenderGeometry(episode, areaVariant, ultimate)
             coroutineContext.ensureActive()
             renderContext.renderGeometry = renderGeometry
             renderContext.collisionGeometry = collisionGeometry
