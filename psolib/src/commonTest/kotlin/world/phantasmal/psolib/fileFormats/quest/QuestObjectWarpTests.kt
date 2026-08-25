@@ -6,6 +6,12 @@ import kotlin.test.assertNull
 
 class QuestObjectWarpTests {
     @Test
+    fun lab_map_warp_uses_the_newserv_identity() {
+        assertEquals(ObjectType.LabMapWarp, objectTypeFromId(0x02BD))
+        assertEquals("Lab Map Warp", ObjectType.LabMapWarp.uniqueName)
+    }
+
+    @Test
     fun teleporter_property_names_describe_the_runtime_semantics() {
         val standardProperties = listOf(
             "Destination floor",
@@ -49,7 +55,7 @@ class QuestObjectWarpTests {
                 "Dst. rotation y",
                 "Destination text",
             ),
-            ObjectType.LabCeilingWarp.properties.map { it.name },
+            ObjectType.LabMapWarp.properties.map { it.name },
         )
     }
 
@@ -60,7 +66,7 @@ class QuestObjectWarpTests {
             ObjectType.PrincipalWarp,
             ObjectType.RuinsWarpSiteToSite,
             ObjectType.InstaWarp,
-            ObjectType.LabCeilingWarp,
+            ObjectType.LabMapWarp,
         )
 
         for (type in types) {

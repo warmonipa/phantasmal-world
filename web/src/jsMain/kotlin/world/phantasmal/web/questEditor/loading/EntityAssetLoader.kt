@@ -358,7 +358,7 @@ private fun geometryParts(type: EntityType): List<String?> =
         ObjectType.BigCcaDoor -> listOf("", "-2", "-3", "-4")
         ObjectType.BigCcaDoorSwitch -> listOf("", "-2")
         ObjectType.LaserDetect -> listOf("", "-2") // TODO: use correct part.
-        ObjectType.LabCeilingWarp -> listOf("", "-2")
+        ObjectType.LabMapWarp -> listOf("", "-2")
         ObjectType.BigBrownRock -> listOf("-0") // TODO: use correct part.
         ObjectType.BigBlackRocks -> listOf("")
         ObjectType.BeeHive -> listOf("", "-0", "-1")

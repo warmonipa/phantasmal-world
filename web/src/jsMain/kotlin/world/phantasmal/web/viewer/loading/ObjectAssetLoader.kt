@@ -161,7 +161,7 @@ private fun objectGeometryParts(type: ObjectType): List<String?> =
         ObjectType.BigCcaDoor -> listOf("", "-2", "-3", "-4")
         ObjectType.BigCcaDoorSwitch -> listOf("", "-2")
         ObjectType.LaserDetect -> listOf("", "-2")
-        ObjectType.LabCeilingWarp -> listOf("", "-2")
+        ObjectType.LabMapWarp -> listOf("", "-2")
         ObjectType.BigBrownRock -> listOf("-0")
         ObjectType.BigBlackRocks -> listOf("")
         ObjectType.BeeHive -> listOf("", "-0", "-1")

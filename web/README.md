@@ -156,7 +156,7 @@ unlock action itself is not rendered as a route branch.
 
 Paths are computed on walkable collision triangles; walls and steep collision faces are excluded
 before navigation connectivity is built. Every object that exposes an intra-map destination,
-including ordinary, site-to-site, Insta-, and ceiling warps, provides a directed, non-rendered
+including ordinary, site-to-site, forced, and Lab/city map warps, provides a directed, non-rendered
 transition between otherwise disconnected walkable regions. Explicit destinations are followed as
 stored, so ascending, descending, and mixed Control Tower floor orders use the same planner. EP1,
 EP2, Ruins, quest, and boss teleporters are treated as outgoing floor exits. No section IDs, event

@@ -2721,8 +2721,9 @@ enum class ObjectType(
         ),
         typeId = 700,
     ),
-    LabCeilingWarp(
-        uniqueName = "Lab Ceiling Warp",
+    // newserv: 0x02BD TObjLaboMapWarp, the visible same-map warp between the Lab and city.
+    LabMapWarp(
+        uniqueName = "Lab Map Warp",
         areaIds = mapOf(
             Episode.II to listOf(0),
         ),

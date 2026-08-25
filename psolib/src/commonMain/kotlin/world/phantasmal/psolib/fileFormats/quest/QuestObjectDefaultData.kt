@@ -1314,7 +1314,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setInt(64, 272035712)
         }
 
-        ObjectType.LabCeilingWarp -> {
+        ObjectType.LabMapWarp -> {
             data.setShort(2, 2)
             data.setShort(4, 24)
             data.setFloat(40, -9990f) // Scale x

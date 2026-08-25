@@ -214,7 +214,7 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
             ObjectType.PrincipalWarp,
             ObjectType.RuinsWarpSiteToSite,
             ObjectType.InstaWarp,
-            ObjectType.LabCeilingWarp,
+            ObjectType.LabMapWarp,
             -> 40
             else -> -1
         }
@@ -265,7 +265,7 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
             ObjectType.PrincipalWarp,
             ObjectType.RuinsWarpSiteToSite,
             ObjectType.InstaWarp,
-            ObjectType.LabCeilingWarp,
+            ObjectType.LabMapWarp,
             -> 52
             else -> -1
         }

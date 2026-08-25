@@ -256,7 +256,7 @@ fun objectTypeFromId(id: Short): ObjectType =
         698 -> ObjectType.LabInvisibleObject
         699 -> ObjectType.LabGlassWindowDoor
         700 -> ObjectType.AreaWarpEndingJung
-        701 -> ObjectType.LabCeilingWarp
+        701 -> ObjectType.LabMapWarp
         768 -> ObjectType.Ep4LightSource
         769 -> ObjectType.Cactus
         770 -> ObjectType.BigBrownRock
