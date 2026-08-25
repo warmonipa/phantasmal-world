@@ -1168,13 +1168,13 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setInt(64, 71348128)
         }
 
-        ObjectType.JungleDesign -> {
+        ObjectType.Seagull -> {
             data.setShort(4, 2046)
             data.setShort(6, 9)
             data.setInt(64, 206357088)
         }
 
-        ObjectType.Seagull -> {
+        ObjectType.JungleDesign -> {
             data.setShort(4, 2120)
             data.setShort(6, 8)
             data.setInt(64, 71256080)
@@ -1301,7 +1301,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setInt(64, 206217872)
         }
 
-        ObjectType.LabInvisibleObject -> {
+        ObjectType.QuestCollision2 -> {
             data.setShort(2, 512)
             data.setShort(4, 1536)
             data.setFloat(40, 35f) // Scale x

@@ -54,7 +54,7 @@ class ObjectTypeTests : LibTestSuite {
             ObjectType.VRLink,
             ObjectType.GBAStation,
             ObjectType.TalkLinkToSupport,
-            ObjectType.LabInvisibleObject,
+            ObjectType.QuestCollision2,
         )
 
         for (type in scriptObjectTypes) {
@@ -81,7 +81,7 @@ class ObjectTypeTests : LibTestSuite {
         chatSensor.data.setInt(28, 0)
         assertEquals(200, chatSensor.activeScriptLabel)
 
-        for (type in listOf(ObjectType.TalkLinkToSupport, ObjectType.LabInvisibleObject)) {
+        for (type in listOf(ObjectType.TalkLinkToSupport, ObjectType.QuestCollision2)) {
             val obj = QuestObject(type, floorId = 0)
             obj.data.setInt(52, 300)
             obj.data.setInt(56, 1)
@@ -89,6 +89,23 @@ class ObjectTypeTests : LibTestSuite {
             obj.data.setInt(56, 0)
             assertEquals(300, obj.activeScriptLabel)
         }
+    }
+
+    @Test
+    fun corrected_object_ids_follow_newserv_semantics() {
+        assertEquals(ObjectType.LobbyGameMenuCollision, objectTypeFromId(384))
+        assertEquals(ObjectType.Seagull, objectTypeFromId(530))
+        assertEquals(ObjectType.JungleDesign, objectTypeFromId(531))
+        assertEquals(ObjectType.QuestCollision2, objectTypeFromId(698))
+
+        assertEquals("Lobby Game Menu Collision", ObjectType.LobbyGameMenuCollision.uniqueName)
+        assertEquals("Seagull", ObjectType.Seagull.uniqueName)
+        assertEquals("Jungle Design", ObjectType.JungleDesign.uniqueName)
+        assertEquals("Quest Collision 2", ObjectType.QuestCollision2.uniqueName)
+        assertEquals(
+            "Script manager (<=0=quest, >0=free play)",
+            ObjectType.QuestCollision2.properties.single { it.offset == 56 }.name,
+        )
     }
 
     @Test

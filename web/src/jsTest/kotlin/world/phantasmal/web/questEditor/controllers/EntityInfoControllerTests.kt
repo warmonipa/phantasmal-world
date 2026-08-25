@@ -413,17 +413,22 @@ class EntityInfoControllerTests : WebTestSuite {
             ObjectType.VRLink,
             ObjectType.GBAStation,
             ObjectType.TalkLinkToSupport,
-            ObjectType.LabInvisibleObject,
+            ObjectType.QuestCollision2,
         ).map(::createQuestObjectModel)
         components.questEditorStore.setCurrentQuest(createQuestModel(objects = objects))
 
         for ((index, obj) in objects.withIndex()) {
             components.questEditorStore.setSelectedEntity(obj)
             if (obj.type == ObjectType.TalkLinkToSupport ||
-                obj.type == ObjectType.LabInvisibleObject
+                obj.type == ObjectType.QuestCollision2
             ) {
+                val activationLabel = if (obj.type == ObjectType.QuestCollision2) {
+                    "Script manager (<=0=quest, >0=free play):"
+                } else {
+                    "Activator:"
+                }
                 assertIs<EntityInfoPropModel.I32>(
-                    ctrl.props.value.single { it.label == "Activator:" },
+                    ctrl.props.value.single { it.label == activationLabel },
                 ).setValue(0)
             }
             val scriptProp = assertIs<EntityInfoPropModel.I32>(

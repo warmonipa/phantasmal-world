@@ -180,7 +180,7 @@ fun objectTypeFromId(id: Short): ObjectType =
         370 -> ObjectType.FloatingRocks
         371 -> ObjectType.FloatingSoul
         372 -> ObjectType.Butterfly
-        384 -> ObjectType.LobbyGameMenu
+        384 -> ObjectType.LobbyGameMenuCollision
         385 -> ObjectType.LobbyWarpObject
         386 -> ObjectType.Lobby1EventObjectDefaultTree
         387 -> ObjectType.LobbyPigeon
@@ -228,8 +228,8 @@ fun objectTypeFromId(id: Short): ObjectType =
         527 -> ObjectType.Saw
         528 -> ObjectType.LaserDetect
         529 -> ObjectType.BiwaMushi
-        530 -> ObjectType.JungleDesign
-        531 -> ObjectType.Seagull
+        530 -> ObjectType.Seagull
+        531 -> ObjectType.JungleDesign
         544 -> ObjectType.Fish
         545 -> ObjectType.SeabedDoorWithBlueEdges
         546 -> ObjectType.SeabedDoorAlwaysOpenNonTriggerable
@@ -253,7 +253,7 @@ fun objectTypeFromId(id: Short): ObjectType =
         695 -> ObjectType.GBAStation
         696 -> ObjectType.TalkLinkToSupport
         697 -> ObjectType.InstaWarp
-        698 -> ObjectType.LabInvisibleObject
+        698 -> ObjectType.QuestCollision2
         699 -> ObjectType.LabGlassWindowDoor
         700 -> ObjectType.AreaWarpEndingJung
         701 -> ObjectType.LabMapWarp

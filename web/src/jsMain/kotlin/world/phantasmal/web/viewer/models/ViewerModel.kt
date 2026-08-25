@@ -3,6 +3,8 @@ package world.phantasmal.web.viewer.models
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.displayName
+import world.phantasmal.web.core.models.ObjectVisualClass
+import world.phantasmal.web.core.models.objectVisualClass
 
 sealed class ViewerModel {
     abstract val uiName: String
@@ -171,91 +173,6 @@ sealed class ViewerModel {
             NpcType.GolDragon,
         ).map(::Npc)
 
-        private val OBJECTS_WITHOUT_VIEWER_ASSET: Set<ObjectType> = setOf(
-            ObjectType.Unknown,
-            ObjectType.PlayerSet,
-            ObjectType.Particle,
-            ObjectType.LightCollision,
-            ObjectType.EnvSound,
-            ObjectType.FogCollision,
-            ObjectType.EventCollision,
-            ObjectType.CharaCollision,
-            ObjectType.ObjRoomID,
-            ObjectType.LensFlare,
-            ObjectType.ScriptCollision,
-            ObjectType.MapCollision,
-            ObjectType.ScriptCollisionA,
-            ObjectType.ItemLight,
-            ObjectType.RadarCollision,
-            ObjectType.FogCollisionSW,
-            ObjectType.ImageBoard,
-            ObjectType.StarLight2D,
-            ObjectType.LensFlare2,
-            ObjectType.RadarHideCollision,
-            ObjectType.MenuActivation,
-            ObjectType.BoxDetectObject,
-            ObjectType.SymbolChatObject,
-            ObjectType.TouchPlateObject,
-            ObjectType.TargetableObject,
-            ObjectType.EffectObject,
-            ObjectType.CountDownObject,
-            ObjectType.ChatSensor,
-            ObjectType.RadarIcon,
-            ObjectType.EnvSoundEx,
-            ObjectType.EnvSoundGlobal,
-            ObjectType.TelepipeLocation,
-            ObjectType.BGMCollision,
-            ObjectType.Pioneer2InvisibleTouchplate,
-            ObjectType.TempleMapDetect,
-            ObjectType.Firework,
-            ObjectType.MainRagolTeleporterBattleInNextArea,
-            ObjectType.Rainbow,
-            ObjectType.FloatingBlueLight,
-            ObjectType.PopupTrapNoTech,
-            ObjectType.Poison,
-            ObjectType.EnemyTypeBoxYellow,
-            ObjectType.EnemyTypeBoxBlue,
-            ObjectType.EmptyTypeBoxBlue,
-            ObjectType.FloatingSoul,
-            ObjectType.Butterfly,
-            ObjectType.Camera,
-            ObjectType.CcaAreaTeleporter,
-            ObjectType.LightningController,
-            ObjectType.WhiteBird,
-            ObjectType.OrangeBird,
-            ObjectType.BiwaMushi,
-            ObjectType.JungleDesign,
-            ObjectType.Seagull,
-            ObjectType.Ep2Particle,
-            ObjectType.WarpInBarbaRayRoom,
-            ObjectType.LiveCamera,
-            ObjectType.InstaWarp,
-            ObjectType.LabInvisibleObject,
-            ObjectType.AreaWarpEndingJung,
-            ObjectType.Ep4LightSource,
-            ObjectType.BreakableBrownRock,
-            ObjectType.UnknownItem897,
-            ObjectType.UnknownItem898,
-            ObjectType.OozingDesertPlant,
-            ObjectType.UnknownItem901,
-            ObjectType.UnknownItem903,
-            ObjectType.UnknownItem904,
-            ObjectType.UnknownItem905,
-            ObjectType.UnknownItem906,
-            ObjectType.DesertPlantHasCollision,
-            ObjectType.Ep4TestDoor,
-            ObjectType.Ep4TestParticle,
-            ObjectType.Heat,
-            ObjectType.TopOfSaintMillionEgg,
-            ObjectType.Ep4BossRockSpawner,
-            ObjectType.UnknownItem16,
-            ObjectType.Battery,
-            ObjectType.LobbyGameMenu,
-            ObjectType.GBAStation,
-            ObjectType.UnknownItem832,
-            ObjectType.UnknownItem833,
-        )
-
         val OBJECTS: List<ViewerModel> = ObjectType.entries
             .filter(::objectTypeHasViewerAsset)
             .map(::Object)
@@ -354,7 +271,7 @@ sealed class ViewerModel {
         }
 
         private fun objectTypeHasViewerAsset(type: ObjectType): Boolean =
-            type.typeId != null && type !in OBJECTS_WITHOUT_VIEWER_ASSET
+            type.typeId != null && objectVisualClass(type) == ObjectVisualClass.StaticModel
 
         private const val ITEM_MODEL_COUNT = 408
         private const val MAG_MODEL_OFFSET = 271

@@ -170,6 +170,40 @@ Direct client/floor dispatch is pruned for that route, while unresolved runtime 
 conservative. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking, and
 own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
 
+## Quest Editor Object Visual Classes
+
+An object without a static model is not necessarily invisible. `ObjectVisualClass` distinguishes
+static models, editor-only markers, invisible logic, runtime-generated visuals, known unavailable
+models, and unverified object types. The Quest Editor asset loader and standalone Viewer share this
+classification so model availability cannot drift between them. The yellow cylinder remains the
+generic fallback representation for the non-static classes until each class receives a dedicated
+editor marker.
+
+Object IDs, names, and visual semantics follow newserv's `Map.cc` definitions as the authoritative
+cross-version reference; qedit labels are reference material only. In particular, `0x0180` is the
+Lobby Game Menu Collision, `0x0212` is Seagull, `0x0213` is Jungle Design, and `0x02BA` is Quest
+Collision 2.
+
+The 82 object types that intentionally do not load a static model are distributed as follows. These
+counts describe object types, not the number or spatial distribution of instances on a particular
+quest floor.
+
+| Visual class | Object types | Meaning | Representative objects |
+| --- | ---: | --- | --- |
+| `EditorMarker` | 1 | Editor-only position marker | Player Set |
+| `InvisibleLogic` | 36 | Non-rendered triggers, collisions, controllers, and forced transitions | Event Collision, Quest Collision 2, Insta Warp, Lobby Game Menu Collision |
+| `RuntimeVisual` | 21 | Client- or map-specific visuals without a standalone editor object model | Particle, Lens Flare, Seagull, Barba Ray Teleporter |
+| `UnavailableModel` | 12 | Visible or model-backed objects for which the editor has no usable model mapping | Jungle Design, Ruins enemy boxes, Solid Desert Plant, GBA Station |
+| `Unverified` | 12 | Object types whose visual semantics have not been confirmed | Unknown object types, Battery |
+| **Total** | **82** | All explicitly classified non-static object types | |
+
+`StaticModel` objects normally render their loaded asset and are not included in the table. A
+non-static class, or a static asset that loads but contains no usable geometry, falls back to the
+yellow cylinder. A missing asset or load failure remains an error instead of silently becoming a
+marker. Consequently, a yellow cylinder means "no usable static model was rendered"; it does not by
+itself mean that the game object is invisible. The number and placement of yellow cylinders in a
+scene depend on the object instances in the loaded quest and floor.
+
 ## Quest Editor Entity Directions
 
 The quest editor can display cyan facing-direction arrows for every object and NPC in the current

@@ -1977,8 +1977,8 @@ enum class ObjectType(
             EntityProp(name = "Model number?", offset = 60, type = EntityPropType.I32),
         ),
     ),
-    LobbyGameMenu(
-        uniqueName = "Lobby Game menu",
+    LobbyGameMenuCollision(
+        uniqueName = "Lobby Game Menu Collision",
         areaIds = mapOf(
             Episode.I to listOf(15),
         ),
@@ -2448,8 +2448,8 @@ enum class ObjectType(
         ),
         typeId = 529,
     ),
-    JungleDesign(
-        uniqueName = "Jungle Design",
+    Seagull(
+        uniqueName = "Seagull",
         areaIds = mapOf(
             Episode.II to listOf(5, 6, 7, 8, 9, 17),
         ),
@@ -2458,8 +2458,8 @@ enum class ObjectType(
             EntityProp(name = "Model number?", offset = 52, type = EntityPropType.I32),
         ),
     ),
-    Seagull(
-        uniqueName = "Seagull",
+    JungleDesign(
+        uniqueName = "Jungle Design",
         areaIds = mapOf(
             Episode.II to listOf(6, 7, 8, 9, 16),
             Episode.IV to listOf(6, 7, 8),
@@ -2693,8 +2693,8 @@ enum class ObjectType(
             EntityProp(name = "Floor display (<=0=show, >0=hide)", offset = 60, type = EntityPropType.I32),
         ),
     ),
-    LabInvisibleObject(
-        uniqueName = "Lab Invisible Object",
+    QuestCollision2(
+        uniqueName = "Quest Collision 2",
         areaIds = mapOf(
             Episode.I to listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
             Episode.II to listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17),
@@ -2704,7 +2704,11 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Script label", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Activator", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Script manager (<=0=quest, >0=free play)",
+                offset = 56,
+                type = EntityPropType.I32,
+            ),
         ),
     ),
     LabGlassWindowDoor(

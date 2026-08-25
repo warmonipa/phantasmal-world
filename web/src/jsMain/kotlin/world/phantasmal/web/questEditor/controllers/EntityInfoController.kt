@@ -64,7 +64,7 @@ sealed class EntityInfoPropModel(
         val activation: Cell<*> = when (entity.type) {
             ObjectType.ChatSensor -> entity.rotation
             ObjectType.TalkLinkToSupport,
-            ObjectType.LabInvisibleObject,
+            ObjectType.QuestCollision2,
             -> entity.properties.value.find { it.offset == 56 }?.value ?: prop.value
             else -> prop.value
         }
