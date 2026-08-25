@@ -259,8 +259,7 @@ class QuestModel(
             arrayOf(npc.sectionId, npc.wave, npc.worldPosition) +
                 npc.properties.value.map { it.value }
         },
-        _events.dependingOnElements { event -> arrayOf(event.walkthroughRevision) },
-    ) { _, _, _ -> }
+    ) { _, _ -> }
 
     /** Invalidates the spatial/causal walkthrough after any relevant nested quest edit. */
     val walkthroughRevision: Cell<Unit> = map(

@@ -6,6 +6,8 @@ import world.phantasmal.psolib.fileFormats.ninja.angleToRad
 import world.phantasmal.psolib.fileFormats.ninja.radToAngle
 import kotlin.math.roundToInt
 
+enum class TeleporterColor { Blue, Red }
+
 class QuestObject(override var floorId: Int, override val data: Buffer) : QuestEntity<ObjectType> {
     constructor(type: ObjectType, floorId: Int) : this(floorId, Buffer.withSize(OBJECT_BYTE_SIZE)) {
         setObjectDefaultData(type, data)
@@ -208,13 +210,17 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
 
     val destinationPositionOffset: Int
         get() = when (type) {
-            ObjectType.Warp, ObjectType.PrincipalWarp, ObjectType.RuinsWarpSiteToSite -> 40
+            ObjectType.Warp,
+            ObjectType.PrincipalWarp,
+            ObjectType.RuinsWarpSiteToSite,
+            ObjectType.InstaWarp,
+            ObjectType.LabCeilingWarp,
+            -> 40
             else -> -1
         }
 
     /**
-     * Only valid for [ObjectType.Warp], [ObjectType.PrincipalWarp] and
-     * [ObjectType.RuinsWarpSiteToSite].
+     * Only valid when [destinationPositionOffset] is nonnegative.
      */
     var destinationPosition: Vec3
         get() = Vec3(
@@ -227,8 +233,7 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
         }
 
     /**
-     * Only valid for [ObjectType.Warp], [ObjectType.PrincipalWarp] and
-     * [ObjectType.RuinsWarpSiteToSite].
+     * Only valid when [destinationPositionOffset] is nonnegative.
      */
     var destinationPositionX: Float
         get() = data.getFloat(40)
@@ -237,8 +242,7 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
         }
 
     /**
-     * Only valid for [ObjectType.Warp], [ObjectType.PrincipalWarp] and
-     * [ObjectType.RuinsWarpSiteToSite].
+     * Only valid when [destinationPositionOffset] is nonnegative.
      */
     var destinationPositionY: Float
         get() = data.getFloat(44)
@@ -247,8 +251,7 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
         }
 
     /**
-     * Only valid for [ObjectType.Warp], [ObjectType.PrincipalWarp] and
-     * [ObjectType.RuinsWarpSiteToSite].
+     * Only valid when [destinationPositionOffset] is nonnegative.
      */
     var destinationPositionZ: Float
         get() = data.getFloat(48)
@@ -258,18 +261,57 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
 
     val destinationRotationYOffset: Int
         get() = when (type) {
-            ObjectType.Warp, ObjectType.PrincipalWarp, ObjectType.RuinsWarpSiteToSite -> 52
+            ObjectType.Warp,
+            ObjectType.PrincipalWarp,
+            ObjectType.RuinsWarpSiteToSite,
+            ObjectType.InstaWarp,
+            ObjectType.LabCeilingWarp,
+            -> 52
             else -> -1
         }
 
     /**
-     * Only valid for [ObjectType.Warp], [ObjectType.PrincipalWarp] and
-     * [ObjectType.RuinsWarpSiteToSite].
+     * Only valid when [destinationRotationYOffset] is nonnegative.
      */
     var destinationRotationY: Float
         get() = angleToRad(data.getInt(52))
         set(value) {
             data.setInt(52, radToAngle(value))
+        }
+
+    val destinationFloorOffset: Int
+        get() = when (type) {
+            ObjectType.Teleporter,
+            ObjectType.QuestWarp,
+            ObjectType.MainRagolTeleporterBattleInNextArea,
+            ObjectType.RuinsTeleporter,
+            ObjectType.TeleporterEp2,
+            ObjectType.WarpInBarbaRayRoom,
+            -> 52
+            else -> -1
+        }
+
+    /** Only valid when [destinationFloorOffset] is nonnegative. */
+    var destinationFloor: Int
+        get() = data.getInt(destinationFloorOffset)
+        set(value) {
+            data.setInt(destinationFloorOffset, value)
+        }
+
+    val teleporterColor: TeleporterColor?
+        get() = when (type) {
+            ObjectType.Teleporter,
+            ObjectType.QuestWarp,
+            ObjectType.TeleporterEp2,
+            ObjectType.WarpInBarbaRayRoom,
+            -> when (data.getInt(60)) {
+                0 -> TeleporterColor.Blue
+                1 -> TeleporterColor.Red
+                else -> null
+            }
+            ObjectType.RuinsTeleporter ->
+                if (data.getInt(60) < 0) TeleporterColor.Red else TeleporterColor.Blue
+            else -> null
         }
 
     init {

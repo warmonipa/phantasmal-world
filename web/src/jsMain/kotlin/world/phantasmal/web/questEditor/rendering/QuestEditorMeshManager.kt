@@ -87,6 +87,10 @@ class QuestEditorMeshManager(
         val spatialInteractions: List<ScriptSpatialInteraction>,
     )
 
+    private data class WalkthroughEnvironment(
+        val pathfinder: WalkthroughPathfinder?,
+    )
+
     private val questParticleSpawns = questEditorStore.currentQuest.flatMap { quest ->
         quest?.particleSpawns ?: cell(emptyList())
     }
@@ -99,6 +103,21 @@ class QuestEditorMeshManager(
         ) { _, scriptNpcs, interactions ->
             WalkthroughInputs(quest, scriptNpcs, interactions)
         }
+    }
+    private var walkthroughCollisionGeometry: world.phantasmal.web.externals.three.Object3D? = null
+    private var cachedWalkthroughPathfinder: WalkthroughPathfinder? = null
+    private val walkthroughEnvironment = renderContext.collisionGeometryBoundingBox.map { boundingBox ->
+        val collisionGeometry = renderContext.collisionGeometry
+        if (boundingBox != null && collisionGeometry !== walkthroughCollisionGeometry) {
+            walkthroughCollisionGeometry = collisionGeometry
+            cachedWalkthroughPathfinder = CollisionWalkthroughPathfinder.create(collisionGeometry)
+        } else if (boundingBox == null) {
+            walkthroughCollisionGeometry = null
+            cachedWalkthroughPathfinder = null
+        }
+        WalkthroughEnvironment(
+            cachedWalkthroughPathfinder,
+        )
     }
 
     private val symbolChatTriggerManager = addDisposable(
@@ -263,9 +282,9 @@ class QuestEditorMeshManager(
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
             questEditorUiStore.walkthroughPlayer,
-            questEditorStore.challengeSeedSimulation,
-        ) { inputs, area, floorIds, player, simulation ->
-            if (inputs == null || area == null) {
+            walkthroughEnvironment,
+        ) { inputs, area, floorIds, player, environment ->
+            if (inputs == null || area == null || environment.pathfinder == null) {
                 walkthroughRenderer.setRoute(WalkthroughRoute(emptyList(), emptyList()), player.color)
             } else {
                 val route = planWalkthroughRoute(
@@ -274,7 +293,7 @@ class QuestEditorMeshManager(
                     clientId = player.clientId,
                     scriptNpcSpawns = inputs.scriptNpcs,
                     scriptSpatialInteractions = inputs.spatialInteractions,
-                    challengeSimulation = simulation,
+                    pathfinder = environment.pathfinder,
                 )
                 if (route.diagnostics.isNotEmpty()) {
                     questEditorMeshLogger.debug {

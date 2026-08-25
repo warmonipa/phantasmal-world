@@ -552,6 +552,10 @@ open external class BufferGeometry : EventDispatcher {
     fun rotateY(radians: Double): BufferGeometry
     fun rotateZ(radians: Double): BufferGeometry
 
+    fun applyMatrix4(matrix: Matrix4): BufferGeometry
+
+    fun toNonIndexed(): BufferGeometry
+
     fun clone(): BufferGeometry
 
     fun scale(x: Double, y: Double, z: Double): BufferGeometry
@@ -610,9 +614,14 @@ external class RingGeometry(
 ) : BufferGeometry
 
 open external class BufferAttribute {
+    val count: Int
     var needsUpdate: Boolean
 
     fun copyAt(index1: Int, bufferAttribute: BufferAttribute, index2: Int): BufferAttribute
+
+    fun getX(index: Int): Double
+    fun getY(index: Int): Double
+    fun getZ(index: Int): Double
 
     fun setXYZ(index: Int, x: Double, y: Double, z: Double): BufferAttribute
 }

@@ -1,407 +1,503 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import world.phantasmal.core.Success
-import world.phantasmal.psolib.fileFormats.quest.ObjectType
-import world.phantasmal.psolib.fileFormats.quest.NpcType
-import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
-import world.phantasmal.psolib.asm.assemble
-import world.phantasmal.psolib.fileFormats.quest.Version
+import world.phantasmal.psolib.asm.Instruction
+import world.phantasmal.psolib.asm.InstructionSegment
+import world.phantasmal.psolib.asm.OP_WARP_OFF
+import world.phantasmal.psolib.asm.OP_WARP_ON
+import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.externals.three.Vector3
+import world.phantasmal.web.externals.three.Euler
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
 import world.phantasmal.web.questEditor.models.QuestEventModel
+import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestObjectModel
-import world.phantasmal.web.test.createQuestNpcModel
 
 class WalkthroughRoutePlannerTests : WebTestSuite {
     @Test
     fun selected_client_uses_its_own_player_set_entrance() = test {
-        val red = playerSet(floorId = 1, clientId = 0, x = 0.0)
-        val green = playerSet(floorId = 1, clientId = 1, x = 100.0)
-        val collision = eventCollision(floorId = 1, eventId = 7, x = 25.0)
         val quest = createQuestModel(
-            objects = listOf(red, green, collision),
-            events = listOf(event(floorId = 1, id = 7, sectionId = 0)),
+            objects = listOf(
+                playerSet(floorId = 1, clientId = 0, x = 0.0),
+                playerSet(floorId = 1, clientId = 1, x = 100.0),
+                eventCollision(floorId = 1, x = 50.0),
+            ),
         )
 
-        val redRoute = planWalkthroughRoute(quest, setOf(1), clientId = 0)
-        val greenRoute = planWalkthroughRoute(quest, setOf(1), clientId = 1)
+        val redRoute = plan(quest, setOf(1), clientId = 0)
+        val greenRoute = plan(quest, setOf(1), clientId = 1)
 
         assertEquals(0.0, redRoute.segments.first().from.x)
         assertEquals(100.0, greenRoute.segments.first().from.x)
     }
 
     @Test
-    fun selected_client_excludes_spatial_interactions_created_by_other_client_branches() = test {
-        val bytecode = assembleBytecode("""
-            0:
-                get_slotnumber r20
-                jmpi_= r20, 1, 100
-                leti r0, 10
-                leti r1, 0
-                leti r2, 0
-                leti r3, 20
-                leti r4, 200
-                at_coords_call r0
-                ret
-            100:
-                leti r10, 100
-                leti r11, 0
-                leti r12, 0
-                leti r13, 20
-                leti r14, 201
-                at_coords_call r10
-                ret
-            200:
-                ret
-            201:
-                ret
-        """)
-        val quest = createQuestModel(
-            objects = listOf(playerSet(0, 0, 0.0), playerSet(0, 1, 50.0)),
-            bytecodeIr = bytecode,
-        )
-
-        val redXs = planWalkthroughRoute(quest, setOf(0), clientId = 0).allXCoordinates()
-        val greenXs = planWalkthroughRoute(quest, setOf(0), clientId = 1).allXCoordinates()
-
-        assertTrue(10.0 in redXs)
-        assertTrue(100.0 !in redXs)
-        assertTrue(100.0 in greenXs)
-        assertTrue(10.0 !in greenXs)
-    }
-
-    @Test
-    fun selected_client_excludes_script_npc_interactions_from_other_client_branches() = test {
-        val bytecode = assembleBytecode("""
-            0:
-                get_slotnumber r30
-                jmpi_= r30, 1, 100
-                leti r0, 10
-                leti r1, 0
-                leti r2, 0
-                leti r3, 0
-                leti r4, 0
-                leti r5, 27
-                npc_crptalk_v3 r0
-                leti r10, 10
-                leti r11, 0
-                leti r12, 0
-                leti r13, 25
-                leti r14, 200
-                at_coords_talk r10
-                ret
-            100:
-                leti r40, 100
-                leti r41, 0
-                leti r42, 0
-                leti r43, 0
-                leti r44, 0
-                leti r45, 27
-                npc_crptalk_v3 r40
-                leti r50, 100
-                leti r51, 0
-                leti r52, 0
-                leti r53, 25
-                leti r54, 201
-                at_coords_talk r50
-                ret
-            200:
-                ret
-            201:
-                ret
-        """)
-        val quest = createQuestModel(
-            objects = listOf(playerSet(0, 0, 0.0), playerSet(0, 1, 50.0)),
-            bytecodeIr = bytecode,
-        )
-        val scriptNpcs = quest.scriptNpcSpawns.value
-
-        val redXs = planWalkthroughRoute(
-            quest, setOf(0), clientId = 0,
-            scriptNpcSpawns = scriptNpcs,
-            scriptSpatialInteractions = emptyList(),
-        ).allXCoordinates()
-        val greenXs = planWalkthroughRoute(
-            quest, setOf(0), clientId = 1,
-            scriptNpcSpawns = scriptNpcs,
-            scriptSpatialInteractions = emptyList(),
-        ).allXCoordinates()
-
-        assertTrue(10.0 in redXs)
-        assertTrue(100.0 !in redXs)
-        assertTrue(100.0 in greenXs)
-        assertTrue(10.0 !in greenXs)
-    }
-
-    @Test
-    fun runtime_dependent_spatial_branches_remain_conservative() = test {
-        val bytecode = assembleBytecode("""
-            0:
-                jmpi_= r20, 1, 100
-                leti r0, 10
-                leti r1, 0
-                leti r2, 0
-                leti r3, 20
-                leti r4, 200
-                at_coords_call r0
-                ret
-            100:
-                leti r10, 100
-                leti r11, 0
-                leti r12, 0
-                leti r13, 20
-                leti r14, 201
-                at_coords_call r10
-                ret
-            200:
-                ret
-            201:
-                ret
-        """)
-        val quest = createQuestModel(
-            objects = listOf(playerSet(0, 0, 0.0)),
-            bytecodeIr = bytecode,
-        )
-
-        val routeXs = planWalkthroughRoute(quest, setOf(0), clientId = 0).allXCoordinates()
-
-        assertTrue(10.0 in routeXs)
-        assertTrue(100.0 in routeXs)
-    }
-
-    @Test
-    fun spatial_reachability_preserves_the_client_floor_pair() = test {
-        val bytecode = assembleBytecode("""
-            0:
-                set_floor_handler 1, 100
-                set_floor_handler 2, 100
-                ret
-            100:
-                get_floor_number 0, r30
-                switch_jmp r30, 900, 200, 300
-            200:
-                get_slotnumber r31
-                jmpi_= r31, 1, 900
-                leti r0, 10
-                leti r1, 0
-                leti r2, 0
-                leti r3, 20
-                leti r4, 400
-                at_coords_call r0
-                ret
-            300:
-                get_slotnumber r32
-                jmpi_= r32, 0, 900
-                leti r10, 100
-                leti r11, 0
-                leti r12, 0
-                leti r13, 20
-                leti r14, 401
-                at_coords_call r10
-                ret
-            400:
-                ret
-            401:
-                ret
-            900:
-                ret
-        """)
+    fun primary_route_does_not_chain_reachable_side_objectives() = test {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
-                playerSet(2, 0, 20.0),
-                playerSet(1, 1, 50.0),
-                playerSet(2, 1, 70.0),
+                eventCollision(1, 20.0),
+                eventCollision(1, 80.0),
             ),
-            bytecodeIr = bytecode,
         )
 
-        val redXs = planWalkthroughRoute(quest, setOf(1, 2), clientId = 0).allXCoordinates()
-        val greenXs = planWalkthroughRoute(quest, setOf(1, 2), clientId = 1).allXCoordinates()
+        val route = plan(quest, setOf(1), clientId = 0)
 
-        assertTrue(10.0 in redXs)
-        assertTrue(100.0 !in redXs)
-        assertTrue(100.0 in greenXs)
-        assertTrue(10.0 !in greenXs)
+        assertEquals(listOf(0.0 to 80.0), route.segments.map { it.from.x to it.to.x })
     }
 
     @Test
-    fun duplicate_event_ids_are_both_kept_and_trigger_targets_are_directed() = test {
-        val entrance = playerSet(1, 0, 0.0)
-        val trigger = eventCollision(1, 10, 10.0)
-        val first = event(
-            floorId = 1,
-            id = 10,
-            sectionId = 0,
-            actions = mutableListOf(QuestEventActionModel.TriggerEvent(20)),
-        )
-        val duplicate = event(floorId = 1, id = 10, sectionId = 0)
-        val target = event(floorId = 1, id = 20, sectionId = 0)
-        first.setSectionId(1)
-        duplicate.setSectionId(2)
-        target.setSectionId(3)
-        val firstAnchor = createQuestNpcModel(NpcType.Booma, Episode.I, 1).apply {
-            setSectionId(1)
-            setWorldPosition(Vector3(20.0, 0.0, 0.0))
-        }
-        val duplicateAnchor = createQuestNpcModel(NpcType.Booma, Episode.I, 1).apply {
-            setSectionId(2)
-            setWorldPosition(Vector3(30.0, 0.0, 0.0))
-        }
-        val targetAnchor = createQuestNpcModel(NpcType.Booma, Episode.I, 1).apply {
-            setSectionId(3)
+    fun outgoing_exit_has_priority_over_optional_floor_interactions() = test {
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
             setWorldPosition(Vector3(40.0, 0.0, 0.0))
         }
         val quest = createQuestModel(
-            objects = listOf(entrance, trigger),
-            npcs = listOf(firstAnchor, duplicateAnchor, targetAnchor),
-            events = listOf(first, duplicate, target),
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 100.0),
+                exit,
+            ),
         )
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 0)
+        val route = plan(quest, setOf(1), clientId = 0)
 
-        // Entrance + interaction + three unique event records form one continuous traversal.
-        assertTrue(route.segments.size >= 4)
-        assertTrue(route.segments.count { it.relation == WalkthroughRelation.Explicit } >= 3)
-        assertTrue(route.segments.any {
-            it.relation == WalkthroughRelation.Explicit && it.from.x == 20.0 && it.to.x == 40.0
-        })
-        assertTrue(route.segments.none {
-            it.relation == WalkthroughRelation.Explicit && it.from.x == 30.0 && it.to.x == 40.0
-        })
+        assertEquals(listOf(0.0 to 40.0), route.segments.map { it.from.x to it.to.x })
     }
 
     @Test
-    fun visible_floors_produce_independent_routes_without_cross_floor_segments() = test {
+    fun script_gated_warps_visit_event_collisions_before_the_exit() = test {
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(40.0, 0.0, 0.0))
+        }
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
-                eventCollision(1, 1, 10.0),
-                playerSet(2, 0, 100.0),
-                eventCollision(2, 2, 110.0),
+                eventCollision(1, 20.0),
+                eventCollision(1, 80.0),
+                exit,
             ),
-            events = listOf(event(1, 1, 0), event(2, 2, 0)),
+            bytecodeIr = warpGatedBytecode(),
         )
 
-        val route = planWalkthroughRoute(quest, setOf(1, 2), clientId = 0)
+        val route = plan(quest, setOf(1), clientId = 0)
 
-        assertEquals(setOf(1, 2), route.segments.mapTo(mutableSetOf()) { it.floorId })
-        assertTrue(route.segments.filter { it.floorId == 1 }.all { it.from.x < 50 && it.to.x < 50 })
-        assertTrue(route.segments.filter { it.floorId == 2 }.all { it.from.x > 50 && it.to.x > 50 })
+        assertEquals(
+            listOf(0.0 to 20.0, 20.0 to 80.0, 80.0 to 40.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
     }
 
     @Test
-    fun intra_floor_warp_source_and_destination_are_connected() = test {
+    fun script_gated_progression_can_cross_a_one_way_same_floor_warp() = test {
+        val warp = intraMapWarp(ObjectType.Warp, 1, sourceX = 5.0, destinationX = 100.0)
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(120.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 10.0),
+                warp,
+                eventCollision(1, 110.0),
+                exit,
+            ),
+            bytecodeIr = warpGatedBytecode(),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..10.0 && to.x in 0.0..10.0 -> listOf(from, to)
+                from.x in 100.0..120.0 && to.x in 100.0..120.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0 to 10.0, 10.0 to 5.0, 100.0 to 110.0, 110.0 to 120.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun warp_off_without_a_later_warp_on_does_not_invent_a_completion_route() = test {
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(40.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 80.0), exit),
+            bytecodeIr = BytecodeIr(listOf(instructionSegment(OP_WARP_OFF))),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 40.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun unlocked_door_bridges_disconnected_walkable_regions_without_a_guessed_room_edge() = test {
+        val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
+            entity.data.setInt(52, 7)
+            setWorldPosition(Vector3(50.0, 0.0, 0.0))
+            setWorldRotation(Euler(0.0, PI / 2, 0.0))
+        }
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(100.0, 0.0, 0.0))
+        }
+        val unlock = QuestEventModel(
+            id = 1,
+            floorId = 1,
+            sectionId = 1,
+            waveId = 1,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(QuestEventActionModel.Door.Unlock(7)),
+        )
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                door,
+                eventCollision(1, 30.0, eventId = 1),
+                eventCollision(1, 90.0, eventId = 2),
+                exit,
+            ),
+            events = listOf(unlock),
+            bytecodeIr = warpGatedBytecode(),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..40.0 && to.x in 0.0..40.0 -> listOf(from, to)
+                from.x in 60.0..100.0 && to.x in 60.0..100.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(
+                0.0 to 30.0,
+                30.0 to 38.0,
+                38.0 to 62.0,
+                62.0 to 90.0,
+                90.0 to 100.0,
+            ),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun always_open_door_bridges_disconnected_walkable_regions() = test {
+        val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
+            entity.data.setInt(52, -1)
+            setWorldPosition(Vector3(50.0, 0.0, 0.0))
+            setWorldRotation(Euler(0.0, PI / 2, 0.0))
+        }
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(100.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), door, eventCollision(1, 90.0), exit),
+            bytecodeIr = warpGatedBytecode(),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..40.0 && to.x in 0.0..40.0 -> listOf(from, to)
+                from.x in 60.0..100.0 && to.x in 60.0..100.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(100.0, route.segments.last().to.x)
+        assertTrue(route.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun barba_ray_teleporter_is_a_standard_outgoing_exit() = test {
+        val exit = createQuestObjectModel(ObjectType.WarpInBarbaRayRoom, 1).apply {
+            entity.destinationFloor = 2
+            setWorldPosition(Vector3(40.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 100.0), exit),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 40.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun required_same_floor_warp_is_a_non_rendered_transition() = test {
         val warp = createQuestObjectModel(ObjectType.Warp, 1).apply {
             setWorldPosition(Vector3(10.0, 0.0, 0.0))
             setDestinationPosition(Vector3(80.0, 0.0, 0.0))
         }
-        val quest = createQuestModel(objects = listOf(playerSet(1, 0, 0.0), warp))
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                warp,
+                eventCollision(1, 90.0),
+            ),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x <= 10.0 && to.x <= 10.0 -> listOf(from, to)
+                from.x >= 80.0 && to.x >= 80.0 -> listOf(from, to)
+                else -> null
+            }
+        }
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 0)
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
-        assertTrue(route.segments.any {
-            it.from.x == 10.0 && it.to.x == 80.0 && it.relation == WalkthroughRelation.Explicit
-        })
+        assertEquals(listOf(0.0 to 10.0, 80.0 to 90.0), route.segments.map { it.from.x to it.to.x })
+        assertTrue(route.segments.all { it.endsLeg })
     }
 
     @Test
-    fun same_floor_quest_warp_connects_to_its_special_player_set() = test {
+    fun mixed_direction_insta_warps_follow_their_explicit_destinations() = test {
+        val first = intraMapWarp(ObjectType.InstaWarp, 1, sourceX = 10.0, destinationX = 100.0)
+        val descending = intraMapWarp(
+            ObjectType.InstaWarp,
+            1,
+            sourceX = 110.0,
+            destinationX = 50.0,
+        )
+        val ascending = intraMapWarp(
+            ObjectType.InstaWarp,
+            1,
+            sourceX = 60.0,
+            destinationX = 200.0,
+        )
+        val exit = createQuestObjectModel(ObjectType.TeleporterEp2, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(210.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                first,
+                descending,
+                ascending,
+                exit,
+            ),
+        )
+        val islands = listOf(0.0..10.0, 100.0..110.0, 50.0..60.0, 200.0..210.0)
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            if (islands.any { from.x in it && to.x in it }) listOf(from, to) else null
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0 to 10.0, 100.0 to 110.0, 50.0 to 60.0, 200.0 to 210.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+        assertTrue(route.segments.all { it.endsLeg })
+    }
+
+    @Test
+    fun blue_teleporter_can_be_the_forward_exit_after_a_red_return_exit() = test {
+        val returnExit = createQuestObjectModel(ObjectType.TeleporterEp2, 1).apply {
+            entity.destinationFloor = 0
+            entity.data.setInt(60, 1)
+            setWorldPosition(Vector3(5.0, 0.0, 0.0))
+        }
+        val warp = intraMapWarp(ObjectType.InstaWarp, 1, sourceX = 10.0, destinationX = 100.0)
+        val forwardExit = createQuestObjectModel(ObjectType.TeleporterEp2, 1).apply {
+            entity.destinationFloor = 2
+            entity.data.setInt(60, 0)
+            setWorldPosition(Vector3(110.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), returnExit, warp, forwardExit),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..10.0 && to.x in 0.0..10.0 -> listOf(from, to)
+                from.x in 100.0..110.0 && to.x in 100.0..110.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0 to 10.0, 100.0 to 110.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun unused_same_floor_warp_is_not_added_to_the_route() = test {
+        val warp = createQuestObjectModel(ObjectType.Warp, 1).apply {
+            setWorldPosition(Vector3(10.0, 0.0, 0.0))
+            setDestinationPosition(Vector3(100.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                warp,
+                eventCollision(1, 20.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 20.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun same_floor_quest_warp_uses_its_special_player_set_as_destination() = test {
         val destination = playerSet(1, 0, 80.0).apply { entity.data.setInt(52, 2) }
         val warp = createQuestObjectModel(ObjectType.QuestWarp, 1).apply {
             entity.data.setFloat(40, 2f)
             entity.data.setInt(52, 1)
             setWorldPosition(Vector3(10.0, 0.0, 0.0))
         }
-        val quest = createQuestModel(objects = listOf(playerSet(1, 0, 0.0), destination, warp))
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                destination,
+                warp,
+                eventCollision(1, 90.0),
+            ),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x <= 10.0 && to.x <= 10.0 -> listOf(from, to)
+                from.x >= 80.0 && to.x >= 80.0 -> listOf(from, to)
+                else -> null
+            }
+        }
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 0)
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
-        assertTrue(route.segments.any {
-            it.from.x == 10.0 && it.to.x == 80.0 && it.relation == WalkthroughRelation.Explicit
-        })
+        assertEquals(listOf(0.0 to 10.0, 80.0 to 90.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun tower_progression_is_one_path_without_door_or_side_branch_fan_out() = test {
+        val sectionOrder = listOf(7, 1, 2, 3, 4, 5, 6, 8)
+        val corridor = sectionOrder.mapIndexed { index, sectionId ->
+            eventCollision(7, (index + 1) * 10.0).apply { setSectionId(sectionId) }
+        }
+        val sideTrigger = eventCollision(7, 25.0).apply { setSectionId(20) }
+        val doors = listOf(500.0, 600.0, 700.0).map { x ->
+            createQuestObjectModel(ObjectType.CcaDoor, 7).apply {
+                entity.data.setInt(52, 73)
+                setWorldPosition(Vector3(x, 0.0, 0.0))
+            }
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(7, 0, 0.0)) + corridor + sideTrigger + doors,
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            if (from.x !in 0.0..80.0 || to.x !in 0.0..80.0) {
+                null
+            } else {
+                val direction = if (to.x >= from.x) 1 else -1
+                buildList {
+                    add(from)
+                    var x = from.x + direction * 10.0
+                    while ((direction > 0 && x < to.x) || (direction < 0 && x > to.x)) {
+                        add(WalkthroughPoint(x, 0.0, 0.0))
+                        x += direction * 10.0
+                    }
+                    add(to)
+                }
+            }
+        }
+
+        val route = plan(quest, setOf(7), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0),
+            listOf(route.segments.first().from.x) + route.segments.map { it.to.x },
+        )
+        assertTrue(route.segments.none { it.from.x == 25.0 || it.to.x == 25.0 })
+        assertTrue(route.segments.all { it.from.x < 100.0 && it.to.x < 100.0 })
+    }
+
+    @Test
+    fun route_uses_navigation_corners_instead_of_drawing_through_the_map() = test {
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 20.0)),
+        )
+        val corner = WalkthroughPoint(10.0, 0.0, 10.0)
+
+        val route = plan(
+            quest,
+            setOf(1),
+            clientId = 0,
+            pathfinder = WalkthroughPathfinder { from, to -> listOf(from, corner, to) },
+        )
+
+        assertEquals(listOf(corner, WalkthroughPoint(20.0, 0.0, 0.0)), route.segments.map { it.to })
+        assertTrue(route.segments.first().endsLeg.not())
+        assertTrue(route.segments.last().endsLeg)
     }
 
     @Test
     fun missing_player_entrance_does_not_invent_a_route() = test {
         val quest = createQuestModel(
-            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 7, 10.0)),
-            events = listOf(event(1, 7, 0)),
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 10.0)),
         )
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 1)
+        val route = plan(quest, setOf(1), clientId = 1)
 
         assertTrue(route.segments.isEmpty())
         assertTrue(route.diagnostics.any { "no Player Set entrance" in it })
     }
 
     @Test
-    fun spawn_and_door_actions_create_directed_anchors() = test {
-        val trigger = eventCollision(1, 7, 10.0)
-        val spawnedNpc = createQuestNpcModel(NpcType.Booma, Episode.I, 1).apply {
-            setSectionId(4)
-            setWaveId(5)
-            setWorldPosition(Vector3(80.0, 0.0, 0.0))
-        }
-        val door = createQuestObjectModel(ObjectType.ForestDoor, 1).apply {
-            entity.data.setInt(52, 9)
-            setWorldPosition(Vector3(100.0, 0.0, 0.0))
-        }
-        val sourceEvent = event(
-            floorId = 1,
-            id = 7,
-            sectionId = 0,
-            actions = mutableListOf(
-                QuestEventActionModel.SpawnNpcs(4, 5),
-                QuestEventActionModel.Door.Unlock(9),
-            ),
-        )
+    fun unreachable_objective_does_not_create_a_guessed_line() = test {
         val quest = createQuestModel(
-            objects = listOf(playerSet(1, 0, 0.0), trigger, door),
-            npcs = listOf(spawnedNpc),
-            events = listOf(sourceEvent),
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 100.0)),
         )
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 0)
+        val route = plan(
+            quest,
+            setOf(1),
+            clientId = 0,
+            pathfinder = WalkthroughPathfinder { _, _ -> null },
+        )
 
-        assertTrue(route.segments.any {
-            it.relation == WalkthroughRelation.Explicit && it.from.x == 10.0 && it.to.x == 80.0
-        })
-        assertTrue(route.segments.any {
-            it.relation == WalkthroughRelation.Explicit && it.from.x == 10.0 && it.to.x == 100.0
-        })
+        assertTrue(route.segments.isEmpty())
+        assertTrue(route.diagnostics.any { "no route objective is reachable" in it })
     }
 
     @Test
-    fun door_actions_match_multi_id_door_ranges() = test {
-        val trigger = eventCollision(1, 7, 10.0)
-        val door = createQuestObjectModel(ObjectType.Ruins4ButtonDoor, 1).apply {
-            entity.data.setInt(52, 20)
-            setWorldPosition(Vector3(100.0, 0.0, 0.0))
-        }
-        val sourceEvent = event(
-            floorId = 1,
-            id = 7,
-            sectionId = 0,
-            actions = mutableListOf(QuestEventActionModel.Door.Unlock(23)),
-        )
+    fun visible_floors_produce_independent_routes() = test {
         val quest = createQuestModel(
-            objects = listOf(playerSet(1, 0, 0.0), trigger, door),
-            events = listOf(sourceEvent),
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 10.0),
+                playerSet(2, 0, 100.0),
+                eventCollision(2, 110.0),
+            ),
         )
 
-        val route = planWalkthroughRoute(quest, setOf(1), clientId = 0)
+        val route = plan(quest, setOf(1, 2), clientId = 0)
 
-        assertTrue(route.segments.any {
-            it.relation == WalkthroughRelation.Explicit && it.from.x == 10.0 && it.to.x == 100.0
-        })
+        assertEquals(setOf(1, 2), route.segments.mapTo(mutableSetOf()) { it.floorId })
+        assertTrue(route.segments.filter { it.floorId == 1 }.all { it.from.x < 50 && it.to.x < 50 })
+        assertTrue(route.segments.filter { it.floorId == 2 }.all { it.from.x > 50 && it.to.x > 50 })
     }
 
     @Test
@@ -424,33 +520,42 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             setWorldPosition(Vector3(x, 0.0, 0.0))
         }
 
-    private fun eventCollision(floorId: Int, eventId: Int, x: Double) =
+    private fun eventCollision(floorId: Int, x: Double, eventId: Int = 0) =
         createQuestObjectModel(ObjectType.EventCollision, floorId).apply {
             entity.data.setInt(52, eventId)
             setWorldPosition(Vector3(x, 0.0, 0.0))
         }
 
-    private fun event(
+    private fun intraMapWarp(
+        type: ObjectType,
         floorId: Int,
-        id: Int,
-        sectionId: Int,
-        actions: MutableList<QuestEventActionModel> = mutableListOf(),
-    ) = QuestEventModel(
-        id = id,
-        floorId = floorId,
-        sectionId = sectionId,
-        waveId = 0,
-        delay = 0,
-        unknown = 0,
-        actions = actions,
-    )
-
-    private fun WalkthroughRoute.allXCoordinates(): Set<Double> = segments
-        .flatMapTo(mutableSetOf()) { listOf(it.from.x, it.to.x) }
-
-    private fun assembleBytecode(assembly: String): BytecodeIr {
-        val result = assemble(assembly.trimIndent().lines(), Version.BB_V4)
-        assertTrue(result is Success)
-        return result.value
+        sourceX: Double,
+        destinationX: Double,
+    ) = createQuestObjectModel(type, floorId).apply {
+        setWorldPosition(Vector3(sourceX, 0.0, 0.0))
+        setDestinationPosition(Vector3(destinationX, 0.0, 0.0))
     }
+
+    private fun warpGatedBytecode() = BytecodeIr(listOf(
+        instructionSegment(OP_WARP_OFF),
+        instructionSegment(OP_WARP_ON),
+    ))
+
+    private fun instructionSegment(opcode: world.phantasmal.psolib.asm.Opcode) =
+        InstructionSegment(
+            mutableListOf(),
+            mutableListOf(Instruction(opcode, emptyList(), valid = true, srcLoc = null)),
+        )
+
+    private fun plan(
+        quest: QuestModel,
+        visibleFloorIds: Set<Int>,
+        clientId: Int,
+        pathfinder: WalkthroughPathfinder = WalkthroughPathfinder { from, to -> listOf(from, to) },
+    ): WalkthroughRoute = planWalkthroughRoute(
+        quest = quest,
+        visibleFloorIds = visibleFloorIds,
+        clientId = clientId,
+        pathfinder = pathfinder,
+    )
 }

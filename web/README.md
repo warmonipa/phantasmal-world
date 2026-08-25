@@ -138,21 +138,37 @@ the full-map editor view.
 
 ## Quest Walkthrough Routes
 
-The Quest Editor 3D view derives a directed walkthrough from quest data; it is not authored Guide
-content. Each currently visible logical floor is planned independently from that player's forward
-Player Set entrance to local interactions and outgoing exits. DAT event collisions, active
-object/NPC script callbacks, script-created NPC interactions, spatial callback opcodes, event
-trigger actions, and player-specific palette callbacks contribute explicit edges. Spawn actions
-connect to their NPC wave anchors, door actions connect to the native door-ID range, and same-floor
-warps connect to their destinations. Deterministic same-section/proximity edges join the remaining
-components so the displayed walkthrough is continuous without inventing cross-floor lines.
+The Quest Editor 3D view derives one primary physical route from quest data; it is not authored
+Guide content or a visualization of the event graph. Each currently visible logical floor is
+planned independently from that player's forward Player Set entrance. Outgoing exits are preferred
+as endpoints, followed by DAT event collisions and then reachable object/NPC or script-created
+interactions. Within the highest available priority, the farthest endpoint by walkable path is used.
+The shortest route to that endpoint is rendered; other reachable interactions are not appended as
+side trips. Spawn, trigger, switch, and door actions describe quest state rather than player
+movement, so they never create spatial route nodes or duplicate lines.
+
+When quest bytecode explicitly disables and later enables map warps, the exit is completion-gated.
+On those floors, reachable DAT event collisions are visited before the exit. Candidate order keeps
+all remaining objectives and the terminal exit reachable, so one-way same-floor warps are not taken
+too early. Door objects provide physical navigation portals only when their native door ID is
+uncontrolled (`-1`) or after the Event Collision chain that unlocks that door has been visited; the
+unlock action itself is not rendered as a route branch.
+
+Paths are computed on walkable collision triangles; walls and steep collision faces are excluded
+before navigation connectivity is built. Every object that exposes an intra-map destination,
+including ordinary, site-to-site, Insta-, and ceiling warps, provides a directed, non-rendered
+transition between otherwise disconnected walkable regions. Explicit destinations are followed as
+stored, so ascending, descending, and mixed Control Tower floor orders use the same planner. EP1,
+EP2, Ruins, quest, and boss teleporters are treated as outgoing floor exits. No section IDs, event
+anchors, door counts, or straight-line guesses manufacture connectivity. Rendered route ribbons
+follow navigation corners and repeatedly sample the local collision surface, keeping a small
+clearance above uneven or vertically stacked ground.
 
 The Route selector maps Red, Green, Yellow, and Blue to client IDs 0 through 3. Changing it replans
 from the matching Player Set without changing the editor's entity selection; Red is the default.
 Direct client/floor dispatch is pruned for that route, while unresolved runtime branches remain
-conservative. Challenge seed simulation uses the materialized Event1 chain rather than source
-Event2 templates. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking,
-and own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
+conservative. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking, and
+own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
 
 ## Quest Editor Entity Directions
 

@@ -66,12 +66,8 @@ enum class ObjectType(
         ),
         typeId = 2,
         properties = listOf(
-            EntityProp(name = "Area ID", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Color blue", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Color red", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Floor ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Display no.", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "No display no.", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Destination floor", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Color (0=blue, 1=red)", offset = 60, type = EntityPropType.I32),
         ),
     ),
     Warp(
@@ -379,7 +375,7 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Player set ID", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Destination floor", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Color", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Color (0=blue, 1=red)", offset = 60, type = EntityPropType.I32),
         ),
     ),
     Epilogue(
@@ -797,7 +793,7 @@ enum class ObjectType(
         typeId = 84,
     ),
     MainRagolTeleporterBattleInNextArea(
-        uniqueName = "Main Ragol Teleporter (Battle in next area?)",
+        uniqueName = "Main Ragol Teleporter (Challenge)",
         areaIds = mapOf(
             Episode.I to listOf(0),
             Episode.II to listOf(0),
@@ -1549,12 +1545,8 @@ enum class ObjectType(
         ),
         typeId = 320,
         properties = listOf(
-            EntityProp(name = "Area no.", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Color blue", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Color red", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Floor no.", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Display no.", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "No display no.", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Destination floor", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Color (<0=red, >=0=blue)", offset = 60, type = EntityPropType.I32),
         ),
     ),
     RuinsWarpSiteToSite(
@@ -2281,7 +2273,8 @@ enum class ObjectType(
         ),
         typeId = 513,
         properties = listOf(
-            EntityProp(name = "Floor ID", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Destination floor", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Color (0=blue, 1=red)", offset = 60, type = EntityPropType.I32),
         ),
     ),
     CcaDoor(
@@ -2598,6 +2591,10 @@ enum class ObjectType(
             Episode.II to listOf(14),
         ),
         typeId = 640,
+        properties = listOf(
+            EntityProp(name = "Destination floor", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Color (0=blue, 1=red)", offset = 60, type = EntityPropType.I32),
+        ),
     ),
     LiveCamera(
         uniqueName = "Live Camera",
@@ -2688,12 +2685,12 @@ enum class ObjectType(
         ),
         typeId = 697,
         properties = listOf(
-            EntityProp(name = "Dest X", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Dest Y", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Dest Z", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Dest Rotation", offset = 52, type = EntityPropType.Angle),
-            EntityProp(name = "Floor", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Disable Floor Disp", offset = 60, type = EntityPropType.I32),
+            EntityProp(name = "Destination x", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Destination y", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Destination z", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Dst. rotation y", offset = 52, type = EntityPropType.Angle),
+            EntityProp(name = "Displayed floor number", offset = 56, type = EntityPropType.I32),
+            EntityProp(name = "Floor display (<=0=show, >0=hide)", offset = 60, type = EntityPropType.I32),
         ),
     ),
     LabInvisibleObject(
@@ -2731,7 +2728,10 @@ enum class ObjectType(
         ),
         typeId = 701,
         properties = listOf(
-            EntityProp(name = "Destination angle", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Destination x", offset = 40, type = EntityPropType.F32),
+            EntityProp(name = "Destination y", offset = 44, type = EntityPropType.F32),
+            EntityProp(name = "Destination z", offset = 48, type = EntityPropType.F32),
+            EntityProp(name = "Dst. rotation y", offset = 52, type = EntityPropType.Angle),
             EntityProp(name = "Destination text", offset = 60, type = EntityPropType.I32),
         ),
     ),

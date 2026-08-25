@@ -3,6 +3,7 @@ plugins {
 }
 
 val serializationVersion: String by project.extra
+val assemblyWorkerResources = layout.buildDirectory.dir("generated/assemblyWorkerResources")
 
 kotlin {
     js {
@@ -24,6 +25,8 @@ kotlin {
 
     sourceSets {
         getByName("jsMain") {
+            resources.srcDir(assemblyWorkerResources)
+
             dependencies {
                 implementation(kotlin("reflect"))
                 implementation(project(":psolib"))
@@ -34,6 +37,7 @@ kotlin {
                 implementation(npm("golden-layout", "^1.5.9"))
                 implementation(npm("monaco-editor", "0.26.1"))
                 implementation(npm("three", "^0.128.0"))
+                implementation(npm("three-pathfinding", "1.3.0"))
                 implementation(npm("javascript-lp-solver", "0.4.17"))
 
                 implementation(devNpm("file-loader", "^6.2.0"))
@@ -58,7 +62,7 @@ val copyAssemblyWorkerJsTask = tasks.register<Copy>("copyAssemblyWorkerJs") {
         project(":web:assembly-worker").layout.buildDirectory.get().asFile.resolve("dist/js/productionExecutable")
 
     from(workerDist.resolve("assembly-worker.js"), workerDist.resolve("assembly-worker.js.map"))
-    into(layout.buildDirectory.get().asFile.resolve("processedResources/js/main"))
+    into(assemblyWorkerResources)
 }
 
 // TODO: Figure out how to make this work with --continuous.

@@ -1,32 +1,29 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 import world.phantasmal.psolib.asm.Instruction
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptSpatialInteraction
-import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
-import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughEventActivation
 import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughScriptAnalysis
 import world.phantasmal.psolib.asm.dataFlowAnalysis.analyzeWalkthroughScript
-import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.activeScriptLabelOrNull
 import world.phantasmal.psolib.fileFormats.quest.getNormalBossTeleporterDestinationFloor
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
-import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
-import world.phantasmal.web.questEditor.models.effectiveQuestEvents
 
 internal data class WalkthroughPoint(val x: Double, val y: Double, val z: Double)
-
-internal enum class WalkthroughRelation { Explicit, Inferred }
 
 internal data class WalkthroughSegment(
     val floorId: Int,
     val from: WalkthroughPoint,
     val to: WalkthroughPoint,
-    val relation: WalkthroughRelation,
+    val endsLeg: Boolean = true,
 )
 
 internal data class WalkthroughRoute(
@@ -34,31 +31,37 @@ internal data class WalkthroughRoute(
     val diagnostics: List<String>,
 )
 
-private enum class NodeKind { Entrance, Interaction, Event, WarpDestination, Exit }
+private enum class NodeKind { Entrance, Objective, WarpSource, WarpDestination, DoorSide, Exit }
 
 private data class RouteNode(
     val id: Int,
     val point: WalkthroughPoint,
-    val sectionId: Int?,
     val kind: NodeKind,
     val order: Int,
+    val goalPriority: Int = 0,
+)
+
+private data class RouteEdge(
+    val fromId: Int,
+    val toId: Int,
+    val points: List<WalkthroughPoint>,
+    val length: Double,
+    val render: Boolean,
+    val requiredObjectiveIds: Set<Int> = emptySet(),
 )
 
 private data class InstructionFloor(val instruction: Instruction, val floorId: Int)
 
-/** Builds independent, continuous directed walkthroughs for the selected logical floors. */
+/** Builds one primary physical route for each selected logical floor. */
 internal fun planWalkthroughRoute(
     quest: QuestModel,
     visibleFloorIds: Set<Int>,
     clientId: Int,
     scriptNpcSpawns: List<ScriptNpcSpawn> = quest.scriptNpcSpawns.value,
     scriptSpatialInteractions: List<ScriptSpatialInteraction> = quest.scriptSpatialInteractions.value,
-    challengeSimulation: ChallengeModeSeedSimulation? = null,
+    pathfinder: WalkthroughPathfinder,
 ): WalkthroughRoute {
     require(clientId in 0..3)
-    val events = effectiveQuestEvents(challengeSimulation, quest.events.value)
-    val segments = mutableListOf<WalkthroughSegment>()
-    val diagnostics = mutableListOf<String>()
     val controlFlowGraph = ControlFlowGraph.create(quest.bytecodeIr)
     val analysisCache = mutableMapOf<Pair<Int, Int>, WalkthroughScriptAnalysis>()
     fun analysis(label: Int, floorId: Int): WalkthroughScriptAnalysis =
@@ -67,8 +70,6 @@ internal fun planWalkthroughRoute(
                 quest.bytecodeIr, label, floorId, clientId, controlFlowGraph,
             )
         }
-    fun activations(label: Int, floorId: Int): Set<WalkthroughEventActivation> =
-        analysis(label, floorId).eventActivations
 
     val reachableInstructionFloors = mutableSetOf<InstructionFloor>()
     fun includeAnalysis(label: Int, floorId: Int): Boolean {
@@ -94,18 +95,13 @@ internal fun planWalkthroughRoute(
         npc.entity.activeScriptLabelOrNull()?.let { includeAnalysis(it, npc.floorId) }
     }
 
-    // Spatial callbacks and script-NPC callbacks can create further interactions. Expand the
-    // selected client's reachable instruction/floor pairs until this callback graph reaches a
-    // fixed point.
     var reachabilityChanged: Boolean
     do {
         reachabilityChanged = false
         for (interaction in scriptSpatialInteractions) {
             for (floorId in interaction.executionFloorIds) {
                 if (!isReachable(interaction.sourceInstruction, floorId)) continue
-                if (includeAnalysis(interaction.event.label, floorId)) {
-                    reachabilityChanged = true
-                }
+                if (includeAnalysis(interaction.event.label, floorId)) reachabilityChanged = true
             }
         }
         for (spawn in scriptNpcSpawns) {
@@ -114,55 +110,28 @@ internal fun planWalkthroughRoute(
                     if (!isReachable(spawn.sourceInstruction, floorId) ||
                         !isReachable(interaction.sourceInstruction, floorId)
                     ) continue
-                    if (includeAnalysis(interaction.label, floorId)) {
-                        reachabilityChanged = true
-                    }
+                    if (includeAnalysis(interaction.label, floorId)) reachabilityChanged = true
                 }
             }
         }
     } while (reachabilityChanged)
 
-    val externalActivationsByFloor = mutableMapOf<Int, MutableSet<Int>>()
-    fun collectExternal(label: Int, sourceFloorId: Int) {
-        for (activation in activations(label, sourceFloorId)) {
-            if (activation.floorId != sourceFloorId) {
-                externalActivationsByFloor
-                    .getOrPut(activation.floorId, ::mutableSetOf)
-                    .add(activation.eventId)
-            }
-        }
-    }
-    for (obj in quest.objects.value) {
-        obj.entity.activeScriptLabel?.let { collectExternal(it, obj.floorId) }
-    }
-    for (npc in quest.npcs.value) {
-        npc.entity.activeScriptLabelOrNull()?.let { collectExternal(it, npc.floorId) }
-    }
-    for (interaction in scriptSpatialInteractions) {
-        for (sourceFloorId in interaction.executionFloorIds) {
-            if (!isReachable(interaction.sourceInstruction, sourceFloorId)) continue
-            collectExternal(interaction.event.label, sourceFloorId)
-        }
-    }
-    for (spawn in scriptNpcSpawns) {
-        for (sourceFloorId in spawn.executionFloorIds) {
-            if (!isReachable(spawn.sourceInstruction, sourceFloorId)) continue
-            for (interaction in spawn.interactions) {
-                if (sourceFloorId !in interaction.executionFloorIds ||
-                    !isReachable(interaction.sourceInstruction, sourceFloorId)
-                ) continue
-                collectExternal(interaction.label, sourceFloorId)
-            }
-        }
-    }
-
+    val segments = mutableListOf<WalkthroughSegment>()
+    val diagnostics = mutableListOf<String>()
+    val warpsAreScriptGated = quest.bytecodeIr.instructionSegments()
+        .flatMap { it.instructions }
+        .mapTo(mutableSetOf()) { it.opcode.mnemonic }
+        .let { "warp_off" in it && "warp_on" in it }
     for (floorId in visibleFloorIds.sorted()) {
         val floorRoute = planFloor(
-            quest, events, floorId, clientId, scriptNpcSpawns,
+            quest,
+            floorId,
+            clientId,
+            scriptNpcSpawns,
             scriptSpatialInteractions,
-            externalActivationsByFloor[floorId].orEmpty(),
-            ::activations,
             ::isReachable,
+            pathfinder,
+            warpsAreScriptGated,
         )
         segments += floorRoute.segments
         diagnostics += floorRoute.diagnostics
@@ -172,35 +141,34 @@ internal fun planWalkthroughRoute(
 
 private fun planFloor(
     quest: QuestModel,
-    events: List<QuestEventModel>,
     floorId: Int,
     clientId: Int,
     scriptNpcSpawns: List<ScriptNpcSpawn>,
     scriptSpatialInteractions: List<ScriptSpatialInteraction>,
-    externalRootEvents: Set<Int>,
-    activations: (label: Int, floorId: Int) -> Set<WalkthroughEventActivation>,
     isReachable: (instruction: Instruction?, floorId: Int) -> Boolean,
+    pathfinder: WalkthroughPathfinder,
+    warpsAreScriptGated: Boolean,
 ): WalkthroughRoute {
     val objects = quest.objects.value.filter { it.floorId == floorId }
     val npcs = quest.npcs.value.filter { it.floorId == floorId }
-    val floorEvents = events.filter { it.floorId == floorId }
-    val nodes = mutableListOf<RouteNode>()
-    val explicit = mutableMapOf<Int, MutableSet<Int>>()
     val diagnostics = mutableListOf<String>()
-    val activationSources = mutableMapOf<Int, MutableList<Int>>()
+    val nodes = mutableListOf<RouteNode>()
+    val warpEdges = mutableListOf<Pair<Int, Int>>()
+    val doorEdges = mutableListOf<Triple<Int, Int, Set<Int>>>()
+    val eventCollisionNodes = mutableMapOf<Int, MutableSet<Int>>()
     var nextId = 0
-    var order = 0
 
-    fun addNode(point: WalkthroughPoint, sectionId: Int?, kind: NodeKind): Int {
+    fun addNode(
+        point: WalkthroughPoint,
+        kind: NodeKind,
+        goalPriority: Int = 0,
+    ): Int {
+        if (kind == NodeKind.Objective) {
+            nodes.firstOrNull { it.kind == kind && it.point == point }?.let { return it.id }
+        }
         val id = nextId++
-        nodes += RouteNode(id, point, sectionId, kind, order++)
+        nodes += RouteNode(id, point, kind, nodes.size, goalPriority)
         return id
-    }
-    fun connect(from: Int, to: Int) {
-        explicit.getOrPut(from, ::mutableSetOf).add(to)
-    }
-    fun registerActivations(sourceId: Int, activations: Iterable<Int>) {
-        for (eventId in activations) activationSources.getOrPut(eventId, ::mutableListOf).add(sourceId)
     }
 
     val entrance = objects.firstOrNull { obj ->
@@ -208,165 +176,63 @@ private fun planFloor(
             obj.entity.data.getFloat(40).roundToInt() == clientId &&
             obj.entity.data.getInt(52) == 0
     }
-    val entranceId = if (entrance == null) {
-        diagnostics += "Floor $floorId: no Player Set entrance for client $clientId."
-        null
-    } else {
-        addNode(entrance.worldPoint(), entrance.sectionId.value, NodeKind.Entrance)
+    if (entrance == null) {
+        return WalkthroughRoute(
+            emptyList(),
+            listOf("Floor $floorId: no Player Set entrance for client $clientId."),
+        )
     }
-    if (entranceId == null) return WalkthroughRoute(emptyList(), diagnostics)
-
-    // Root script events occur after entering the floor but have no independent spatial anchor.
-    val rootEvents = activations(0, 0)
-        .filter { it.floorId == floorId }
-        .map { it.eventId }
-        .plus(externalRootEvents)
+    val entranceId = addNode(entrance.worldPoint(), NodeKind.Entrance)
 
     for (obj in objects) {
         when {
             obj.type == ObjectType.EventCollision -> {
-                val node = addNode(obj.worldPoint(), obj.sectionId.value, NodeKind.Interaction)
-                registerActivations(node, listOf(obj.entity.data.getInt(52)))
+                val node = addNode(
+                    obj.worldPoint(), NodeKind.Objective, EVENT_COLLISION_PRIORITY,
+                )
+                eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf).add(node)
             }
-            obj.entity.activeScriptLabel != null -> {
-                val label = obj.entity.activeScriptLabel!!
-                val node = addNode(obj.worldPoint(), obj.sectionId.value, NodeKind.Interaction)
-                val eventIds = activations(label, floorId)
-                    .filter { it.floorId == floorId }.map { it.eventId }
-                registerActivations(node, eventIds)
-            }
+            obj.entity.activeScriptLabel != null ->
+                addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
         }
     }
-
-
     for (npc in npcs) {
-        val label = npc.entity.activeScriptLabelOrNull() ?: continue
-        val node = addNode(npc.worldPoint(), npc.sectionId.value, NodeKind.Interaction)
-        val eventIds = activations(label, floorId)
-            .filter { it.floorId == floorId }.map { it.eventId }
-        registerActivations(node, eventIds)
+        if (npc.entity.activeScriptLabelOrNull() != null) {
+            addNode(npc.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+        }
     }
-
-    for (interaction in scriptSpatialInteractions.filter {
-        floorId in it.executionFloorIds && isReachable(it.sourceInstruction, floorId)
-    }) {
+    for (interaction in scriptSpatialInteractions) {
+        if (floorId !in interaction.executionFloorIds ||
+            !isReachable(interaction.sourceInstruction, floorId)
+        ) continue
         val origin = interaction.origin
-        val node = addNode(
+        addNode(
             WalkthroughPoint(origin.x.toDouble(), origin.y.toDouble(), origin.z.toDouble()),
-            sectionId = null,
-            kind = NodeKind.Interaction,
+            NodeKind.Objective,
+            INTERACTION_PRIORITY,
         )
-        val eventIds = activations(interaction.event.label, floorId)
-            .filter { it.floorId == floorId }.map { it.eventId }
-        registerActivations(node, eventIds)
     }
-
-    for (spawn in scriptNpcSpawns.filter {
-        floorId in it.executionFloorIds && isReachable(it.sourceInstruction, floorId)
-    }) {
-        for (interaction in spawn.interactions.sortedBy { it.label }) {
-            if (floorId !in interaction.executionFloorIds ||
-                !isReachable(interaction.sourceInstruction, floorId)
-            ) continue
-            val node = addNode(
-                WalkthroughPoint(spawn.x.toDouble(), spawn.y.toDouble(), spawn.z.toDouble()),
-                sectionId = null,
-                kind = NodeKind.Interaction,
-            )
-            val eventIds = activations(interaction.label, floorId)
-                .filter { it.floorId == floorId }.map { it.eventId }
-            registerActivations(node, eventIds)
-        }
-    }
-
-    val eventNodeIds = mutableMapOf<Int, MutableList<Int>>()
-    val eventNodeByRecord = mutableMapOf<QuestEventModel, Int>()
-    for ((eventIndex, event) in floorEvents.withIndex()) {
-        val matchingNpcs = npcs.filter {
-            it.sectionId.value == event.sectionId.value && it.wave.value.id == event.wave.value.id
-        }
-        val sectionObjects = objects.filter { it.sectionId.value == event.sectionId.value }
-        val sourceNodes = activationSources[event.id.value].orEmpty().mapNotNull { sourceId ->
-            nodes.firstOrNull { it.id == sourceId }
-        }
-        val point = when {
-            matchingNpcs.isNotEmpty() -> matchingNpcs.map { it.worldPoint() }.average()
-            sourceNodes.isNotEmpty() -> sourceNodes.map { it.point }.average()
-            sectionObjects.isNotEmpty() -> sectionObjects.map { it.worldPoint() }.average()
-            else -> null
-        }
-        if (point == null) {
-            diagnostics += "Floor $floorId: event ${event.id.value} record $eventIndex has no spatial anchor."
-            continue
-        }
-        val node = addNode(point, event.sectionId.value, NodeKind.Event)
-        eventNodeByRecord[event] = node
-        eventNodeIds.getOrPut(event.id.value, ::mutableListOf).add(node)
-    }
-
-    for ((eventId, sources) in activationSources) {
-        val targets = eventNodeIds[eventId]
-        if (targets == null) {
-            diagnostics += "Floor $floorId: activation targets missing event $eventId."
-        } else {
-            for (source in sources) for (target in targets) connect(source, target)
-        }
-    }
-    for (eventId in rootEvents) {
-        val targets = eventNodeIds[eventId]
-        if (targets == null) diagnostics += "Floor $floorId: root script targets missing event $eventId."
-        else for (target in targets) connect(entranceId, target)
-    }
-    for (event in floorEvents) {
-        val source = eventNodeByRecord[event] ?: continue
-        for (action in event.actions.value) {
-            when (action) {
-                is QuestEventActionModel.TriggerEvent -> {
-                    val targets = eventNodeIds[action.eventId.value]
-                    if (targets == null) {
-                        diagnostics += "Floor $floorId: event ${event.id.value} targets missing event ${action.eventId.value}."
-                    } else {
-                        for (target in targets) connect(source, target)
-                    }
-                }
-                is QuestEventActionModel.SpawnNpcs -> {
-                    val spawned = npcs.filter {
-                        it.sectionId.value == action.sectionId.value &&
-                            it.wave.value.id == action.appearFlag.value
-                    }
-                    if (spawned.isEmpty()) {
-                        diagnostics += "Floor $floorId: event ${event.id.value} spawn action has no NPC anchor."
-                    } else {
-                        val target = addNode(
-                            spawned.map { it.worldPoint() }.average(),
-                            action.sectionId.value,
-                            NodeKind.Interaction,
-                        )
-                        connect(source, target)
-                    }
-                }
-                is QuestEventActionModel.Door -> {
-                    val doors = objects.filter { it.controlsDoorId(action.doorId.value) }
-                    if (doors.isEmpty()) {
-                        diagnostics += "Floor $floorId: event ${event.id.value} door ${action.doorId.value} has no object anchor."
-                    } else {
-                        for (door in doors) {
-                            val target = addNode(
-                                door.worldPoint(), door.sectionId.value, NodeKind.Interaction,
-                            )
-                            connect(source, target)
-                        }
-                    }
-                }
+    for (spawn in scriptNpcSpawns) {
+        if (floorId !in spawn.executionFloorIds ||
+            !isReachable(spawn.sourceInstruction, floorId)
+        ) continue
+        if (spawn.interactions.none { interaction ->
+                floorId in interaction.executionFloorIds &&
+                    isReachable(interaction.sourceInstruction, floorId)
             }
-        }
+        ) continue
+        addNode(
+            WalkthroughPoint(spawn.x.toDouble(), spawn.y.toDouble(), spawn.z.toDouble()),
+            NodeKind.Objective,
+            INTERACTION_PRIORITY,
+        )
     }
 
     for (obj in objects) {
-        if (obj.type == ObjectType.Warp) {
-            val source = addNode(obj.worldPoint(), obj.sectionId.value, NodeKind.Interaction)
-            val destination = addNode(obj.destinationPoint(), obj.sectionId.value, NodeKind.WarpDestination)
-            connect(source, destination)
+        if (obj.hasDestination) {
+            val source = addNode(obj.worldPoint(), NodeKind.WarpSource)
+            val destination = addNode(obj.destinationPoint(), NodeKind.WarpDestination)
+            warpEdges += source to destination
             continue
         }
         if (obj.type == ObjectType.QuestWarp && obj.entity.data.getInt(52) == floorId) {
@@ -379,95 +245,306 @@ private fun planFloor(
             if (destinationPlayerSet == null) {
                 diagnostics += "Floor $floorId: Quest Warp has no Player Set source type $sourceType for client $clientId."
             } else {
-                val source = addNode(obj.worldPoint(), obj.sectionId.value, NodeKind.Interaction)
+                val source = addNode(obj.worldPoint(), NodeKind.WarpSource)
                 val destination = addNode(
-                    destinationPlayerSet.worldPoint(),
-                    destinationPlayerSet.sectionId.value,
-                    NodeKind.WarpDestination,
+                    destinationPlayerSet.worldPoint(), NodeKind.WarpDestination,
                 )
-                connect(source, destination)
+                warpEdges += source to destination
             }
             continue
         }
-        val destinationFloor = when (obj.type) {
-            ObjectType.Teleporter, ObjectType.QuestWarp -> obj.entity.data.getInt(52)
-            ObjectType.BossTeleporter -> getNormalBossTeleporterDestinationFloor(quest.episode, floorId)
+
+        val destinationFloor = when {
+            obj.entity.destinationFloorOffset >= 0 -> obj.entity.destinationFloor
+            obj.type == ObjectType.BossTeleporter ->
+                getNormalBossTeleporterDestinationFloor(quest.episode, floorId)
             else -> null
         }
         if (destinationFloor != null && destinationFloor != floorId) {
-            addNode(obj.worldPoint(), obj.sectionId.value, NodeKind.Exit)
+            addNode(obj.worldPoint(), NodeKind.Exit, EXIT_PRIORITY)
         }
     }
 
-    if (nodes.isEmpty()) return WalkthroughRoute(emptyList(), diagnostics)
-    val unvisited = nodes.associateByTo(mutableMapOf()) { it.id }
-    var current = entranceId?.let(unvisited::remove)
-        ?: unvisited.values.minByOrNull { it.order }?.also { unvisited.remove(it.id) }
-    val segments = mutableListOf<WalkthroughSegment>()
-    val renderedExplicitEdges = mutableSetOf<Pair<Int, Int>>()
-    while (current != null && unvisited.isNotEmpty()) {
-        val explicitNext = explicit[current.id].orEmpty()
-            .mapNotNull(unvisited::get)
-            .minWithOrNull(nodeComparator(current))
-        val candidates = unvisited.values.filter { candidate ->
-            candidate.kind != NodeKind.Exit || unvisited.values.all { it.kind == NodeKind.Exit }
-        }.ifEmpty { unvisited.values }
-        val next = explicitNext ?: candidates.minWithOrNull(nodeComparator(current)) ?: break
-        val relation = if (next.id in explicit[current.id].orEmpty()) {
-            renderedExplicitEdges += current.id to next.id
-            WalkthroughRelation.Explicit
-        } else {
-            WalkthroughRelation.Inferred
+    if (warpsAreScriptGated) {
+        val floorEventsById = quest.events.value.filter { it.floorId == floorId }.groupBy {
+            it.id.value
         }
-        segments += WalkthroughSegment(
-            floorId,
-            current.point,
-            next.point,
-            relation,
-        )
-        unvisited.remove(next.id)
-        current = next
+        fun unlockedDoorIds(rootEventId: Int): Set<Int> {
+            val result = mutableSetOf<Int>()
+            val pending = ArrayDeque<Int>()
+            val visited = mutableSetOf<Int>()
+            pending += rootEventId
+            while (pending.isNotEmpty()) {
+                val eventId = pending.removeFirst()
+                if (!visited.add(eventId)) continue
+                for (event in floorEventsById[eventId].orEmpty()) {
+                    for (action in event.actions.value) {
+                        when (action) {
+                            is QuestEventActionModel.Door.Unlock -> result += action.doorId.value
+                            is QuestEventActionModel.TriggerEvent -> pending += action.eventId.value
+                            else -> Unit
+                        }
+                    }
+                }
+            }
+            return result
+        }
+        val unlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
+        for ((eventId, objectiveIds) in eventCollisionNodes) {
+            for (doorId in unlockedDoorIds(eventId)) {
+                unlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += objectiveIds
+            }
+        }
+        for (door in objects) {
+            if (!door.isDoorObject()) continue
+            val controlledIds = door.controlledDoorIds()
+            val isAlwaysOpen = controlledIds == null && door.entity.data.getInt(52) == -1
+            val requiredObjectives = controlledIds?.toList().orEmpty().flatMapTo(mutableSetOf()) { doorId ->
+                unlockingObjectivesByDoorId[doorId].orEmpty()
+            }
+            if (!isAlwaysOpen && requiredObjectives.isEmpty()) continue
+            val (firstPoint, secondPoint) = doorPassagePoints(door, pathfinder) ?: continue
+            val first = addNode(firstPoint, NodeKind.DoorSide)
+            val second = addNode(secondPoint, NodeKind.DoorSide)
+            doorEdges += Triple(first, second, requiredObjectives)
+        }
     }
-    // A branching event graph cannot be reduced to one Hamiltonian line without losing causal
-    // edges. Keep the continuous inferred traversal above and overlay every remaining real edge.
-    val nodesById = nodes.associateBy { it.id }
-    for ((fromId, targets) in explicit) {
-        val from = nodesById[fromId] ?: continue
-        for (toId in targets) {
-            if ((fromId to toId) in renderedExplicitEdges) continue
-            val to = nodesById[toId] ?: continue
+
+    val edgesBySource = nodes.associate { it.id to mutableListOf<RouteEdge>() }.toMutableMap()
+    val pathOrigins = nodes.filter { node ->
+        node.kind == NodeKind.Entrance || node.kind == NodeKind.Objective ||
+            node.kind == NodeKind.WarpDestination || node.kind == NodeKind.DoorSide
+    }
+    val pathTargets = nodes.filter { node ->
+        node.kind == NodeKind.Objective || node.kind == NodeKind.WarpSource ||
+            node.kind == NodeKind.DoorSide || node.kind == NodeKind.Exit
+    }
+    for (from in pathOrigins) {
+        for (to in pathTargets) {
+            val points = if (from.point == to.point) {
+                listOf(from.point, to.point)
+            } else {
+                pathfinder.findPath(from.point, to.point)
+            } ?: continue
+            if (points.size < 2) continue
+            edgesBySource.getValue(from.id) += RouteEdge(
+                from.id,
+                to.id,
+                points,
+                points.pathLength(),
+                render = true,
+            )
+        }
+    }
+    for ((source, destination) in warpEdges) {
+        val from = nodes.first { it.id == source }
+        val to = nodes.first { it.id == destination }
+        edgesBySource.getValue(source) += RouteEdge(
+            source,
+            destination,
+            listOf(from.point, to.point),
+            length = 0.0,
+            render = false,
+        )
+    }
+    for ((firstId, secondId, requiredObjectives) in doorEdges) {
+        val first = nodes.first { it.id == firstId }
+        val second = nodes.first { it.id == secondId }
+        val points = listOf(first.point, second.point)
+        val length = points.pathLength()
+        edgesBySource.getValue(firstId) += RouteEdge(
+            firstId, secondId, points, length, render = true,
+            requiredObjectiveIds = requiredObjectives,
+        )
+        edgesBySource.getValue(secondId) += RouteEdge(
+            secondId, firstId, points.reversed(), length, render = true,
+            requiredObjectiveIds = requiredObjectives,
+        )
+    }
+
+    fun shortestPathsFrom(
+        sourceId: Int,
+        visitedObjectiveIds: Set<Int> = emptySet(),
+    ): Pair<Map<Int, Double>, Map<Int, RouteEdge>> {
+        val distances = nodes.associate { it.id to Double.POSITIVE_INFINITY }.toMutableMap()
+        val previous = mutableMapOf<Int, RouteEdge>()
+        val unvisited = nodes.mapTo(mutableSetOf()) { it.id }
+        distances[sourceId] = 0.0
+        while (unvisited.isNotEmpty()) {
+            val currentId = unvisited.minWithOrNull(
+                compareBy<Int>({ distances.getValue(it) }, { it }),
+            ) ?: break
+            val currentDistance = distances.getValue(currentId)
+            if (!currentDistance.isFinite()) break
+            unvisited.remove(currentId)
+            for (edge in edgesBySource.getValue(currentId)) {
+                if (edge.requiredObjectiveIds.isNotEmpty() &&
+                    edge.requiredObjectiveIds.none { it in visitedObjectiveIds }
+                ) continue
+                if (edge.toId !in unvisited) continue
+                val newDistance = currentDistance + edge.length
+                if (newDistance < distances.getValue(edge.toId)) {
+                    distances[edge.toId] = newDistance
+                    previous[edge.toId] = edge
+                }
+            }
+        }
+        return distances to previous
+    }
+
+    fun routeEdgesTo(
+        sourceId: Int,
+        targetId: Int,
+        previous: Map<Int, RouteEdge>,
+    ): List<RouteEdge> {
+        val result = mutableListOf<RouteEdge>()
+        var cursor = targetId
+        while (cursor != sourceId) {
+            val edge = previous[cursor] ?: error("Reachable route goal has no predecessor.")
+            result += edge
+            cursor = edge.fromId
+        }
+        result.reverse()
+        return result
+    }
+
+    val allEventObjectiveIds = nodes.asSequence()
+        .filter { it.goalPriority == EVENT_COLLISION_PRIORITY }
+        .mapTo(mutableSetOf()) { it.id }
+    val (entranceDistances, entrancePrevious) = shortestPathsFrom(
+        entranceId,
+        if (warpsAreScriptGated) allEventObjectiveIds else emptySet(),
+    )
+    val reachableGoals = nodes.filter { node ->
+        node.goalPriority > 0 && entranceDistances.getValue(node.id).isFinite()
+    }
+    if (reachableGoals.isEmpty()) {
+        diagnostics += "Floor $floorId: no route objective is reachable on the walkable collision geometry."
+        return WalkthroughRoute(emptyList(), diagnostics)
+    }
+    val routeEdges = mutableListOf<RouteEdge>()
+    val preferredExit = reachableGoals.asSequence()
+        .filter { it.kind == NodeKind.Exit }
+        .maxWithOrNull(compareBy<RouteNode>(
+            { entranceDistances.getValue(it.id) },
+            { -it.order },
+        ))
+    val gatedObjectives = if (warpsAreScriptGated) {
+        reachableGoals.filter { it.goalPriority == EVENT_COLLISION_PRIORITY }.toMutableList()
+    } else {
+        mutableListOf()
+    }
+    var currentId = entranceId
+    val visitedObjectiveIds = mutableSetOf<Int>()
+    while (gatedObjectives.isNotEmpty()) {
+        val (distances, previous) = shortestPathsFrom(currentId, visitedObjectiveIds)
+        val reachable = gatedObjectives.filter { distances.getValue(it.id).isFinite() }
+        val candidates = reachable.map { candidate ->
+            candidate to shortestPathsFrom(
+                candidate.id, visitedObjectiveIds + candidate.id,
+            ).first
+        }
+        val viableCandidates = candidates.filter { (candidate, candidateDistances) ->
+            reachable.all { other ->
+                other.id == candidate.id || candidateDistances.getValue(other.id).isFinite()
+            } && (preferredExit == null ||
+                !distances.getValue(preferredExit.id).isFinite() ||
+                candidateDistances.getValue(preferredExit.id).isFinite())
+        }
+        val next = (viableCandidates.ifEmpty { candidates }).asSequence()
+            .map { it.first }
+            .filter { distances.getValue(it.id).isFinite() }
+            .minWithOrNull(compareBy<RouteNode>({ distances.getValue(it.id) }, { it.order }))
+            ?: break
+        routeEdges += routeEdgesTo(currentId, next.id, previous)
+        currentId = next.id
+        visitedObjectiveIds += next.id
+        gatedObjectives.remove(next)
+    }
+    if (gatedObjectives.isNotEmpty()) {
+        diagnostics += "Floor $floorId: ${gatedObjectives.size} gated route objectives are unreachable."
+    }
+
+    val goal = if (warpsAreScriptGated && currentId != entranceId) {
+        preferredExit
+    } else {
+        val highestPriority = reachableGoals.maxOf { it.goalPriority }
+        reachableGoals.asSequence()
+            .filter { it.goalPriority == highestPriority }
+            .maxWith(compareBy<RouteNode>(
+                { entranceDistances.getValue(it.id) },
+                { -it.order },
+            ))
+    }
+    if (goal != null && goal.id != currentId) {
+        val (distances, previous) = if (currentId == entranceId) {
+            entranceDistances to entrancePrevious
+        } else {
+            shortestPathsFrom(currentId, visitedObjectiveIds)
+        }
+        if (distances.getValue(goal.id).isFinite()) {
+            routeEdges += routeEdgesTo(currentId, goal.id, previous)
+        } else {
+            diagnostics += "Floor $floorId: selected route exit is unreachable after gated objectives."
+        }
+    }
+
+    val segments = mutableListOf<WalkthroughSegment>()
+    for ((edgeIndex, edge) in routeEdges.withIndex()) {
+        if (!edge.render) continue
+        val endsLeg = edgeIndex == routeEdges.lastIndex || !routeEdges[edgeIndex + 1].render
+        for (pointIndex in 0 until edge.points.lastIndex) {
+            val from = edge.points[pointIndex]
+            val to = edge.points[pointIndex + 1]
+            if (from == to) continue
             segments += WalkthroughSegment(
-                floorId, from.point, to.point, WalkthroughRelation.Explicit,
+                floorId,
+                from,
+                to,
+                endsLeg = endsLeg && pointIndex == edge.points.lastIndex - 1,
             )
         }
     }
     return WalkthroughRoute(segments, diagnostics)
 }
 
-private fun nodeComparator(from: RouteNode): Comparator<RouteNode> =
-    compareBy<RouteNode>(
-        { if (it.sectionId != null && it.sectionId == from.sectionId) 0 else 1 },
-        { from.point.distanceSquaredTo(it.point) },
-        { it.order },
-    )
+private const val INTERACTION_PRIORITY = 1
+private const val EVENT_COLLISION_PRIORITY = 2
+private const val EXIT_PRIORITY = 3
+private val DOOR_SIDE_SAMPLE_DISTANCES = listOf(4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0)
 
 private fun QuestObjectModel.worldPoint(): WalkthroughPoint = worldPosition.value.toPoint()
 private fun QuestObjectModel.destinationPoint(): WalkthroughPoint = destinationPosition.value.toPoint()
-private fun QuestObjectModel.controlsDoorId(doorId: Int): Boolean =
-    controlledDoorIds()?.contains(doorId) == true
 private fun world.phantasmal.web.questEditor.models.QuestNpcModel.worldPoint(): WalkthroughPoint =
     worldPosition.value.toPoint()
 private fun world.phantasmal.web.externals.three.Vector3.toPoint() = WalkthroughPoint(x, y, z)
 
-private fun List<WalkthroughPoint>.average(): WalkthroughPoint = WalkthroughPoint(
-    sumOf { it.x } / size,
-    sumOf { it.y } / size,
-    sumOf { it.z } / size,
-)
+private fun doorPassagePoints(
+    door: QuestObjectModel,
+    pathfinder: WalkthroughPathfinder,
+): Pair<WalkthroughPoint, WalkthroughPoint>? {
+    val center = door.worldPoint()
+    val yaw = door.worldRotation.value.y
+    val dx = sin(yaw)
+    val dz = cos(yaw)
+    for (distance in DOOR_SIDE_SAMPLE_DISTANCES) {
+        val first = WalkthroughPoint(
+            center.x - dx * distance, center.y, center.z - dz * distance,
+        )
+        val second = WalkthroughPoint(
+            center.x + dx * distance, center.y, center.z + dz * distance,
+        )
+        if (pathfinder.findPath(first, first) != null &&
+            pathfinder.findPath(second, second) != null &&
+            pathfinder.findPath(first, second) == null
+        ) return first to second
+    }
+    return null
+}
 
-private fun WalkthroughPoint.distanceSquaredTo(other: WalkthroughPoint): Double {
-    val dx = x - other.x
-    val dy = y - other.y
-    val dz = z - other.z
-    return dx * dx + dy * dy + dz * dz
+private fun List<WalkthroughPoint>.pathLength(): Double = windowed(2).sumOf { (from, to) ->
+    val dx = from.x - to.x
+    val dy = from.y - to.y
+    val dz = from.z - to.z
+    sqrt(dx * dx + dy * dy + dz * dz)
 }

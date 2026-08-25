@@ -24,6 +24,8 @@ internal fun QuestObjectModel.controlledDoorIds(): IntRange? {
 
 internal fun QuestObjectModel.isFenceObject(): Boolean = type in fenceObjectTypes
 
+internal fun QuestObjectModel.isDoorObject(): Boolean = type in doorObjectTypes
+
 private val fenceObjectTypes: Set<ObjectType> = setOf(
     ObjectType.LaserFence,
     ObjectType.LaserSquareFence,
