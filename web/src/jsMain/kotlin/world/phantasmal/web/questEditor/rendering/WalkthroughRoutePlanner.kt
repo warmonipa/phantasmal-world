@@ -1,9 +1,12 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.coroutines.coroutineContext
 import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
@@ -53,7 +56,7 @@ private data class RouteEdge(
 private data class InstructionFloor(val instruction: Instruction, val floorId: Int)
 
 /** Builds one primary physical route for each selected logical floor. */
-internal fun planWalkthroughRoute(
+internal suspend fun planWalkthroughRoute(
     quest: QuestModel,
     visibleFloorIds: Set<Int>,
     clientId: Int,
@@ -123,6 +126,7 @@ internal fun planWalkthroughRoute(
         .mapTo(mutableSetOf()) { it.opcode.mnemonic }
         .let { "warp_off" in it && "warp_on" in it }
     for (floorId in visibleFloorIds.sorted()) {
+        coroutineContext.ensureActive()
         val floorRoute = planFloor(
             quest,
             floorId,
@@ -135,11 +139,12 @@ internal fun planWalkthroughRoute(
         )
         segments += floorRoute.segments
         diagnostics += floorRoute.diagnostics
+        yield()
     }
     return WalkthroughRoute(segments, diagnostics)
 }
 
-private fun planFloor(
+private suspend fun planFloor(
     quest: QuestModel,
     floorId: Int,
     clientId: Int,
@@ -335,6 +340,9 @@ private fun planFloor(
                 render = true,
             )
         }
+        // All-pairs navigation is the dominant cost. Yield after each origin so rendering and
+        // newer editor input can run before the next chunk starts.
+        yield()
     }
     for ((source, destination) in warpEdges) {
         val from = nodes.first { it.id == source }
@@ -362,7 +370,7 @@ private fun planFloor(
         )
     }
 
-    fun shortestPathsFrom(
+    suspend fun shortestPathsFrom(
         sourceId: Int,
         visitedObjectiveIds: Set<Int> = emptySet(),
     ): Pair<Map<Int, Double>, Map<Int, RouteEdge>> {
@@ -370,6 +378,7 @@ private fun planFloor(
         val previous = mutableMapOf<Int, RouteEdge>()
         val unvisited = nodes.mapTo(mutableSetOf()) { it.id }
         distances[sourceId] = 0.0
+        var visitedCount = 0
         while (unvisited.isNotEmpty()) {
             val currentId = unvisited.minWithOrNull(
                 compareBy<Int>({ distances.getValue(it) }, { it }),
@@ -388,6 +397,7 @@ private fun planFloor(
                     previous[edge.toId] = edge
                 }
             }
+            if (++visitedCount % SHORTEST_PATH_YIELD_INTERVAL == 0) yield()
         }
         return distances to previous
     }
@@ -439,10 +449,12 @@ private fun planFloor(
     while (gatedObjectives.isNotEmpty()) {
         val (distances, previous) = shortestPathsFrom(currentId, visitedObjectiveIds)
         val reachable = gatedObjectives.filter { distances.getValue(it.id).isFinite() }
-        val candidates = reachable.map { candidate ->
-            candidate to shortestPathsFrom(
-                candidate.id, visitedObjectiveIds + candidate.id,
-            ).first
+        val candidates = buildList {
+            for (candidate in reachable) {
+                add(candidate to shortestPathsFrom(
+                    candidate.id, visitedObjectiveIds + candidate.id,
+                ).first)
+            }
         }
         val viableCandidates = candidates.filter { (candidate, candidateDistances) ->
             reachable.all { other ->
@@ -511,6 +523,7 @@ private fun planFloor(
 private const val INTERACTION_PRIORITY = 1
 private const val EVENT_COLLISION_PRIORITY = 2
 private const val EXIT_PRIORITY = 3
+private const val SHORTEST_PATH_YIELD_INTERVAL = 32
 private val DOOR_SIDE_SAMPLE_DISTANCES = listOf(4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0)
 
 private fun QuestObjectModel.worldPoint(): WalkthroughPoint = worldPosition.value.toPoint()

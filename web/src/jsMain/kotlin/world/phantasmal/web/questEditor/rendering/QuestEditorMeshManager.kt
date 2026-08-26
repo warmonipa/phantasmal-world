@@ -1,6 +1,10 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import mu.KotlinLogging
+import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.and
 import world.phantasmal.cell.cell
@@ -27,6 +31,7 @@ import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
 import world.phantasmal.web.questEditor.models.lobbyEventSeasonOk
 import world.phantasmal.web.questEditor.stores.*
+import world.phantasmal.web.externals.three.Object3D
 
 private val questEditorMeshLogger = KotlinLogging.logger {}
 
@@ -87,28 +92,33 @@ class QuestEditorMeshManager(
         val spatialInteractions: List<ScriptSpatialInteraction>,
     )
 
-    private data class WalkthroughEnvironment(
-        val pathfinder: WalkthroughPathfinder?,
-    )
-
     private val questParticleSpawns = questEditorStore.currentQuest.flatMap { quest ->
         quest?.particleSpawns ?: cell(emptyList())
     }
-    private val walkthroughInputs = questEditorStore.currentQuest.flatMap { quest ->
-        if (quest == null) cell(null)
-        else map(
-            quest.walkthroughRevision,
-            quest.scriptNpcSpawns,
-            quest.scriptSpatialInteractions,
-        ) { _, scriptNpcs, interactions ->
-            WalkthroughInputs(quest, scriptNpcs, interactions)
+    private val walkthroughInputs = questEditorUiStore.walkthroughPlayer.flatMap { player ->
+        if (player.clientId == null) {
+            cell(null)
+        } else {
+            questEditorStore.currentQuest.flatMap { quest ->
+                if (quest == null) cell(null)
+                else map(
+                    quest.walkthroughRevision,
+                    quest.scriptNpcSpawns,
+                    quest.scriptSpatialInteractions,
+                ) { _, scriptNpcs, interactions ->
+                    WalkthroughInputs(quest, scriptNpcs, interactions)
+                }
+            }
         }
     }
-    private val walkthroughEnvironment = renderContext.collisionGeometryObject.map { collisionGeometry ->
-        WalkthroughEnvironment(
-            collisionGeometry?.let(CollisionWalkthroughPathfinder::create),
-        )
+    private val walkthroughScope = addDisposable(
+        DisposableSupervisedScope(this::class, Dispatchers.Default),
+    )
+    private val walkthroughScheduler = WalkthroughRecalculationScheduler(walkthroughScope) {
+        delay(WALKTHROUGH_RECALCULATION_DELAY_MS)
     }
+    private var walkthroughCollisionGeometry: Object3D? = null
+    private var walkthroughPathfinder: WalkthroughPathfinder? = null
 
     private val symbolChatTriggerManager = addDisposable(
         SymbolChatTriggerManager(
@@ -272,25 +282,44 @@ class QuestEditorMeshManager(
             questEditorStore.currentArea,
             questEditorStore.currentFloorIds,
             questEditorUiStore.walkthroughPlayer,
-            walkthroughEnvironment,
-        ) { inputs, area, floorIds, player, environment ->
-            if (inputs == null || area == null || environment.pathfinder == null) {
-                walkthroughRenderer.setRoute(WalkthroughRoute(emptyList(), emptyList()), player.color)
-            } else {
-                val route = planWalkthroughRoute(
-                    quest = inputs.quest,
-                    visibleFloorIds = floorIds ?: setOf(area.id),
-                    clientId = player.clientId,
-                    scriptNpcSpawns = inputs.scriptNpcs,
-                    scriptSpatialInteractions = inputs.spatialInteractions,
-                    pathfinder = environment.pathfinder,
-                )
-                if (route.diagnostics.isNotEmpty()) {
-                    questEditorMeshLogger.debug {
-                        "Walkthrough diagnostics:\n${route.diagnostics.joinToString("\n")}"
+            renderContext.collisionGeometryObject,
+        ) { inputs, area, floorIds, player, collisionGeometry ->
+            walkthroughScheduler.cancel()
+            walkthroughRenderer.setRoute(EMPTY_WALKTHROUGH_ROUTE, player.color)
+
+            if (collisionGeometry !== walkthroughCollisionGeometry) {
+                walkthroughCollisionGeometry = collisionGeometry
+                walkthroughPathfinder = null
+            }
+
+            val clientId = player.clientId
+            if (inputs != null && area != null && clientId != null && collisionGeometry != null) {
+                walkthroughScheduler.schedule {
+                    coroutineContext.ensureActive()
+
+                    val pathfinder = walkthroughPathfinder
+                        ?: CollisionWalkthroughPathfinder.create(collisionGeometry)?.also {
+                            walkthroughPathfinder = it
+                        }
+                        ?: return@schedule
+                    val route = planWalkthroughRoute(
+                        quest = inputs.quest,
+                        visibleFloorIds = floorIds ?: setOf(area.id),
+                        clientId = clientId,
+                        scriptNpcSpawns = inputs.scriptNpcs,
+                        scriptSpatialInteractions = inputs.spatialInteractions,
+                        pathfinder = pathfinder,
+                    )
+                    coroutineContext.ensureActive()
+                    if (collisionGeometry !== walkthroughCollisionGeometry) return@schedule
+
+                    if (route.diagnostics.isNotEmpty()) {
+                        questEditorMeshLogger.debug {
+                            "Walkthrough diagnostics:\n${route.diagnostics.joinToString("\n")}"
+                        }
                     }
+                    walkthroughRenderer.setRoute(route, player.color)
                 }
-                walkthroughRenderer.setRoute(route, player.color)
             }
         }
     }
@@ -302,6 +331,9 @@ class QuestEditorMeshManager(
     }
 
 }
+
+private val EMPTY_WALKTHROUGH_ROUTE = WalkthroughRoute(emptyList(), emptyList())
+private const val WALKTHROUGH_RECALCULATION_DELAY_MS = 500L
 
 internal fun scriptNpcPreviewModels(
     spawns: List<ScriptNpcSpawn>,

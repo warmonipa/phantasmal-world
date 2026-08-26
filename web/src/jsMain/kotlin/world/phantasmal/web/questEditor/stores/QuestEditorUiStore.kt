@@ -11,7 +11,8 @@ import world.phantasmal.webui.stores.Store
 
 private val logger = KotlinLogging.logger {}
 
-enum class WalkthroughPlayer(val clientId: Int, val label: String, val color: Int) {
+enum class WalkthroughPlayer(val clientId: Int?, val label: String, val color: Int) {
+    Off(null, "Off", 0),
     Red(0, "Red", 0xF04444),
     Green(1, "Green", 0x33C96B),
     Yellow(2, "Yellow", 0xF2C94C),
@@ -33,7 +34,7 @@ class QuestEditorUiStore(
     private val _showFogBoundaries = mutableCell(false)
     private val _ultimate = mutableCell(true)
     private val _selectedLobbyEvent = mutableCell<LobbyEventFilter>(LobbyEventFilter.None)
-    private val _walkthroughPlayer = mutableCell(WalkthroughPlayer.Red)
+    private val _walkthroughPlayer = mutableCell(WalkthroughPlayer.Off)
 
     val devMode: Cell<Boolean> = _devMode
     val showCollisionGeometry: Cell<Boolean> = _showCollisionGeometry

@@ -1,8 +1,13 @@
 package world.phantasmal.web.questEditor.rendering
 
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import world.phantasmal.psolib.asm.BytecodeIr
@@ -22,7 +27,7 @@ import world.phantasmal.web.test.createQuestObjectModel
 
 class WalkthroughRoutePlannerTests : WebTestSuite {
     @Test
-    fun selected_client_uses_its_own_player_set_entrance() = test {
+    fun selected_client_uses_its_own_player_set_entrance() = testAsync {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(floorId = 1, clientId = 0, x = 0.0),
@@ -39,7 +44,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun primary_route_does_not_chain_reachable_side_objectives() = test {
+    fun primary_route_does_not_chain_reachable_side_objectives() = testAsync {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
@@ -54,7 +59,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun outgoing_exit_has_priority_over_optional_floor_interactions() = test {
+    fun outgoing_exit_has_priority_over_optional_floor_interactions() = testAsync {
         val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
             entity.data.setInt(52, 2)
             setWorldPosition(Vector3(40.0, 0.0, 0.0))
@@ -73,7 +78,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun script_gated_warps_visit_event_collisions_before_the_exit() = test {
+    fun script_gated_warps_visit_event_collisions_before_the_exit() = testAsync {
         val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
             entity.data.setInt(52, 2)
             setWorldPosition(Vector3(40.0, 0.0, 0.0))
@@ -97,7 +102,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun script_gated_progression_can_cross_a_one_way_same_floor_warp() = test {
+    fun script_gated_progression_can_cross_a_one_way_same_floor_warp() = testAsync {
         val warp = intraMapWarp(ObjectType.Warp, 1, sourceX = 5.0, destinationX = 100.0)
         val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
             entity.data.setInt(52, 2)
@@ -130,7 +135,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun warp_off_without_a_later_warp_on_does_not_invent_a_completion_route() = test {
+    fun warp_off_without_a_later_warp_on_does_not_invent_a_completion_route() = testAsync {
         val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
             entity.data.setInt(52, 2)
             setWorldPosition(Vector3(40.0, 0.0, 0.0))
@@ -146,7 +151,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun unlocked_door_bridges_disconnected_walkable_regions_without_a_guessed_room_edge() = test {
+    fun unlocked_door_bridges_disconnected_walkable_regions_without_a_guessed_room_edge() = testAsync {
         val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
             entity.data.setInt(52, 7)
             setWorldPosition(Vector3(50.0, 0.0, 0.0))
@@ -199,7 +204,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun always_open_door_bridges_disconnected_walkable_regions() = test {
+    fun always_open_door_bridges_disconnected_walkable_regions() = testAsync {
         val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
             entity.data.setInt(52, -1)
             setWorldPosition(Vector3(50.0, 0.0, 0.0))
@@ -228,7 +233,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun barba_ray_teleporter_is_a_standard_outgoing_exit() = test {
+    fun barba_ray_teleporter_is_a_standard_outgoing_exit() = testAsync {
         val exit = createQuestObjectModel(ObjectType.WarpInBarbaRayRoom, 1).apply {
             entity.destinationFloor = 2
             setWorldPosition(Vector3(40.0, 0.0, 0.0))
@@ -243,7 +248,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun required_same_floor_warp_is_a_non_rendered_transition() = test {
+    fun required_same_floor_warp_is_a_non_rendered_transition() = testAsync {
         val warp = createQuestObjectModel(ObjectType.Warp, 1).apply {
             setWorldPosition(Vector3(10.0, 0.0, 0.0))
             setDestinationPosition(Vector3(80.0, 0.0, 0.0))
@@ -270,7 +275,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun mixed_direction_insta_warps_follow_their_explicit_destinations() = test {
+    fun mixed_direction_insta_warps_follow_their_explicit_destinations() = testAsync {
         val first = intraMapWarp(ObjectType.InstaWarp, 1, sourceX = 10.0, destinationX = 100.0)
         val descending = intraMapWarp(
             ObjectType.InstaWarp,
@@ -312,7 +317,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun blue_teleporter_can_be_the_forward_exit_after_a_red_return_exit() = test {
+    fun blue_teleporter_can_be_the_forward_exit_after_a_red_return_exit() = testAsync {
         val returnExit = createQuestObjectModel(ObjectType.TeleporterEp2, 1).apply {
             entity.destinationFloor = 0
             entity.data.setInt(60, 1)
@@ -344,7 +349,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun unused_same_floor_warp_is_not_added_to_the_route() = test {
+    fun unused_same_floor_warp_is_not_added_to_the_route() = testAsync {
         val warp = createQuestObjectModel(ObjectType.Warp, 1).apply {
             setWorldPosition(Vector3(10.0, 0.0, 0.0))
             setDestinationPosition(Vector3(100.0, 0.0, 0.0))
@@ -363,7 +368,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun same_floor_quest_warp_uses_its_special_player_set_as_destination() = test {
+    fun same_floor_quest_warp_uses_its_special_player_set_as_destination() = testAsync {
         val destination = playerSet(1, 0, 80.0).apply { entity.data.setInt(52, 2) }
         val warp = createQuestObjectModel(ObjectType.QuestWarp, 1).apply {
             entity.data.setFloat(40, 2f)
@@ -392,7 +397,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun tower_progression_is_one_path_without_door_or_side_branch_fan_out() = test {
+    fun tower_progression_is_one_path_without_door_or_side_branch_fan_out() = testAsync {
         val sectionOrder = listOf(7, 1, 2, 3, 4, 5, 6, 8)
         val corridor = sectionOrder.mapIndexed { index, sectionId ->
             eventCollision(7, (index + 1) * 10.0).apply { setSectionId(sectionId) }
@@ -435,7 +440,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun route_uses_navigation_corners_instead_of_drawing_through_the_map() = test {
+    fun route_uses_navigation_corners_instead_of_drawing_through_the_map() = testAsync {
         val quest = createQuestModel(
             objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 20.0)),
         )
@@ -454,7 +459,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun missing_player_entrance_does_not_invent_a_route() = test {
+    fun missing_player_entrance_does_not_invent_a_route() = testAsync {
         val quest = createQuestModel(
             objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 10.0)),
         )
@@ -466,7 +471,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun unreachable_objective_does_not_create_a_guessed_line() = test {
+    fun unreachable_objective_does_not_create_a_guessed_line() = testAsync {
         val quest = createQuestModel(
             objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 100.0)),
         )
@@ -483,7 +488,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun visible_floors_produce_independent_routes() = test {
+    fun visible_floors_produce_independent_routes() = testAsync {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
@@ -501,7 +506,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun forest_door_id_masks_signed_metadata_before_validation() = test {
+    fun forest_door_id_masks_signed_metadata_before_validation() = testAsync {
         val door = createQuestObjectModel(ObjectType.ForestDoor, 1).apply {
             entity.data.setInt(52, 0x80000009u.toInt())
         }
@@ -511,6 +516,38 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
 
         assertEquals(9..9, door.controlledDoorIds())
         assertNull(unsetDoor.controlledDoorIds())
+    }
+
+    @Test
+    fun all_pairs_planning_yields_and_can_be_cancelled_between_origins() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 20.0),
+                eventCollision(1, 40.0),
+                eventCollision(1, 60.0),
+            ),
+        )
+        var pathCount = 0
+
+        coroutineScope {
+            val planning = launch(start = CoroutineStart.UNDISPATCHED) {
+                plan(
+                    quest,
+                    setOf(1),
+                    clientId = 0,
+                    pathfinder = WalkthroughPathfinder { from, to ->
+                        pathCount++
+                        listOf(from, to)
+                    },
+                )
+            }
+
+            assertTrue(pathCount > 0)
+            assertFalse(planning.isCompleted)
+
+            planning.cancelAndJoin()
+        }
     }
 
     private fun playerSet(floorId: Int, clientId: Int, x: Double) =
@@ -547,7 +584,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             mutableListOf(Instruction(opcode, emptyList(), valid = true, srcLoc = null)),
         )
 
-    private fun plan(
+    private suspend fun plan(
         quest: QuestModel,
         visibleFloorIds: Set<Int>,
         clientId: Int,

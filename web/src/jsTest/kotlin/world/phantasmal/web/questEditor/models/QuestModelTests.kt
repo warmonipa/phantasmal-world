@@ -27,6 +27,33 @@ import kotlin.test.assertTrue
 
 class QuestModelTests : WebTestSuite {
     @Test
+    fun walkthrough_revision_follows_event_list_and_nested_action_changes() = test {
+        val unlock = QuestEventActionModel.Door.Unlock(1)
+        val event = QuestEventModel(
+            id = 1,
+            floorId = 2,
+            sectionId = 3,
+            waveId = 4,
+            delay = 5,
+            unknown = 6,
+            actions = mutableListOf(unlock),
+        )
+        val quest = createQuestModel(events = listOf(event))
+        var revisionCount = 0
+        disposer.add(quest.walkthroughRevision.observeNow { revisionCount++ })
+
+        unlock.setDoorId(2)
+        event.addAction(QuestEventActionModel.TriggerEvent(3))
+        quest.addEvent(
+            1,
+            QuestEventModel(2, 2, 3, 4, 5, 6, mutableListOf()),
+        )
+        quest.removeEvent(event)
+
+        assertEquals(5, revisionCount)
+    }
+
+    @Test
     fun walkthrough_revision_does_not_change_for_non_spatial_section_initialization() = test {
         val obj = createQuestObjectModel(ObjectType.Teleporter, floorId = 1)
         val quest = createQuestModel(objects = listOf(obj))

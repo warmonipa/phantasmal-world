@@ -164,8 +164,9 @@ anchors, door counts, or straight-line guesses manufacture connectivity. Rendere
 follow navigation corners and repeatedly sample the local collision surface, keeping a small
 clearance above uneven or vertically stacked ground.
 
-The Route selector maps Red, Green, Yellow, and Blue to client IDs 0 through 3. Changing it replans
-from the matching Player Set without changing the editor's entity selection; Red is the default.
+The Route selector is off by default, and route-only quest analysis and collision pathfinding remain
+inactive in that state. Red, Green, Yellow, and Blue map to client IDs 0 through 3. Changing the
+selection replans from the matching Player Set without changing the editor's entity selection.
 Direct client/floor dispatch is pruned for that route, while unresolved runtime branches remain
 conservative. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking, and
 own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
@@ -173,8 +174,11 @@ own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
 Logical floors, map areas, and variants are published as one editor-state transaction. Area geometry
 loads asynchronously: the previous collision/render pair is cleared immediately, canceled loads
 cannot publish stale or partial geometry, and a route is planned only after the matching collision
-object and its bounding box are both ready. Route planning currently runs synchronously on that
-stable snapshot, so only semantic spatial or script changes invalidate it; entity section readiness
+object and its bounding box are both ready. When route display is enabled, any relevant edit clears
+the old route and restarts a fixed 500 ms delay. The route and its cached collision pathfinder are
+computed once after inputs remain unchanged for that delay; continuous edits do not trigger live
+replanning. Planning cooperatively yields between floors, all-pairs pathfinding chunks, and longer
+shortest-path scans so newer input can cancel an in-flight calculation. Entity section readiness
 without a position change must not trigger another plan.
 
 ## Quest Editor Object Visual Classes

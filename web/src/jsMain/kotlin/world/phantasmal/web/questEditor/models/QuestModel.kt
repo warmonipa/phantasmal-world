@@ -260,13 +260,16 @@ class QuestModel(
                 npc.properties.value.map { it.value }
         },
     ) { _, _ -> }
+    private val walkthroughEventRevision: Cell<List<QuestEventModel>> =
+        _events.dependingOnElements { event -> arrayOf(event.walkthroughRevision) }
 
     /** Invalidates the spatial/causal walkthrough after any relevant nested quest edit. */
     val walkthroughRevision: Cell<Unit> = map(
         walkthroughSpatialRevision,
+        walkthroughEventRevision,
         _bytecodeRevision,
         _floorMappingRevision,
-    ) { _, _, _ -> }
+    ) { _, _, _, _ -> }
 
     init {
         require(npcs.all { it.placementPolicy === npcPlacementPolicy }) {

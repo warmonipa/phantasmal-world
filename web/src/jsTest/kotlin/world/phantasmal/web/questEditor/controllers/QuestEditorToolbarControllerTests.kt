@@ -17,6 +17,7 @@ import world.phantasmal.psolib.fileFormats.quest.writeQuestToBinDat
 import world.phantasmal.web.core.commands.Command
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
+import world.phantasmal.web.questEditor.stores.WalkthroughPlayer
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -25,6 +26,24 @@ import world.phantasmal.webui.files.FileHandle
 import kotlin.test.*
 
 class QuestEditorToolbarControllerTests : WebTestSuite {
+    @Test
+    fun walkthrough_route_is_disabled_by_default_and_can_be_enabled_for_a_player() = test {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+        ))
+
+        assertEquals(WalkthroughPlayer.Off, ctrl.walkthroughPlayer.value)
+        assertEquals(WalkthroughPlayer.entries, ctrl.walkthroughPlayers.value)
+
+        ctrl.setWalkthroughPlayer(WalkthroughPlayer.Blue)
+
+        assertEquals(WalkthroughPlayer.Blue, ctrl.walkthroughPlayer.value)
+        assertEquals(WalkthroughPlayer.Blue, components.questEditorUiStore.walkthroughPlayer.value)
+    }
+
     @Test
     fun area_selection_publishes_one_consistent_store_state() = test {
         val ctrl = disposer.add(QuestEditorToolbarController(
