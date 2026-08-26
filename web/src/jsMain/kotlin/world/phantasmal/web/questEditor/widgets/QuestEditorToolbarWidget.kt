@@ -54,35 +54,24 @@ class QuestEditorToolbarWidget(
                             MenuItem.SubMenu(
                                 label = "Open Lobby",
                                 visible = ctrl.showLobbyMenu,
-                                items = (1..10).map { v ->
-                                    MenuItem.Action(
-                                        label = "Lobby ${v.toString().padStart(2, '0')}",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(v) } },
+                                items = listOf(
+                                    "Section ID (01-10)" to (1..10),
+                                    "Version 2 (11-20)" to (11..20),
+                                    "EP3 Card (21-25)" to (21..25),
+                                    "Go Ball (26-30)" to (26..30),
+                                ).map { (label, range) ->
+                                    MenuItem.SubMenu(
+                                        label = label,
+                                        items = range.map { v ->
+                                            MenuItem.Action(
+                                                label = "Lobby ${v.toString().padStart(2, '0')}",
+                                                onAction = {
+                                                    scope.launch { ctrl.loadLobbyQuest(v) }
+                                                },
+                                            )
+                                        },
                                     )
-                                } + listOf(
-                                    MenuItem.Separator,
-                                    MenuItem.Action(
-                                        label = "EP3 Green",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(11) } },
-                                    ),
-                                    MenuItem.Action(
-                                        label = "EP3 Red",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(12) } },
-                                    ),
-                                    MenuItem.Action(
-                                        label = "EP3 Yellow",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(13) } },
-                                    ),
-                                    MenuItem.Separator,
-                                    MenuItem.Action(
-                                        label = "Soccer 1",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(14) } },
-                                    ),
-                                    MenuItem.Action(
-                                        label = "Soccer 2",
-                                        onAction = { scope.launch { ctrl.loadLobbyQuest(15) } },
-                                    ),
-                                ),
+                                },
                             ),
                             MenuItem.Action(
                                 label = "Open File...",
@@ -325,12 +314,13 @@ class QuestEditorToolbarWidget(
 
                         val formatSelect = Select(
                             label = "Format:",
-                            items = listCell(*ctrl.availableSaveFormats.toTypedArray()),
+                            items = ctrl.availableSaveFormats,
                             selected = ctrl.saveFormat,
                             itemToString = {
                                 when (it) {
                                     SaveFormat.QST -> "QST (.qst)"
                                     SaveFormat.BIN_DAT -> "BIN + DAT"
+                                    SaveFormat.LOBBY_DAT -> "Lobby DAT (.dat)"
                                     SaveFormat.FREE_ROAM -> "Free Roam (Directory)"
                                 }
                             },

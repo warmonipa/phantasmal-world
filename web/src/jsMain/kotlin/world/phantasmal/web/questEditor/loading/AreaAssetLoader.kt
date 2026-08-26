@@ -162,25 +162,22 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         }
 
         val (rawBaseName, hasVariants) = episodeBaseNames[areaId]
+        val isLobby = areaVariant.area.name == "Lobby"
 
         // Ultimate areas are recolored only in Episode I; their assets use an "a" prefix
         // (e.g. forest01 -> aforest01). Areas without an Ultimate variant keep the normal name.
-        val baseName = if (ultimate && episode == Episode.I && rawBaseName in ULTIMATE_AREA_BASE_NAMES) {
-            "a$rawBaseName"
+        val baseName = if (isLobby) {
+            getLobbyVariant(variantId)?.assetBaseName ?: "map_lobby_01"
+        } else if (ultimate && episode == Episode.I && rawBaseName in ULTIMATE_AREA_BASE_NAMES) {
+            "map_a$rawBaseName"
         } else {
-            rawBaseName
-        }
-        val isLobby = areaVariant.area.name == "Lobby"
-
-        // Lobby variant 0 has no dedicated texture; use variant 1 instead.
-        if (isLobby && variantId == 0 && type == AssetType.Texture) {
-            variantId = 1
+            "map_$rawBaseName"
         }
 
         // Build the variant suffix (e.g. "_01"). Most areas omit the variant suffix for textures
         // because all variants share the same texture file. The lobby is an exception: each lobby
         // variant has its own texture.
-        val variantSuffix = if (hasVariants && (type != AssetType.Texture || isLobby)) {
+        val variantSuffix = if (!isLobby && hasVariants && type != AssetType.Texture) {
             "_${variantId.toString().padStart(2, '0')}"
         } else {
             ""
@@ -192,7 +189,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
             AssetType.Texture -> ".xvm"
         }
 
-        return "/areas/map_${baseName}${variantSuffix}${typeSuffix}"
+        return "/areas/${baseName}${variantSuffix}${typeSuffix}"
     }
 
     private fun areaGeometryToObject3DAndSections(

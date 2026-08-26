@@ -16,7 +16,9 @@ import world.phantasmal.psolib.fileFormats.quest.*
 import world.phantasmal.web.questEditor.loading.FreeRoamAreaInfo
 import world.phantasmal.web.questEditor.loading.extractRawEntityDataByFloor
 import world.phantasmal.web.questEditor.loading.parseFreeRoamFilename
+import world.phantasmal.web.questEditor.loading.parseLobbyDatFilename
 import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.web.core.PwToolType
 import world.phantasmal.web.core.files.cursor
 import world.phantasmal.web.core.files.writeBuffer
@@ -44,6 +46,7 @@ private val logger = KotlinLogging.logger {}
 enum class SaveFormat {
     QST,
     BIN_DAT,
+    LOBBY_DAT,
     FREE_ROAM,
 }
 
@@ -97,11 +100,13 @@ class QuestEditorToolbarController(
     val saveFormat: Cell<SaveFormat> = _saveFormat
     val compressedVisible: Cell<Boolean> = _saveFormat.map { it == SaveFormat.BIN_DAT }
     val freeRoamFormatAvailable: Boolean = UserAgentFeatures.directoryPickerApi
-    val availableSaveFormats: List<SaveFormat> = buildList {
+    private val standardSaveFormats: List<SaveFormat> = buildList {
         add(SaveFormat.QST)
         add(SaveFormat.BIN_DAT)
         if (UserAgentFeatures.directoryPickerApi) add(SaveFormat.FREE_ROAM)
     }
+    private val _availableSaveFormats = mutableListCell(*standardSaveFormats.toTypedArray())
+    val availableSaveFormats: ListCell<SaveFormat> = _availableSaveFormats
 
     // Result
 
@@ -505,7 +510,11 @@ class QuestEditorToolbarController(
     suspend fun loadLobbyQuest(variant: Int) {
         freeRoam.clearFreeRoamState()
         _showCityMap.value = false
-        setCurrentQuest(fileHolder = null, Version.BB_V4, questEditorStore.getLobbyQuest(variant))
+        setCurrentQuest(
+            FileHolder.LobbyDat(null, "lobby_${variant.toString().padStart(2, '0')}.dat"),
+            Version.BB_V4,
+            questEditorStore.getLobbyQuest(variant),
+        )
     }
 
     suspend fun setShowCityMap(show: Boolean) {
@@ -523,6 +532,7 @@ class QuestEditorToolbarController(
             when (val strategy = resolveLoadStrategy(newFiles)) {
                 is QuestLoadStrategy.Qst -> loadQst(strategy)
                 is QuestLoadStrategy.BinDat -> loadBinDat(strategy)
+                is QuestLoadStrategy.LobbyDat -> loadLobbyDat(strategy)
                 is QuestLoadStrategy.FreeRoam -> loadFreeRoam(strategy)
                 null -> setResult(
                     Failure(
@@ -559,6 +569,13 @@ class QuestEditorToolbarController(
         // Check if a single file matches a free roam pattern (bin or dat).
         val freeRoamFile = binFile ?: datFile
         if (freeRoamFile != null) {
+            if (datFile != null && binFile == null) {
+                val lobbyVariant = parseLobbyDatFilename(datFile.name)
+                if (lobbyVariant != null) {
+                    return QuestLoadStrategy.LobbyDat(datFile, lobbyVariant)
+                }
+            }
+
             val freeRoamInfo = parseFreeRoamFilename(freeRoamFile.name)
             if (freeRoamInfo != null) return QuestLoadStrategy.FreeRoam(freeRoamInfo)
         }
@@ -597,6 +614,17 @@ class QuestEditorToolbarController(
                 parseResult.value.quest,
             )
         }
+    }
+
+    private suspend fun loadLobbyDat(strategy: QuestLoadStrategy.LobbyDat) {
+        freeRoam.clearFreeRoamState()
+        _showCityMap.value = false
+        val objectData = strategy.file.cursor(Endianness.Little).buffer()
+        setCurrentQuest(
+            FileHolder.LobbyDat(strategy.file, strategy.file.name),
+            Version.BB_V4,
+            questEditorStore.getLobbyQuest(strategy.variant, objectData),
+        )
     }
 
     private suspend fun loadFreeRoam(strategy: QuestLoadStrategy.FreeRoam) {
@@ -694,6 +722,15 @@ class QuestEditorToolbarController(
                     return
                 }
 
+                is FileHolder.LobbyDat -> {
+                    val file = holder.file
+                    if (file is FileHandle.System) {
+                        file.writeBuffer(extractLobbyObjectData(quest))
+                        questEditorStore.questSaved()
+                        return
+                    }
+                }
+
                 else -> {}
             }
 
@@ -743,6 +780,7 @@ class QuestEditorToolbarController(
             when (_saveFormat.value) {
                 SaveFormat.QST -> saveAsQst(quest)
                 SaveFormat.BIN_DAT -> saveAsBinDat(quest)
+                SaveFormat.LOBBY_DAT -> saveAsLobbyDat(quest)
                 SaveFormat.FREE_ROAM -> saveAsFreeRoam(quest)
             }
         } catch (e: Throwable) {
@@ -839,6 +877,26 @@ class QuestEditorToolbarController(
             val binHandle = downloadFile(bin.arrayBuffer, binFilename)
             val datHandle = downloadFile(dat.arrayBuffer, datFilename)
             setFileHolder(FileHolder.BinDat(binHandle, datHandle, compressed.value))
+            questEditorStore.questSaved()
+        }
+    }
+
+    private suspend fun saveAsLobbyDat(quest: QuestModel) {
+        val baseName = filename.value.trim().removeSuffix(".dat")
+        val datFilename = "$baseName.dat"
+        val objectData = extractLobbyObjectData(quest)
+
+        val fileHandle = if (UserAgentFeatures.fileSystemApi) {
+            showSaveFilePicker(
+                listOf(FileType("Lobby object data", mapOf("application/octet-stream" to setOf(".dat"))))
+            )
+        } else {
+            downloadFile(objectData.arrayBuffer, datFilename)
+        }
+
+        if (fileHandle != null) {
+            if (fileHandle is FileHandle.System) fileHandle.writeBuffer(objectData)
+            setFileHolder(FileHolder.LobbyDat(fileHandle, datFilename))
             questEditorStore.questSaved()
         }
     }
@@ -1111,10 +1169,15 @@ class QuestEditorToolbarController(
     }
 
     private fun setFileHolder(fileHolder: FileHolder?) {
+        _availableSaveFormats.replaceAll(
+            if (fileHolder is FileHolder.LobbyDat) listOf(SaveFormat.LOBBY_DAT)
+            else standardSaveFormats
+        )
         // Default save format based on source format.
         setSaveFormat(when (fileHolder) {
             is FileHolder.Qst -> SaveFormat.QST
             is FileHolder.BinDat -> SaveFormat.BIN_DAT
+            is FileHolder.LobbyDat -> SaveFormat.LOBBY_DAT
             is FileHolder.FreeRoamDir -> SaveFormat.FREE_ROAM
             null -> SaveFormat.QST
         })
@@ -1123,6 +1186,7 @@ class QuestEditorToolbarController(
         setCompressed(when (fileHolder) {
             is FileHolder.Qst -> true
             is FileHolder.BinDat -> fileHolder.compressed
+            is FileHolder.LobbyDat -> false
             is FileHolder.FreeRoamDir -> false
             null -> true
         })
@@ -1135,6 +1199,9 @@ class QuestEditorToolbarController(
                     fileHolder.binFile.basename()
                         ?: fileHolder.datFile.basename()
                         ?: fileHolder.binFile.name
+
+                is FileHolder.LobbyDat ->
+                    (fileHolder.file?.basename() ?: fileHolder.defaultName).removeSuffix(".dat")
 
                 is FileHolder.FreeRoamDir ->
                     fileHolder.binName
@@ -1265,12 +1332,14 @@ class QuestEditorToolbarController(
     private sealed class QuestLoadStrategy {
         class Qst(val file: FileHandle) : QuestLoadStrategy()
         class BinDat(val binFile: FileHandle, val datFile: FileHandle) : QuestLoadStrategy()
+        class LobbyDat(val file: FileHandle, val variant: Int) : QuestLoadStrategy()
         class FreeRoam(val info: FreeRoamAreaInfo) : QuestLoadStrategy()
     }
 
     private sealed class FileHolder {
         class Qst(val file: FileHandle) : FileHolder()
         class BinDat(val binFile: FileHandle, val datFile: FileHandle, val compressed: Boolean) : FileHolder()
+        class LobbyDat(val file: FileHandle?, val defaultName: String) : FileHolder()
         class FreeRoamDir(
             val dirHandle: FileSystemDirectoryHandle,
             val binName: String?,
@@ -1280,6 +1349,14 @@ class QuestEditorToolbarController(
     }
 
     companion object {
+        private const val LOBBY_FLOOR_ID = 15
+
+        private fun extractLobbyObjectData(quest: QuestModel): Buffer {
+            val entityDataByFloor = extractRawEntityDataByFloor(convertQuestFromModel(quest))
+            return entityDataByFloor[LOBBY_FLOOR_ID]?.first
+                ?: Buffer.withSize(0, Endianness.Little)
+        }
+
         /**
          * Detects Japanese quest files by filename suffix (e.g., `quest01_j.bin`).
          */

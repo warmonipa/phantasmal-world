@@ -53,8 +53,44 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
         return loadQuest("/city/city_ep_$ver.qst")
     }
 
-    suspend fun loadLobbyQuest(variant: Int): Quest =
-        loadQuest("/lobby/lobby_${variant.toString().padStart(2, '0')}.qst")
+    suspend fun loadLobbyQuest(variant: Int, objectData: Buffer? = null): Quest {
+        val definition = requireNotNull(getLobbyVariant(variant)) {
+            "Unknown lobby number $variant."
+        }
+        // All lobby entries use the same editor quest shell. The floor mapping and object DAT
+        // below select the actual Ephinea lobby.
+        val quest = loadQuest("/lobby/lobby_01.qst")
+        quest.name = "Lobby ${variant.toString().padStart(2, '0')}"
+        quest.floorMappings = listOf(
+            FloorMapping(
+                floorId = LOBBY_FLOOR_ID,
+                mapId = LOBBY_FLOOR_ID,
+                mapAreaId = LOBBY_FLOOR_ID,
+                mapVariation = variant,
+            )
+        )
+
+        val lobbyObjectData = objectData ?: Buffer.fromArrayBuffer(
+            assetLoader.loadArrayBuffer("/quests/lobby/data/${definition.datFileName}"),
+            Endianness.Little,
+        )
+
+        val dat = parseDat(
+            synthesizeDat(
+                listOf(
+                    DatFloorSection(
+                        floorId = LOBBY_FLOOR_ID,
+                        objData = lobbyObjectData,
+                        npcData = Buffer.withSize(0, Endianness.Little),
+                    )
+                )
+            )
+        )
+        quest.objects.clear()
+        quest.objects.addAll(dat.objs.map { QuestObject(it.floorId, it.data) })
+
+        return quest
+    }
 
     /**
      * Load a free roam quest from the user's data directory (with data.gsl fallback).
@@ -373,4 +409,8 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
 
     private suspend fun loadQuest(path: String): Quest =
         parseQstToQuest(cache.get(path).cursor(Endianness.Little)).unwrap().quest
+
+    private companion object {
+        const val LOBBY_FLOOR_ID = 15
+    }
 }
