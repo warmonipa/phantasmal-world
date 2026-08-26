@@ -167,7 +167,9 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         // Ultimate areas are recolored only in Episode I; their assets use an "a" prefix
         // (e.g. forest01 -> aforest01). Areas without an Ultimate variant keep the normal name.
         val baseName = if (isLobby) {
-            getLobbyVariant(variantId)?.assetBaseName ?: "map_lobby_01"
+            requireNotNull(getLobbyAssetBaseName(variantId, type == AssetType.Texture)) {
+                "Unknown lobby variant $variantId."
+            }
         } else if (ultimate && episode == Episode.I && rawBaseName in ULTIMATE_AREA_BASE_NAMES) {
             "map_a$rawBaseName"
         } else {

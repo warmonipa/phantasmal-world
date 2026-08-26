@@ -11,9 +11,18 @@ data class WalkthroughEventActivation(
     val eventId: Int,
 )
 
+/** A synchronized door-switch flag set by a reachable quest-script entry label. */
+data class WalkthroughDoorUnlock(
+    val floorId: Int,
+    val doorId: Int,
+)
+
 /** Client-specific script reachability used to build one walkthrough route. */
 data class WalkthroughScriptAnalysis(
     val eventActivations: Set<WalkthroughEventActivation>,
+    val doorUnlocks: Set<WalkthroughDoorUnlock>,
+    val allDoorsUnlockedFloorIds: Set<Int>,
+    val warpsEnabledFloorIds: Set<Int>,
     val reachableInstructionFloors: Map<Instruction, Set<Int>>,
 )
 
@@ -61,7 +70,9 @@ fun analyzeWalkthroughScript(
         for (label in block.segment.labels) labelToBlock[label] = block
     }
     val entry = labelToBlock[entryLabel]
-        ?: return WalkthroughScriptAnalysis(emptySet(), emptyMap())
+        ?: return WalkthroughScriptAnalysis(
+            emptySet(), emptySet(), emptySet(), emptySet(), emptyMap(),
+        )
 
     val sequentialNext = mutableMapOf<BasicBlock, BasicBlock>()
     for (i in cfg.blocks.indices) {
@@ -82,6 +93,9 @@ fun analyzeWalkthroughScript(
     )
 
     val activations = linkedSetOf<WalkthroughEventActivation>()
+    val doorUnlocks = linkedSetOf<WalkthroughDoorUnlock>()
+    val allDoorsUnlockedFloorIds = linkedSetOf<Int>()
+    val warpsEnabledFloorIds = linkedSetOf<Int>()
     val reachableInstructionFloors = mutableMapOf<Instruction, MutableSet<Int>>()
     val queue = ArrayDeque<State>()
     val visited = mutableSetOf<State>()
@@ -123,6 +137,15 @@ fun analyzeWalkthroughScript(
                         }
                     }
                 }
+                "unlock_door2" -> {
+                    for (floorId in resolveInstructionInts(cfg, instruction, 0, knownRegs)) {
+                        for (doorId in resolveInstructionInts(cfg, instruction, 1, knownRegs)) {
+                            doorUnlocks.add(WalkthroughDoorUnlock(floorId, doorId))
+                        }
+                    }
+                }
+                "masterkey_off" -> allDoorsUnlockedFloorIds.add(state.floorId)
+                "warp_on" -> warpsEnabledFloorIds.add(state.floorId)
             }
             clientRegs = updateClientIdRegisters(instruction, clientRegs)
             floorRegs = updateFloorIdRegisters(instruction, floorRegs)
@@ -280,6 +303,9 @@ fun analyzeWalkthroughScript(
 
     return WalkthroughScriptAnalysis(
         activations,
+        doorUnlocks,
+        allDoorsUnlockedFloorIds,
+        warpsEnabledFloorIds,
         reachableInstructionFloors.mapValues { it.value.toSet() },
     )
 }

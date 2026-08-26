@@ -147,12 +147,14 @@ The shortest route to that endpoint is rendered; other reachable interactions ar
 side trips. Spawn, trigger, switch, and door actions describe quest state rather than player
 movement, so they never create spatial route nodes or duplicate lines.
 
-When quest bytecode explicitly disables and later enables map warps, the exit is completion-gated.
-On those floors, reachable DAT event collisions are visited before the exit. Candidate order keeps
-all remaining objectives and the terminal exit reachable, so one-way same-floor warps are not taken
-too early. Door objects provide physical navigation portals only when their native door ID is
-uncontrolled (`-1`) or after the Event Collision chain that unlocks that door has been visited; the
-unlock action itself is not rendered as a route branch.
+When reachable quest bytecode explicitly disables and later enables map warps on a floor, or a
+reachable DAT/script interaction unlocks a controlled door, the exit is completion-gated. On that
+floor, the interactions which enable warps or unlock doors are visited before the exit; warp-gated
+floors also visit their reachable DAT event collisions. Candidate order keeps all remaining
+objectives and the terminal exit reachable, so one-way same-floor warps are not taken too early.
+Door objects provide physical navigation portals only when their native door ID is uncontrolled
+(`-1`) or after the DAT event chain or object/NPC/spatial interaction script that unlocks that door
+has been visited; the unlock action itself is not rendered as a route branch.
 
 Paths are computed on walkable collision triangles; walls and steep collision faces are excluded
 before navigation connectivity is built. Every object that exposes an intra-map destination,
@@ -280,7 +282,8 @@ built-in or loose lobby is saved as a `.dat`; it is not offered as a synthetic `
 
 Keep lobby numbers, asset basenames, and DAT filenames together in `FreeRoamAreaDefs.kt` via
 `LOBBY_VARIANTS`. Loading, menu construction, and asset lookup consume that table so the 30-entry
-layout stays synchronized.
+layout stays synchronized. Legacy quest variant 0 remains outside the numbered layout: it uses
+`map_lobby_00` geometry with the lobby 1 texture because no `map_lobby_00.xvm` exists.
 
 ### web:shared
 

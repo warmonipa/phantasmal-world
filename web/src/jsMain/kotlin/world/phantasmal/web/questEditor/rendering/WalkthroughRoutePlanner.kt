@@ -121,10 +121,15 @@ internal suspend fun planWalkthroughRoute(
 
     val segments = mutableListOf<WalkthroughSegment>()
     val diagnostics = mutableListOf<String>()
-    val warpsAreScriptGated = quest.bytecodeIr.instructionSegments()
-        .flatMap { it.instructions }
-        .mapTo(mutableSetOf()) { it.opcode.mnemonic }
-        .let { "warp_off" in it && "warp_on" in it }
+    val warpInstructionsByFloor = mutableMapOf<Int, MutableSet<String>>()
+    for ((instruction, floorId) in reachableInstructionFloors) {
+        if (instruction.opcode.mnemonic == "warp_off" || instruction.opcode.mnemonic == "warp_on") {
+            warpInstructionsByFloor.getOrPut(floorId, ::mutableSetOf) += instruction.opcode.mnemonic
+        }
+    }
+    val scriptGatedFloorIds = warpInstructionsByFloor
+        .filterValues { "warp_off" in it && "warp_on" in it }
+        .keys
     for (floorId in visibleFloorIds.sorted()) {
         coroutineContext.ensureActive()
         val floorRoute = planFloor(
@@ -134,8 +139,9 @@ internal suspend fun planWalkthroughRoute(
             scriptNpcSpawns,
             scriptSpatialInteractions,
             ::isReachable,
+            ::analysis,
             pathfinder,
-            warpsAreScriptGated,
+            floorId in scriptGatedFloorIds,
         )
         segments += floorRoute.segments
         diagnostics += floorRoute.diagnostics
@@ -151,6 +157,7 @@ private suspend fun planFloor(
     scriptNpcSpawns: List<ScriptNpcSpawn>,
     scriptSpatialInteractions: List<ScriptSpatialInteraction>,
     isReachable: (instruction: Instruction?, floorId: Int) -> Boolean,
+    analyzeScript: (label: Int, floorId: Int) -> WalkthroughScriptAnalysis,
     pathfinder: WalkthroughPathfinder,
     warpsAreScriptGated: Boolean,
 ): WalkthroughRoute {
@@ -161,7 +168,34 @@ private suspend fun planFloor(
     val warpEdges = mutableListOf<Pair<Int, Int>>()
     val doorEdges = mutableListOf<Triple<Int, Int, Set<Int>>>()
     val eventCollisionNodes = mutableMapOf<Int, MutableSet<Int>>()
+    val scriptProgressionObjectiveIds = mutableSetOf<Int>()
+    val scriptUnlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
+    val allDoorUnlockingObjectiveIds = mutableSetOf<Int>()
     var nextId = 0
+
+    val floorEventsById = quest.events.value.filter { it.floorId == floorId }.groupBy {
+        it.id.value
+    }
+    fun unlockedDoorIds(rootEventId: Int): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val pending = ArrayDeque<Int>()
+        val visited = mutableSetOf<Int>()
+        pending += rootEventId
+        while (pending.isNotEmpty()) {
+            val eventId = pending.removeFirst()
+            if (!visited.add(eventId)) continue
+            for (event in floorEventsById[eventId].orEmpty()) {
+                for (action in event.actions.value) {
+                    when (action) {
+                        is QuestEventActionModel.Door.Unlock -> result += action.doorId.value
+                        is QuestEventActionModel.TriggerEvent -> pending += action.eventId.value
+                        else -> Unit
+                    }
+                }
+            }
+        }
+        return result
+    }
 
     fun addNode(
         point: WalkthroughPoint,
@@ -174,6 +208,30 @@ private suspend fun planFloor(
         val id = nextId++
         nodes += RouteNode(id, point, kind, nodes.size, goalPriority)
         return id
+    }
+
+    fun registerScriptProgression(nodeId: Int, label: Int, entryFloorId: Int) {
+        val analysis = analyzeScript(label, entryFloorId)
+        val scriptUnlockedDoorIds = analysis.doorUnlocks.asSequence()
+            .filter { it.floorId == floorId }
+            .mapTo(mutableSetOf()) { it.doorId }
+        for (activation in analysis.eventActivations) {
+            if (activation.floorId == floorId) {
+                scriptUnlockedDoorIds += unlockedDoorIds(activation.eventId)
+            }
+        }
+        for (doorId in scriptUnlockedDoorIds) {
+            scriptUnlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += nodeId
+        }
+        if (floorId in analysis.allDoorsUnlockedFloorIds) {
+            allDoorUnlockingObjectiveIds += nodeId
+        }
+        if (scriptUnlockedDoorIds.isNotEmpty() ||
+            floorId in analysis.allDoorsUnlockedFloorIds ||
+            floorId in analysis.warpsEnabledFloorIds
+        ) {
+            scriptProgressionObjectiveIds += nodeId
+        }
     }
 
     val entrance = objects.firstOrNull { obj ->
@@ -197,13 +255,17 @@ private suspend fun planFloor(
                 )
                 eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf).add(node)
             }
-            obj.entity.activeScriptLabel != null ->
-                addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+            obj.entity.activeScriptLabel != null -> {
+                val node = addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+                registerScriptProgression(node, obj.entity.activeScriptLabel!!, floorId)
+            }
         }
     }
     for (npc in npcs) {
-        if (npc.entity.activeScriptLabelOrNull() != null) {
-            addNode(npc.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+        val label = npc.entity.activeScriptLabelOrNull()
+        if (label != null) {
+            val node = addNode(npc.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+            registerScriptProgression(node, label, floorId)
         }
     }
     for (interaction in scriptSpatialInteractions) {
@@ -211,11 +273,12 @@ private suspend fun planFloor(
             !isReachable(interaction.sourceInstruction, floorId)
         ) continue
         val origin = interaction.origin
-        addNode(
+        val node = addNode(
             WalkthroughPoint(origin.x.toDouble(), origin.y.toDouble(), origin.z.toDouble()),
             NodeKind.Objective,
             INTERACTION_PRIORITY,
         )
+        registerScriptProgression(node, interaction.event.label, floorId)
     }
     for (spawn in scriptNpcSpawns) {
         if (floorId !in spawn.executionFloorIds ||
@@ -226,11 +289,18 @@ private suspend fun planFloor(
                     isReachable(interaction.sourceInstruction, floorId)
             }
         ) continue
-        addNode(
+        val node = addNode(
             WalkthroughPoint(spawn.x.toDouble(), spawn.y.toDouble(), spawn.z.toDouble()),
             NodeKind.Objective,
             INTERACTION_PRIORITY,
         )
+        for (interaction in spawn.interactions) {
+            if (floorId in interaction.executionFloorIds &&
+                isReachable(interaction.sourceInstruction, floorId)
+            ) {
+                registerScriptProgression(node, interaction.label, floorId)
+            }
+        }
     }
 
     for (obj in objects) {
@@ -270,36 +340,20 @@ private suspend fun planFloor(
         }
     }
 
-    if (warpsAreScriptGated) {
-        val floorEventsById = quest.events.value.filter { it.floorId == floorId }.groupBy {
-            it.id.value
+    val unlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
+    val datProgressionObjectiveIds = mutableSetOf<Int>()
+    for ((eventId, objectiveIds) in eventCollisionNodes) {
+        for (doorId in unlockedDoorIds(eventId)) {
+            unlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += objectiveIds
+            datProgressionObjectiveIds += objectiveIds
         }
-        fun unlockedDoorIds(rootEventId: Int): Set<Int> {
-            val result = mutableSetOf<Int>()
-            val pending = ArrayDeque<Int>()
-            val visited = mutableSetOf<Int>()
-            pending += rootEventId
-            while (pending.isNotEmpty()) {
-                val eventId = pending.removeFirst()
-                if (!visited.add(eventId)) continue
-                for (event in floorEventsById[eventId].orEmpty()) {
-                    for (action in event.actions.value) {
-                        when (action) {
-                            is QuestEventActionModel.Door.Unlock -> result += action.doorId.value
-                            is QuestEventActionModel.TriggerEvent -> pending += action.eventId.value
-                            else -> Unit
-                        }
-                    }
-                }
-            }
-            return result
-        }
-        val unlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
-        for ((eventId, objectiveIds) in eventCollisionNodes) {
-            for (doorId in unlockedDoorIds(eventId)) {
-                unlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += objectiveIds
-            }
-        }
+    }
+    for ((doorId, objectiveIds) in scriptUnlockingObjectivesByDoorId) {
+        unlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += objectiveIds
+    }
+    val progressionObjectiveIds = datProgressionObjectiveIds + scriptProgressionObjectiveIds
+    val completionGated = warpsAreScriptGated || progressionObjectiveIds.isNotEmpty()
+    if (completionGated) {
         for (door in objects) {
             if (!door.isDoorObject()) continue
             val controlledIds = door.controlledDoorIds()
@@ -307,6 +361,7 @@ private suspend fun planFloor(
             val requiredObjectives = controlledIds?.toList().orEmpty().flatMapTo(mutableSetOf()) { doorId ->
                 unlockingObjectivesByDoorId[doorId].orEmpty()
             }
+            requiredObjectives += allDoorUnlockingObjectiveIds
             if (!isAlwaysOpen && requiredObjectives.isEmpty()) continue
             val (firstPoint, secondPoint) = doorPassagePoints(door, pathfinder) ?: continue
             val first = addNode(firstPoint, NodeKind.DoorSide)
@@ -421,9 +476,14 @@ private suspend fun planFloor(
     val allEventObjectiveIds = nodes.asSequence()
         .filter { it.goalPriority == EVENT_COLLISION_PRIORITY }
         .mapTo(mutableSetOf()) { it.id }
+    val allGatedObjectiveIds = if (warpsAreScriptGated) {
+        allEventObjectiveIds + scriptProgressionObjectiveIds
+    } else {
+        progressionObjectiveIds
+    }
     val (entranceDistances, entrancePrevious) = shortestPathsFrom(
         entranceId,
-        if (warpsAreScriptGated) allEventObjectiveIds else emptySet(),
+        if (completionGated) allGatedObjectiveIds else emptySet(),
     )
     val reachableGoals = nodes.filter { node ->
         node.goalPriority > 0 && entranceDistances.getValue(node.id).isFinite()
@@ -439,8 +499,8 @@ private suspend fun planFloor(
             { entranceDistances.getValue(it.id) },
             { -it.order },
         ))
-    val gatedObjectives = if (warpsAreScriptGated) {
-        reachableGoals.filter { it.goalPriority == EVENT_COLLISION_PRIORITY }.toMutableList()
+    val gatedObjectives = if (completionGated) {
+        reachableGoals.filter { it.id in allGatedObjectiveIds }.toMutableList()
     } else {
         mutableListOf()
     }
@@ -477,7 +537,7 @@ private suspend fun planFloor(
         diagnostics += "Floor $floorId: ${gatedObjectives.size} gated route objectives are unreachable."
     }
 
-    val goal = if (warpsAreScriptGated && currentId != entranceId) {
+    val goal = if (completionGated && currentId != entranceId) {
         preferredExit
     } else {
         val highestPriority = reachableGoals.maxOf { it.goalPriority }

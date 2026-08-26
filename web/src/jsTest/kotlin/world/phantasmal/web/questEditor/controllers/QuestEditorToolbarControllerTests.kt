@@ -18,6 +18,8 @@ import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.psolib.fileFormats.quest.getAreasForEpisode
 import world.phantasmal.psolib.fileFormats.quest.writeQuestToBinDat
 import world.phantasmal.web.core.commands.Command
+import world.phantasmal.web.questEditor.loading.getLobbyVariant
+import world.phantasmal.web.questEditor.loading.parseLobbyDatFilename
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.stores.convertQuestFromModel
 import world.phantasmal.web.questEditor.stores.WalkthroughPlayer
@@ -169,6 +171,11 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             assertFalse(ctrl.result.value is Failure)
             assertEquals(SaveFormat.LOBBY_DAT, ctrl.saveFormat.value)
             assertEquals(listOf(SaveFormat.LOBBY_DAT), ctrl.availableSaveFormats.value)
+            val datFileName = assertNotNull(getLobbyVariant(number)).datFileName
+            assertEquals(datFileName.removeSuffix(".dat"), ctrl.filename.value)
+            assertEquals(number, parseLobbyDatFilename(datFileName))
+            val lobbyLabel = "Lobby ${number.toString().padStart(2, '0')}"
+            assertTrue(ctrl.currentArea.value?.label?.contains(lobbyLabel) == true)
             assertEquals(15, components.questEditorStore.currentArea.value?.id)
             assertEquals(number, components.questEditorStore.currentAreaVariant.value?.id)
             assertTrue(

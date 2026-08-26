@@ -24,6 +24,22 @@ class FreeRoamLoadingTests {
         assertNull(parseLobbyDatFilename("map_city00_00o.dat"))
     }
 
+    @Test
+    fun resolve_lobby_asset_basenames() {
+        // Legacy variant 0 has type-specific resource names.
+        assertEquals("map_lobby_00", getLobbyAssetBaseName(0, texture = false))
+        assertEquals("map_lobby_01", getLobbyAssetBaseName(0, texture = true))
+
+        // Numbered, reskinned, Episode III, and Go Ball lobbies share a basename for all assets.
+        for (number in listOf(1, 11, 21, 30)) {
+            val expected = assertNotNull(getLobbyVariant(number)).assetBaseName
+            assertEquals(expected, getLobbyAssetBaseName(number, texture = false))
+            assertEquals(expected, getLobbyAssetBaseName(number, texture = true))
+        }
+
+        assertNull(getLobbyAssetBaseName(31, texture = false))
+    }
+
 
     // --- Bin filename parsing ---
 

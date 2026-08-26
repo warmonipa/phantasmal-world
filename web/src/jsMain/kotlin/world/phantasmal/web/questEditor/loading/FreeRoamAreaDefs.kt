@@ -5,6 +5,8 @@ import world.phantasmal.psolib.fileFormats.quest.Quest
 
 // ---- Free roam area info ----
 
+internal const val LOBBY_FLOOR_ID = 15
+
 /**
  * Unified info for a free roam area, regardless of whether the user opened a bin or dat file.
  */
@@ -91,6 +93,19 @@ private val LOBBY_VARIANTS_BY_FILE_NAME =
 
 fun getLobbyVariant(number: Int): LobbyVariantDef? =
     LOBBY_VARIANTS.getOrNull(number - 1)?.takeIf { it.number == number }
+
+/**
+ * Resolves the resource basename for an editor lobby variant.
+ *
+ * Variant 0 predates Ephinea's numbered layout. Its geometry uses `map_lobby_00`, while its
+ * texture has always fallen back to lobby 1 because there is no `map_lobby_00.xvm`.
+ */
+internal fun getLobbyAssetBaseName(number: Int, texture: Boolean): String? =
+    if (number == 0) {
+        if (texture) "map_lobby_01" else "map_lobby_00"
+    } else {
+        getLobbyVariant(number)?.assetBaseName
+    }
 
 /** Returns the Ephinea lobby number associated with a loose lobby object DAT. */
 fun parseLobbyDatFilename(fileName: String): Int? =

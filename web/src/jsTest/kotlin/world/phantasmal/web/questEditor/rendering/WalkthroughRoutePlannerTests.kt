@@ -13,6 +13,9 @@ import kotlin.test.assertTrue
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
+import world.phantasmal.psolib.asm.IntArg
+import world.phantasmal.psolib.asm.OP_RET
+import world.phantasmal.psolib.asm.OP_UNLOCK_DOOR2
 import world.phantasmal.psolib.asm.OP_WARP_OFF
 import world.phantasmal.psolib.asm.OP_WARP_ON
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
@@ -201,6 +204,74 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             ),
             route.segments.map { it.from.x to it.to.x },
         )
+    }
+
+    @Test
+    fun script_switch_extends_a_route_across_the_door_it_unlocks() = testAsync {
+        val centralSwitch = scriptInteraction(1, x = 30.0, label = 10)
+        val branchSwitch = scriptInteraction(1, x = 90.0, label = 20)
+        val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
+            entity.data.setInt(52, 7)
+            setWorldPosition(Vector3(50.0, 0.0, 0.0))
+            setWorldRotation(Euler(0.0, PI / 2, 0.0))
+        }
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(120.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), centralSwitch, door, branchSwitch, exit),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(
+                    label = 10,
+                    Instruction(
+                        OP_UNLOCK_DOOR2,
+                        listOf(IntArg(1), IntArg(7)),
+                        valid = true,
+                        srcLoc = null,
+                    ),
+                ),
+                instructionSegment(label = 20),
+            )),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..40.0 && to.x in 0.0..40.0 -> listOf(from, to)
+                from.x in 60.0..120.0 && to.x in 60.0..120.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(120.0, route.segments.last().to.x)
+        assertTrue(route.segments.any { it.from.x == 38.0 && it.to.x == 62.0 })
+        assertTrue(route.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun warp_gating_is_scoped_to_the_floor_where_the_script_can_execute() = testAsync {
+        val otherFloorSwitch = scriptInteraction(2, x = 10.0, label = 20)
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 20.0),
+                eventCollision(1, 80.0),
+                playerSet(2, 0, 0.0),
+                otherFloorSwitch,
+            ),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(
+                    label = 20,
+                    Instruction(OP_WARP_OFF, emptyList(), valid = true, srcLoc = null),
+                    Instruction(OP_WARP_ON, emptyList(), valid = true, srcLoc = null),
+                ),
+            )),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 80.0), route.segments.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -563,6 +634,12 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             setWorldPosition(Vector3(x, 0.0, 0.0))
         }
 
+    private fun scriptInteraction(floorId: Int, x: Double, label: Int) =
+        createQuestObjectModel(ObjectType.TalkLinkToSupport, floorId).apply {
+            entity.data.setInt(52, label)
+            setWorldPosition(Vector3(x, 0.0, 0.0))
+        }
+
     private fun intraMapWarp(
         type: ObjectType,
         floorId: Int,
@@ -582,6 +659,13 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         InstructionSegment(
             mutableListOf(),
             mutableListOf(Instruction(opcode, emptyList(), valid = true, srcLoc = null)),
+        )
+
+    private fun instructionSegment(label: Int, vararg instructions: Instruction) =
+        InstructionSegment(
+            mutableListOf(label),
+            (instructions + Instruction(OP_RET, emptyList(), valid = true, srcLoc = null))
+                .toMutableList(),
         )
 
     private suspend fun plan(

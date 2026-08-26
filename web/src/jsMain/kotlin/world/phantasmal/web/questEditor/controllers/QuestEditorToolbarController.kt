@@ -14,7 +14,9 @@ import world.phantasmal.psolib.compression.prs.prsCompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.quest.*
 import world.phantasmal.web.questEditor.loading.FreeRoamAreaInfo
+import world.phantasmal.web.questEditor.loading.LOBBY_FLOOR_ID
 import world.phantasmal.web.questEditor.loading.extractRawEntityDataByFloor
+import world.phantasmal.web.questEditor.loading.getLobbyVariant
 import world.phantasmal.web.questEditor.loading.parseFreeRoamFilename
 import world.phantasmal.web.questEditor.loading.parseLobbyDatFilename
 import world.phantasmal.cell.list.ListCell
@@ -309,6 +311,8 @@ class QuestEditorToolbarController(
         return when {
             area.id <= 0 -> ""
             area.bossArea -> ""
+            area.name == "Lobby" && variantId != null ->
+                " ${variantId.toString().padStart(2, '0')}"
             variantId != null -> " - Map ${variantId + 1}"  // Show Map X if variant is specified
             else -> ""  // No Map suffix for areas without variants
         }
@@ -510,8 +514,11 @@ class QuestEditorToolbarController(
     suspend fun loadLobbyQuest(variant: Int) {
         freeRoam.clearFreeRoamState()
         _showCityMap.value = false
+        val definition = requireNotNull(getLobbyVariant(variant)) {
+            "Unknown lobby number $variant."
+        }
         setCurrentQuest(
-            FileHolder.LobbyDat(null, "lobby_${variant.toString().padStart(2, '0')}.dat"),
+            FileHolder.LobbyDat(null, definition.datFileName),
             Version.BB_V4,
             questEditorStore.getLobbyQuest(variant),
         )
@@ -1349,8 +1356,6 @@ class QuestEditorToolbarController(
     }
 
     companion object {
-        private const val LOBBY_FLOOR_ID = 15
-
         private fun extractLobbyObjectData(quest: QuestModel): Buffer {
             val entityDataByFloor = extractRawEntityDataByFloor(convertQuestFromModel(quest))
             return entityDataByFloor[LOBBY_FLOOR_ID]?.first

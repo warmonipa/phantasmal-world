@@ -7,6 +7,25 @@ import world.phantasmal.psolib.test.toInstructions
 
 class GetWalkthroughEventActivationsTests {
     @Test
+    fun collects_progression_effects_and_resolves_door_arguments_from_registers() {
+        val bytecode = bytecode("""
+            0:
+                leti r10, 3
+                leti r11, 7
+                unlock_door2 r10, r11
+                masterkey_off
+                warp_on
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 5, 0)
+
+        assertEquals(setOf(WalkthroughDoorUnlock(3, 7)), analysis.doorUnlocks)
+        assertEquals(setOf(5), analysis.allDoorsUnlockedFloorIds)
+        assertEquals(setOf(5), analysis.warpsEnabledFloorIds)
+    }
+
+    @Test
     fun collects_current_and_explicit_floor_activations_through_calls() {
         val bytecode = bytecode("""
             0:

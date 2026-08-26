@@ -409,8 +409,4 @@ class QuestLoader(private val assetLoader: AssetLoader) : DisposableContainer() 
 
     private suspend fun loadQuest(path: String): Quest =
         parseQstToQuest(cache.get(path).cursor(Endianness.Little)).unwrap().quest
-
-    private companion object {
-        const val LOBBY_FLOOR_ID = 15
-    }
 }
