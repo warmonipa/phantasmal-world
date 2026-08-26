@@ -228,6 +228,44 @@ applied. The arrows are rendered as instanced helper geometry and update when en
 are added, or are removed. Keep the direction geometry, visibility binding, and transform/lifecycle
 coverage together in `EntityDirectionIndicatorContainer` and its tests.
 
+## Quest Editor 2D Map Export
+
+**File -> Export 2D Maps...** writes one top-down PNG per quest area and downloads them as a single
+zip (`QuestMapExporter`). The export is a top-down orthographic "slice" of the same 3D scene, not a
+separately drawn schematic.
+
+- **Background** is always the flat "Simple View" collision geometry
+  (`AreaAssetLoader.loadCollisionGeometry`), regardless of the editor's current Simple View toggle.
+  It reads cleaner from above than the textured render geometry (no roofs). Bounds come from the
+  collision geometry, so each image is framed to the walkable floor.
+- **Markers** are objects and bosses only, drawn as flat three.js `Sprite`s. Classification lives in
+  `MapMarkerIcon.kt`: `MapMarkerIcons.categoryForObject` / `categoryForNpc` map to a
+  `MapMarkerCategory`. Regular enemies, minions, and friendly NPCs, plus logical/invisible objects
+  (sound emitters, collisions, cameras, particles, spawn points, and any unmapped type), are not
+  drawn. `MapMarkerCategory` is the single source of truth: both the on-map marker texture and the
+  legend swatch are drawn by the same routine, so changing a symbol updates both.
+- **Only areas with entity data are exported.** Pioneer 2 / Lab (area id 0) is always kept even when
+  it has no entities.
+- **Legend placement.** The map is rendered on its own, then composited onto a wider 2D canvas with
+  the legend in a right-hand gutter (`composeWithLegend`), so the legend never overlaps the map. The
+  export renderer uses `pixelRatio = 1` to keep that composition predictable.
+- **Marker positions** use `sectionToWorld` (section-relative position transformed by the section's
+  full Euler rotation plus origin, mirroring `QuestEntityModel`); only world X/Z are used, so height
+  differences are intentionally flattened.
+
+Maintenance boundaries and interop pitfalls that already caused runtime-only failures:
+
+- JSZip is a CommonJS default export, so `externals/jszip/jszip.kt` binds it with a
+  declaration-level `@JsModule`/`@JsNonModule`, not `@file:JsModule` (a file-level module would look
+  for a nonexistent named `JSZip` export and fail with "JSZip is not a constructor").
+- Pass JSZip options with the typed `obj<JSZipFileOptions>` / `obj<JSZipGenerateOptions>` helper, not
+  `js("{ ... }")` object literals (which evaluate to `undefined` at runtime).
+- These layers are not exercisable through the stubbed test renderer, so they have dedicated
+  headless-browser regression tests (`QuestMapExporterZipTests` runs real `JSZip` + canvas
+  `toDataURL`); icon classification and the world-position transform are covered by
+  `MapMarkerIconTests` and `QuestMapExporterTests`. The actual WebGL pixel output is not verified in
+  tests.
+
 ### web:shared
 
 Contains code used by web, web:assembly-worker and web:assets-generation.

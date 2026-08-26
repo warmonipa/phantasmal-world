@@ -108,6 +108,12 @@ class QuestEditorToolbarWidget(
                                 enabled = ctrl.saveAsEnabled,
                                 onAction = { ctrl.saveAs() },
                             ),
+                            MenuItem.Separator,
+                            MenuItem.Action(
+                                label = "Export 2D Maps...",
+                                enabled = ctrl.exportMapsEnabled,
+                                onAction = { scope.launch { ctrl.exportMaps() } },
+                            ),
                         ),
                     ),
                     // View Menu

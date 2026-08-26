@@ -303,6 +303,12 @@ open external class Object3D {
      */
     val scale: Vector3
 
+    /**
+     * The up direction used by [lookAt]. Defaults to (0, 1, 0). Must be changed for a
+     * straight-down (top-down) camera, whose view direction would otherwise be parallel to it.
+     */
+    val up: Vector3
+
     var frustumCulled: Boolean
 
     /**

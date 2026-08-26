@@ -22,6 +22,7 @@ import world.phantasmal.web.questEditor.loading.SymbolChatColliRepository
 import world.phantasmal.web.questEditor.models.NpcPlacementPolicy
 import world.phantasmal.web.questEditor.persistence.QuestEditorUiPersister
 import world.phantasmal.web.questEditor.rendering.EntityImageRenderer
+import world.phantasmal.web.questEditor.rendering.QuestMapExporter
 import world.phantasmal.web.questEditor.rendering.QuestRenderer
 import world.phantasmal.web.questEditor.stores.*
 import world.phantasmal.web.questEditor.widgets.*
@@ -79,12 +80,16 @@ class QuestEditor(
 
         // Controllers
         val questEditorController = addDisposable(QuestEditorController(questEditorUiPersister))
+        val mapExporter = addDisposable(
+            QuestMapExporter(areaAssetLoader, areaStore, createThreeRenderer)
+        )
         val toolbarController = addDisposable(
             QuestEditorToolbarController(
                 uiStore,
                 areaStore,
                 questEditorStore,
                 questEditorUiStore,
+                mapExporter,
             )
         )
         val questInfoController = addDisposable(QuestInfoController(questEditorStore))

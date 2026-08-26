@@ -39,6 +39,7 @@ kotlin {
                 implementation(npm("three", "^0.128.0"))
                 implementation(npm("three-pathfinding", "1.3.0"))
                 implementation(npm("javascript-lp-solver", "0.4.17"))
+                implementation(npm("jszip", "^3.10.1"))
 
                 implementation(devNpm("file-loader", "^6.2.0"))
                 implementation(devNpm("monaco-editor-webpack-plugin", "4.1.1"))

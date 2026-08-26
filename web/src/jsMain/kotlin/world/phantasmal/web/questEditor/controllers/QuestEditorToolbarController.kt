@@ -26,6 +26,7 @@ import world.phantasmal.web.questEditor.models.AreaVariantModel
 import world.phantasmal.web.questEditor.models.LobbyEventFilter
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.SectionModel
+import world.phantasmal.web.questEditor.rendering.QuestMapExporter
 import world.phantasmal.web.questEditor.stores.AreaStore
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
@@ -59,6 +60,7 @@ class QuestEditorToolbarController(
     private val areaStore: AreaStore,
     private val questEditorStore: QuestEditorStore,
     private val questEditorUiStore: QuestEditorUiStore,
+    private val mapExporter: QuestMapExporter? = null,
 ) : Controller() {
     private val _resultDialogVisible = mutableCell(false)
     private val _result = mutableCell<PwResult<*>?>(null)
@@ -148,6 +150,37 @@ class QuestEditorToolbarController(
     }
 
     val redoEnabled: Cell<Boolean> = questEditorStore.canRedo
+
+    // Map export
+
+    private val _mapExporting = mutableCell(false)
+    val mapExporting: Cell<Boolean> = _mapExporting
+    val exportMapsEnabled: Cell<Boolean> =
+        if (mapExporter == null) cell(false)
+        else questEditorStore.currentQuest.isNotNull() and !_mapExporting
+
+    suspend fun exportMaps() {
+        val exporter = mapExporter ?: return
+        val quest = questEditorStore.currentQuest.value ?: return
+        if (_mapExporting.value) return
+
+        try {
+            _mapExporting.value = true
+            exporter.exportQuest(quest, areas.value, questEditorUiStore.ultimate.value)
+        } catch (e: Throwable) {
+            setResult(
+                PwResult.build<Nothing>(logger)
+                    .addProblem(
+                        Severity.Error,
+                        "Couldn't export maps: ${e.message ?: e::class.simpleName ?: "unknown error"}",
+                        cause = e,
+                    )
+                    .failure()
+            )
+        } finally {
+            _mapExporting.value = false
+        }
+    }
 
     // Areas
 
