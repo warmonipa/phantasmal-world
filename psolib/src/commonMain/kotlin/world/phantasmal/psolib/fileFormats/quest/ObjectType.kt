@@ -1039,7 +1039,11 @@ enum class ObjectType(
         ),
         typeId = 145,
         properties = listOf(
-            EntityProp(name = "Event ID", offset = 40, type = EntityPropType.F32),
+            // The event is in param4, not param1. Across 305 instances of this box and
+            // 0x0093 in the offline map data, param1 only ever holds 1.0f, 1.0000002f or
+            // 31.000023f, while param4 holds the event IDs that the matching map_*.evt
+            // event tables actually define.
+            EntityProp(name = "Event ID", offset = 52, type = EntityPropType.I32),
         ),
     ),
     FixedTypeBox(
@@ -1068,7 +1072,8 @@ enum class ObjectType(
         ),
         typeId = 147,
         properties = listOf(
-            EntityProp(name = "Event ID", offset = 40, type = EntityPropType.F32),
+            // Same parameters as 0x0091; see the note there.
+            EntityProp(name = "Event ID", offset = 52, type = EntityPropType.I32),
         ),
     ),
     EmptyTypeBox(
@@ -1078,9 +1083,11 @@ enum class ObjectType(
             Episode.IV to listOf(1, 2, 3, 4, 5, 6, 7, 8),
         ),
         typeId = 149,
-        properties = listOf(
-            EntityProp(name = "Event ID", offset = 40, type = EntityPropType.F32),
-        ),
+        // TObjContainerNoItem is the always-empty box and takes no parameters. The
+        // "Event ID" this used to expose was the 0x0091 entry copied verbatim, pointing at
+        // param1 -- a slot the surrounding box types keep a float in. This type does not
+        // occur in any offline map data, so nothing here is confirmed against real objects;
+        // exposing no property is the only option that does not assert an unverified offset.
     ),
     LaserFenceEx(
         uniqueName = "Laser Fence Ex",
