@@ -15,6 +15,7 @@ import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
 import world.phantasmal.psolib.asm.OP_RET
+import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER_V3_V4
 import world.phantasmal.psolib.asm.OP_UNLOCK_DOOR2
 import world.phantasmal.psolib.asm.OP_WARP_OFF
 import world.phantasmal.psolib.asm.OP_WARP_ON
@@ -650,9 +651,25 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         setDestinationPosition(Vector3(destinationX, 0.0, 0.0))
     }
 
+    /**
+     * Warp gating is scoped to floors where warp_off and warp_on are reachable, so run them from
+     * the floor 1 handler that label 0 registers.
+     */
     private fun warpGatedBytecode() = BytecodeIr(listOf(
-        instructionSegment(OP_WARP_OFF),
-        instructionSegment(OP_WARP_ON),
+        instructionSegment(
+            label = 0,
+            Instruction(
+                OP_SET_FLOOR_HANDLER_V3_V4,
+                listOf(IntArg(1), IntArg(100)),
+                valid = true,
+                srcLoc = null,
+            ),
+        ),
+        instructionSegment(
+            label = 100,
+            Instruction(OP_WARP_OFF, emptyList(), valid = true, srcLoc = null),
+            Instruction(OP_WARP_ON, emptyList(), valid = true, srcLoc = null),
+        ),
     ))
 
     private fun instructionSegment(opcode: world.phantasmal.psolib.asm.Opcode) =
