@@ -9,7 +9,13 @@ import kotlin.test.assertTrue
  * framework won't wait for its completion. This is a workaround for issue
  * [https://youtrack.jetbrains.com/issue/KT-22228].
  */
-internal expect fun testAsync(block: suspend () -> Unit)
+/**
+ * Result of an asynchronous test. Kotlin/JS test functions must return the promise so that Mocha
+ * waits for the test body and reports its failures; on the JVM the test body runs to completion.
+ */
+expect class TestResult
+
+internal expect fun testAsync(block: suspend () -> Unit): TestResult
 
 internal expect fun canExecuteSlowTests(): Boolean
 

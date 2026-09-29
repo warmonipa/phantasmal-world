@@ -4,7 +4,9 @@ package world.phantasmal.testUtils
 
 import kotlinx.coroutines.runBlocking
 
-internal actual fun testAsync(block: suspend () -> Unit) {
+actual typealias TestResult = Unit
+
+internal actual fun testAsync(block: suspend () -> Unit): TestResult {
     runBlocking { block() }
 }
 

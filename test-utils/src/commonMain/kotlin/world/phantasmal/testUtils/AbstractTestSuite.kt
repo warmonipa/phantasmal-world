@@ -16,7 +16,7 @@ interface AbstractTestSuite<Ctx : TestContext> {
         }
     }
 
-    fun testAsync(slow: Boolean = false, testBlock: suspend Ctx.() -> Unit) =
+    fun testAsync(slow: Boolean = false, testBlock: suspend Ctx.() -> Unit): TestResult =
         world.phantasmal.testUtils.testAsync lambda@{
             if (slow && !canExecuteSlowTests()) return@lambda
 
