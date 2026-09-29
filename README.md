@@ -97,7 +97,9 @@ Work-in-progress PSO server and fully functional PSO proxy server.
 ### Unit Tests
 
 Run the unit tests with `./gradlew check`. JS tests are run with Karma and Mocha, JVM tests with
-Junit 5. Tests can also be run per project with e.g. `./gradlew :psolib:check`.
+Junit 5. Tests can also be run per project with e.g. `./gradlew :psolib:check`. The web project's
+Mocha timeout is raised to 60 seconds in `web/karma.config.d/mocha-timeout.js` because some async
+tests load and render many assets in sequence.
 
 ### Code Style and Formatting
 

@@ -3,6 +3,10 @@ package world.phantasmal.web.test
 // WebGLRenderer implementation.
 class NopRenderer {
     @Suppress("unused")
+    @JsName("capabilities")
+    val capabilities = NopCapabilities()
+
+    @Suppress("unused")
     @JsName("render")
     fun render() {
     }
@@ -31,4 +35,12 @@ class NopRenderer {
     @JsName("dispose")
     fun dispose() {
     }
+}
+
+// WebGLCapabilities implementation.
+class NopCapabilities {
+    // Renderers request half the maximum, so this yields the default anisotropy of 1.
+    @Suppress("unused")
+    @JsName("getMaxAnisotropy")
+    fun getMaxAnisotropy(): Int = 2
 }
