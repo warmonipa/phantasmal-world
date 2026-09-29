@@ -3,7 +3,8 @@ function ResourceLoaderMiddleware() {
     const cache = new Map;
 
     return async function (request, response, next) {
-        const path = decodeURI(request.originalUrl);
+        // decodeURI would leave reserved characters such as '#' encoded in resource file names.
+        const path = decodeURIComponent(new URL(request.originalUrl, 'http://localhost').pathname);
         const isJson = path.slice(-5) === '.json';
 
         function sendContent(content) {
