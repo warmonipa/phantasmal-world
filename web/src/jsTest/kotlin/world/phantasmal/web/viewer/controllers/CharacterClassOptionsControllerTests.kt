@@ -101,7 +101,9 @@ class CharacterClassOptionsControllerTests : WebTestSuite {
     private fun url_parameters_reflect_changes_to_options(path: String) = testAsync {
         val applicationUrl = TestApplicationUrl("/${PwToolType.Viewer.slug}$path")
         components.applicationUrl = applicationUrl
-        var expectedHistoryEntries = applicationUrl.historyEntries
+        // Option changes replace the URL instead of pushing history entries, so the back button
+        // leaves the viewer page rather than stepping through every section ID or body change.
+        val expectedHistoryEntries = applicationUrl.historyEntries
 
         val ctrl = disposer.add(CharacterClassOptionsController(components.viewerStore))
 
@@ -115,7 +117,6 @@ class CharacterClassOptionsControllerTests : WebTestSuite {
                             SectionId.VALUES.size
             ]
             ctrl.setCurrentSectionId(sectionId)
-            expectedHistoryEntries++
 
             val params1 = applicationUrl.pathAndParamsDeconstructed.params
             assertEquals(characterClass.slug, params1[ViewerStore.MODEL_PARAM]) // Unchanged.
@@ -125,7 +126,6 @@ class CharacterClassOptionsControllerTests : WebTestSuite {
             // Change the body.
             val body = (ctrl.currentBody.value + 1) % characterClass.bodyStyleCount
             ctrl.setCurrentBody(body)
-            expectedHistoryEntries++
 
             val params2 = applicationUrl.pathAndParamsDeconstructed.params
             assertEquals(characterClass.slug, params2[ViewerStore.MODEL_PARAM]) // Unchanged.

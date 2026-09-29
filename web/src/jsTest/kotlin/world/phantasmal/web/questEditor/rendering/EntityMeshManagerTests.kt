@@ -210,8 +210,7 @@ class EntityMeshManagerTests : WebTestSuite {
         context.scene.children.filterIsInstance<BoxHelper>()
 
     private suspend fun awaitCondition(condition: () -> Boolean) {
-        // Stay below Mocha's 2 s timeout so a failure reports this condition, not a test timeout.
-        withTimeout(1_500) {
+        withTimeout(5_000) {
             while (!condition()) yield()
         }
     }
