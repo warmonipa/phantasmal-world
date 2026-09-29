@@ -235,7 +235,7 @@ class ChallengeSpawnRenderingTests : WebTestSuite {
                 )
             ),
         )
-        val area = AreaModel(floorId, "Test Area", bossArea = false, order = 0, emptyList())
+        val area = AreaModel(floorId, "Test Area", bossArea = false, order = 0, emptyList(), Episode.I)
         val variant = AreaVariantModel(0, area, Episode.I).apply {
             setSections(listOf(SectionModel(roomId, Vector3(), euler(0.0, 0.0, 0.0), this)))
         }

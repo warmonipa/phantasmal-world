@@ -383,6 +383,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
                 Pair("desert02", true),
                 Pair("desert03", true),
                 Pair("boss09", true),
+                Pair("test01", true),
             )
         )
 

@@ -13,7 +13,7 @@ class AreaStore(private val areaAssetLoader: AreaAssetLoader) : Store() {
         Episode.entries.associateWith { episode ->
             getAreasForEpisodeLib(episode).map { area ->
                 val variants = mutableListOf<AreaVariantModel>()
-                val areaModel = AreaModel(area.id, area.name, area.bossArea, area.order, variants)
+                val areaModel = AreaModel(area.id, area.name, area.bossArea, area.order, variants, episode)
 
                 area.areaVariants.forEach { variant ->
                     variants.add(AreaVariantModel(variant.id, areaModel, episode))
