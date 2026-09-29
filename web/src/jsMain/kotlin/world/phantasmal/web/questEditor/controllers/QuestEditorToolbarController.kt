@@ -528,6 +528,7 @@ class QuestEditorToolbarController(
         if (show) {
             loadCityQuest(currentEpisode)
         } else {
+            _showCityMap.value = false
             createNewQuest(currentEpisode)
         }
     }
