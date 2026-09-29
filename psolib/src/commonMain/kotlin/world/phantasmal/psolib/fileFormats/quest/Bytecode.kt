@@ -100,6 +100,7 @@ private const val MAX_SEQUENTIAL_NOPS = 10
 private const val MAX_STACK_POP_WITHOUT_PRECEDING_PUSH_RATIO = 0.2
 private const val MAX_UNKNOWN_LABEL_RATIO = 0.2
 private const val MAX_LABEL_VALUES = 20
+private const val MAX_LOGGED_UNREGISTERED_LABELS = 20
 
 internal val SEGMENT_PRIORITY = mapOf(
     SegmentType.Instructions to 2,
@@ -362,6 +363,17 @@ fun parseBytecode(
         }
     }
 
+    // Corrupt scripts can reference the same missing labels thousands of times, so report each
+    // label once per parse instead of once per reference.
+    if (labelHolder.unregisteredLabels.isNotEmpty()) {
+        val unregistered = labelHolder.unregisteredLabels.sorted()
+        logger.warn {
+            "${unregistered.size} referenced labels are not registered in the label table: " +
+                unregistered.take(MAX_LOGGED_UNREGISTERED_LABELS).joinToString() +
+                if (unregistered.size > MAX_LOGGED_UNREGISTERED_LABELS) ", ..." else "."
+        }
+    }
+
     // Sanity check parsed byte code.
     if (cursor.size != offset) {
         result.addProblem(
@@ -578,9 +590,6 @@ private fun collectLabelReferencesFromInstruction(
                 // Eat all remaining arguments.
                 while (i < instruction.args.size) {
                     val label = (instruction.args[i] as IntArg).value
-                    if (label == 76) {
-                        println("DEBUG: label 76 added via ILabelVarType from opcode=${instruction.opcode.mnemonic} in segment labels=${segment.labels} instructionIdx=$instructionIdx")
-                    }
                     val oldType = newLabels[label]
 
                     if (oldType == null ||
@@ -637,9 +646,6 @@ private fun collectLabelReferencesFromInstruction(
 
                         if (labelValues.size <= MAX_LABEL_VALUES) {
                             for (label in labelValues) {
-                                if (label == 76) {
-                                    println("DEBUG: label 76 added via RegType ILabelType from opcode=${instruction.opcode.mnemonic} in segment labels=${segment.labels} instructionIdx=$instructionIdx reg=${firstRegister + j}")
-                                }
                                 newLabels[label] = SegmentType.Instructions
                             }
                         } else {
@@ -678,9 +684,6 @@ private fun getArgLabelValues(
             // Register references (arg_pushr) cannot be statically resolved to a label value.
             if (arg.isRegRef) return false
             val value = arg.value
-            if (value == 76 && segmentType == SegmentType.Instructions) {
-                println("DEBUG: label 76 added via getArgLabelValues (inlined stack-pop) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
-            }
             val oldType = labels[value]
 
             if (
@@ -702,9 +705,6 @@ private fun getArgLabelValues(
 
         if (stackValues.size <= MAX_LABEL_VALUES) {
             for (value in stackValues) {
-                if (value == 76 && segmentType == SegmentType.Instructions) {
-                    println("DEBUG: label 76 added via getArgLabelValues (stack DFA) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
-                }
                 val oldType = labels[value]
 
                 if (
@@ -719,9 +719,6 @@ private fun getArgLabelValues(
         }
     } else {
         val value = (instruction.args[paramIdx] as IntArg).value
-        if (value == 76 && segmentType == SegmentType.Instructions) {
-            println("DEBUG: label 76 added via getArgLabelValues (direct arg) from opcode=${instruction.opcode.mnemonic} in segment labels=${instructionSegment.labels} instructionIdx=$instructionIdx paramIdx=$paramIdx")
-        }
         val oldType = labels[value]
 
         if (
@@ -752,7 +749,7 @@ private fun parseSegment(
 
         if (info == null) {
             if (label !in BUILTIN_FUNCTIONS) {
-                logger.warn { "Label $label is not registered in the label table." }
+                labelHolder.unregisteredLabels.add(label)
             }
 
             return
@@ -1719,6 +1716,11 @@ private data class OffsetAndIndex(val offset: Int, val index: Int)
 private class LabelInfo(val offset: Int, val next: LabelAndOffset?)
 
 private class LabelHolder(labelOffsets: IntArray) {
+    /**
+     * Referenced labels that are missing from the label table, reported once per parse.
+     */
+    val unregisteredLabels: MutableSet<Int> = mutableSetOf()
+
     /**
      * Mapping of labels to their offset and index into [labels].
      */
