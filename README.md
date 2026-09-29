@@ -101,6 +101,10 @@ Junit 5. Tests can also be run per project with e.g. `./gradlew :psolib:check`. 
 Mocha timeout is raised to 60 seconds in `web/karma.config.d/mocha-timeout.js` because some async
 tests load and render many assets in sequence.
 
+Async tests must return the result of `testAsync`, e.g. `fun foo() = testAsync { ... }`. On Kotlin/JS
+it is the promise Mocha waits for; calling `testAsync` inside a block body discards it, so the test
+passes before its assertions run and can disturb the leak tracking of later tests.
+
 ### Code Style and Formatting
 
 The Kotlin [coding conventions](https://kotlinlang.org/docs/coding-conventions.html) are used.

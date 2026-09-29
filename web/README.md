@@ -75,6 +75,12 @@ entity meshes and their per-instance indicators. Selection helpers consume the s
 list as object meshes, and NPC grounding is invalidated whenever collision geometry changes. Each
 manager removes its owned scene nodes and disposes their resources when its lifecycle ends.
 
+`EntityMeshManager` places each entity in the instanced mesh for its render key: entity type, object
+model, Ultimate skin, and Forest Door digit. The key is re-read after the asynchronous mesh load, so
+a model change during the load cannot leave the entity in a stale mesh. Instanced meshes have a fixed
+capacity; an entity that doesn't fit is logged and skipped, and is added again once a render-key
+change selects another mesh. Disposing an instance container also disposes its instances.
+
 Challenge seed previews use each DAT room table's declared location count. The original client's
 32-location implementation limit is not a file-format limit: patched Ephinea quests such as the AO
 series can contain larger tables, which remain editable, serializable, and seed-materializable.
@@ -91,6 +97,11 @@ disposal remain the owners of resize and teardown behavior.
 ### web:assembly-worker
 
 Does analysis of the script assembly code and runs in a worker thread.
+
+The worker batches client messages and reports analysis results as notifications. Each `SetAsm`
+carries an incrementing generation that the worker echoes in every notification; the client drops
+notifications whose generation doesn't match the script it last set, so results for a replaced
+script cannot repopulate problems, labels, or navigation targets.
 
 ### web:assets-generation
 
