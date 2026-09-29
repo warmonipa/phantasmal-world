@@ -492,12 +492,19 @@ already map/world coordinates and therefore do not receive DAT section transform
 episodes use the client's same 18 logical floor slots (`0` through `17`); episode map IDs are not
 logical floor IDs.
 
-Floor attribution follows the client's thread lifetimes. A floor handler runs in an ordinary
-`QuestThread2` that survives floor transitions, so code it reaches after a resumable yield
+Floor attribution follows the client's thread lifetimes. Code reached after a resumable yield
 (`sync`, message windows, and similar opcodes), including the fall-through after a call whose
-callee yields, is attributed to every logical floor unless the script re-checks the current floor.
-`thread_stg` threads and callbacks are destroyed by a floor transition and stay bound to their
-floor. An NPC previewed on all 18 floors is therefore an expected conservative result, not a
+callee yields, is attributed to every logical floor when it runs in a thread that survives floor
+transitions, unless the script re-checks the current floor:
+
+| Entry point | Floor attribution after a yield |
+| --- | --- |
+| Label 0, `set_floor_handler`, `thread` | Any logical floor (ordinary `QuestThread2`) |
+| `set_qt_failure`, `set_qt_success`, `set_qt_cancel` | Any logical floor; entered on floor 0 |
+| `thread_stg`, `at_coords_*` and other spatial callbacks, quest board handlers, DAT entity script entry points | Bound to the entry floor |
+| `set_qt_exit` | Entered on every logical floor; each entry stays bound to its floor |
+
+An NPC previewed on all 18 floors is therefore an expected conservative result, not a
 floor-mapping error.
 
 The creation opcodes do not contain a dialogue label. The editor derives interaction navigation
