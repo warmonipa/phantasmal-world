@@ -283,10 +283,13 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
 
     @Test
     fun loading_bin_dat_preserves_the_detected_quest_version() = testAsync {
+        // Auto-detection breaks ties in favor of GC_V3, so the bytecode must only parse cleanly
+        // as V0_V2. particle's V1_V2-only trailing argument 0x0E decodes as an unknown opcode
+        // when the same bytes are read as V3.
         val bytecode = assemble(
             asm = listOf(
                 "0:",
-                "particle r0, 0",
+                "particle r0, 14",
                 "ret",
             ),
             version = Version.DC_V2,

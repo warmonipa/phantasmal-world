@@ -170,11 +170,14 @@ class MonsterRandomnessControllerTests : WebTestSuite {
         components.questEditorStore.setChallengeSeedSimulationEnabled(true)
         val controller = disposer.add(MonsterRandomnessController(components.questEditorStore))
 
+        // No weight entries require enemy definitions, so a missing definition table is not a
+        // problem on its own (see sentinel_only_mappings_do_not_require_enemy_definitions).
         assertEquals(
             listOf(
                 "Floor 0: Random location table is missing or empty.",
-                "Floor 0: Random enemy definition table is missing or empty.",
                 "Floor 0: Random enemy weight table is missing or empty.",
+                "Floor 0: Challenge events reference room 1 without random locations.",
+                "Simulation stopped at floor 0 because later floors depend on its RNG state.",
             ),
             controller.simulationProblems.value,
         )

@@ -41,7 +41,10 @@ class MonsterRandomnessWidgetTests : WebTestSuite {
         val problems = widget.element.querySelector(".pw-quest-editor-mr-problems")!!
         assertFalse((problems as org.w3c.dom.HTMLElement).hidden)
         assertTrue("Random location table is missing" in problems.textContent.orEmpty())
-        assertTrue("Random enemy definition table is missing" in problems.textContent.orEmpty())
         assertTrue("Random enemy weight table is missing" in problems.textContent.orEmpty())
+        assertTrue(
+            "Challenge events reference room 1 without random locations" in
+                problems.textContent.orEmpty()
+        )
     }
 }
