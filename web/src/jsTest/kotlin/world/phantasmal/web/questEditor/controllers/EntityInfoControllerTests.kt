@@ -14,10 +14,12 @@ import world.phantasmal.psolib.fileFormats.quest.NPC_BYTE_SIZE
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestNpc
+import world.phantasmal.psolib.fileFormats.quest.QuestObject
 import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.testUtils.assertCloseTo
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestNpcModel
+import world.phantasmal.web.questEditor.models.QuestObjectModel
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestNpcModel
@@ -34,8 +36,12 @@ class EntityInfoControllerTests : WebTestSuite {
             components.questEditorUiStore,
             components.asmStore,
         ))
-        val door = createQuestObjectModel(ObjectType.ForestDoor, floorId = 1)
-        door.entity.data.setInt(52, 0x12340B05)
+        // Prop models read the entity data when the model is created, so pack param4 first.
+        val door = QuestObjectModel(
+            QuestObject(ObjectType.ForestDoor, floorId = 1).apply {
+                data.setInt(52, 0x12340B05)
+            },
+        )
         components.questEditorStore.setCurrentQuest(createQuestModel(objects = listOf(door)))
         components.questEditorStore.setSelectedEntity(door)
 
@@ -180,7 +186,10 @@ class EntityInfoControllerTests : WebTestSuite {
         components.questEditorStore.setCurrentQuest(createQuestModel(npcs = listOf(npc)))
         components.questEditorStore.setSelectedEntity(npc)
 
-        assertEquals("NPC", ctrl.type.value)
+        assertEquals("Enemy", ctrl.type.value)
+        // The Ultimate view is on by default and shows Ultimate names.
+        assertEquals("Bartle", ctrl.name.value)
+        components.questEditorUiStore.setUltimate(false)
         assertEquals("Booma", ctrl.name.value)
         assertEquals(7, ctrl.sectionId.value)
         assertEquals(5, ctrl.waveId.value)

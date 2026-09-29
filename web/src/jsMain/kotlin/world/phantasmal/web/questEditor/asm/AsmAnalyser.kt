@@ -67,6 +67,9 @@ class AsmAnalyser {
 
     fun setAsm(asm: List<String>) {
         _problems.clear()
+        // Labels of the previous script must not resolve navigation in the new one while the
+        // worker is still analysing it.
+        _labels.clear()
         sendMessage(ClientNotification.SetAsm(asm))
     }
 

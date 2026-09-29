@@ -75,7 +75,9 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
                                     ctrl.goToScriptLabel(interaction.label)
                                 },
                             )
-                            val node = span { addChild(button) }
+                            // The binding owns the button's lifecycle, don't also register it with
+                            // this widget's disposer or it will be disposed twice.
+                            val node = span { addWidget(button, addToDisposer = false) }
                             Pair(node, button)
                         }
                     }
