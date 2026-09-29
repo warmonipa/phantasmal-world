@@ -23,6 +23,8 @@ abstract class InstanceContainer<Entity : QuestEntityModel<*, *>, Inst : Instanc
     }
 
     override fun dispose() {
+        // Instances observe their entity models, so they must not outlive their container.
+        clearInstances()
         disposeObject3DResources(mesh)
         super.dispose()
     }
