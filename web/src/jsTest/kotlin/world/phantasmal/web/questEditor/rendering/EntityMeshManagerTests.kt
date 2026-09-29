@@ -200,6 +200,44 @@ class EntityMeshManagerTests : WebTestSuite {
         assertEquals(null, loader.meshFor(1))
     }
 
+    @Test
+    fun model_change_during_a_mesh_load_uses_the_latest_model() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val loader = GatedMeshLoader()
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                loader,
+            )
+        )
+        val entity = createQuestObjectModel(ObjectType.Probe)
+
+        manager.add(entity)
+        awaitCondition { loader.meshFor(0)?.count == 1 }
+
+        val model1Gate = loader.gate(1)
+        entity.setModel(1)
+        awaitCondition { loader.loadStarted(1) }
+        entity.setModel(2)
+        model1Gate.complete(Unit)
+
+        awaitCondition { loader.meshFor(2)?.count == 1 }
+        assertEquals(0, loader.meshFor(0)?.count)
+        assertEquals(0, loader.meshFor(1)?.count ?: 0)
+
+        manager.remove(entity)
+
+        assertEquals(0, loader.meshFor(2)?.count)
+        assertEquals(0, loader.meshFor(1)?.count ?: 0)
+    }
+
     private suspend fun awaitVisibleSelectionMarker(context: QuestRenderContext) {
         withTimeout(5_000) {
             while (selectionMarkers(context).none { it.visible }) yield()
@@ -212,6 +250,33 @@ class EntityMeshManagerTests : WebTestSuite {
     private suspend fun awaitCondition(condition: () -> Boolean) {
         withTimeout(5_000) {
             while (!condition()) yield()
+        }
+    }
+
+    /** Gives every model its own mesh; loads of gated models wait until their gate completes. */
+    private class GatedMeshLoader : EntityMeshLoader {
+        private val meshes = mutableMapOf<Int?, InstancedMesh>()
+        private val gates = mutableMapOf<Int?, CompletableDeferred<Unit>>()
+        private val startedLoads = mutableSetOf<Int?>()
+
+        fun meshFor(model: Int?): InstancedMesh? = meshes[model]
+
+        fun gate(model: Int?): CompletableDeferred<Unit> =
+            CompletableDeferred<Unit>().also { gates[model] = it }
+
+        fun loadStarted(model: Int?): Boolean = model in startedLoads
+
+        override suspend fun loadInstancedMesh(
+            type: EntityType,
+            model: Int?,
+            ultimate: Boolean,
+            renderVariant: Int?,
+        ): InstancedMesh {
+            startedLoads.add(model)
+            gates[model]?.await()
+            return meshes.getOrPut(model) {
+                InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
+            }
         }
     }
 

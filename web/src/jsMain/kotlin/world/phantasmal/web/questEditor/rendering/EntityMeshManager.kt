@@ -156,14 +156,15 @@ class EntityMeshManager(
         if (entity !in loadingEntities) {
             val loadingJob = scope.launch(start = CoroutineStart.LAZY) {
                 try {
-                    val entityInstancedMesh = entityMeshCache.get(
-                        TypeAndModel(
-                            type = entity.type,
-                            model = (entity as? QuestObjectModel)?.model?.value,
-                            ultimate = questEditorUiStore.ultimate.value,
-                            renderVariant = entityRenderVariant(entity),
-                        )
-                    )
+                    // The render key can change while the mesh loads. No instance observes the
+                    // entity yet, so load again until the loaded mesh matches the current key.
+                    var key = renderKey(entity)
+                    var entityInstancedMesh = entityMeshCache.get(key)
+
+                    while (renderKey(entity) != key) {
+                        key = renderKey(entity)
+                        entityInstancedMesh = entityMeshCache.get(key)
+                    }
 
                     val instance = entityInstancedMesh.addInstance(entity)
 
@@ -207,14 +208,7 @@ class EntityMeshManager(
         detachMarkersFor(entity)
         directionIndicators.removeInstance(entity)
 
-        entityMeshCache.getIfPresentNow(
-            TypeAndModel(
-                entity.type,
-                (entity as? QuestObjectModel)?.model?.value,
-                questEditorUiStore.ultimate.value,
-                entityRenderVariant(entity),
-            )
-        )?.removeInstance(entity)
+        entityMeshCache.getIfPresentNow(renderKey(entity))?.removeInstance(entity)
 
         if (entity is QuestObjectModel && entity.hasDestination) {
             destinationInstanceContainer.removeInstance(entity)
@@ -323,14 +317,15 @@ class EntityMeshManager(
     }
 
     private fun getEntityInstance(entity: QuestEntityModel<*, *>): EntityInstance? =
-        entityMeshCache.getIfPresentNow(
-            TypeAndModel(
-                entity.type,
-                (entity as? QuestObjectModel)?.model?.value,
-                questEditorUiStore.ultimate.value,
-                entityRenderVariant(entity),
-            )
-        )?.getInstance(entity)
+        entityMeshCache.getIfPresentNow(renderKey(entity))?.getInstance(entity)
+
+    private fun renderKey(entity: QuestEntityModel<*, *>): TypeAndModel =
+        TypeAndModel(
+            type = entity.type,
+            model = (entity as? QuestObjectModel)?.model?.value,
+            ultimate = questEditorUiStore.ultimate.value,
+            renderVariant = entityRenderVariant(entity),
+        )
 
     private data class TypeAndModel(
         val type: EntityType,
