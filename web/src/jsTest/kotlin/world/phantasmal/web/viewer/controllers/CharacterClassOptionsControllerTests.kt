@@ -91,14 +91,12 @@ class CharacterClassOptionsControllerTests : WebTestSuite {
         }
 
     @Test
-    fun url_parameters_reflect_changes_to_options_at_mesh_url() {
+    fun url_parameters_reflect_changes_to_options_at_mesh_url() =
         url_parameters_reflect_changes_to_options(ViewerUrls.mesh)
-    }
 
     @Test
-    fun url_parameters_reflect_changes_to_options_at_texture_url() {
+    fun url_parameters_reflect_changes_to_options_at_texture_url() =
         url_parameters_reflect_changes_to_options(ViewerUrls.texture)
-    }
 
     private fun url_parameters_reflect_changes_to_options(path: String) = testAsync {
         val applicationUrl = TestApplicationUrl("/${PwToolType.Viewer.slug}$path")
