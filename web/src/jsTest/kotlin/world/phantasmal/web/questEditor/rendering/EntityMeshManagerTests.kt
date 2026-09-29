@@ -136,6 +136,70 @@ class EntityMeshManagerTests : WebTestSuite {
         assertEquals(1, selectionMarkers(context).count { it.visible })
     }
 
+    @Test
+    fun entity_rejected_by_a_full_mesh_is_added_after_its_model_changes() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val loader = SingleInstanceMeshLoader()
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                loader,
+            )
+        )
+        val occupant = createQuestObjectModel(ObjectType.Probe)
+        val rejected = createQuestObjectModel(ObjectType.Probe)
+
+        manager.add(occupant)
+        awaitCondition { loader.meshFor(0)?.count == 1 }
+        manager.add(rejected)
+        // Let the rejected entity's load finish against the full model-0 mesh.
+        repeat(10) { yield() }
+        assertEquals(1, loader.meshFor(0)?.count)
+
+        rejected.setModel(1)
+
+        awaitCondition { loader.meshFor(1)?.count == 1 }
+    }
+
+    @Test
+    fun removed_rejected_entity_is_not_added_after_its_model_changes() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val loader = SingleInstanceMeshLoader()
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                loader,
+            )
+        )
+        val occupant = createQuestObjectModel(ObjectType.Probe)
+        val rejected = createQuestObjectModel(ObjectType.Probe)
+
+        manager.add(occupant)
+        awaitCondition { loader.meshFor(0)?.count == 1 }
+        manager.add(rejected)
+        repeat(10) { yield() }
+
+        manager.remove(rejected)
+        rejected.setModel(1)
+        repeat(10) { yield() }
+
+        assertEquals(null, loader.meshFor(1))
+    }
+
     private suspend fun awaitVisibleSelectionMarker(context: QuestRenderContext) {
         withTimeout(5_000) {
             while (selectionMarkers(context).none { it.visible }) yield()
@@ -144,6 +208,30 @@ class EntityMeshManagerTests : WebTestSuite {
 
     private fun selectionMarkers(context: QuestRenderContext): List<BoxHelper> =
         context.scene.children.filterIsInstance<BoxHelper>()
+
+    private suspend fun awaitCondition(condition: () -> Boolean) {
+        // Stay below Mocha's 2 s timeout so a failure reports this condition, not a test timeout.
+        withTimeout(1_500) {
+            while (!condition()) yield()
+        }
+    }
+
+    /** Gives every model its own mesh with room for exactly one instance. */
+    private class SingleInstanceMeshLoader : EntityMeshLoader {
+        private val meshes = mutableMapOf<Int?, InstancedMesh>()
+
+        fun meshFor(model: Int?): InstancedMesh? = meshes[model]
+
+        override suspend fun loadInstancedMesh(
+            type: EntityType,
+            model: Int?,
+            ultimate: Boolean,
+            renderVariant: Int?,
+        ): InstancedMesh =
+            meshes.getOrPut(model) {
+                InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 1).apply { count = 0 }
+            }
+    }
 
     private class ControlledEntityMeshLoader : EntityMeshLoader {
         val loadStarted = CompletableDeferred<Unit>()

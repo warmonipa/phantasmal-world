@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.khronos.webgl.Float32Array
 import world.phantasmal.cell.observeNow
+import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.fileFormats.quest.EntityType
@@ -90,6 +91,12 @@ class EntityMeshManager(
      */
     private val loadingEntities = mutableMapOf<QuestEntityModel<*, *>, Job>()
 
+    /**
+     * Entities rejected by a full [EntityInstanceContainer], with the observers that add them again
+     * once a model or type change selects a different container.
+     */
+    private val rejectedEntities = mutableMapOf<QuestEntityModel<*, *>, List<Disposable>>()
+
     private var highlightedEntityInstance: EntityInstance? = null
     private var selectedEntityInstance: EntityInstance? = null
 
@@ -158,7 +165,12 @@ class EntityMeshManager(
                         )
                     )
 
-                    val instance = entityInstancedMesh.addInstance(entity) ?: return@launch
+                    val instance = entityInstancedMesh.addInstance(entity)
+
+                    if (instance == null) {
+                        retryAfterRenderKeyChange(entity)
+                        return@launch
+                    }
 
                     if (entity == questEditorStore.selectedEntity.value) {
                         markSelected(instance)
@@ -190,6 +202,7 @@ class EntityMeshManager(
 
     fun remove(entity: QuestEntityModel<*, *>) {
         loadingEntities.remove(entity)?.cancel("Removed.")
+        forgetRejection(entity)
 
         detachMarkersFor(entity)
         directionIndicators.removeInstance(entity)
@@ -213,6 +226,8 @@ class EntityMeshManager(
     fun removeAll() {
         loadingEntities.values.forEach { it.cancel("Removed.") }
         loadingEntities.clear()
+        rejectedEntities.values.forEach { observers -> observers.forEach(Disposable::dispose) }
+        rejectedEntities.clear()
 
         markSelected(null)
         markHighlighted(null)
@@ -220,6 +235,18 @@ class EntityMeshManager(
 
         destinationInstanceContainer.clearInstances()
         directionIndicators.clearInstances()
+    }
+
+    private fun retryAfterRenderKeyChange(entity: QuestEntityModel<*, *>) {
+        forgetRejection(entity)
+        rejectedEntities[entity] = observeEntityRenderKey(entity) {
+            forgetRejection(entity)
+            add(entity)
+        }
+    }
+
+    private fun forgetRejection(entity: QuestEntityModel<*, *>) {
+        rejectedEntities.remove(entity)?.forEach(Disposable::dispose)
     }
 
     private fun detachMarkersFor(entity: QuestEntityModel<*, *>) {
