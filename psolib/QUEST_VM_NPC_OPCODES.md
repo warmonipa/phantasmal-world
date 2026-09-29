@@ -492,6 +492,14 @@ already map/world coordinates and therefore do not receive DAT section transform
 episodes use the client's same 18 logical floor slots (`0` through `17`); episode map IDs are not
 logical floor IDs.
 
+Floor attribution follows the client's thread lifetimes. A floor handler runs in an ordinary
+`QuestThread2` that survives floor transitions, so code it reaches after a resumable yield
+(`sync`, message windows, and similar opcodes), including the fall-through after a call whose
+callee yields, is attributed to every logical floor unless the script re-checks the current floor.
+`thread_stg` threads and callbacks are destroyed by a floor transition and stay bound to their
+floor. An NPC previewed on all 18 floors is therefore an expected conservative result, not a
+floor-mapping error.
+
 The creation opcodes do not contain a dialogue label. The editor derives interaction navigation
 separately from reachable spatial trigger opcodes: `set_obj_param` / `set_obj_param_ex` contribute
 a **Target** label, and `at_coords_talk` / `at_coords_talk_ex` contribute a **Talk** label. A label
@@ -551,10 +559,10 @@ psolib applies its established last-chunk behavior and finds no positioned NPC c
 | `npc_crp_V3` | 14 | 14 |
 | `npc_crppk_V3` | 35 | 35 |
 | `npc_crptalk_V3` | 15 | 15 |
-| `npc_crp_id_v3` | 97 | 76 |
+| `npc_crp_id_v3` | 97 | 77 |
 | `npc_crptalk_id_V3` | 67 | 67 |
 | `npc_talk_pl_V3` | 3 | 2 |
-| **Total** | **231** | **209** |
+| **Total** | **231** | **210** |
 
 The difference consists of bytecode that is unreachable from a verified client entry point and
 creations whose position/angle/template is runtime-dependent. Separate creation instructions
