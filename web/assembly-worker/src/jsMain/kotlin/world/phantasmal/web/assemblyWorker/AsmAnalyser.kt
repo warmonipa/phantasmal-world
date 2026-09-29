@@ -28,8 +28,11 @@ class AsmAnalyser {
 
     private var floorMappings: List<FloorMapping>? = null
 
-    fun setAsm(asm: List<String>) {
+    private var generation = 0
+
+    fun setAsm(asm: List<String>, generation: Int) {
         this.asm.splice(0, this.asm.length, *asm.toTypedArray())
+        this.generation = generation
         floorMappings = null
     }
 
@@ -143,7 +146,7 @@ class AsmAnalyser {
 
         if (problems != this.problems) {
             this.problems = problems
-            notifications.add(ServerNotification.Problems(problems))
+            notifications.add(ServerNotification.Problems(generation, problems))
         }
 
         if (assemblyResult is Success) {
@@ -155,14 +158,14 @@ class AsmAnalyser {
             if (newFloorMappings != floorMappings) {
                 floorMappings = newFloorMappings
                 notifications.add(
-                    ServerNotification.FloorMappings(newFloorMappings)
+                    ServerNotification.FloorMappings(generation, newFloorMappings)
                 )
             }
 
             // Only push labels, registers, and segments when assembly succeeds.
-            notifications.add(ServerNotification.Labels(computeLabels()))
-            notifications.add(ServerNotification.Registers(computeRegisters()))
-            notifications.add(ServerNotification.Segments(computeSegments()))
+            notifications.add(ServerNotification.Labels(generation, computeLabels()))
+            notifications.add(ServerNotification.Registers(generation, computeRegisters()))
+            notifications.add(ServerNotification.Segments(generation, computeSegments()))
         }
 
         return notifications

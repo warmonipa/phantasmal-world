@@ -65,12 +65,18 @@ class AsmAnalyser {
         }
     }
 
+    /**
+     * Identifies the current script. Notifications about earlier scripts can still arrive after
+     * [setAsm] and are dropped, so they can't resolve navigation in the new script.
+     */
+    internal var asmGeneration = 0
+        private set
+
     fun setAsm(asm: List<String>) {
+        asmGeneration++
         _problems.clear()
-        // Labels of the previous script must not resolve navigation in the new one while the
-        // worker is still analysing it.
         _labels.clear()
-        sendMessage(ClientNotification.SetAsm(asm))
+        sendMessage(ClientNotification.SetAsm(asm, asmGeneration))
     }
 
     fun updateAsm(changes: List<AsmChange>) {
@@ -116,7 +122,9 @@ class AsmAnalyser {
         worker.postMessage(JSON_FORMAT.encodeToString(message))
     }
 
-    private fun receiveMessage(message: ServerMessage) =
+    internal fun receiveMessage(message: ServerMessage) {
+        if (message is ServerNotification && message.generation != asmGeneration) return
+
         when (message) {
             is ServerNotification.FloorMappings -> {
                 _floorMappings.value = message.floorMappings
@@ -151,4 +159,5 @@ class AsmAnalyser {
                 }
             }
         }
+    }
 }

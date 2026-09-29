@@ -30,6 +30,10 @@ sealed class ClientNotification : ClientMessage() {
     @Serializable
     class SetAsm(
         val asm: List<String>,
+        /**
+         * Identifies this script in the [ServerNotification]s derived from it.
+         */
+        val generation: Int,
     ) : ClientNotification()
 
     @Serializable
@@ -70,28 +74,39 @@ sealed class ServerMessage
 
 @Serializable
 sealed class ServerNotification : ServerMessage() {
+    /**
+     * [ClientNotification.SetAsm.generation] of the script this notification describes. Lets the
+     * client drop notifications about a script it has already replaced.
+     */
+    abstract val generation: Int
+
     @Serializable
     class FloorMappings(
+        override val generation: Int,
         val floorMappings: List<FloorMapping>,
     ) : ServerNotification()
 
     @Serializable
     class Problems(
+        override val generation: Int,
         val problems: List<AssemblyProblem>,
     ) : ServerNotification()
 
     @Serializable
     class Labels(
+        override val generation: Int,
         val labels: List<Label>,
     ) : ServerNotification()
 
     @Serializable
     class Registers(
+        override val generation: Int,
         val registers: List<RegisterInfo>,
     ) : ServerNotification()
 
     @Serializable
     class Segments(
+        override val generation: Int,
         val segments: List<SegmentInfo>,
     ) : ServerNotification()
 }
