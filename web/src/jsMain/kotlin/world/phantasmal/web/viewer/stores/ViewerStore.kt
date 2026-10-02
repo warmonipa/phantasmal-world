@@ -1,5 +1,7 @@
 package world.phantasmal.web.viewer.stores
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import world.phantasmal.core.enumValueOfOrNull
@@ -49,6 +51,12 @@ class ViewerStore(
     private val animationAssetLoader: AnimationAssetLoader,
     uiStore: UiStore,
 ) : Store() {
+    // Geometry, textures, and animation can also be replaced independently by local files.
+    private var modelLoadRevision = 0
+    private var textureLoadRevision = 0
+    private var animationLoadRevision = 0
+    private var contentRevision = 0
+
     // Ninja concepts.
     private val _currentNinjaGeometry = mutableCell<NinjaGeometry?>(null)
     private val _currentTextures = mutableListCell<XvrTexture?>()
@@ -200,12 +208,16 @@ class ViewerStore(
         setCurrentSectionIdValue(_currentSectionId.value)
         setCurrentBodyValue(_currentBody.value)
 
-        scope.launch {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
             loadCurrentModel(clearAnimation = true)
         }
     }
 
     fun setCurrentNinjaGeometry(geometry: NinjaGeometry?) {
+        contentRevision++
+        modelLoadRevision++
+        textureLoadRevision++
+        animationLoadRevision++
         mutate {
             if (_currentModel.value != null) {
                 setCurrentModelValue(null)
@@ -219,10 +231,13 @@ class ViewerStore(
     }
 
     fun setCurrentTextures(textures: List<XvrTexture>) {
+        contentRevision++
+        textureLoadRevision++
         _currentTextures.replaceAll(textures)
     }
 
     suspend fun setCurrentModel(model: ViewerModel?) {
+        contentRevision++
         val prevWasCharacter = _currentModel.value is ViewerModel.Character
         val newIsCharacter = model is ViewerModel.Character
 
@@ -243,31 +258,49 @@ class ViewerStore(
     }
 
     suspend fun setCurrentSectionId(sectionId: SectionId) {
+        contentRevision++
         setCurrentSectionIdValue(sectionId)
-        loadCharacterClassNinjaObject(clearAnimation = false)
+        if (_currentModel.value is ViewerModel.Character) {
+            loadCurrentModel(clearAnimation = false)
+        }
     }
 
     suspend fun setCurrentBody(body: Int) {
+        contentRevision++
         setCurrentBodyValue(body)
-        loadCharacterClassNinjaObject(clearAnimation = false)
+        if (_currentModel.value is ViewerModel.Character) {
+            loadCurrentModel(clearAnimation = false)
+        }
     }
 
     fun setCurrentNinjaMotion(njm: NjMotion) {
+        contentRevision++
+        animationLoadRevision++
         mutate {
+            _currentAnimation.value = null
             _currentNinjaMotion.value = njm
             _animationPlaying.value = true
         }
     }
 
     suspend fun setCurrentAnimation(animation: AnimationModel?) {
-        _currentAnimation.value = animation
-
-        if (animation == null) {
+        contentRevision++
+        val revision = ++animationLoadRevision
+        mutate {
+            _currentAnimation.value = animation
             _currentNinjaMotion.value = null
-        } else {
-            loadAnimation(animation)
+        }
+
+        if (animation != null) {
+            loadAnimation(animation, revision)
         }
     }
+
+    /** A local import may commit only while no newer content selection or import has started. */
+    internal fun beginFileLoad(): Int = ++contentRevision
+
+    internal fun isCurrentFileLoad(revision: Int): Boolean =
+        !disposed && revision == contentRevision
 
     fun setApplyTextures(apply: Boolean) {
         _applyTextures.value = apply
@@ -283,7 +316,8 @@ class ViewerStore(
 
         // Only NPC skins change with difficulty; reload the current NPC so the new skin loads.
         if (_currentModel.value is ViewerModel.Npc) {
-            loadNpcNinjaObject(clearAnimation = false)
+            contentRevision++
+            loadCurrentModel(clearAnimation = false)
         }
     }
 
@@ -306,153 +340,95 @@ class ViewerStore(
     }
 
     private suspend fun loadCurrentModel(clearAnimation: Boolean) {
-        when (_currentModel.value) {
-            is ViewerModel.Character -> loadCharacterClassNinjaObject(clearAnimation)
-            is ViewerModel.Npc -> loadNpcNinjaObject(clearAnimation)
-            is ViewerModel.Item -> loadItemNinjaObject(clearAnimation)
-            is ViewerModel.Object -> loadObjectNinjaObject(clearAnimation)
-            null -> {
-                mutate {
-                    _currentNinjaGeometry.value = null
-                    _currentTextures.clear()
+        val revision = ++modelLoadRevision
+        val texturesRevision = ++textureLoadRevision
+        // Capture every load input before the first suspension, including the NPC skin.
+        val model = _currentModel.value
+        val sectionId = _currentSectionId.value
+        val body = _currentBody.value
+        val ultimate = _ultimate.value
 
-                    if (clearAnimation) {
-                        _currentAnimation.value = null
-                        _currentNinjaMotion.value = null
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun loadCharacterClassNinjaObject(clearAnimation: Boolean) {
-        val char = currentCharacterClass.value
-            ?: return
-
-        try {
-            val sectionId = currentSectionId.value
-            val body = currentBody.value
-            val ninjaObject = characterClassAssetLoader.loadNinjaObject(char)
-            val textures = characterClassAssetLoader.loadXvrTextures(char, sectionId, body)
-
-            mutate {
-                if (clearAnimation) {
-                    _currentAnimation.value = null
-                    _currentNinjaMotion.value = null
-                }
-
-                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
-                _currentTextures.replaceAll(textures)
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "Couldn't load Ninja model for $char." }
-
+        if (clearAnimation) {
+            animationLoadRevision++
             mutate {
                 _currentAnimation.value = null
                 _currentNinjaMotion.value = null
+            }
+        }
+        val animationRevision = animationLoadRevision
+
+        if (model == null) {
+            mutate {
                 _currentNinjaGeometry.value = null
                 _currentTextures.clear()
             }
+            return
         }
-    }
-
-    private suspend fun loadNpcNinjaObject(clearAnimation: Boolean) {
-        val model = _currentModel.value as? ViewerModel.Npc ?: return
-        val npcType = model.npcType
 
         try {
-            val ninjaObject = npcAssetLoader.loadNinjaObject(npcType, _ultimate.value)
-            val textures = npcAssetLoader.loadXvrTextures(npcType, _ultimate.value)
+            val ninjaObject = when (model) {
+                is ViewerModel.Character -> characterClassAssetLoader.loadNinjaObject(model.characterClass)
+                is ViewerModel.Npc -> npcAssetLoader.loadNinjaObject(model.npcType, ultimate)
+                is ViewerModel.Item -> itemAssetLoader.loadNinjaObject(model.index)
+                is ViewerModel.Object -> objectAssetLoader.loadNinjaObject(model.objectType)
+            }
+            if (!isCurrentModelLoad(revision)) return
+
+            val textures = try {
+                if (texturesRevision != textureLoadRevision) null else when (model) {
+                    is ViewerModel.Character -> characterClassAssetLoader.loadXvrTextures(
+                        model.characterClass, sectionId, body,
+                    )
+                    is ViewerModel.Npc -> npcAssetLoader.loadXvrTextures(model.npcType, ultimate)
+                    is ViewerModel.Item -> itemAssetLoader.loadXvrTextures(model.textureIndex)
+                    is ViewerModel.Object -> objectAssetLoader.loadXvrTextures(model.objectType)
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // An imported texture supersedes this fetch without superseding its geometry.
+                if (texturesRevision == textureLoadRevision) throw e
+                null
+            }
+            if (!isCurrentModelLoad(revision)) return
 
             mutate {
-                if (clearAnimation) {
+                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
+                if (texturesRevision == textureLoadRevision && textures != null) {
+                    _currentTextures.replaceAll(textures)
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            if (!isCurrentModelLoad(revision)) return
+            logger.error(e) { "Couldn't load Ninja model for ${model.uiName}." }
+
+            mutate {
+                _currentNinjaGeometry.value = null
+                if (texturesRevision == textureLoadRevision) _currentTextures.clear()
+                if (animationRevision == animationLoadRevision) {
+                    animationLoadRevision++
                     _currentAnimation.value = null
                     _currentNinjaMotion.value = null
                 }
-
-                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
-                _currentTextures.replaceAll(textures)
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "Couldn't load Ninja model for ${npcType.uniqueName}." }
-
-            mutate {
-                _currentAnimation.value = null
-                _currentNinjaMotion.value = null
-                _currentNinjaGeometry.value = null
-                _currentTextures.clear()
             }
         }
     }
 
-    private suspend fun loadObjectNinjaObject(clearAnimation: Boolean) {
-        val model = _currentModel.value as? ViewerModel.Object ?: return
-        val objectType = model.objectType
+    private fun isCurrentModelLoad(revision: Int): Boolean =
+        !disposed && revision == modelLoadRevision
 
-        try {
-            val ninjaObject = objectAssetLoader.loadNinjaObject(objectType)
-            val textures = objectAssetLoader.loadXvrTextures(objectType)
-
-            mutate {
-                if (clearAnimation) {
-                    _currentAnimation.value = null
-                    _currentNinjaMotion.value = null
-                }
-
-                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
-                _currentTextures.replaceAll(textures)
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "Couldn't load Ninja model for ${objectType.uniqueName}." }
-
-            mutate {
-                _currentAnimation.value = null
-                _currentNinjaMotion.value = null
-                _currentNinjaGeometry.value = null
-                _currentTextures.clear()
-            }
-        }
-    }
-
-    private suspend fun loadItemNinjaObject(clearAnimation: Boolean) {
-        val model = _currentModel.value as? ViewerModel.Item ?: return
-
-        try {
-            val ninjaObject = itemAssetLoader.loadNinjaObject(model.index)
-            val textures = itemAssetLoader.loadXvrTextures(model.textureIndex)
-
-            mutate {
-                if (clearAnimation) {
-                    _currentAnimation.value = null
-                    _currentNinjaMotion.value = null
-                }
-
-                _currentNinjaGeometry.value = NinjaGeometry.Object(ninjaObject)
-                _currentTextures.replaceAll(textures)
-            }
-        } catch (e: Exception) {
-            logger.error(e) {
-                "Couldn't load Ninja model ${model.index} with item texture ${model.textureIndex}."
-            }
-
-            mutate {
-                _currentAnimation.value = null
-                _currentNinjaMotion.value = null
-                _currentNinjaGeometry.value = null
-                _currentTextures.clear()
-            }
-        }
-    }
-
-    private suspend fun loadAnimation(animation: AnimationModel) {
+    private suspend fun loadAnimation(animation: AnimationModel, revision: Int) {
         try {
             val ninjaMotion = animationAssetLoader.loadAnimation(animation.filePath)
+            if (disposed || revision != animationLoadRevision) return
 
             mutate {
                 _currentNinjaMotion.value = ninjaMotion
                 _animationPlaying.value = true
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            if (disposed || revision != animationLoadRevision) return
             logger.error(e) {
                 "Couldn't load Ninja motion for ${animation.name} (path: ${animation.filePath})."
             }

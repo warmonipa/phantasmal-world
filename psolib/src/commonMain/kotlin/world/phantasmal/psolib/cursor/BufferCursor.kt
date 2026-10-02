@@ -18,14 +18,18 @@ class BufferCursor(
     override var size: Int
         get() = _size
         set(value) {
-            if (value > _size) {
-                ensureSpace(value - _size)
-            } else {
-                _size = value
+            require(value >= 0 && value <= Int.MAX_VALUE - offset) {
+                "Size $value is out of bounds."
+            }
 
-                if (position > _size) {
-                    position = _size
-                }
+            if (buffer.size < offset + value) {
+                buffer.size = offset + value
+            }
+
+            _size = value
+
+            if (position > _size) {
+                position = _size
             }
         }
 
@@ -43,48 +47,55 @@ class BufferCursor(
             "Offset $offset is out of bounds."
         }
 
-        require(size >= 0 && offset + size <= buffer.size) {
+        require(size >= 0 && size <= buffer.size - offset) {
             "Size $size is out of bounds."
         }
     }
 
     override fun uByte(): UByte {
+        requireSize(1)
         val r = buffer.getUByte(absolutePosition)
         position++
         return r
     }
 
     override fun uShort(): UShort {
+        requireSize(2)
         val r = buffer.getUShort(absolutePosition)
         position += 2
         return r
     }
 
     override fun uInt(): UInt {
+        requireSize(4)
         val r = buffer.getUInt(absolutePosition)
         position += 4
         return r
     }
 
     override fun byte(): Byte {
+        requireSize(1)
         val r = buffer.getByte(absolutePosition)
         position++
         return r
     }
 
     override fun short(): Short {
+        requireSize(2)
         val r = buffer.getShort(absolutePosition)
         position += 2
         return r
     }
 
     override fun int(): Int {
+        requireSize(4)
         val r = buffer.getInt(absolutePosition)
         position += 4
         return r
     }
 
     override fun float(): Float {
+        requireSize(4)
         val r = buffer.getFloat(absolutePosition)
         position += 4
         return r
@@ -104,7 +115,7 @@ class BufferCursor(
     }
 
     override fun uShortArray(n: Int): UShortArray {
-        requireSize(2 * n)
+        requireSize(n, 2)
 
         val array = UShortArray(n)
 
@@ -117,7 +128,7 @@ class BufferCursor(
     }
 
     override fun uIntArray(n: Int): UIntArray {
-        requireSize(4 * n)
+        requireSize(n, 4)
 
         val array = UIntArray(n)
 
@@ -143,7 +154,7 @@ class BufferCursor(
     }
 
     override fun intArray(n: Int): IntArray {
-        requireSize(4 * n)
+        requireSize(n, 4)
 
         val array = IntArray(n)
 
@@ -156,12 +167,14 @@ class BufferCursor(
     }
 
     override fun take(size: Int): Cursor {
+        requireSize(size)
         val wrapper = BufferCursor(buffer, offset = absolutePosition, size)
         position += size
         return wrapper
     }
 
     override fun buffer(size: Int): Buffer {
+        requireSize(size)
         val wrapper = buffer.slice(offset = absolutePosition, size)
         position += size
         return wrapper
@@ -222,12 +235,12 @@ class BufferCursor(
     }
 
     override fun writeUShortArray(array: UShortArray): WritableCursor {
-        ensureSpace(2 * array.size)
+        ensureSpace(array.size, 2)
         return super.writeUShortArray(array)
     }
 
     override fun writeUIntArray(array: UIntArray): WritableCursor {
-        ensureSpace(4 * array.size)
+        ensureSpace(array.size, 4)
         return super.writeUIntArray(array)
     }
 
@@ -237,7 +250,7 @@ class BufferCursor(
     }
 
     override fun writeIntArray(array: IntArray): WritableCursor {
-        ensureSpace(4 * array.size)
+        ensureSpace(array.size, 4)
         return super.writeIntArray(array)
     }
 
@@ -257,15 +270,15 @@ class BufferCursor(
         return super.writeStringUtf16(str, byteLength)
     }
 
-    private fun ensureSpace(size: Int) {
-        val needed = (position + size) - _size
+    private fun ensureSpace(size: Int, elementSize: Int = 1) {
+        require(size >= 0 && size <= (Int.MAX_VALUE - absolutePosition) / elementSize) {
+            "Size $size is out of bounds."
+        }
 
-        if (needed > 0) {
-            _size += needed
+        val endPosition = position + size * elementSize
 
-            if (buffer.size < offset + _size) {
-                buffer.size = offset + _size
-            }
+        if (endPosition > _size) {
+            this.size = endPosition
         }
     }
 }

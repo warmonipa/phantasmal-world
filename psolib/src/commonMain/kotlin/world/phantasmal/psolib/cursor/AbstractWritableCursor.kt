@@ -16,8 +16,10 @@ protected constructor(protected val offset: Int) : WritableCursor {
     override fun hasBytesLeft(): Boolean =
         bytesLeft > 0
 
-    override fun seek(offset: Int): WritableCursor =
-        seekStart(position + offset)
+    override fun seek(offset: Int): WritableCursor {
+        require(offset in -position..bytesLeft) { "Offset $offset is out of bounds." }
+        return seekStart(position + offset)
+    }
 
     override fun seekStart(offset: Int): WritableCursor {
         require(offset in 0..size) { "Offset $offset is out of bounds." }
@@ -39,6 +41,8 @@ protected constructor(protected val offset: Int) : WritableCursor {
         dropRemaining: Boolean,
     ): String =
         buildString {
+            require(maxByteLength >= 0) { "Length $maxByteLength is out of bounds." }
+
             for (i in 0 until maxByteLength) {
                 // Use Byte instead of UByte for better KJS perf.
                 val codePoint = (byte().toInt() and 0xFF).toChar()
@@ -61,6 +65,8 @@ protected constructor(protected val offset: Int) : WritableCursor {
         dropRemaining: Boolean,
     ): String =
         buildString {
+            require(maxByteLength >= 0) { "Length $maxByteLength is out of bounds." }
+
             val len = maxByteLength / 2
 
             for (i in 0 until len) {
@@ -91,7 +97,7 @@ protected constructor(protected val offset: Int) : WritableCursor {
 
     override fun writeUShortArray(array: UShortArray): WritableCursor {
         val len = array.size
-        requireSize(2 * len)
+        requireSize(len, 2)
 
         for (i in 0 until len) {
             writeUShort(array[i])
@@ -102,7 +108,7 @@ protected constructor(protected val offset: Int) : WritableCursor {
 
     override fun writeUIntArray(array: UIntArray): WritableCursor {
         val len = array.size
-        requireSize(4 * len)
+        requireSize(len, 4)
 
         for (i in 0 until len) {
             writeUInt(array[i])
@@ -124,7 +130,7 @@ protected constructor(protected val offset: Int) : WritableCursor {
 
     override fun writeIntArray(array: IntArray): WritableCursor {
         val len = array.size
-        requireSize(4 * len)
+        requireSize(len, 4)
 
         for (i in 0 until len) {
             writeInt(array[i])
@@ -182,11 +188,13 @@ protected constructor(protected val offset: Int) : WritableCursor {
     }
 
     /**
-     * Throws an error if less than [size] bytes are left at [position].
+     * Checks the element count before multiplication so byte lengths cannot overflow.
      */
-    protected fun requireSize(size: Int) {
-        val left = this.size - position
+    protected fun requireSize(size: Int, elementSize: Int = 1) {
+        val left = bytesLeft
 
-        require(size <= left) { "$size Bytes required but only $left available." }
+        require(size >= 0 && size <= left / elementSize) {
+            "$size elements of $elementSize bytes required but only $left bytes available."
+        }
     }
 }

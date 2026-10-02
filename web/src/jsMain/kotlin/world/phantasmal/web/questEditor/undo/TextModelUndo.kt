@@ -43,6 +43,11 @@ class TextModelUndo(
     private val _didRedo = emitter<Unit>()
 
     private val currentVersionId = mutableCell<Int?>(null)
+    // Presentation edits have their own Monaco history entries but retain the document revision.
+    private val documentVersions = mutableMapOf<Int, Int>()
+    private var preservingDocumentVersion = false
+    private var generation = 0
+    val documentVersion: Cell<Int?> = currentVersionId
     private val savePointVersionId = mutableCell<Int?>(null)
 
     override val canUndo: Cell<Boolean> = _canUndo
@@ -78,43 +83,28 @@ class TextModelUndo(
                 return@mutateDeferred
             }
 
-            _canUndo.value = false
-            _canRedo.value = false
-
-            val initialVersionId = model.getAlternativeVersionId()
+            reset()
+            var initialVersionId = model.getAlternativeVersionId()
             currentVersionId.value = initialVersionId
             savePointVersionId.value = initialVersionId
+            documentVersions[initialVersionId] = initialVersionId
             var lastVersionId = initialVersionId
 
-            modelChangeObserver = model.onDidChangeContent {
-                val versionId = model.getAlternativeVersionId()
-                val prevVersionId = currentVersionId.value!!
-
-                if (versionId < prevVersionId) {
-                    // Undoing.
-                    _canRedo.value = true
-
-                    if (versionId == initialVersionId) {
-                        _canUndo.value = false
-                    }
-                } else {
-                    if (versionId <= lastVersionId) {
-                        // Redoing.
-                        if (versionId == lastVersionId) {
-                            _canRedo.value = false
-                        }
+            modelChangeObserver = model.onDidChangeContent { event ->
+                mutateDeferred {
+                    val versionId = model.getAlternativeVersionId()
+                    val documentVersion = if (preservingDocumentVersion) {
+                        currentVersionId.value!!
                     } else {
-                        _canRedo.value = false
-
-                        if (prevVersionId > lastVersionId) {
-                            lastVersionId = prevVersionId
-                        }
+                        documentVersions[versionId] ?: versionId
                     }
-
-                    _canUndo.value = true
+                    documentVersions[versionId] = documentVersion
+                    if (event.isFlush) initialVersionId = versionId
+                    if (!event.isUndoing && !event.isRedoing) lastVersionId = versionId
+                    _canUndo.value = versionId != initialVersionId
+                    _canRedo.value = versionId != lastVersionId
+                    currentVersionId.value = documentVersion
                 }
-
-                currentVersionId.value = versionId
             }
         }
     }
@@ -135,11 +125,26 @@ class TextModelUndo(
             false
         }
 
-    override fun savePoint() {
-        savePointVersionId.value = currentVersionId.value
+    fun preserveDocumentVersion(edit: () -> Unit) {
+        preservingDocumentVersion = true
+        try {
+            edit()
+        } finally {
+            preservingDocumentVersion = false
+        }
+    }
+
+    override fun captureSavePoint(): () -> Unit {
+        val capturedGeneration = generation
+        val version = currentVersionId.value
+        return {
+            if (!disposed && generation == capturedGeneration) savePointVersionId.value = version
+        }
     }
 
     override fun reset() {
+        generation++
+        documentVersions.clear()
         _canUndo.value = false
         _canRedo.value = false
         currentVersionId.value = null

@@ -1,9 +1,13 @@
 package world.phantasmal.psolib.cursor
 
 import world.phantasmal.psolib.Endianness
+import world.phantasmal.core.Success
+import world.phantasmal.psolib.fileFormats.ninja.parseNj
 import world.phantasmal.psolib.test.LibTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 /**
  * Test suite for all [Cursor] implementations. There is a subclass of this suite for every [Cursor]
@@ -15,6 +19,145 @@ abstract class CursorTests : LibTestSuite {
         endianness: Endianness,
         size: Int = bytes.size,
     ): Cursor
+
+    @Test
+    fun reads_cannot_escape_nested_views() {
+        val reads: List<Pair<Int, Cursor.() -> Any>> = listOf(
+            1 to { uByte() },
+            2 to { uShort() },
+            4 to { uInt() },
+            1 to { byte() },
+            2 to { short() },
+            4 to { int() },
+            4 to { float() },
+            2 to { uByteArray(2) },
+            4 to { uShortArray(2) },
+            8 to { uIntArray(2) },
+            2 to { byteArray(2) },
+            8 to { intArray(2) },
+            4 to { take(4) },
+            4 to { buffer(4) },
+        )
+
+        for (endianness in Endianness.values()) {
+            for ((size, read) in reads) {
+                val parent = createCursor(ByteArray(32), endianness).seekStart(3).take(16)
+                val child = parent.seekStart(2).take(size - 1)
+
+                assertFailsWith<IllegalArgumentException> { child.read() }
+                assertEquals(0, child.position)
+                assertEquals(size - 1, child.bytesLeft)
+                assertEquals(size + 1, parent.position)
+            }
+        }
+    }
+
+    @Test
+    fun negative_lengths_do_not_change_position() {
+        val reads: List<Cursor.() -> Any> = listOf(
+            { uByteArray(-1) },
+            { uShortArray(-1) },
+            { uIntArray(-1) },
+            { byteArray(-1) },
+            { intArray(-1) },
+            { take(-1) },
+            { buffer(-1) },
+            { stringAscii(-1) },
+            { stringUtf16(-1) },
+        )
+
+        for (read in reads) {
+            val cursor = createCursor(ByteArray(16), Endianness.Little).seekStart(3)
+            assertFailsWith<IllegalArgumentException> { cursor.read() }
+            assertEquals(3, cursor.position)
+            assertEquals(16, cursor.size)
+        }
+    }
+
+    @Test
+    fun array_byte_lengths_cannot_overflow_before_bounds_checks() {
+        val reads: List<Cursor.(Int) -> Any> = listOf(
+            { n -> uShortArray(n) },
+            { n -> uIntArray(n) },
+            { n -> intArray(n) },
+        )
+
+        for (read in reads) {
+            for (length in listOf(Int.MIN_VALUE, -0x40000000, 0x40000000, Int.MAX_VALUE)) {
+                val cursor = createCursor(ByteArray(8), Endianness.Little).seekStart(1)
+                assertFailsWith<IllegalArgumentException> { cursor.read(length) }
+                assertEquals(1, cursor.position)
+            }
+        }
+    }
+
+    @Test
+    fun nested_views_allow_exact_boundary_and_empty_reads() {
+        val cursor = createCursor(byteArrayOf(1, 2, 3, 4, 5, 6), Endianness.Little)
+        val child = cursor.seekStart(1).take(4).seekStart(1).take(2)
+
+        assertEquals(0x0403, child.uShort().toInt())
+        assertEquals(0, child.bytesLeft)
+        assertEquals(0, child.take(0).size)
+        assertEquals(0, child.buffer(0).size)
+        assertEquals(5, cursor.position)
+        assertEquals(6, cursor.byte().toInt())
+    }
+
+    @Test
+    fun strings_cannot_read_a_terminator_outside_the_view() {
+        val ascii = createCursor(byteArrayOf(65, 0), Endianness.Little, size = 1)
+        assertFailsWith<IllegalArgumentException> { ascii.stringAscii(2) }
+        assertEquals(1, ascii.position)
+
+        val utf16 = createCursor(byteArrayOf(65, 0, 0, 0), Endianness.Little, size = 2)
+        assertFailsWith<IllegalArgumentException> { utf16.stringUtf16(4) }
+        assertEquals(2, utf16.position)
+    }
+
+    @Test
+    fun null_terminated_strings_can_stop_before_their_length_limit() {
+        val ascii = createCursor(byteArrayOf(65, 0), Endianness.Little)
+        assertEquals("A", ascii.stringAscii(Int.MAX_VALUE, dropRemaining = false))
+        assertEquals(2, ascii.position)
+
+        val utf16 = createCursor(byteArrayOf(65, 0, 0, 0), Endianness.Little)
+        assertEquals("A", utf16.stringUtf16(Int.MAX_VALUE, dropRemaining = false))
+        assertEquals(4, utf16.position)
+    }
+
+    @Test
+    fun seek_rejects_out_of_bounds_offsets_without_moving() {
+        val cursor = createCursor(ByteArray(16), Endianness.Little).seekStart(3)
+        for (offset in listOf(Int.MIN_VALUE, -4, 14, Int.MAX_VALUE)) {
+            assertFailsWith<IllegalArgumentException> { cursor.seek(offset) }
+            assertEquals(3, cursor.position)
+        }
+        for (offset in listOf(-1, 17, Int.MAX_VALUE)) {
+            assertFailsWith<IllegalArgumentException> { cursor.seekStart(offset) }
+            assertFailsWith<IllegalArgumentException> { cursor.seekEnd(offset) }
+            assertEquals(3, cursor.position)
+        }
+    }
+
+    @Test
+    fun nj_object_cannot_consume_bytes_after_its_declared_chunk() {
+        // A valid zeroed NJS_OBJECT needs 52 bytes. Padding outside a one-byte NJCM
+        // payload must not be accepted as the rest of that object.
+        val bytes = ByteArray(64)
+        bytes[0] = 'N'.code.toByte()
+        bytes[1] = 'J'.code.toByte()
+        bytes[2] = 'C'.code.toByte()
+        bytes[3] = 'M'.code.toByte()
+        bytes[4] = 1
+        assertFailsWith<IllegalArgumentException> {
+            parseNj(createCursor(bytes, Endianness.Little))
+        }
+
+        bytes[4] = 52
+        val result = assertIs<Success<*>>(parseNj(createCursor(bytes, Endianness.Little)))
+        assertEquals(1, (result.value as List<*>).size)
+    }
 
     @Test
     fun simple_cursor_properties_and_invariants() {

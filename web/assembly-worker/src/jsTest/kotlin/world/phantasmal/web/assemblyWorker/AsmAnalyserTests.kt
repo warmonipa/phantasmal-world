@@ -9,6 +9,25 @@ import kotlin.test.assertTrue
 
 class AsmAnalyserTests : AssemblyWorkerTestSuite() {
     @Test
+    fun a_new_context_generation_republishes_unchanged_outputs() = test {
+        val analyser = AsmAnalyser()
+        analyser.setAsm(listOf("0:", "bb_map_designate 7, 7, 0, 0, 0", "ret"), 1)
+        val initial = analyser.processAsm()
+
+        // Floor 7 is already referenced by the script. The mapping remains equal, but an
+        // in-flight generation 1 notification may have been rejected by the client.
+        analyser.updateUsedFloorIds(setOf(7), 2)
+        val current = analyser.processAsm()
+
+        assertEquals(
+            initial.filterIsInstance<ServerNotification.FloorMappings>().single().floorMappings,
+            current.filterIsInstance<ServerNotification.FloorMappings>().single().floorMappings,
+        )
+        assertEquals(emptyList(), current.filterIsInstance<ServerNotification.Problems>().single().problems)
+        assertTrue(current.all { it.generation == 2 })
+    }
+
+    @Test
     fun getSignatureHelp() = test {
         val analyser = createAsmAnalyser(
             """

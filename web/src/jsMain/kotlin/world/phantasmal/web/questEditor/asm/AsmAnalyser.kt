@@ -14,6 +14,7 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.fileFormats.quest.Version
 import world.phantasmal.web.shared.JSON_FORMAT
 import world.phantasmal.web.shared.messages.*
 import world.phantasmal.web.shared.messages.Label
@@ -46,6 +47,7 @@ class AsmAnalyser {
         }
     }
     private var nextRequestId = atomic(0)
+    private var usedFloorIds: Set<Int> = emptySet()
 
     /**
      * Maps request IDs to continuations.
@@ -66,21 +68,33 @@ class AsmAnalyser {
     }
 
     /**
-     * Identifies the current script. Notifications about earlier scripts can still arrive after
-     * [setAsm] and are dropped, so they can't resolve navigation in the new script.
+     * Identifies the current script and DAT context. Notifications about replaced inputs can
+     * still arrive and are dropped, so they can't update the current document.
      */
     internal var asmGeneration = 0
         private set
 
-    fun setAsm(asm: List<String>) {
+    fun setAsm(
+        asm: List<String>,
+        usedFloorIds: Set<Int> = emptySet(),
+        version: Version = Version.BB_V4,
+    ) {
         asmGeneration++
+        this.usedFloorIds = usedFloorIds
         _problems.clear()
         _labels.clear()
-        sendMessage(ClientNotification.SetAsm(asm, asmGeneration))
+        sendMessage(ClientNotification.SetAsm(asm, asmGeneration, usedFloorIds, version))
     }
 
     fun updateAsm(changes: List<AsmChange>) {
         sendMessage(ClientNotification.UpdateAsm(changes))
+    }
+
+    fun updateUsedFloorIds(usedFloorIds: Set<Int>) {
+        if (this.usedFloorIds == usedFloorIds) return
+        this.usedFloorIds = usedFloorIds
+        asmGeneration++
+        sendMessage(ClientNotification.UpdateUsedFloorIds(usedFloorIds, asmGeneration))
     }
 
     suspend fun getCompletions(lineNo: Int, col: Int): List<CompletionItem> =

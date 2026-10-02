@@ -7,12 +7,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import world.phantasmal.core.Severity
+import world.phantasmal.core.PwResult
+import world.phantasmal.core.Success
+import world.phantasmal.core.Failure
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.core.disposable.disposable
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.list.ListCell
+import world.phantasmal.cell.map
 import world.phantasmal.cell.mutableCell
 import world.phantasmal.cell.mutateDeferred
+import world.phantasmal.cell.observe
+import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.IntFormat
 import world.phantasmal.psolib.asm.assemble
 import world.phantasmal.psolib.asm.disassemble
@@ -47,9 +53,11 @@ class AsmStore(
     private val _hideNops = mutableCell(false)
     private var _textModel = mutableCell<ITextModel?>(null)
     private var setBytecodeIrTimeout: Int? = null
-    // The quest that was active when the pending setBytecodeIr timeout was scheduled.
-    // Used to guard against writing assembled code to a newly-loaded quest.
-    private var setBytecodeIrQuest: QuestModel? = null
+    private var assembledVersion: Int? = null
+    // Hidden NOPs are absent from the view. Restoring a previous revision must restore its IR,
+    // not reassemble that revision's incomplete presentation.
+    private val assembledVersions = mutableMapOf<Int, BytecodeIr>()
+    private var updatingPresentation = false
 
     /**
      * Contains all model-related disposables. All contained disposables are disposed whenever a new
@@ -83,20 +91,11 @@ class AsmStore(
             setTextModel(quest)
         }
 
-        val refreshTextModel = {
-            // Ensure we have the most up-to-date bytecode before we disassemble it again.
-            if (setBytecodeIrTimeout != null) {
-                setBytecodeIr()
+        observe(asmAnalyser.floorMappings) { mappings ->
+            val quest = questEditorStore.currentQuest.value ?: return@observe
+            scope.launch {
+                if (!disposed) questEditorStore.setFloorMappings(quest, mappings)
             }
-
-            setTextModel(questEditorStore.currentQuest.value)
-        }
-
-        observe(hexFormat) { refreshTextModel() }
-        observe(hideNops) { refreshTextModel() }
-
-        observe(asmAnalyser.floorMappings) {
-            scope.launch { questEditorStore.setFloorMappings(it) }
         }
 
         observeNow(problems) { problems ->
@@ -145,11 +144,11 @@ class AsmStore(
     }
 
     fun setHexFormat(hex: Boolean) {
-        _hexFormat.value = hex
+        updatePresentation(hex, hideNops.value)
     }
 
     fun setHideNops(hide: Boolean) {
-        _hideNops.value = hide
+        updatePresentation(hexFormat.value, hide)
     }
 
     fun goToLabelRange(range: AsmRange) {
@@ -167,25 +166,52 @@ class AsmStore(
         return range
     }
 
+    override fun dispose() {
+        cancelPendingAssembly()
+        super.dispose()
+    }
+
+    private fun cancelPendingAssembly() {
+        setBytecodeIrTimeout?.let(window::clearTimeout)
+        setBytecodeIrTimeout = null
+    }
+
     private fun setTextModel(quest: QuestModel?) {
         mutateDeferred {
-            setBytecodeIrTimeout?.let { it ->
-                window.clearTimeout(it)
-                setBytecodeIrTimeout = null
-            }
-            setBytecodeIrQuest = null
-
+            cancelPendingAssembly()
             modelDisposer.disposeAll()
-
-            quest ?: return@mutateDeferred
+            _textModel.value = null
+            assembledVersion = null
+            assembledVersions.clear()
+            if (quest == null) {
+                asmAnalyser.setAsm(emptyList())
+                return@mutateDeferred
+            }
 
             val intFmt = if (hexFormat.value) IntFormat.HEX else IntFormat.DECIMAL
             val asm = disassemble(quest.bytecodeIr, Version.BB_V4, intFmt, hideNops.value)
-            asmAnalyser.setAsm(asm)
+            val usedFloorIds = map(quest.objects, quest.npcs, quest.events) { objects, npcs, events ->
+                buildSet {
+                    objects.forEach { add(it.floorId) }
+                    npcs.forEach { add(it.floorId) }
+                    events.forEach { add(it.floorId) }
+                }
+            }
+            asmAnalyser.setAsm(
+                asm,
+                usedFloorIds = usedFloorIds.value,
+                version = quest.version,
+            )
+            modelDisposer.add(usedFloorIds.observe { floorIds ->
+                if (!disposed && questEditorStore.currentQuest.value === quest) {
+                    asmAnalyser.updateUsedFloorIds(floorIds)
+                }
+            })
 
             _textModel.value = createModel(asm.joinToString("\n"), ASM_LANG_ID).also { model ->
+                assembledVersion = model.getAlternativeVersionId()
+                assembledVersions[model.getAlternativeVersionId()] = quest.bytecodeIr
                 modelDisposer.add(disposable { model.dispose() })
-
                 model.onDidChangeContent { e ->
                     asmAnalyser.updateAsm(e.changes.map {
                         AsmChange(
@@ -198,34 +224,69 @@ class AsmStore(
                             it.text,
                         )
                     })
-
-                    setBytecodeIrTimeout?.let(window::clearTimeout)
-                    setBytecodeIrQuest = questEditorStore.currentQuest.value
-                    setBytecodeIrTimeout = window.setTimeout(::setBytecodeIr, 1000)
-
+                    if (!updatingPresentation) {
+                        cancelPendingAssembly()
+                        setBytecodeIrTimeout = window.setTimeout({ commit() }, 1000)
+                    }
                     // TODO: Update breakpoints.
                 }
             }
         }
     }
 
-    private fun setBytecodeIr() {
-        if (disposed) return
+    /** Synchronizes the current document before serialization, regardless of the debounce timer. */
+    fun commit(): PwResult<Unit> {
+        cancelPendingAssembly()
+        if (disposed) return Success(Unit)
+        val quest = questEditorStore.currentQuest.value ?: return Success(Unit)
+        val model = textModel.value ?: return Success(Unit)
+        val version = undo.documentVersion.value ?: return Success(Unit)
+        if (assembledVersion == version) return Success(Unit)
 
-        setBytecodeIrTimeout = null
+        val result = assembledVersions[version]?.let { Success(it) }
+            ?: assemble(model.getLinesContent().toList(), Version.BB_V4)
+        // The analyser deliberately returns partial IR with errors for editor assistance.
+        // Persisting a document requires an error-free assembly.
+        if (result is Failure || result.problems.any { it.severity == Severity.Error }) {
+            return Failure(result.problems)
+        }
+        val ir = (result as Success).value
+        quest.setBytecodeIr(ir)
+        assembledVersion = version
+        return Success(Unit, result.problems)
+    }
 
-        val quest = setBytecodeIrQuest ?: return
-        setBytecodeIrQuest = null
-
-        // Guard: only write if the quest is still the active one.
-        // Prevents stale ASM from being written to a newly-loaded quest.
-        if (quest !== questEditorStore.currentQuest.value) return
-
-        val model = textModel.value ?: return
-
-        assemble(model.getLinesContent().toList(), Version.BB_V4)
-            .getOrNull()
-            ?.let(quest::setBytecodeIr)
+    private fun updatePresentation(hex: Boolean, hideNops: Boolean) {
+        if (hex == hexFormat.value && hideNops == this.hideNops.value) return
+        if (commit() is Failure) return
+        val quest = questEditorStore.currentQuest.value
+        val model = textModel.value
+        if (quest != null && model != null) {
+            val text = disassemble(
+                quest.bytecodeIr, Version.BB_V4,
+                if (hex) IntFormat.HEX else IntFormat.DECIMAL, hideNops,
+            ).joinToString("\n")
+            if (text != model.getValue()) {
+                undo.documentVersion.value?.let { assembledVersions[it] = quest.bytecodeIr }
+                updatingPresentation = true
+                try {
+                    undo.preserveDocumentVersion {
+                        model.pushStackElement()
+                        model.pushEditOperations(null, arrayOf(obj<IIdentifiedSingleEditOperation> {
+                            range = model.getFullModelRange().unsafeCast<IRange>()
+                            this.text = text
+                        }), js("function() { return null }").unsafeCast<ICursorStateComputer>())
+                        model.pushStackElement()
+                    }
+                } finally {
+                    updatingPresentation = false
+                }
+            }
+        }
+        mutateDeferred {
+            _hexFormat.value = hex
+            _hideNops.value = hideNops
+        }
     }
 
     companion object {

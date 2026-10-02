@@ -92,21 +92,60 @@ Dock layouts use GoldenLayout 1.5.9 with popouts disabled. `DockWidget` suppress
 legacy window `unload`/`beforeunload` binding before initialization; widget size cells and explicit
 disposal remain the owners of resize and teardown behavior.
 
+## Document and loading ownership
+
+Every quest save synchronously commits valid script text before serializing. Assembly diagnostics
+with errors block the write; the analyser's partial IR is never treated as a savable script.
+All output buffers are prepared before asynchronous file access begins. A successful write marks
+only the captured document revision saved, so edits made during the write remain dirty. Replacing
+the document invalidates callbacks for its old save and pending assembly.
+
+Hexadecimal and Hide NOP display changes retain the same Monaco model and undo history. Their
+history entries share the underlying document revision; initial and reformatted revisions retain
+their original IR so undoing a hidden-NOP edit restores the original instructions. The main command
+stack uses unique revision identities so a new branch cannot reuse a discarded save point.
+
+Lobby DAT and Free Roam saves validate the portions of the quest that their output files cannot
+store against the loaded baseline. Unsupported edits block saving and remain dirty. Empty object,
+NPC, and event outputs overwrite existing files to persist deletions; absent output targets are
+never interpreted as filenames.
+
+Viewer geometry, textures, and animations have independent request revisions. Results and failures
+may update only the outputs their request still owns; disposal invalidates all pending work.
+Local imports also check the content revision so newer selections or imports supersede older file
+reads. A texture-only replacement can coexist with an in-flight geometry request.
+
+Regression suites cover these boundaries in `AsmDocumentTests`, `UndoStackTests`,
+`QuestSaveCoverageTests`, `FreeRoamSaveTests`, `AsmFloorMappingTests`, and `ViewerLoadingTests`.
+Save tests use controlled file-system handles and parse the resulting bytes; loader tests control
+completion order and failures. Native file-picker permissions and actual WebGL pixel output still
+require separate integration checks.
+
 ## Subprojects
 
 ### web:assembly-worker
 
 Does analysis of the script assembly code and runs in a worker thread.
 
-The worker batches client messages and reports analysis results as notifications. Each `SetAsm`
-carries an incrementing generation that the worker echoes in every notification; the client drops
-notifications whose generation doesn't match the script it last set, so results for a replaced
-script cannot repopulate problems, labels, or navigation targets.
+The worker batches client messages and reports analysis results as notifications. `SetAsm` and
+`UpdateUsedFloorIds` carry an incrementing generation that the worker echoes in every notification;
+the client drops notifications that do not match its current script or DAT-context generation.
+Text and context changes are processed in the same queue. A new generation republishes current
+outputs even when their values are unchanged, because the client may have discarded the previous
+generation's notification.
+
+Floor-map derivation uses the loaded quest version and floors used by DAT entities/events; the
+assembly editor continues to use the BB_V4 dialect. Entity/event collection changes update the
+floor context without replacing script text or undo history. Only script-owned map layouts accept
+worker mapping updates; Lobby and Free Roam retain the layout explicitly selected by their loader.
 
 ### web:assets-generation
 
 This code is manually run to generate various assets used by web such as item lists, drop tables,
 quest lists, etc.
+
+Run `./gradlew :web:generateAssets` to generate these assets and copy them into
+`src/jsMain/resources/assets`, the resources directory consumed by the web build.
 
 NPC models can be extracted from a PSO BB installation with:
 

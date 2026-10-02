@@ -12,9 +12,18 @@ describe configurations.
 
 ## Proxy
 
-Phantasmal PSO server can proxy any other PSO server. Below is a sample configuration for proxying a
-locally running Tethealla server using the standard Tethealla client. Be sure to modify
-tethealla.ini and set server port to 22000.
+Phantasmal PSO server supports proxying PC and BB protocol connections. Below is a sample
+configuration for proxying a locally running Tethealla server using the standard Tethealla client.
+Be sure to modify tethealla.ini and set server port to 22000.
+
+Each client has an independent session. Upstream connection failures close that session without
+stopping the listener, and stopping a server closes all sockets belonging to its active sessions.
+The proxy assembles complete PC or BB protocol messages before forwarding them, so TCP fragmentation
+and coalescing do not affect encryption or redirect rewriting. Frames whose wire size, including
+encryption padding, exceeds 32 KiB are forwarded unchanged without parsing their message bodies.
+Invalid sizes, truncated messages, and processing errors close the affected session. A complete
+client message header received before the upstream handshake establishes the ciphers also closes
+that session; an early disconnect closes its peer socket.
 
 ```hocon
 proxy: {
@@ -76,6 +85,11 @@ proxy: {
 ```
 
 ## Developers
+
+Run `./gradlew :psoserv:test` for framing, cipher-state and session-lifecycle regressions. These
+tests use loopback sockets and cover PC/BB handshakes, bidirectional traffic, fragmentation,
+coalescing, redirect rewriting, concurrent clients, upstream failure recovery, early disconnects,
+and shutdown. They do not replace compatibility testing against real PSO clients and servers.
 
 ## Building and Running
 

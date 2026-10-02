@@ -10,17 +10,13 @@ Phantasmal World is written in [Kotlin](https://kotlinlang.org/) and uses
 the [Gradle](https://gradle.org/) build tool. Much of the code
 is [multiplatform](https://kotlinlang.org/docs/multiplatform.html) and reusable as a library.
 
-<a href="https://github.com/DaanVandenBosch/phantasmal-world/actions?query=workflow%3ATests">
-<img alt="Tests status" src="https://github.com/DaanVandenBosch/phantasmal-world/workflows/Tests/badge.svg">
+<a href="https://github.com/warmonipa/phantasmal-world/actions?query=workflow%3ATests">
+<img alt="Tests status" src="https://github.com/warmonipa/phantasmal-world/workflows/Tests/badge.svg">
 </a>
 
-<a href="https://github.com/DaanVandenBosch/phantasmal-world/actions?query=workflow%3ADeploy">
-<img alt="Tests status" src="https://github.com/DaanVandenBosch/phantasmal-world/workflows/Deploy/badge.svg">
+<a href="https://github.com/warmonipa/phantasmal-world/actions?query=workflow%3ADeploy">
+<img alt="Deploy status" src="https://github.com/warmonipa/phantasmal-world/workflows/Deploy/badge.svg">
 </a>
-
-### Features and Bugs
-
-See [features](./FEATURES.md) for a list of features, planned features and bugs.
 
 ### Getting Started
 
@@ -33,7 +29,7 @@ Then, for the web application:
 1. `cd` to the project directory
 2. Launch webpack server on [http://localhost:1623/](http://localhost:1623/)
    with `./gradlew :web:jsBrowserDevelopmentRun --continuous`
-3. [web/src/main/kotlin/world/phantasmal/web/Main.kt](web/src/main/kotlin/world/phantasmal/web/Main.kt)
+3. [web/src/jsMain/kotlin/world/phantasmal/web/Main.kt](web/src/jsMain/kotlin/world/phantasmal/web/Main.kt)
    is the application's entry point
 
 For the PSO server:
@@ -49,7 +45,7 @@ setup:
 1. Use Ctrl-Alt-Shift-S to open the Project Structure window and select a JDK (you can let IntelliJ
    download a JDK if you don't have a compatible one installed)
 2. Configure the Gradle run task for the web application:
-    1. In the Gradle window, right click web -> Tasks -> other -> run
+    1. In the Gradle window, find and right click `web`'s `jsBrowserDevelopmentRun` task
     2. Click "Modify Run Configuration..."
     3. Add `--continuous` to the arguments field
     4. Click OK
@@ -57,7 +53,10 @@ setup:
 
 ### Exploring the Code Base
 
-The code base is divided up into the following gradle subprojects.
+The code base is divided into ten Gradle subprojects. The web application runs in the browser,
+with script analysis in a Web Worker. `psoserv` is a separate JVM PSO TCP server/proxy, not an HTTP
+backend for the web application. The shared libraries support both applications; asset generation
+is a build-time tool.
 
 Reverse-engineering reference documentation:
 
@@ -74,6 +73,11 @@ assembler/disassembler and a work-in-progress script engine/VM. It also has a mo
 scripting bytecode and data flow analysis for it. This subproject can be used as a library in other
 projects.
 
+Binary cursors enforce the bounds of their own view, including nested views, independently of the
+backing buffer's capacity. Reads cannot escape that view. `BufferCursor` can grow its backing
+buffer for writes; `ArrayBufferCursor` remains bounded by its fixed backing `ArrayBuffer`.
+Keep read-boundary checks aligned across the common and JS implementations.
+
 #### cell
 
 A full-fledged multiplatform implementation of the observer pattern.
@@ -86,13 +90,17 @@ Test utilities used by the other subprojects.
 
 The actual Phantasmal World web application.
 
-#### webgui
+Its nested subprojects are `web:assembly-worker` (script analysis), `web:shared` (shared messages
+and data), and `web:assets-generation` (JVM asset generation and golden checks). Their ownership
+boundaries are documented in the [web README](web/README.md).
+
+#### webui
 
 Web GUI toolkit used by Phantasmal World.
 
 #### [psoserv](psoserv/README.md)
 
-Work-in-progress PSO server and fully functional PSO proxy server.
+Work-in-progress PSO server and PSO proxy supporting PC and BB protocol formats.
 
 ### Unit Tests
 
@@ -104,6 +112,24 @@ tests load and render many assets in sequence.
 Async tests must return the result of `testAsync`, e.g. `fun foo() = testAsync { ... }`. On Kotlin/JS
 it is the promise Mocha waits for; calling `testAsync` inside a block body discards it, so the test
 passes before its assertions run and can disturb the leak tracking of later tests.
+
+Before handing off changes, run `./gradlew check :web:jsBrowserDistribution` to validate all
+projects, generated-asset golden checks, and the production bundles together. When filtering
+Kotlin/JS tests, use a matching wildcard such as `--tests '*AsmDocumentTests*'` and confirm that
+the XML reports under each project's `build/test-results` contain the intended cases; a successful
+task with zero matching tests is not validation.
+
+Regression coverage includes document/save/undo state, asynchronous loader and worker ownership,
+binary cursor boundaries on JVM and JS, and proxy framing/lifecycle with loopback sockets.
+Browser tests use controlled file-system boundaries and rendering doubles where appropriate;
+real file-picker permissions, WebGL pixel output, and real PSO client/server compatibility require
+separate integration checks. Test counts include executions on multiple platforms and do not
+measure line or branch coverage.
+
+Shared JVM dependency versions are maintained in
+[`common.gradle.kts`](buildSrc/src/main/kotlin/world/phantasmal/common.gradle.kts). Check resolved
+logging dependencies with `./gradlew :psoserv:dependencyInsight --dependency log4j-core
+--configuration runtimeClasspath` when changing them.
 
 ### Code Style and Formatting
 
@@ -118,6 +144,8 @@ Create an optimized production build with `./gradlew :web:jsBrowserDistribution`
 Production deployment is performed by manually running the `Deploy` GitHub Actions workflow. The
 workflow builds and deploys the selected branch or Git ref to the `gh-pages` branch, so verify the
 selected ref before dispatching it.
+The `Tests` workflow validates pushes and pull requests targeting `master`; it does not deploy.
+Other branches rely on local validation unless the workflow configuration is changed.
 
 #### PSO Server
 

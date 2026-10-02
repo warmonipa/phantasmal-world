@@ -173,6 +173,7 @@ class QuestEditorStoreTests : WebTestSuite {
         assertEquals(Episode.IV, store.currentAreaVariant.value?.episode)
 
         store.setFloorMappings(
+            quest,
             listOf(
                 FloorMapping(
                     floorId = 0,
@@ -203,6 +204,7 @@ class QuestEditorStoreTests : WebTestSuite {
         assertEquals(listOf(0, 1), store.challengeLogicalFloors.value)
 
         store.setFloorMappings(
+            quest,
             listOf(
                 FloorMapping(0, 0, 0, 0),
                 FloorMapping(1, 0, 0, 0),

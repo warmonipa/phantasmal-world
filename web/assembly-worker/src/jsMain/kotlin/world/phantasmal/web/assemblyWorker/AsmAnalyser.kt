@@ -29,10 +29,29 @@ class AsmAnalyser {
     private var floorMappings: List<FloorMapping>? = null
 
     private var generation = 0
+    private var usedFloorIds: Set<Int> = emptySet()
+    private var version = Version.BB_V4
 
-    fun setAsm(asm: List<String>, generation: Int) {
+    fun setAsm(
+        asm: List<String>,
+        generation: Int,
+        usedFloorIds: Set<Int> = emptySet(),
+        version: Version = Version.BB_V4,
+    ) {
         this.asm.splice(0, this.asm.length, *asm.toTypedArray())
         this.generation = generation
+        this.usedFloorIds = usedFloorIds
+        this.version = version
+        problems = null
+        floorMappings = null
+    }
+
+    fun updateUsedFloorIds(usedFloorIds: Set<Int>, generation: Int) {
+        this.usedFloorIds = usedFloorIds
+        this.generation = generation
+        // Earlier-generation notifications can be discarded before reaching the client. Publish
+        // the complete current result even when changing DAT context leaves some outputs equal.
+        problems = null
         floorMappings = null
     }
 
@@ -153,7 +172,7 @@ class AsmAnalyser {
             bytecodeIr = assemblyResult.value
 
             val instructionSegments = bytecodeIr.instructionSegments()
-            val newFloorMappings = getFloorMappings(instructionSegments) { cfg }
+            val newFloorMappings = getFloorMappings(instructionSegments, usedFloorIds, version) { cfg }
 
             if (newFloorMappings != floorMappings) {
                 floorMappings = newFloorMappings

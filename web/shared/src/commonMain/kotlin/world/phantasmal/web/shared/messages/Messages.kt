@@ -3,6 +3,7 @@ package world.phantasmal.web.shared.messages
 import kotlinx.serialization.Serializable
 import world.phantasmal.core.Severity
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.fileFormats.quest.Version
 
 /*
  * The protocol between the AsmAnalyser and the assembly web worker is loosely based on the language
@@ -34,11 +35,21 @@ sealed class ClientNotification : ClientMessage() {
          * Identifies this script in the [ServerNotification]s derived from it.
          */
         val generation: Int,
+        /** DAT floors and client semantics are inputs to the script's effective map table. */
+        val usedFloorIds: Set<Int>,
+        val version: Version,
     ) : ClientNotification()
 
     @Serializable
     class UpdateAsm(
         val changes: List<AsmChange>,
+    ) : ClientNotification()
+
+    /** Changes the DAT context without replacing the script or its edit history. */
+    @Serializable
+    class UpdateUsedFloorIds(
+        val usedFloorIds: Set<Int>,
+        val generation: Int,
     ) : ClientNotification()
 }
 
@@ -75,8 +86,8 @@ sealed class ServerMessage
 @Serializable
 sealed class ServerNotification : ServerMessage() {
     /**
-     * [ClientNotification.SetAsm.generation] of the script this notification describes. Lets the
-     * client drop notifications about a script it has already replaced.
+     * Generation of the script and DAT context this notification describes. Lets the client drop
+     * notifications about inputs it has already replaced.
      */
     abstract val generation: Int
 

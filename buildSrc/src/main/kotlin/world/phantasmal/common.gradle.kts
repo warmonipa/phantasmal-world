@@ -52,5 +52,5 @@ tasks.withType<Test>().configureEach {
 
 project.extra["coroutinesVersion"] = "1.10.1"
 project.extra["kotlinLoggingVersion"] = "2.0.11"
-project.extra["log4jVersion"] = "2.14.1"
+project.extra["log4jVersion"] = "2.26.1"
 project.extra["serializationVersion"] = "1.8.0"

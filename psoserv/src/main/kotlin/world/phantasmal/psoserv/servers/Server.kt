@@ -1,6 +1,8 @@
 package world.phantasmal.psoserv.servers
 
 import mu.KotlinLogging
+import java.io.Closeable
+import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
@@ -11,6 +13,8 @@ abstract class Server(
     private val bindPair: Inet4Pair,
 ) {
     private val bindSocket = ServerSocket()
+    private val connections = mutableSetOf<Connection>()
+    private var connectionCounter = 0
 
     @Volatile
     private var running = false
@@ -38,8 +42,16 @@ abstract class Server(
 
         // Closing the server socket will generate a SocketException on the connection thread which
         // will then shut down.
-        // TODO: Shut down client threads when server is stopped.
         bindSocket.close()
+
+        val activeConnections = synchronized(connections) { connections.toList() }
+        for (connection in activeConnections) {
+            try {
+                connection.close()
+            } catch (e: IOException) {
+                logger.error(e) { "Error closing client connection." }
+            }
+        }
     }
 
     private fun acceptConnections() {
@@ -54,7 +66,17 @@ abstract class Server(
                         "New client connection from ${clientSocket.inetAddress}:${clientSocket.port}."
                     }
 
-                    clientConnected(clientSocket)
+                    val connection = Connection(clientSocket)
+                    synchronized(connections) {
+                        if (running) {
+                            connections.add(connection)
+                            val thread = Thread { handleConnection(connection) }
+                            thread.name = "${name}_client_${connectionCounter++}"
+                            thread.start()
+                        } else {
+                            connection.close()
+                        }
+                    }
                 } catch (e: SocketTimeoutException) {
                     // Retry after timeout.
                     continue
@@ -85,5 +107,50 @@ abstract class Server(
         logger.info { "Stopped." }
     }
 
-    protected abstract fun clientConnected(clientSocket: Socket)
+    private fun handleConnection(connection: Connection) {
+        try {
+            connection.use { clientConnected(it) }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            if (running) logger.error(e) { "Error handling client connection." }
+        } finally {
+            synchronized(connections) { connections.remove(connection) }
+        }
+    }
+
+    protected abstract fun clientConnected(connection: Connection)
+
+    /** Owns every socket in a client session, including an upstream connection in progress. */
+    protected class Connection(val clientSocket: Socket) : Closeable {
+        private val sockets = mutableListOf(clientSocket)
+        private var closed = false
+
+        fun connect(remote: Inet4Pair): Socket {
+            val socket = synchronized(this) {
+                check(!closed) { "Connection is closed." }
+                Socket().also(sockets::add)
+            }
+            socket.connect(remote)
+            return socket
+        }
+
+        override fun close() {
+            val activeSockets = synchronized(this) {
+                if (closed) return
+                closed = true
+                sockets.toList()
+            }
+            var failure: IOException? = null
+            for (socket in activeSockets) {
+                try {
+                    socket.close()
+                } catch (e: IOException) {
+                    val previous = failure
+                    if (previous == null) failure = e else previous.addSuppressed(e)
+                }
+            }
+            failure?.let { throw it }
+        }
+    }
 }

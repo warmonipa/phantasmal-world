@@ -19,7 +19,7 @@ interface Undo {
 
     /**
      * True if this undo is at the point in time where the last save happened. See [savePoint].
-     * If false, it should be safe to leave the application because no changes have happened since
+     * If true, it should be safe to leave the application because no changes have happened since
      * the last save point (either because there were no changes or all changes have been undone).
      */
     val atSavePoint: Cell<Boolean>
@@ -31,7 +31,13 @@ interface Undo {
      * Called when a save happens, the undo should remember this point in time and reflect whether
      * it's currently at this point in [atSavePoint].
      */
-    fun savePoint()
+    fun savePoint() = captureSavePoint().invoke()
+
+    /**
+     * Captures the state being saved. Invoke the returned callback only after that write succeeds;
+     * edits made while saving must remain dirty. Resetting the document invalidates the callback.
+     */
+    fun captureSavePoint(): () -> Unit
 
     fun reset()
 }

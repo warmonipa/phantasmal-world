@@ -228,6 +228,7 @@ class EntityInfoControllerTests : WebTestSuite {
         assertNotEquals("Epsilon", ctrl.name.value)
 
         store.setFloorMappings(
+            store.currentQuest.value!!,
             listOf(
                 FloorMapping(
                     floorId = 16,

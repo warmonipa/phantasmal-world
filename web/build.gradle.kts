@@ -73,5 +73,5 @@ tasks.register<Copy>("generateAssets") {
     dependsOn(":web:assets-generation:generateAssets")
 
     from("assets-generation/build/generatedAssets")
-    into("src/main/resources/assets")
+    into("src/jsMain/resources/assets")
 }

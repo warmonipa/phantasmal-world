@@ -1,5 +1,6 @@
 package world.phantasmal.web.viewer.controllers
 
+import kotlinx.coroutines.CancellationException
 import mu.KotlinLogging
 import world.phantasmal.core.Failure
 import world.phantasmal.core.PwResult
@@ -79,7 +80,8 @@ class ViewerToolbarController(private val store: ViewerStore) : Controller() {
     }
 
     suspend fun openFiles(files: List<FileHandle>?) {
-        files ?: return
+        if (files.isNullOrEmpty()) return
+        val revision = store.beginFileLoad()
 
         val result = PwResult.build<Unit>(logger)
         var success = false
@@ -169,8 +171,11 @@ class ViewerToolbarController(private val store: ViewerStore) : Controller() {
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             result.addProblem(Severity.Error, "Couldn't parse files.", cause = e)
         }
+
+        if (disposed || !store.isCurrentFileLoad(revision)) return
 
         mutate {
             ninjaGeometry?.let(store::setCurrentNinjaGeometry)

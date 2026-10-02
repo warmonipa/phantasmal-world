@@ -11,16 +11,10 @@ abstract class GameServer<MessageType : Message>(
     bindPair: Inet4Pair,
 ) : Server(name, bindPair) {
 
-    private var connectionCounter = 0
-
     protected abstract val messageDescriptor: MessageDescriptor<MessageType>
 
-    override fun clientConnected(clientSocket: Socket) {
-        // Handle each client connection in its own thread.
-        val client = "${name}_client_${connectionCounter++}"
-        val thread = Thread { GameClientHandler(client, clientSocket).listen() }
-        thread.name = client
-        thread.start()
+    override fun clientConnected(connection: Connection) {
+        GameClientHandler(Thread.currentThread().name, connection.clientSocket).listen()
     }
 
     protected abstract fun createCipher(): Cipher

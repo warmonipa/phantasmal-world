@@ -12,6 +12,7 @@ fun convertQuestToModel(
     quest: Quest,
     getVariant: (Episode, mapAreaId: Int, mapVariation: Int) -> AreaVariantModel?,
     npcPlacementPolicy: NpcPlacementPolicy,
+    floorMappingsFromScript: Boolean = true,
 ): QuestModel =
     QuestModel(
         quest.id,
@@ -64,6 +65,7 @@ fun convertQuestToModel(
         bytecodeOffset = quest.bytecodeOffset,
         binFormat = quest.binFormat,
         version = quest.version,
+        floorMappingsFromScript = floorMappingsFromScript,
     )
 
 /**

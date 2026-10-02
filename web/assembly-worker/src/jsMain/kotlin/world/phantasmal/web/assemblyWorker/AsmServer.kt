@@ -33,7 +33,8 @@ class AsmServer(
                         asmChanges.add(message)
                     }
 
-                    is ClientNotification.UpdateAsm ->
+                    is ClientNotification.UpdateAsm,
+                    is ClientNotification.UpdateUsedFloorIds ->
                         asmChanges.add(message)
 
                     else ->
@@ -59,10 +60,15 @@ class AsmServer(
                     for (message in messages) {
                         when (message) {
                             is ClientNotification.SetAsm ->
-                                asmAnalyser.setAsm(message.asm, message.generation)
+                                asmAnalyser.setAsm(
+                                    message.asm, message.generation, message.usedFloorIds, message.version,
+                                )
 
                             is ClientNotification.UpdateAsm ->
                                 asmAnalyser.updateAsm(message.changes)
+
+                            is ClientNotification.UpdateUsedFloorIds ->
+                                asmAnalyser.updateUsedFloorIds(message.usedFloorIds, message.generation)
                         }
                     }
 
@@ -87,6 +93,7 @@ class AsmServer(
                 when (message) {
                     is ClientNotification.SetAsm,
                     is ClientNotification.UpdateAsm,
+                    is ClientNotification.UpdateUsedFloorIds,
                     ->
                         // Should have been processed by processAsmChanges.
                         logger.error { "Unexpected ${message::class.simpleName}." }

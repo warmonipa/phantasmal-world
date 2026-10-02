@@ -5,6 +5,7 @@ import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.testUtils.assertCloseTo
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 abstract class WritableCursorTests : CursorTests() {
@@ -13,6 +14,36 @@ abstract class WritableCursorTests : CursorTests() {
         endianness: Endianness,
         size: Int,
     ): WritableCursor
+
+    @Test
+    fun growing_size_is_independent_of_position() {
+        val cursor = createCursor(ByteArray(20), Endianness.Little, size = 4)
+        cursor.seekStart(2)
+        cursor.size = 12
+        assertEquals(12, cursor.size)
+        assertEquals(2, cursor.position)
+        assertEquals(10, cursor.bytesLeft)
+        cursor.seekStart(12)
+    }
+
+    @Test
+    fun negative_size_and_write_lengths_are_rejected_without_mutation() {
+        val cursor = createCursor(ByteArray(20), Endianness.Little).seekStart(3)
+        assertFailsWith<IllegalArgumentException> { cursor.size = -1 }
+        assertFailsWith<IllegalArgumentException> { cursor.writeStringAscii("x", -1) }
+        assertFailsWith<IllegalArgumentException> { cursor.writeStringUtf16("x", -1) }
+        assertEquals(20, cursor.size)
+        assertEquals(3, cursor.position)
+    }
+
+    @Test
+    fun constructor_rejects_negative_and_excessive_view_sizes() {
+        for (size in listOf(-1, 5, Int.MAX_VALUE)) {
+            assertFailsWith<IllegalArgumentException> {
+                createCursor(ByteArray(4), Endianness.Little, size)
+            }
+        }
+    }
 
     @Test
     fun simple_WritableCursor_properties_and_invariants() {

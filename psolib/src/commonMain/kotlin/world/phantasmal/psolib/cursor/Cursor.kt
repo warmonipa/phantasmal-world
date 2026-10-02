@@ -5,6 +5,8 @@ import world.phantasmal.psolib.buffer.Buffer
 
 /**
  * A cursor for reading binary data.
+ * Reads and child views are bounded by this cursor's [size], even when the backing buffer is larger.
+ * Lengths must be nonnegative, and [position] always remains between zero and [size], inclusive.
  */
 interface Cursor {
     val size: Int
@@ -34,14 +36,14 @@ interface Cursor {
     /**
      * Seek forward from the start of the cursor by a number of bytes.
      *
-     * @param offset greater or equal to 0 and smaller than size
+     * @param offset greater or equal to 0 and smaller than or equal to size
      */
     fun seekStart(offset: Int): Cursor
 
     /**
      * Seek backward from the end of the cursor by a number of bytes.
      *
-     * @param offset greater or equal to 0 and smaller than size
+     * @param offset greater or equal to 0 and smaller than or equal to size
      */
     fun seekEnd(offset: Int): Cursor
 

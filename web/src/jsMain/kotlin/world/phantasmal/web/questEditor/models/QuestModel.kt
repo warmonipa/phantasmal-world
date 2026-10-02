@@ -64,6 +64,8 @@ class QuestModel(
     val binFormat: BinFormat = BinFormat.BB,
     /** Quest version detected while loading. */
     val version: Version = Version.BB_V4,
+    /** False when a loader's selected layout, rather than BIN instructions, owns the mapping. */
+    val floorMappingsFromScript: Boolean = true,
 ) {
     private val _id = mutableCell(0)
     private val _language = mutableCell(0)

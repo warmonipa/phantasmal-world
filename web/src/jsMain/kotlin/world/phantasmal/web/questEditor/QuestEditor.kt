@@ -89,6 +89,7 @@ class QuestEditor(
                 areaStore,
                 questEditorStore,
                 questEditorUiStore,
+                asmStore,
                 mapExporter,
             )
         )

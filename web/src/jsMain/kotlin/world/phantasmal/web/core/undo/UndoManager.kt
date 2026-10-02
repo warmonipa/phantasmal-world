@@ -8,6 +8,7 @@ import world.phantasmal.cell.flatten
 import world.phantasmal.cell.list.fold
 import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.cell.mutate
 import world.phantasmal.cell.nullCell
 import world.phantasmal.cell.trueCell
 import world.phantasmal.web.core.commands.Command
@@ -15,6 +16,7 @@ import world.phantasmal.web.core.commands.Command
 class UndoManager {
     private val undos = mutableListCell<Undo>(NopUndo)
     private val _current = mutableCell<Undo>(NopUndo)
+    private var resetGeneration = 0
 
     val current: Cell<Undo> = _current
 
@@ -55,14 +57,26 @@ class UndoManager {
      * Sets a save point on all undos.
      */
     fun savePoint() {
-        undos.value.forEach { it.savePoint() }
+        captureSavePoint().invoke()
+    }
+
+    /** Captures all histories belonging to this document before an asynchronous write starts. */
+    fun captureSavePoint(): () -> Unit {
+        val generation = resetGeneration
+        val savePoints = undos.value.map { it.captureSavePoint() }
+        return {
+            if (generation == resetGeneration) {
+                mutate { savePoints.forEach { it() } }
+            }
+        }
     }
 
     /**
      * Resets all managed undos.
      */
     fun reset() {
-        undos.value.forEach { it.reset() }
+        resetGeneration++
+        mutate { undos.value.forEach { it.reset() } }
     }
 
     private object NopUndo : Undo {
@@ -76,9 +90,7 @@ class UndoManager {
 
         override fun redo(): Boolean = false
 
-        override fun savePoint() {
-            // Do nothing.
-        }
+        override fun captureSavePoint(): () -> Unit = {}
 
         override fun reset() {
             // Do nothing.

@@ -9,9 +9,9 @@ import world.phantasmal.psoserv.encryption.Cipher
 import world.phantasmal.psoserv.messages.Message
 import world.phantasmal.psoserv.messages.MessageDescriptor
 import world.phantasmal.psoserv.messages.messageString
+import java.io.EOFException
 import java.net.Socket
 import java.net.SocketException
-import kotlin.math.min
 
 abstract class SocketHandler<MessageType : Message>(
     protected val name: String,
@@ -37,159 +37,70 @@ abstract class SocketHandler<MessageType : Message>(
     fun listen() {
         logger.info { "Listening to $name ($sockName)." }
         running = true
-        var clientDisconnected = false
 
         try {
-            val readBuffer = Buffer.withCapacity(BUFFER_CAPACITY, Endianness.Little)
+            val input = socket.getInputStream().buffered()
             val headerBuffer = Buffer.withSize(headerSize, Endianness.Little)
 
-            readLoop@ while (true) {
-                // Read from socket.
-                val readSize = socket.read(readBuffer, BUFFER_CAPACITY - readBuffer.size)
+            while (true) {
+                val headerBytes = input.readNBytes(headerBuffer.byteArray, 0, headerSize)
+                if (headerBytes == 0) break
+                if (headerBytes != headerSize) throw EOFException("Incomplete message header.")
 
-                if (readSize == -1) {
-                    // Close the connection if no more bytes available.
-                    logger.debug { "$name ($sockName) end of stream." }
-                    clientDisconnected = true
-                    break@readLoop
+                // A header consumes cipher state exactly once, even if the body arrives later.
+                // Processing the handshake may replace these ciphers for the next frame.
+                val decryptCipher = readDecryptCipher
+                val encryptCipher = readEncryptCipher
+                val decryptedHeader = headerBuffer.copy()
+                decryptCipher?.let {
+                    check(it.blockSize == headerSize)
+                    it.decrypt(decryptedHeader)
                 }
 
-                // Process buffer contents.
-                var offset = 0
-                var bytesToSkip = 0
-
-                bufferLoop@ while (offset + headerSize <= readBuffer.size) {
-                    // Remember the current cipher in a local variable because processing a message
-                    // might change it.
-                    val decryptCipher = readDecryptCipher
-                    val encryptCipher = readEncryptCipher
-
-                    // Read header.
-                    readBuffer.copyInto(headerBuffer, offset = offset, size = headerSize)
-
-                    // Decrypt header.
-                    decryptCipher?.let {
-                        check(decryptCipher.blockSize == headerSize)
-                        decryptCipher.decrypt(headerBuffer)
-                    }
-
-                    val (code, size, flags) = messageDescriptor.readHeader(headerBuffer)
-                    val encryptedSize = alignToWidth(size, decryptCipher?.blockSize ?: 1)
-                    // Bytes available for the next message.
-                    val available = readBuffer.size - offset
-
-                    when {
-                        // Don't parse the message when it's too large.
-                        encryptedSize > BUFFER_CAPACITY -> {
-                            logMessageTooLarge(code, size, flags)
-
-                            bytesToSkip = encryptedSize - available
-
-                            decryptCipher?.advance(
-                                blocks = (encryptedSize - headerSize) / decryptCipher.blockSize,
-                            )
-
-                            encryptCipher?.advance(
-                                blocks = encryptedSize / encryptCipher.blockSize,
-                            )
-
-                            break@bufferLoop
-                        }
-
-                        // Parse message when we have enough bytes available.
-                        available >= encryptedSize -> {
-                            val messageBuffer = readBuffer.copy(offset, encryptedSize)
-
-                            // Decrypt before parsing if necessary.
-                            // Copy the already decrypted header first, then decrypt the rest. We
-                            // don't simply decrypt the entire message buffer again, because the PC
-                            // cipher is stateful.
-                            headerBuffer.copyInto(messageBuffer)
-                            decryptCipher?.decrypt(
-                                messageBuffer,
-                                offset = headerSize,
-                                blocks = (encryptedSize - headerSize) / decryptCipher.blockSize,
-                            )
-
-                            try {
-                                val message = messageDescriptor.readMessage(messageBuffer)
-                                logMessageReceived(message)
-
-                                when (processMessage(message)) {
-                                    ProcessResult.Ok -> {
-                                        // Advance the encryption cipher, then continue.
-                                        encryptCipher?.advance(
-                                            blocks = encryptedSize / encryptCipher.blockSize,
-                                        )
-                                    }
-                                    ProcessResult.Changed -> {
-                                        // Copy changes to the read buffer and encrypt them if
-                                        // necessary.
-                                        messageBuffer.copyInto(
-                                            readBuffer,
-                                            destinationOffset = offset,
-                                        )
-                                        encryptCipher?.encrypt(
-                                            readBuffer,
-                                            offset,
-                                            blocks = encryptedSize / encryptCipher.blockSize,
-                                        )
-                                    }
-                                    ProcessResult.Done -> {
-                                        // Close the connection.
-                                        break@readLoop
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                logger.error(e) { "Exception while processing message." }
-                            }
-
-                            offset += encryptedSize
-                        }
-
-                        // Not enough bytes available.
-                        else -> break@bufferLoop
-                    }
+                val (code, size, flags) = messageDescriptor.readHeader(decryptedHeader)
+                require(size in headerSize..0xffff) { "Invalid message size: $size." }
+                val encryptedSize = alignToWidth(size, decryptCipher?.blockSize ?: 1)
+                val rawBuffer = Buffer.withSize(encryptedSize, Endianness.Little)
+                headerBuffer.copyInto(rawBuffer)
+                val bodySize = encryptedSize - headerSize
+                if (input.readNBytes(rawBuffer.byteArray, headerSize, bodySize) != bodySize) {
+                    throw EOFException("Incomplete message body.")
                 }
 
-                processRawBytes(readBuffer, 0, readSize)
-
-                if (bytesToSkip > 0) {
-                    // Just pass the raw bytes through to the raw bytes handler and don't parse
-                    // them.
-                    while (bytesToSkip > 0) {
-                        readBuffer.size = 0
-                        val read = socket.read(readBuffer, min(BUFFER_CAPACITY, bytesToSkip))
-
-                        if (read == -1) {
-                            logger.warn {
-                                "Expected to skip $bytesToSkip more bytes, but $name stopped sending."
-                            }
-
-                            // Close the connection.
-                            clientDisconnected = true
-                            break@readLoop
-                        }
-
-                        bytesToSkip -= read
-
-                        processRawBytes(readBuffer, 0, read)
-                    }
-
-                    readBuffer.size = 0
-                } else {
-                    // If we didn't have enough bytes available, shift the unparsed bytes to the
-                    // front of the buffer before we read more bytes. If we don't do this, we can
-                    // end up in an infinite loop.
-                    val unparsed = readBuffer.size - offset
-
-                    if (unparsed > 0) {
-                        readBuffer.copyInto(readBuffer, offset = offset, size = unparsed)
-                        readBuffer.size = unparsed
-                    } else {
-                        readBuffer.size = 0
-                    }
+                if (encryptedSize > MAX_PARSED_MESSAGE_SIZE) {
+                    // Preserve the proxy's passthrough boundary for large messages. Both ciphers
+                    // must still consume exactly the blocks belonging to this frame.
+                    logMessageTooLarge(code, size, flags)
+                    decryptCipher?.advance(bodySize / decryptCipher.blockSize)
+                    encryptCipher?.advance(encryptedSize / encryptCipher.blockSize)
+                    processRawBytes(rawBuffer, 0, encryptedSize)
+                    continue
                 }
+
+                val messageBuffer = rawBuffer.copy()
+                decryptedHeader.copyInto(messageBuffer)
+                decryptCipher?.decrypt(
+                    messageBuffer,
+                    offset = headerSize,
+                    blocks = bodySize / decryptCipher.blockSize,
+                )
+
+                val message = messageDescriptor.readMessage(messageBuffer)
+                logMessageReceived(message)
+                val forwarded = when (processMessage(message)) {
+                    ProcessResult.Ok -> {
+                        encryptCipher?.advance(encryptedSize / encryptCipher.blockSize)
+                        rawBuffer
+                    }
+                    ProcessResult.Changed -> {
+                        // Encryption must not mutate the parsed message retained by its handler.
+                        messageBuffer.copy().also { encryptCipher?.encrypt(it) }
+                    }
+                    ProcessResult.Done -> break
+                }
+
+                // Only complete frames are forwarded; no TCP read is forwarded a second time.
+                processRawBytes(forwarded, 0, encryptedSize)
             }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -202,7 +113,6 @@ abstract class SocketHandler<MessageType : Message>(
             // generated by a socket.close() call.
             if (running) {
                 logUnexpectedSocketException(e)
-                clientDisconnected = true
             }
         } catch (e: Throwable) {
             logger.error(e) { "Error while listening to $name ($sockName), closing connection." }
@@ -210,12 +120,8 @@ abstract class SocketHandler<MessageType : Message>(
             running = false
 
             try {
-                if (socket.isClosed || socket.isInputShutdown || clientDisconnected) {
-                    logger.info { "Connection to $name ($sockName) was closed." }
-                } else {
-                    logger.info { "Closing connection to $name ($sockName)." }
-                    socket.close()
-                }
+                logger.info { "Closing connection to $name ($sockName)." }
+                socket.close()
             } finally {
                 socketClosed()
             }
@@ -299,6 +205,6 @@ abstract class SocketHandler<MessageType : Message>(
     }
 
     companion object {
-        private const val BUFFER_CAPACITY: Int = 32768
+        private const val MAX_PARSED_MESSAGE_SIZE: Int = 32768
     }
 }

@@ -25,7 +25,9 @@ class ArrayBufferCursor(
 
     override var size: Int = size
         set(value) {
-            require(size <= backingBuffer.byteLength - offset)
+            require(value >= 0 && value <= backingBuffer.byteLength - offset) {
+                "Size $value is out of bounds."
+            }
             field = value
 
             if (position > size) {
@@ -38,6 +40,13 @@ class ArrayBufferCursor(
         set(value) {
             littleEndian = value == Endianness.Little
         }
+
+    init {
+        require(offset in 0..buffer.byteLength) { "Offset $offset is out of bounds." }
+        require(size >= 0 && size <= buffer.byteLength - offset) {
+            "Size $size is out of bounds."
+        }
+    }
 
     override fun uByte(): UByte {
         requireSize(1)
@@ -102,7 +111,7 @@ class ArrayBufferCursor(
     }
 
     override fun uShortArray(n: Int): UShortArray {
-        requireSize(2 * n)
+        requireSize(n, 2)
 
         val array = UShortArray(n)
 
@@ -115,7 +124,7 @@ class ArrayBufferCursor(
     }
 
     override fun uIntArray(n: Int): UIntArray {
-        requireSize(4 * n)
+        requireSize(n, 4)
 
         val array = UIntArray(n)
 
@@ -141,7 +150,7 @@ class ArrayBufferCursor(
     }
 
     override fun intArray(n: Int): IntArray {
-        requireSize(4 * n)
+        requireSize(n, 4)
 
         val array = IntArray(n)
 
@@ -154,8 +163,8 @@ class ArrayBufferCursor(
     }
 
     override fun take(size: Int): Cursor {
-        val offset = offset + position
-        val wrapper = ArrayBufferCursor(backingBuffer, endianness, offset, size)
+        requireSize(size)
+        val wrapper = ArrayBufferCursor(backingBuffer, endianness, absolutePosition, size)
         this.position += size
         return wrapper
     }

@@ -38,6 +38,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertEquals(WalkthroughPlayer.Off, ctrl.walkthroughPlayer.value)
@@ -56,6 +57,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val store = components.questEditorStore
         val states = mutableListOf<Triple<Set<Int>?, Int?, Int?>>()
@@ -83,6 +85,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertFalse(ctrl.showEntityDirections.value)
@@ -100,6 +103,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertFalse(ctrl.showFogBoundaries.value)
@@ -117,6 +121,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         ctrl.createNewQuest(Episode.I)
@@ -131,6 +136,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         ctrl.loadCityQuest(Episode.I)
@@ -147,6 +153,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         ctrl.loadLobbyQuest(1)
@@ -163,6 +170,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         for (number in listOf(1, 11, 21, 30)) {
@@ -198,6 +206,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val objectData = Buffer.withSize(OBJECT_BYTE_SIZE, Endianness.Little)
 
@@ -222,6 +231,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // Start with default quest.
@@ -246,6 +256,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // Enable city map, then switch episode.
@@ -264,6 +275,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertNull(ctrl.result.value)
@@ -303,6 +315,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         ctrl.openFiles(
@@ -322,6 +335,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         components.questEditorStore.makeMainUndoCurrent()
         val nothingToUndo = "Nothing to undo (Ctrl-Z)"
@@ -378,6 +392,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // No quest loaded.
@@ -407,6 +422,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // Simulate PW4-like quest: EP2 with Lab (floor 0) and two Tower variants (floors 16, 17).
@@ -468,6 +484,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         val quest = createQuestModel(
@@ -499,6 +516,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         val quest = createQuestModel(
@@ -531,6 +549,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val quest = createQuestModel(
             episode = Episode.II,
@@ -558,6 +577,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val quest = createQuestModel(
             episode = Episode.II,
@@ -575,6 +595,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         ctrl.setCurrentArea(ctrl.areas.value.single { it.floorIds == setOf(16) })
 
         components.questEditorStore.setFloorMappings(
+            quest,
             listOf(
                 FloorMapping(
                     floorId = 16,
@@ -597,6 +618,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // Regular quest with no floor mappings and only 1 NPC on area 1.
@@ -625,6 +647,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // EP2: Lab (floor 0), Tower v0 (floor 17), Tower v1 (floor 16)
@@ -673,6 +696,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val store = components.questEditorStore
 
@@ -715,6 +739,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
         val store = components.questEditorStore
         val floor16Event = QuestEventModel(
@@ -757,6 +782,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertEquals(SaveFormat.QST, ctrl.saveFormat.value)
@@ -769,6 +795,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         // Default is QST — compressed checkbox hidden.
@@ -791,6 +818,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         assertTrue(ctrl.availableSaveFormats.value.contains(SaveFormat.QST))
@@ -804,6 +832,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
             components.areaStore,
             components.questEditorStore,
             components.questEditorUiStore,
+            components.asmStore,
         ))
 
         ctrl.setSaveFormat(SaveFormat.BIN_DAT)

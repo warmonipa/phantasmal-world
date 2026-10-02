@@ -31,7 +31,9 @@ import world.phantasmal.web.questEditor.models.LobbyEventFilter
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.SectionModel
 import world.phantasmal.web.questEditor.rendering.QuestMapExporter
+import world.phantasmal.web.questEditor.stores.AsmStore
 import world.phantasmal.web.questEditor.stores.AreaStore
+import world.phantasmal.web.questEditor.stores.QuestSaveCoverage
 import world.phantasmal.web.questEditor.stores.QuestEditorStore
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
 import world.phantasmal.web.questEditor.stores.WalkthroughPlayer
@@ -65,6 +67,7 @@ class QuestEditorToolbarController(
     private val areaStore: AreaStore,
     private val questEditorStore: QuestEditorStore,
     private val questEditorUiStore: QuestEditorUiStore,
+    private val asmStore: AsmStore,
     private val mapExporter: QuestMapExporter? = null,
 ) : Controller() {
     private val _resultDialogVisible = mutableCell(false)
@@ -94,6 +97,7 @@ class QuestEditorToolbarController(
     private val savingEnabled = questEditorStore.currentQuest.isNotNull() and !saving
     private val _saveAsDialogVisible = mutableCell(false)
     private val fileHolder = mutableCell<FileHolder?>(null)
+    private var saveCoverage: Pair<SaveFormat, QuestSaveCoverage>? = null
     private val _filename = mutableCell("")
     private val _version = mutableCell(Version.BB_V4)
     private val _compressed = mutableCell(true)
@@ -676,6 +680,32 @@ class QuestEditorToolbarController(
         )
     }
 
+    /** Captures the exact revision serialized before any file picker or write can suspend. */
+    private fun prepareSave(quest: QuestModel, format: SaveFormat): ((FileHolder?) -> Unit)? {
+        val result = asmStore.commit()
+        if (result is Failure) {
+            setResult(result)
+            return null
+        }
+        if (format == SaveFormat.LOBBY_DAT || format == SaveFormat.FREE_ROAM) {
+            val coverage = saveCoverage
+            if (coverage == null || coverage.first != format || !coverage.second.canSave(quest)) {
+                setResult(PwResult.build<Nothing>(logger)
+                    .addProblem(Severity.Error,
+                        "This format cannot store all current changes. Undo changes outside the file's supported contents before saving.")
+                    .failure())
+                return null
+            }
+        }
+        val markSaved = questEditorStore.captureSavePoint()
+        return { holder ->
+            if (!disposed && questEditorStore.currentQuest.value === quest) {
+                if (holder != null) setFileHolder(holder)
+                markSaved()
+            }
+        }
+    }
+
     suspend fun save() {
         if (!saveEnabled.value) return
 
@@ -683,6 +713,12 @@ class QuestEditorToolbarController(
             saving.value = true
 
             val quest = questEditorStore.currentQuest.value ?: return
+            val format = when (fileHolder.value) {
+                is FileHolder.LobbyDat -> SaveFormat.LOBBY_DAT
+                is FileHolder.FreeRoamDir -> SaveFormat.FREE_ROAM
+                else -> SaveFormat.QST
+            }
+            val saved = prepareSave(quest, format) ?: return
             val headerFilename = filename.value.trim()
 
             when (val holder = fileHolder.value) {
@@ -698,7 +734,7 @@ class QuestEditorToolbarController(
 
                         holder.file.writeBuffer(buffer)
 
-                        questEditorStore.questSaved()
+                        saved(null)
                         return
                     }
                 }
@@ -720,13 +756,13 @@ class QuestEditorToolbarController(
                         holder.binFile.writeBuffer(bin)
                         holder.datFile.writeBuffer(dat)
 
-                        questEditorStore.questSaved()
+                        saved(null)
                         return
                     }
                 }
 
                 is FileHolder.FreeRoamDir -> {
-                    saveToFreeRoamDir(holder, quest)
+                    saveToFreeRoamDir(holder, quest, saved)
                     return
                 }
 
@@ -734,7 +770,7 @@ class QuestEditorToolbarController(
                     val file = holder.file
                     if (file is FileHandle.System) {
                         file.writeBuffer(extractLobbyObjectData(quest))
-                        questEditorStore.questSaved()
+                        saved(null)
                         return
                     }
                 }
@@ -784,12 +820,13 @@ class QuestEditorToolbarController(
 
         try {
             saving.value = true
+            val saved = prepareSave(quest, _saveFormat.value) ?: return
 
             when (_saveFormat.value) {
-                SaveFormat.QST -> saveAsQst(quest)
-                SaveFormat.BIN_DAT -> saveAsBinDat(quest)
-                SaveFormat.LOBBY_DAT -> saveAsLobbyDat(quest)
-                SaveFormat.FREE_ROAM -> saveAsFreeRoam(quest)
+                SaveFormat.QST -> saveAsQst(quest, saved)
+                SaveFormat.BIN_DAT -> saveAsBinDat(quest, saved)
+                SaveFormat.LOBBY_DAT -> saveAsLobbyDat(quest, saved)
+                SaveFormat.FREE_ROAM -> saveAsFreeRoam(quest, saved)
             }
         } catch (e: Throwable) {
             setResult(
@@ -803,7 +840,7 @@ class QuestEditorToolbarController(
         }
     }
 
-    private suspend fun saveAsQst(quest: QuestModel) {
+    private suspend fun saveAsQst(quest: QuestModel, saved: (FileHolder?) -> Unit) {
         val headerFilename = filename.value.trim()
         val filename =
             if (headerFilename.endsWith(".qst")) headerFilename
@@ -827,17 +864,16 @@ class QuestEditorToolbarController(
             if (fileHandle != null) {
                 fileHandle.writableStream().use { it.write(buffer.arrayBuffer).await() }
 
-                setFileHolder(FileHolder.Qst(fileHandle))
-                questEditorStore.questSaved()
+                saved(FileHolder.Qst(fileHandle))
             }
         } else {
             val fileHandle = downloadFile(buffer.arrayBuffer, filename)
-            setFileHolder(FileHolder.Qst(fileHandle))
-            questEditorStore.questSaved()
+            saved(FileHolder.Qst(fileHandle))
         }
     }
 
-    private suspend fun saveAsBinDat(quest: QuestModel) {
+    private suspend fun saveAsBinDat(quest: QuestModel, saved: (FileHolder?) -> Unit) {
+        val compress = compressed.value
         val headerFilename = filename.value.trim()
         // Strip .qst extension if present to derive a base name.
         val baseName = headerFilename
@@ -853,7 +889,7 @@ class QuestEditorToolbarController(
             version.value,
         )
 
-        if (compressed.value) {
+        if (compress) {
             bin = prsCompress(bin.cursor()).buffer()
             dat = prsCompress(dat.cursor()).buffer()
         }
@@ -877,19 +913,17 @@ class QuestEditorToolbarController(
                 if (datHandle != null) {
                     datHandle.writableStream().use { it.write(dat.arrayBuffer).await() }
 
-                    setFileHolder(FileHolder.BinDat(binHandle, datHandle, compressed.value))
-                    questEditorStore.questSaved()
+                    saved(FileHolder.BinDat(binHandle, datHandle, compress))
                 }
             }
         } else {
             val binHandle = downloadFile(bin.arrayBuffer, binFilename)
             val datHandle = downloadFile(dat.arrayBuffer, datFilename)
-            setFileHolder(FileHolder.BinDat(binHandle, datHandle, compressed.value))
-            questEditorStore.questSaved()
+            saved(FileHolder.BinDat(binHandle, datHandle, compress))
         }
     }
 
-    private suspend fun saveAsLobbyDat(quest: QuestModel) {
+    private suspend fun saveAsLobbyDat(quest: QuestModel, saved: (FileHolder?) -> Unit) {
         val baseName = filename.value.trim().removeSuffix(".dat")
         val datFilename = "$baseName.dat"
         val objectData = extractLobbyObjectData(quest)
@@ -904,12 +938,11 @@ class QuestEditorToolbarController(
 
         if (fileHandle != null) {
             if (fileHandle is FileHandle.System) fileHandle.writeBuffer(objectData)
-            setFileHolder(FileHolder.LobbyDat(fileHandle, datFilename))
-            questEditorStore.questSaved()
+            saved(FileHolder.LobbyDat(fileHandle, datFilename))
         }
     }
 
-    private suspend fun saveAsFreeRoam(quest: QuestModel) {
+    private suspend fun saveAsFreeRoam(quest: QuestModel, saved: (FileHolder?) -> Unit) {
         if (!UserAgentFeatures.directoryPickerApi) {
             setResult(
                 PwResult.build<Nothing>(logger)
@@ -925,16 +958,10 @@ class QuestEditorToolbarController(
         // If the quest was already loaded from a free roam directory, save back to it.
         val holder = fileHolder.value
         if (holder is FileHolder.FreeRoamDir) {
-            saveToFreeRoamDir(holder, quest)
+            saveToFreeRoamDir(holder, quest, saved)
             return
         }
 
-        // Otherwise, ask the user for a directory.
-        val dirHandle = showDirectoryPicker() ?: return
-        gameDirHandle = dirHandle
-
-        // For Save As to a new directory, we need the current holder's dat file info.
-        // Since we don't have free roam file structure, show an informative error.
         setResult(
             PwResult.build<Nothing>(logger)
                 .addProblem(
@@ -1227,6 +1254,13 @@ class QuestEditorToolbarController(
         version: Version,
         quest: QuestModel,
     ) {
+        saveCoverage = when (fileHolder) {
+            is FileHolder.LobbyDat -> SaveFormat.LOBBY_DAT to QuestSaveCoverage.forLobby(quest)
+            is FileHolder.FreeRoamDir -> SaveFormat.FREE_ROAM to QuestSaveCoverage.forFreeRoam(
+                quest, fileHolder.binName, fileHolder.datFilesByFloor,
+            )
+            else -> null
+        }
         setFileHolder(fileHolder)
         setVersion(version)
         // Reset area selection when loading a new quest
@@ -1258,8 +1292,28 @@ class QuestEditorToolbarController(
         }
     }
 
-    private suspend fun saveToFreeRoamDir(holder: FileHolder.FreeRoamDir, quest: QuestModel) {
+    private suspend fun saveToFreeRoamDir(
+        holder: FileHolder.FreeRoamDir, quest: QuestModel, saved: (FileHolder?) -> Unit,
+    ) {
         val convertedQuest = convertQuestFromModel(quest)
+        val entityDataByFloor = extractRawEntityDataByFloor(convertedQuest)
+        val files = buildList {
+            holder.binName?.let { name ->
+                add(name to writeQuestToBinDat(convertedQuest, version.value).first)
+            }
+            for ((floorId, names) in holder.datFilesByFloor) {
+                val (objName, npcName, evtName) = names
+                val (objects, npcs) = entityDataByFloor[floorId]
+                    ?: (Buffer.withSize(0, Endianness.Little) to Buffer.withSize(0, Endianness.Little))
+                // Empty outputs clear removed entities; an absent target is not a file name.
+                if (objName.isNotEmpty()) add(objName to objects)
+                if (npcName.isNotEmpty()) add(npcName to npcs)
+                if (evtName.isNotEmpty()) {
+                    add(evtName to (writeEventDataForFloor(convertedQuest.events, floorId)
+                        ?: Buffer.withSize(0, Endianness.Little)))
+                }
+            }
+        }
         val dataDir = try {
             holder.dirHandle.getDirectoryHandle("data").await()
         } catch (_: Throwable) {
@@ -1270,7 +1324,7 @@ class QuestEditorToolbarController(
         val backupDir = holder.dirHandle.getDirectoryHandle("backup", obj { create = true }).await()
 
         val allDatNames = holder.datFilesByFloor.values.flatMap { (obj, npc, evt) -> listOf(obj, npc, evt) }
-        val allNames = listOfNotNull(holder.binName) + allDatNames
+        val allNames = (listOfNotNull(holder.binName) + allDatNames).filter { it.isNotEmpty() }
         for (name in allNames) {
             try {
                 val originalData = dataDir.getFileHandle(name).await()
@@ -1291,48 +1345,14 @@ class QuestEditorToolbarController(
             }
         }
 
-        // 2. Write modified bin (uncompressed) if we have a bin file.
-        if (holder.binName != null) {
-            val (bin, _) = writeQuestToBinDat(convertedQuest, _version.value)
-
-            val binHandle = dataDir.getFileHandle(holder.binName, obj { create = true }).await()
-            val binWritable = binHandle.createWritable().await()
-            binWritable.write(bin.arrayBuffer).await()
-            binWritable.close().await()
+        for ((name, buffer) in files) {
+            val handle = dataDir.getFileHandle(name, obj { create = true }).await()
+            val writable = handle.createWritable().await()
+            writable.write(buffer.arrayBuffer).await()
+            writable.close().await()
         }
 
-        // 3. Write modified dat files (split by floor).
-        val entityDataByFloor = extractRawEntityDataByFloor(convertedQuest)
-
-        for ((floorId, datNames) in holder.datFilesByFloor) {
-            val (objDatName, npcDatName, evtName) = datNames
-
-            val entityData = entityDataByFloor[floorId]
-            if (entityData != null) {
-                val (objBuf, npcBuf) = entityData
-
-                val objHandle = dataDir.getFileHandle(objDatName, obj { create = true }).await()
-                val objWritable = objHandle.createWritable().await()
-                objWritable.write(objBuf.arrayBuffer).await()
-                objWritable.close().await()
-
-                val npcHandle = dataDir.getFileHandle(npcDatName, obj { create = true }).await()
-                val npcWritable = npcHandle.createWritable().await()
-                npcWritable.write(npcBuf.arrayBuffer).await()
-                npcWritable.close().await()
-            }
-
-            // Always write the evt file — if null (no events on this floor), write an empty
-            // buffer so the old file is cleared and events aren't read back on next load.
-            val evtBuf = writeEventDataForFloor(convertedQuest.events, floorId)
-                ?: Buffer.withSize(0, Endianness.Little)
-            val evtHandle = dataDir.getFileHandle(evtName, obj { create = true }).await()
-            val evtWritable = evtHandle.createWritable().await()
-            evtWritable.write(evtBuf.arrayBuffer).await()
-            evtWritable.close().await()
-        }
-
-        questEditorStore.questSaved()
+        saved(null)
     }
 
 

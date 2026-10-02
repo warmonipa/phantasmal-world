@@ -396,6 +396,7 @@ class QuestEditorStore(
             questLoader.loadLobbyQuest(variant, objectData),
             areaStore::getVariant,
             npcPlacementPolicy,
+            floorMappingsFromScript = false,
         )
 
     suspend fun getFreeRoamQuest(
@@ -405,7 +406,9 @@ class QuestEditorStore(
         v2: Int = 0,
     ): FreeRoamQuestResult {
         val result = questLoader.loadFreeRoamQuest(gameDirHandle, info, v1, v2)
-        val questModel = convertQuestToModel(result.quest, areaStore::getVariant, npcPlacementPolicy)
+        val questModel = convertQuestToModel(
+            result.quest, areaStore::getVariant, npcPlacementPolicy, floorMappingsFromScript = false,
+        )
         return FreeRoamQuestResult(questModel, result.binName, result.datFilesByFloor)
     }
 
@@ -715,25 +718,25 @@ class QuestEditorStore(
         }
     }
 
-    suspend fun setFloorMappings(floorMappings: List<FloorMapping>) {
-        currentQuest.value?.let { quest ->
-            val currentLogicalFloor =
-                _currentFloorIds.value?.singleOrNull() ?: _currentArea.value?.id
+    suspend fun setFloorMappings(quest: QuestModel, floorMappings: List<FloorMapping>) {
+        if (disposed || currentQuest.value !== quest || !quest.floorMappingsFromScript) return
 
-            mutate {
-                quest.setFloorMappings(floorMappings)
-                if (floorMappings.isEmpty()) {
-                    val area = currentLogicalFloor?.let { areaStore.getArea(quest.episode, it) }
-                    _currentArea.value = area
-                    _currentAreaVariant.value = area?.areaVariants?.firstOrNull()
-                    _currentFloorIds.value = null
-                } else if (currentLogicalFloor != null) {
-                    switchToFloor(quest, currentLogicalFloor)
-                }
+        val currentLogicalFloor =
+            _currentFloorIds.value?.singleOrNull() ?: _currentArea.value?.id
+
+        mutate {
+            quest.setFloorMappings(floorMappings)
+            if (floorMappings.isEmpty()) {
+                val area = currentLogicalFloor?.let { areaStore.getArea(quest.episode, it) }
+                _currentArea.value = area
+                _currentAreaVariant.value = area?.areaVariants?.firstOrNull()
+                _currentFloorIds.value = null
+            } else if (currentLogicalFloor != null) {
+                switchToFloor(quest, currentLogicalFloor)
             }
-
-            updateQuestEntitySections(quest)
         }
+
+        updateQuestEntitySections(quest)
     }
 
     fun setEntitySectionId(entity: QuestEntityModel<*, *>, sectionId: Int) {
@@ -823,9 +826,7 @@ class QuestEditorStore(
         _selectedSection.value = section
     }
 
-    fun questSaved() {
-        undoManager.savePoint()
-    }
+    fun captureSavePoint(): () -> Unit = undoManager.captureSavePoint()
 
     /**
      * Request async loading of sections for a specific area variant

@@ -15,15 +15,15 @@ class ProxyServer(
     private val redirectMap: Map<Inet4Pair, Inet4Pair> = emptyMap(),
 ) : Server(name, bindPair) {
 
-    override fun clientConnected(clientSocket: Socket) {
-        val serverSocket = Socket(remotePair.address, remotePair.port)
+    override fun clientConnected(connection: Connection) {
+        val serverSocket = connection.connect(remotePair)
         logger.info {
             "Connected to server ${serverSocket.inetAddress}:${serverSocket.port}."
         }
 
-        // Listen to server on this thread.
-        // Don't start listening to the client until encryption is initialized.
-        ServerHandler(serverSocket, clientSocket).listen()
+        val handler = ServerHandler(serverSocket, connection.clientSocket)
+        handler.startClientListener()
+        handler.listen()
     }
 
     private inner class ServerHandler(
@@ -31,14 +31,26 @@ class ProxyServer(
         private val clientSocket: Socket,
     ) : ProxySocketHandler("${name}_server", serverSocket) {
 
-        private var clientHandler: ClientHandler? = null
+        private var clientThread: Thread? = null
+
+        @Volatile
+        var clientCiphers: Pair<Cipher, Cipher>? = null
+            private set
 
         // The first message sent by the server is always unencrypted and initializes the
-        // encryption. We don't start listening to the client until the encryption is
-        // initialized.
+        // encryption. The client reader detects EOF immediately and rejects data sent before
+        // these keys are available. Keys are published before the handshake reaches the client.
         override var readDecryptCipher: Cipher? = null
         override var readEncryptCipher: Cipher? = null
         override val writeEncryptCipher: Cipher? = null
+
+        fun startClientListener() {
+            val clientListener = ClientHandler(clientSocket, this)
+            val thread = Thread(clientListener::listen)
+            thread.name = "${name}_client"
+            clientThread = thread
+            thread.start()
+        }
 
         override fun processMessage(message: Message): ProcessResult {
             when (message) {
@@ -49,21 +61,8 @@ class ProxyServer(
                     val clientDecryptCipher = createCipher(message.clientKey)
                     val clientEncryptCipher = createCipher(message.clientKey)
 
-                    logger.info {
-                        "Encryption initialized, start listening to client."
-                    }
-
-                    // Start listening to client on another thread.
-                    val clientListener = ClientHandler(
-                        clientSocket,
-                        this,
-                        clientDecryptCipher,
-                        clientEncryptCipher,
-                    )
-                    this.clientHandler = clientListener
-                    val thread = Thread(clientListener::listen)
-                    thread.name = "${name}_client"
-                    thread.start()
+                    clientCiphers = clientDecryptCipher to clientEncryptCipher
+                    logger.info { "Encryption initialized." }
                 }
 
                 is RedirectMessage -> {
@@ -86,22 +85,29 @@ class ProxyServer(
         }
 
         override fun processRawBytes(buffer: Buffer, offset: Int, size: Int) {
-            clientHandler?.writeBytes(buffer, offset, size)
+            clientSocket.write(buffer, offset, size)
         }
 
         override fun socketClosed() {
-            clientHandler?.stop()
-            clientHandler = null
+            // The peer must close even if the upstream disconnects before its handshake.
+            clientSocket.close()
+            clientThread?.join()
+            clientThread = null
         }
     }
 
     private inner class ClientHandler(
         clientSocket: Socket,
         private val serverHandler: ServerHandler,
-        override val readDecryptCipher: Cipher,
-        override val readEncryptCipher: Cipher,
     ) : ProxySocketHandler("${name}_client", clientSocket) {
 
+        private val ciphers: Pair<Cipher, Cipher>
+            get() = checkNotNull(serverHandler.clientCiphers) {
+                "Client sent data before the encryption handshake."
+            }
+
+        override val readDecryptCipher: Cipher get() = ciphers.first
+        override val readEncryptCipher: Cipher get() = ciphers.second
         override val writeEncryptCipher: Cipher? = null
 
         override fun processMessage(message: Message): ProcessResult = ProcessResult.Ok
