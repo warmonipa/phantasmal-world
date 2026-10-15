@@ -127,6 +127,7 @@ class SectionIdRenderer {
         val material = MeshBasicMaterial(obj {
             this.color = Color(color)
             transparent = true
+            forceSinglePass = true
             this.opacity = opacity
             side = DoubleSide
         })
@@ -399,6 +400,7 @@ class SectionIdRenderer {
         val material = MeshBasicMaterial(obj {
             this.color = Color(color)
             transparent = true
+            forceSinglePass = true
             this.opacity = opacity
             side = DoubleSide  // Use proper DoubleSide constant
         })

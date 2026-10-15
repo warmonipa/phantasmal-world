@@ -312,6 +312,7 @@ class ParticleMarkerManager internal constructor(
                 effect.blue.toDouble().coerceIn(0.0, 1.0),
             )
             transparent = true
+            forceSinglePass = true
             opacity = 1.0
             side = DoubleSide
             // The stock destination-alpha blend assumes PSO's intermediate render target. In the

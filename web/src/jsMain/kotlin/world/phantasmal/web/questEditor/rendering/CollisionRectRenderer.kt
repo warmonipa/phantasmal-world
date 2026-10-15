@@ -99,6 +99,7 @@ class CollisionRectRenderer {
         val material = MeshBasicMaterial(obj {
             this.color = Color(COLLISION_COLOR)
             transparent = true
+            forceSinglePass = true
             this.opacity = 0.85
             side = DoubleSide
         })

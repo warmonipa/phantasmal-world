@@ -278,6 +278,7 @@ private fun areaObjectToMesh(
         builder.defaultMaterial(MeshLambertMaterial(obj {
             color = Color().setHSL((sectionIndex % 7) / 7.0, 1.0, .5)
             transparent = true
+            forceSinglePass = true
             opacity = .5
             side = DoubleSide
         }))

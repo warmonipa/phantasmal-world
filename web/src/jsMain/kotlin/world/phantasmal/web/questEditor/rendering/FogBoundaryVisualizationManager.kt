@@ -98,6 +98,7 @@ class FogBoundaryVisualizationManager(
         val fillMaterial = MeshBasicMaterial(obj {
             color = Color(0)
             transparent = true
+            forceSinglePass = true
             opacity = UNSELECTED_FILL_OPACITY
             side = DoubleSide
         }).also {

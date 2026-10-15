@@ -90,6 +90,7 @@ class SymbolChatBillboardManager(
         val material = MeshBasicMaterial(obj {
             map = texture
             transparent = true
+            forceSinglePass = true
             alphaTest = 0.05
             side = DoubleSide
         })

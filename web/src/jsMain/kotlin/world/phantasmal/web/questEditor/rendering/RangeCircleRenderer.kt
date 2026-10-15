@@ -30,6 +30,7 @@ class RangeCircleRenderer {
         val material = MeshBasicMaterial(obj {
             this.color = Color(color)
             transparent = true
+            forceSinglePass = true
             this.opacity = 0.8
             side = DoubleSide
         })

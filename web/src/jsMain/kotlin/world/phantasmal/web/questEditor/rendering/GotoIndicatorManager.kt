@@ -39,6 +39,7 @@ class GotoIndicatorManager(
     private val outerRingMaterial = MeshBasicMaterial(obj {
         color = COLOR
         transparent = true
+        forceSinglePass = true
         opacity = 1.0
         side = DoubleSide
     }).apply {
@@ -148,6 +149,7 @@ class GotoIndicatorManager(
         private val STATIC_MATERIAL = MeshBasicMaterial(obj {
             color = COLOR
             transparent = true
+            forceSinglePass = true
             opacity = 0.9
             side = DoubleSide
         }).apply {
