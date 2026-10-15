@@ -92,7 +92,9 @@ The actual Phantasmal World web application.
 
 Its nested subprojects are `web:assembly-worker` (script analysis), `web:shared` (shared messages
 and data), and `web:assets-generation` (JVM asset generation and golden checks). Their ownership
-boundaries are documented in the [web README](web/README.md).
+boundaries are documented in the [web README](web/README.md). What the 3D renderer reproduces from
+PSO, what it deliberately leaves out, and the pending three.js upgrade are tracked in
+[docs/rendering-fidelity.md](docs/rendering-fidelity.md).
 
 #### webui
 

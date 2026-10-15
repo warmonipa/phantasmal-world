@@ -57,6 +57,12 @@ selected entity in the quest editor.
 
 ### rendering
 
+`core/rendering/conversion` turns Ninja models (XJ/NJ) and XVR textures into three.js meshes and
+textures for both the Viewer and the Quest Editor: vertex colors, material diffuse, Ninja blend
+factors, opaque/transparent strip tables, back-face culling and mipmaps. What this reproduces from
+PSO and what it deliberately leaves out is documented in
+[docs/rendering-fidelity.md](../docs/rendering-fidelity.md).
+
 Quest Editor rendering components consume focused capability interfaces from `QuestEditorState.kt`
 instead of the concrete `QuestEditorStore`. Cross-cutting editor invariants remain atomic inside the
 store without making that concrete store the rendering API. Event selection and viewport entity
