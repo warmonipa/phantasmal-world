@@ -247,7 +247,6 @@ class MeshBuilder(
         val materials = mutableListOf<Material>()
 
         val defaultMaterial = defaultMaterial ?: MeshLambertMaterial(obj {
-            this.skinning = skinning
             side = DoubleSide
         })
 
@@ -270,7 +269,6 @@ class MeshBuilder(
 
             val mat = if (tex == null && group.textureIndex == null && group.diffuse != null) {
                 MeshLambertMaterial(obj {
-                    this.skinning = skinning
                     color = diffuseColor(group.diffuse)
                     applyGroup(group)
                 })
@@ -278,14 +276,12 @@ class MeshBuilder(
                 defaultMaterial
             } else if (group.environmentMapping) {
                 MeshMatcapMaterial(obj {
-                    this.skinning = skinning
                     matcap = tex
                     color = diffuseColor(group.diffuse ?: WHITE)
                     applyGroup(group)
                 })
             } else if (bakedLighting) {
                 MeshBasicMaterial(obj {
-                    this.skinning = skinning
                     map = tex
                     color = diffuseColor(group.diffuse ?: WHITE)
                     applyGroup(group)
@@ -294,7 +290,6 @@ class MeshBuilder(
                 // Without baked vertex lighting (items, characters) the game lights the model;
                 // unlit, concave and convex surfaces become indistinguishable.
                 MeshLambertMaterial(obj {
-                    this.skinning = skinning
                     map = tex
                     color = diffuseColor(group.diffuse ?: WHITE)
                     applyGroup(group)

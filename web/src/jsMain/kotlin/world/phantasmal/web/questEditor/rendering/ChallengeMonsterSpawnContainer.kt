@@ -147,7 +147,7 @@ class ChallengeMonsterSpawnContainer : TrackedDisposable() {
             }
 
             // Merge the two cylinders into one geometry
-            return BufferGeometryUtils.mergeBufferGeometries(
+            return mergeGeometries(
                 arrayOf(leftLine, rightLine),
                 useGroups = false,
             )!!.apply {

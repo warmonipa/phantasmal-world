@@ -4,7 +4,7 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 import org.khronos.webgl.Float32Array
 import world.phantasmal.web.externals.three.BufferGeometry
-import world.phantasmal.web.externals.three.BufferGeometryUtils
+import world.phantasmal.web.externals.three.mergeGeometries
 import world.phantasmal.web.externals.three.Float32BufferAttribute
 import world.phantasmal.web.externals.three.Matrix3
 import world.phantasmal.web.externals.three.Mesh
@@ -85,7 +85,7 @@ internal class CollisionWalkthroughPathfinder private constructor(
             collect(collisionGeometry)
             if (geometries.isEmpty()) return null
 
-            val merged = BufferGeometryUtils.mergeBufferGeometries(
+            val merged = mergeGeometries(
                 geometries.toTypedArray(), useGroups = false,
             )
             geometries.forEach(BufferGeometry::dispose)

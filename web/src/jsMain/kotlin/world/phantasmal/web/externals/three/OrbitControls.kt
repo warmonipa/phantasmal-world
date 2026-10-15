@@ -1,4 +1,4 @@
-@file:JsModule("three/examples/jsm/controls/OrbitControls")
+@file:JsModule("three/examples/jsm/controls/OrbitControls.js")
 @file:JsNonModule
 @file:Suppress("PropertyName", "unused")
 

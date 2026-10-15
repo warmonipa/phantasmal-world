@@ -168,15 +168,13 @@ external class Ray(origin: Vector3 = definedExternally, direction: Vector3 = def
     fun intersectPlane(plane: Plane, target: Vector3): Vector3?
 }
 
-external class Face3(
-    a: Int,
-    b: Int,
-    c: Int,
-    normal: Vector3 = definedExternally,
-    color: Color = definedExternally,
-    materialIndex: Int = definedExternally,
-) {
+/** The intersected triangle of an [Intersection]: a plain object since r125. */
+external interface Face3 {
+    var a: Int
+    var b: Int
+    var c: Int
     var normal: Vector3
+    var materialIndex: Int
 }
 
 external class Plane(normal: Vector3 = definedExternally, constant: Double = definedExternally) {
@@ -718,7 +716,6 @@ external interface MeshBasicMaterialParameters : MaterialParameters {
     var map: Texture?
     var wireframe: Boolean
     var wireframeLinewidth: Double
-    var skinning: Boolean
 }
 
 external class MeshBasicMaterial(
@@ -732,7 +729,6 @@ external class MeshBasicMaterial(
 external interface MeshMatcapMaterialParameters : MaterialParameters {
     var color: Color
     var matcap: Texture?
-    var skinning: Boolean
 }
 
 external class MeshMatcapMaterial(
@@ -761,7 +757,6 @@ external class Sprite(material: SpriteMaterial = definedExternally) : Object3D {
 external interface MeshLambertMaterialParameters : MaterialParameters {
     var color: Color
     var map: Texture?
-    var skinning: Boolean
 }
 
 external class MeshLambertMaterial(
@@ -798,7 +793,6 @@ external class DataTexture(
     magFilter: TextureFilter = definedExternally,
     minFilter: TextureFilter = definedExternally,
     anisotropy: Int = definedExternally,
-    encoding: TextureEncoding = definedExternally,
 ) : Texture
 
 external interface Mapping
@@ -808,7 +802,6 @@ external object CubeRefractionMapping : Mapping
 external object EquirectangularReflectionMapping : Mapping
 external object EquirectangularRefractionMapping : Mapping
 external object CubeUVReflectionMapping : Mapping
-external object CubeUVRefractionMapping : Mapping
 
 external interface Wrapping
 external object RepeatWrapping : Wrapping
@@ -839,9 +832,6 @@ external object UnsignedInt248Type : TextureDataType
 external interface PixelFormat
 external object AlphaFormat : PixelFormat
 external object RGBAFormat : PixelFormat
-external object LuminanceFormat : PixelFormat
-external object LuminanceAlphaFormat : PixelFormat
-external object RGBEFormat : PixelFormat
 external object DepthFormat : PixelFormat
 external object DepthStencilFormat : PixelFormat
 external object RedFormat : PixelFormat
@@ -858,15 +848,6 @@ external object RGBA_S3TC_DXT1_Format : CompressedPixelFormat
 external object RGBA_S3TC_DXT3_Format : CompressedPixelFormat
 external object RGBA_S3TC_DXT5_Format : CompressedPixelFormat
 
-external interface TextureEncoding
-external object LinearEncoding : TextureEncoding
-external object sRGBEncoding : TextureEncoding
-external object GammaEncoding : TextureEncoding
-external object RGBEEncoding : TextureEncoding
-external object LogLuvEncoding : TextureEncoding
-external object RGBM7Encoding : TextureEncoding
-external object RGBM16Encoding : TextureEncoding
-external object RGBDEncoding : TextureEncoding
 
 external class CompressedTexture(
     mipmaps: Array<Mipmap>,
@@ -880,7 +861,6 @@ external class CompressedTexture(
     magFilter: TextureFilter = definedExternally,
     minFilter: TextureFilter = definedExternally,
     anisotropy: Int = definedExternally,
-    encoding: TextureEncoding = definedExternally,
 ) : Texture
 
 external interface Mipmap {

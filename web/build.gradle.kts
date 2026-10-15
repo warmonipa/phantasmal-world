@@ -36,7 +36,7 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
                 implementation(npm("golden-layout", "^1.5.9"))
                 implementation(npm("monaco-editor", "0.26.1"))
-                implementation(npm("three", "^0.128.0"))
+                implementation(npm("three", "0.186.1"))
                 implementation(npm("three-pathfinding", "1.3.0"))
                 implementation(npm("javascript-lp-solver", "0.4.17"))
                 implementation(npm("jszip", "^3.10.1"))

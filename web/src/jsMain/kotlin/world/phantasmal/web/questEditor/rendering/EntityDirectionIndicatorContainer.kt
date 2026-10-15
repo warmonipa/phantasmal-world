@@ -3,7 +3,7 @@ package world.phantasmal.web.questEditor.rendering
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.observeNow
 import world.phantasmal.web.externals.three.BufferGeometry
-import world.phantasmal.web.externals.three.BufferGeometryUtils
+import world.phantasmal.web.externals.three.mergeGeometries
 import world.phantasmal.web.externals.three.Color
 import world.phantasmal.web.externals.three.ConeGeometry
 import world.phantasmal.web.externals.three.CylinderGeometry
@@ -87,7 +87,7 @@ internal fun createEntityDirectionArrowGeometry(): BufferGeometry {
         translate(0.0, height, shaftLength + headLength / 2)
     }
 
-    return BufferGeometryUtils.mergeBufferGeometries(arrayOf(shaft, head), false)!!.apply {
+    return mergeGeometries(arrayOf(shaft, head), false)!!.apply {
         computeBoundingBox()
         computeBoundingSphere()
     }

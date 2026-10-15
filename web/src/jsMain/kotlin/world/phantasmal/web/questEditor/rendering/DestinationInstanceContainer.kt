@@ -7,7 +7,7 @@ import kotlin.math.PI
 
 class DestinationInstanceContainer : InstanceContainer<QuestObjectModel, DestinationInstance>(
     InstancedMesh(
-        BufferGeometryUtils.mergeBufferGeometries(
+        mergeGeometries(
             arrayOf(
                 SphereGeometry(
                     radius = 4.0,

@@ -4,6 +4,15 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const path = require("path");
 const zlib = require("zlib");
 
+// Kotlin/JS emits require("three"). three's CommonJS entry is a deprecated shim that calls
+// Node's process.emitWarning, which doesn't exist in browsers; resolve to the ES module build
+// directly. Addons import "three" as an ES module and resolve to the same file, so there is only
+// one copy of three.js.
+config.resolve = config.resolve || {};
+config.resolve.alias = Object.assign({}, config.resolve.alias, {
+    three$: path.resolve(require.resolve("three"), "../three.module.js"),
+});
+
 config.module.rules.push({
     test: /\.(gif|jpg|png|svg|ttf)$/,
     type: 'asset/resource',
