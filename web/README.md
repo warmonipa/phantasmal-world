@@ -194,14 +194,29 @@ the full-map editor view.
 
 ## Quest Walkthrough Routes
 
-The Quest Editor 3D view derives one primary physical route from quest data; it is not authored
-Guide content or a visualization of the event graph. Each currently visible logical floor is
-planned independently from that player's forward Player Set entrance. Outgoing exits are preferred
-as endpoints, followed by DAT event collisions and then reachable object/NPC or script-created
-interactions. Within the highest available priority, the farthest endpoint by walkable path is used.
-The shortest route to that endpoint is rendered; other reachable interactions are not appended as
-side trips. Spawn, trigger, switch, and door actions describe quest state rather than player
-movement, so they never create spatial route nodes or duplicate lines.
+The Quest Editor 3D view draws the walkthrough of one selected player (Red, Green, Yellow and Blue
+map to client IDs 0 through 3); it is derived from quest data, not authored Guide content. Planning
+has two layers.
+
+**Journey** (`psolib/.../fileFormats/quest/walkthrough/QuestJourney.kt`, no geometry). The floors
+a client plays, in order. A floor without a Player Set for the client is not part of its journey
+and shows no route; this is how quests split players 2/2 or 1/1/1/1. Floors connect through floor
+exit objects (teleporters, Quest Warps, boss teleporters), the Pioneer 2 Ragol warp enabled by a
+reachable `set_mainwarp` (episode-absolute area operand mapped to a logical floor), and
+client-scoped `go_floor`. The journey starts on Pioneer 2 when it has an outgoing warp, otherwise
+on the lowest Ragol floor; it visits the nearest unvisited floor by hops, returns to Pioneer 2 when
+Pioneer 2 is part of the client's data, and appends unreachable floors as "order unknown" visits.
+A client arrives on a floor at its Player Set with Return flag 0 going forward and Return flag 1
+coming back from a later floor (Quest Warps name their Player Set); Return flags use the low 16
+bits and floors that number slots 1–4 map client c to slot c + 1. Challenge quests visit their
+floors in ascending order.
+
+**Floor route** (`WalkthroughRoutePlanner`, walkable collision of the visible floor). Each visit
+to a visible floor is planned from its arrival to the exit leading to the journey's next floor;
+the final Pioneer 2 visit draws nothing because the quest is reported at the Hunter's Guild
+counter, outside quest data. Among usable exits, the one next to the client's Return flag 1 Player
+Set (within 100 units) is preferred, otherwise the farthest. Interactions whose script enables the
+Ragol warp to the next floor are visited before the Ragol teleporter.
 
 When reachable quest bytecode explicitly disables and later enables map warps on a floor, or a
 reachable DAT/script interaction unlocks a controlled door, the exit is completion-gated. On that
@@ -214,17 +229,22 @@ has been visited; the unlock action itself is not rendered as a route branch.
 
 Paths are computed on walkable collision triangles; walls and steep collision faces are excluded
 before navigation connectivity is built. Every object that exposes an intra-map destination,
-including ordinary, site-to-site, forced, and Lab/city map warps, provides a directed, non-rendered
-transition between otherwise disconnected walkable regions. Explicit destinations are followed as
-stored, so ascending, descending, and mixed Control Tower floor orders use the same planner. EP1,
-EP2, Ruins, quest, and boss teleporters are treated as outgoing floor exits. No section IDs, event
-anchors, door counts, or straight-line guesses manufacture connectivity. Rendered route ribbons
-follow navigation corners and repeatedly sample the local collision surface, keeping a small
-clearance above uneven or vertically stacked ground.
+including ordinary, site-to-site, forced, Insta-Warp and Lab/city map warps, provides a directed,
+non-rendered transition between otherwise disconnected walkable regions; so does an interaction
+whose script moves the client with `p_setpos`/`p_move` to resolvable coordinates. No section IDs,
+event anchors, door counts, or straight-line guesses manufacture connectivity. Rendered route
+ribbons follow navigation corners and repeatedly sample the local collision surface, keeping a
+small clearance above uneven or vertically stacked ground.
+
+Limits: physical reachability is only known for the visible floor, so floor-level forks take the
+nearest unvisited floor; stacked same-floor warps with runtime-selected destinations are all
+treated as usable; and quests without `set_mainwarp` start on their lowest Ragol floor. The script
+analysis merges constant registers at join points and stops re-exploring callees in new call
+contexts beyond a state budget, so large scripts stay bounded.
 
 The Route selector is off by default, and route-only quest analysis and collision pathfinding remain
-inactive in that state. Red, Green, Yellow, and Blue map to client IDs 0 through 3. Changing the
-selection replans from the matching Player Set without changing the editor's entity selection.
+inactive in that state. Changing the selection replans the selected client's journey without
+changing the editor's entity selection.
 Direct client/floor dispatch is pruned for that route, while unresolved runtime branches remain
 conservative. Route meshes live in `QuestRenderContext.helpers`, do not participate in picking, and
 own their geometry/material lifecycle in `WalkthroughRouteRenderer`.
