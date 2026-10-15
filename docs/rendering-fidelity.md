@@ -65,11 +65,22 @@ as is back-face culling for NJ models.
 | --- | --- |
 | NJ environment mapping | `NjTriangleStrip.environmentMapping` is parsed but not passed to `MeshBuilder`, so environment-mapped NJ parts (e.g. metallic weapon or enemy parts) render with their texture as regular UV-mapped surfaces. Small change; not yet decided. |
 
-## TODO
+## three.js version
 
-- Upgrade three.js from r128 (2021-04) to r186 (2026-09). Check every breaking change between them
-  against the migration guide before starting. Known impact areas: the removed material
-  `skinning` parameter (`MeshBuilder`), color management/sRGB defaults (textures and vertex
-  colors), physically based light intensities (ambient and directional lights, Lambert materials), removed
-  `encoding`/UMD builds, and the Kotlin externals in `web/.../externals/three`. Use before/after
-  screenshots of areas and models as the regression check.
+The renderer runs on three.js r186 (`0.186.1`, upgraded from r128). The upgrade keeps r128's
+output; screenshots of areas, models and quest editor overlays before and after differ only in
+isolated texels of high-frequency textures. What keeps it that way:
+
+| Item | Notes |
+| --- | --- |
+| Color | `ColorManagement.enabled = false` (in `main()`, before any `Color` exists) and `outputColorSpace = LinearSRGBColorSpace`; textures keep `NoColorSpace`. Colors, textures and vertex colors pass through unconverted, as in r128. Moving to an sRGB workflow is a separate decision. |
+| Lights | r155+ uses physically based light units; every light intensity is multiplied by `LEGACY_LIGHT_SCALE` (π). |
+| Lambert shading | Per fragment since r144 (smoother); accepted. |
+| Blending | Blended model strips set `forceSinglePass`, because r149+ draws double-sided transparent materials in two passes. |
+| R5G6B5 textures | Decoded to RGBA8: `UnsignedShort565Type` was removed in r137. |
+| Instanced meshes | r151+ culls and raycasts against cached instance bounds; `InstancedMesh.instancesChanged()` drops them whenever instances change, otherwise entities vanish or can't be clicked. |
+| Wheel zoom | r186 `OrbitControls` scales zoom by the wheel delta (twice as fast on high-DPI screens); `OrbitalCameraInputManager` restores one step per event. |
+| Module resolution | `require("three")` resolves to `three.module.js` (webpack alias): the deprecated CommonJS entry calls `process.emitWarning`. Addon `@JsModule` paths end in `.js`. |
+
+Known console warning: `THREE.Clock` is deprecated (r183) and still used by the viewer's animation
+playback; replace it with `THREE.Timer` when touching that code.
