@@ -72,12 +72,13 @@ class OrbitalCameraInputManager(
         // one fixed step per event, like three.js r128 did.
         _controls.asDynamic()._getZoomScale = { _: Double -> 0.95.pow(_controls.zoomSpeed) }
 
-        // r186 OrbitControls captures the pointer on pointerdown, which keeps routing moves to the
-        // canvas during a camera drag (e.g. symbol chat trigger tooltips follow the cursor). r128
-        // didn't capture; it tracks the drag through document listeners either way. This listener
-        // is added after OrbitControls' own, so it runs after the capture.
+        // r186 OrbitControls captures the pointer on pointerdown, which keeps routing mouse moves to
+        // the canvas during a camera drag (e.g. symbol chat trigger tooltips follow the cursor).
+        // r128 didn't capture mouse drags; it tracks the drag through document listeners either way.
+        // Touch and pen keep the browser's implicit capture, as with r128. This listener is added
+        // after OrbitControls' own, so it runs after the capture.
         pointerCaptureListener = canvas.disposableListener<PointerEvent>("pointerdown", {
-            if (canvas.hasPointerCapture(it.pointerId)) {
+            if (it.pointerType == "mouse" && canvas.hasPointerCapture(it.pointerId)) {
                 canvas.releasePointerCapture(it.pointerId)
             }
         })

@@ -8,6 +8,7 @@ import org.w3c.dom.pointerevents.PointerEventInit
 import org.w3c.dom.events.WheelEventInit
 import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.externals.three.Vector3
+import world.phantasmal.web.test.WebTestContext
 import world.phantasmal.web.test.WebTestSuite
 import kotlin.math.pow
 import kotlin.test.Test
@@ -63,9 +64,28 @@ class OrbitalCameraInputManagerTests : WebTestSuite {
     }
 
     @Test
-    fun camera_drags_do_not_capture_the_pointer() = test {
-        // three.js r128 OrbitControls never captured the pointer, so other canvas listeners stopped
+    fun mouse_camera_drags_do_not_capture_the_pointer() = test {
+        // three.js r128 OrbitControls never captured mouse drags, so other canvas listeners stopped
         // receiving moves during a camera drag (the quest editor shows a pointer trap instead).
+        val (canvas, captured) = canvasWithCaptureLog()
+
+        canvas.dispatchEvent(pointerDown(pointerId = 7, pointerType = "mouse"))
+
+        assertEquals(emptySet(), captured)
+    }
+
+    @Test
+    fun touch_keeps_its_pointer_capture() = test {
+        // Touch pointers are implicitly captured by the browser; r128 left that capture alone.
+        val (canvas, captured) = canvasWithCaptureLog()
+        captured.add(8)
+
+        canvas.dispatchEvent(pointerDown(pointerId = 8, pointerType = "touch"))
+
+        assertEquals(setOf(8), captured)
+    }
+
+    private fun WebTestContext.canvasWithCaptureLog(): Pair<HTMLCanvasElement, MutableSet<Int>> {
         val canvas = document.createElement("canvas") as HTMLCanvasElement
         val captured = mutableSetOf<Int>()
         canvas.asDynamic().setPointerCapture = { id: Int -> captured.add(id) }
@@ -79,11 +99,12 @@ class OrbitalCameraInputManagerTests : WebTestSuite {
                 screenSpacePanning = false,
             )
         )
-
-        canvas.dispatchEvent(
-            PointerEvent("pointerdown", PointerEventInit(pointerId = 7, button = 2, buttons = 2))
-        )
-
-        assertEquals(emptySet(), captured)
+        return Pair(canvas, captured)
     }
+
+    private fun pointerDown(pointerId: Int, pointerType: String): PointerEvent =
+        PointerEvent(
+            "pointerdown",
+            PointerEventInit(pointerId = pointerId, pointerType = pointerType, button = 2, buttons = 2),
+        )
 }
