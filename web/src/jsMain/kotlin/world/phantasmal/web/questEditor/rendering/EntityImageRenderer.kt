@@ -5,6 +5,7 @@ import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.url.URL
 import world.phantasmal.core.math.degToRad
 import world.phantasmal.psolib.fileFormats.quest.EntityType
+import world.phantasmal.web.core.instancesChanged
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.core.timesAssign
@@ -51,6 +52,7 @@ class EntityImageRenderer(
         try {
             mesh.count = 1
             mesh.setMatrixAt(0, Matrix4())
+            mesh.instancesChanged()
             scene.clear()
             scene.add(light, mesh)
 

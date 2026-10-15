@@ -6,6 +6,16 @@ import kotlin.contracts.contract
 
 private val tmpSphere = Sphere()
 
+/**
+ * Call after changing instance matrices or [InstancedMesh.count]. Uploads the matrices and drops
+ * the cached instance bounds, which three.js (r151+) uses for frustum culling and raycasting.
+ */
+fun InstancedMesh.instancesChanged() {
+    instanceMatrix.needsUpdate = true
+    boundingBox = null
+    boundingSphere = null
+}
+
 operator fun Vector3.plus(other: Vector3): Vector3 =
     clone().add(other)
 

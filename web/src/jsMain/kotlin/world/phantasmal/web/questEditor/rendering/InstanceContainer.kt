@@ -2,6 +2,7 @@ package world.phantasmal.web.questEditor.rendering
 
 import mu.KotlinLogging
 import world.phantasmal.core.disposable.TrackedDisposable
+import world.phantasmal.web.core.instancesChanged
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.InstancedMesh
 import world.phantasmal.web.questEditor.models.QuestEntityModel
@@ -47,6 +48,7 @@ abstract class InstanceContainer<Entity : QuestEntityModel<*, *>, Inst : Instanc
 
         val instanceIndex = mesh.count
         mesh.count++
+        mesh.instancesChanged()
 
         val instance = createInstance(entity, instanceIndex)
         instances.add(instance)
@@ -70,7 +72,7 @@ abstract class InstanceContainer<Entity : QuestEntityModel<*, *>, Inst : Instanc
             instances[i].instanceIndex = i
         }
 
-        mesh.instanceMatrix.needsUpdate = true
+        mesh.instancesChanged()
         instance.dispose()
     }
 
@@ -78,6 +80,7 @@ abstract class InstanceContainer<Entity : QuestEntityModel<*, *>, Inst : Instanc
         instances.forEach { it.dispose() }
         instances.clear()
         mesh.count = 0
+        mesh.instancesChanged()
     }
 
     protected abstract fun createInstance(entity: Entity, index: Int): Inst

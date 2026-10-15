@@ -4,6 +4,7 @@ import mu.KotlinLogging
 import world.phantasmal.cell.observeNow
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.core.disposable.TrackedDisposable
+import world.phantasmal.web.core.instancesChanged
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.web.questEditor.models.ChallengeMonsterSpawnModel
@@ -65,6 +66,7 @@ class ChallengeMonsterSpawnContainer : TrackedDisposable() {
         spawnPoints.forEach { it.dispose() }
         spawnPoints.clear()
         mesh.count = 0
+        mesh.instancesChanged()
     }
 
     private inner class SpawnPointInstance(
@@ -88,7 +90,7 @@ class ChallengeMonsterSpawnContainer : TrackedDisposable() {
             helper.updateMatrix()
 
             mesh.setMatrixAt(instanceIndex, helper.matrix)
-            mesh.instanceMatrix.needsUpdate = true
+            mesh.instancesChanged()
         }
 
         override fun dispose() {

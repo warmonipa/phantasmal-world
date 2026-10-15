@@ -1,5 +1,6 @@
 package world.phantasmal.web.questEditor.rendering
 
+import world.phantasmal.web.core.instancesChanged
 import world.phantasmal.web.externals.three.InstancedMesh
 import world.phantasmal.web.externals.three.Object3D
 import world.phantasmal.web.questEditor.models.QuestEntityModel
@@ -29,7 +30,7 @@ abstract class Instance<Entity : QuestEntityModel<*, *>>(
     protected fun updateMatrix() {
         updateObjectMatrix(instanceHelper)
         mesh.setMatrixAt(instanceIndex, instanceHelper.matrix)
-        mesh.instanceMatrix.needsUpdate = true
+        mesh.instancesChanged()
 
         follower?.let(::updateObjectMatrix)
     }

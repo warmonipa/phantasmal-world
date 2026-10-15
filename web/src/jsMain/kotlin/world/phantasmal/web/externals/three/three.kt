@@ -398,6 +398,10 @@ external class InstancedMesh(
     var count: Int
     var instanceMatrix: BufferAttribute
 
+    /** Bounds of all instances, computed lazily by three.js (r151+) and cached. */
+    var boundingBox: Box3?
+    var boundingSphere: Sphere?
+
     fun getMatrixAt(index: Int, matrix: Matrix4)
     fun setMatrixAt(index: Int, matrix: Matrix4)
     fun dispose()
