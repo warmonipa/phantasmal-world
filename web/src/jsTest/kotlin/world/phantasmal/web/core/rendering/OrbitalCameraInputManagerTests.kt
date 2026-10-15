@@ -38,4 +38,25 @@ class OrbitalCameraInputManagerTests : WebTestSuite {
             )
         }
     }
+
+    @Test
+    fun wheel_zooms_while_rotating() = test {
+        val canvas = document.createElement("canvas") as HTMLCanvasElement
+        val camera = PerspectiveCamera(60.0, 1.0, 0.1, 1000.0)
+        val manager = disposer.add(
+            OrbitalCameraInputManager(
+                canvas = canvas,
+                camera = camera,
+                position = Vector3(0.0, 0.0, 10.0),
+                screenSpacePanning = false,
+            )
+        )
+        // A right-button drag is in progress (OrbitControls' internal ROTATE state).
+        manager.controls.asDynamic().state = 0
+
+        canvas.dispatchEvent(WheelEvent("wheel", WheelEventInit(deltaY = -100.0, cancelable = true)))
+
+        assertEquals(10.0 * 0.95.pow(3.0), camera.position.length(), absoluteTolerance = 1e-9)
+        assertEquals(0, manager.controls.asDynamic().state.unsafeCast<Int>())
+    }
 }

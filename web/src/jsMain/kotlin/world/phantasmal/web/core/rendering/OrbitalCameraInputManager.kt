@@ -1,6 +1,8 @@
 package world.phantasmal.web.core.rendering
 
+import org.w3c.dom.AddEventListenerOptions
 import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.events.Event
 import org.w3c.dom.pointerevents.PointerEvent
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.TrackedDisposable
@@ -30,6 +32,9 @@ class OrbitalCameraInputManager(
 
     @Suppress("JoinDeclarationAndAssignment")
     private val pointerDownListener: Disposable
+
+    @Suppress("JoinDeclarationAndAssignment")
+    private val wheelListener: Disposable
 
     var enabled: Boolean
         get() = controls.enabled
@@ -64,6 +69,25 @@ class OrbitalCameraInputManager(
         // one fixed step per event, like three.js r128 did.
         _controls.asDynamic()._getZoomScale = { _: Double -> 0.95.pow(_controls.zoomSpeed) }
 
+        // r186 OrbitControls ignores the wheel during any drag; r128 still zoomed while rotating.
+        val controlsWheelListener = _controls.asDynamic()._onMouseWheel.unsafeCast<(Event) -> Unit>()
+        canvas.removeEventListener("wheel", controlsWheelListener)
+        wheelListener = canvas.disposableListener<Event>(
+            "wheel",
+            { event: Event ->
+                val controls = _controls.asDynamic()
+
+                if (controls.state == ORBIT_CONTROLS_STATE_ROTATE) {
+                    controls.state = ORBIT_CONTROLS_STATE_NONE
+                    controlsWheelListener(event)
+                    controls.state = ORBIT_CONTROLS_STATE_ROTATE
+                } else {
+                    controlsWheelListener(event)
+                }
+            },
+            AddEventListenerOptions(passive = false),
+        )
+
         _controls.mouseButtons = obj {
             LEFT = MOUSE.PAN
             MIDDLE = MOUSE.DOLLY
@@ -86,6 +110,7 @@ class OrbitalCameraInputManager(
     override fun dispose() {
         controls.dispose()
         pointerDownListener.dispose()
+        wheelListener.dispose()
         super.dispose()
     }
 
@@ -184,3 +209,7 @@ class OrbitalCameraInputManager(
         }
     }
 }
+
+/** OrbitControls' internal drag states (`_STATE` in OrbitControls.js). */
+private const val ORBIT_CONTROLS_STATE_NONE = -1
+private const val ORBIT_CONTROLS_STATE_ROTATE = 0
