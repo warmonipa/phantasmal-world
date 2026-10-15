@@ -7,6 +7,7 @@ import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLImageElement
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.core.rendering.LEGACY_LIGHT_SCALE
 import world.phantasmal.web.externals.jszip.JSZip
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.web.questEditor.loading.AreaAssetLoader
@@ -166,7 +167,7 @@ class QuestMapExporter(
         val oldVisible = geom.visible
 
         val scene = Scene()
-        scene.add(HemisphereLight(0xffffff, 0x505050, 1.0))
+        scene.add(HemisphereLight(0xffffff, 0x505050, LEGACY_LIGHT_SCALE))
         geom.visible = true
         scene.add(geom)
 

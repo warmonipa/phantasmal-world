@@ -3,6 +3,13 @@ package world.phantasmal.web.core.rendering
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.core.disposable.TrackedDisposable
 import world.phantasmal.web.externals.three.*
+import kotlin.math.PI
+
+/**
+ * three.js r155+ uses physically based light units; multiplying intensities by PI reproduces the
+ * legacy (r128) brightness.
+ */
+const val LEGACY_LIGHT_SCALE = PI
 
 open class RenderContext(
     val canvas: HTMLCanvasElement,
@@ -14,15 +21,17 @@ open class RenderContext(
     // facing different ways (e.g. the rim of Akiko's Frying Pan), so the ambient floor keeps such
     // triangles readable instead of black. Renderers that rotate [lightHolder] with the camera
     // keep the key light at the viewer's upper left and the fill light at the lower right.
-    private val ambientLight = AmbientLight(color = 0xffffff, intensity = 0.45)
+    private val ambientLight = AmbientLight(color = 0xffffff, intensity = 0.45 * LEGACY_LIGHT_SCALE)
 
-    private val keyLight = DirectionalLight(color = 0xffffff, intensity = 0.6).apply {
-        position.set(-1.0, 1.2, 1.5)
-    }
+    private val keyLight =
+        DirectionalLight(color = 0xffffff, intensity = 0.6 * LEGACY_LIGHT_SCALE).apply {
+            position.set(-1.0, 1.2, 1.5)
+        }
 
-    private val fillLight = DirectionalLight(color = 0xffffff, intensity = 0.2).apply {
-        position.set(1.0, -0.5, 1.0)
-    }
+    private val fillLight =
+        DirectionalLight(color = 0xffffff, intensity = 0.2 * LEGACY_LIGHT_SCALE).apply {
+            position.set(1.0, -0.5, 1.0)
+        }
 
     val lightHolder = Group().add(ambientLight, keyLight, fillLight)
 

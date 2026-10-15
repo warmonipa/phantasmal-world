@@ -18,6 +18,8 @@ import world.phantasmal.web.core.persistence.LocalStorageKeyValueStore
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
 import world.phantasmal.web.core.rendering.WebGlContextManager
 import world.phantasmal.web.core.stores.ApplicationUrl
+import world.phantasmal.web.externals.three.ColorManagement
+import world.phantasmal.web.externals.three.LinearSRGBColorSpace
 import world.phantasmal.web.externals.three.WebGLRenderer
 import world.phantasmal.web.shared.logging.LogAppender
 import world.phantasmal.web.shared.logging.LogFormatter
@@ -26,6 +28,10 @@ import world.phantasmal.webui.dom.root
 import world.phantasmal.webui.obj
 
 fun main() {
+    // Reproduce three.js r128 output: no sRGB conversion of colors, textures or the framebuffer.
+    // Must run before any three.js Color is created.
+    ColorManagement.enabled = false
+
     if (document.body != null) {
         init()
     } else {
@@ -86,6 +92,7 @@ private fun createThreeRenderer(canvas: HTMLCanvasElement): DisposableThreeRende
         init {
             renderer.debug.checkShaderErrors = false
             renderer.setPixelRatio(window.devicePixelRatio)
+            renderer.outputColorSpace = LinearSRGBColorSpace
         }
 
         override fun releaseContext() {

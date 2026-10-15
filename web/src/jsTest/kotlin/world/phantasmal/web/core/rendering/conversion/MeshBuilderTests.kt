@@ -142,6 +142,20 @@ class MeshBuilderTests {
     }
 
     @Test
+    fun blended_groups_render_in_one_pass() {
+        val (builder, _) = builderWithTexture()
+        val alphaGroup = builder.getGroupIndex(3, alpha = true)
+        val additiveGroup = builder.getGroupIndex(3, alpha = false, srcAlpha = 4, dstAlpha = 1)
+        addTriangle(builder, alphaGroup, additiveGroup)
+
+        val materials = builder.buildMesh().material.unsafeCast<Array<Material>>()
+
+        for (material in materials) {
+            assertTrue(material.asDynamic().forceSinglePass == true)
+        }
+    }
+
+    @Test
     fun no_color_attribute_without_vertex_colors() {
         val (builder, _) = builderWithTexture()
         val group = builder.getGroupIndex(3, alpha = false)

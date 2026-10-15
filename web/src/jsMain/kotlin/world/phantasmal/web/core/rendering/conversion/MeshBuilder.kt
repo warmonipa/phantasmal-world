@@ -381,6 +381,8 @@ class MeshBuilder(
 
         if (group.srcAlpha != NJ_BLEND_SRC_ALPHA || group.dstAlpha != NJ_BLEND_INV_SRC_ALPHA) {
             transparent = true
+            // r149+ draws double-sided transparent materials in two passes; keep r128's single pass.
+            forceSinglePass = true
             depthWrite = false
             alphaTest = 0.01
             blending = CustomBlending
@@ -388,6 +390,7 @@ class MeshBuilder(
             blendDst = ninjaBlendFactor(group.dstAlpha, source = false)
         } else if (group.alpha) {
             transparent = true
+            forceSinglePass = true
             alphaTest = 0.01
         } else if (group.alphaTest > 0.0) {
             alphaTest = group.alphaTest

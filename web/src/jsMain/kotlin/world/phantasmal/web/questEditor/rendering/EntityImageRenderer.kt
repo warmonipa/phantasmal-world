@@ -7,6 +7,7 @@ import world.phantasmal.core.math.degToRad
 import world.phantasmal.psolib.fileFormats.quest.EntityType
 import world.phantasmal.web.core.instancesChanged
 import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.core.rendering.LEGACY_LIGHT_SCALE
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.core.timesAssign
 import world.phantasmal.web.externals.three.*
@@ -34,7 +35,7 @@ class EntityImageRenderer(
 
     private val scene = Scene()
 
-    private val light = HemisphereLight(0xffffff, 0x505050, 1.2)
+    private val light = HemisphereLight(0xffffff, 0x505050, 1.2 * LEGACY_LIGHT_SCALE)
     private val camera = PerspectiveCamera(fov = 30.0, aspect = 1.0, near = 10.0, far = 2000.0)
     private val cameraPos = Vector3(1.0, 1.0, 2.0).normalize()
     private val cameraDistFactor = 1.3 / tan(degToRad(camera.fov) / 2)

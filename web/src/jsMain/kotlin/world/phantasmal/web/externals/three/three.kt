@@ -244,6 +244,7 @@ open external class WebGLRenderer(
     override val domElement: HTMLCanvasElement
 
     var autoClearColor: Boolean
+    var outputColorSpace: String
     var debug: WebGLDebug
     var capabilities: WebGLCapabilities
 
@@ -507,6 +508,12 @@ external class OrthographicCamera(
     fun updateProjectionMatrix()
 }
 
+external object ColorManagement {
+    var enabled: Boolean
+}
+
+external val LinearSRGBColorSpace: String
+
 open external class Light : Object3D
 
 external class AmbientLight(
@@ -700,6 +707,7 @@ external interface MaterialParameters {
     var opacity: Double
     var depthWrite: Boolean
     var vertexColors: Boolean
+    var forceSinglePass: Boolean
 }
 
 open external class Material : EventDispatcher {
