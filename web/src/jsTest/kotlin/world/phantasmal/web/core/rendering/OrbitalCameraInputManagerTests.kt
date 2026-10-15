@@ -64,25 +64,27 @@ class OrbitalCameraInputManagerTests : WebTestSuite {
     }
 
     @Test
-    fun mouse_camera_drags_do_not_capture_the_pointer() = test {
-        // three.js r128 OrbitControls never captured mouse drags, so other canvas listeners stopped
-        // receiving moves during a camera drag (the quest editor shows a pointer trap instead).
-        val (canvas, captured) = canvasWithCaptureLog()
+    fun camera_drags_keep_r128_pointer_capture() = test {
+        // three.js r128 OrbitControls never captured the pointer, so during a mouse camera drag
+        // other canvas listeners stopped receiving moves (the quest editor shows a pointer trap
+        // instead). Touch and direct pens keep the capture the browser gives them implicitly.
+        for ((pointerType, implicitlyCaptured) in listOf(
+            "mouse" to false,
+            "pen" to false, // Indirect pen, e.g. a graphics tablet.
+            "pen" to true,
+            "touch" to true,
+        )) {
+            val (canvas, captured) = canvasWithCaptureLog()
+            if (implicitlyCaptured) captured.add(8)
 
-        canvas.dispatchEvent(pointerDown(pointerId = 7, pointerType = "mouse"))
+            canvas.dispatchEvent(pointerDown(pointerId = 8, pointerType = pointerType))
 
-        assertEquals(emptySet(), captured)
-    }
-
-    @Test
-    fun touch_keeps_its_pointer_capture() = test {
-        // Touch pointers are implicitly captured by the browser; r128 left that capture alone.
-        val (canvas, captured) = canvasWithCaptureLog()
-        captured.add(8)
-
-        canvas.dispatchEvent(pointerDown(pointerId = 8, pointerType = "touch"))
-
-        assertEquals(setOf(8), captured)
+            assertEquals(
+                if (implicitlyCaptured) setOf(8) else emptySet(),
+                captured,
+                "$pointerType, implicitly captured: $implicitlyCaptured",
+            )
+        }
     }
 
     private fun WebTestContext.canvasWithCaptureLog(): Pair<HTMLCanvasElement, MutableSet<Int>> {

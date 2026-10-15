@@ -39,6 +39,9 @@ class OrbitalCameraInputManager(
     @Suppress("JoinDeclarationAndAssignment")
     private val pointerCaptureListener: Disposable
 
+    /** Whether the browser had captured the current pointerdown's pointer before OrbitControls. */
+    private var capturedBeforeControls = false
+
     var enabled: Boolean
         get() = controls.enabled
         set(enabled) {
@@ -49,6 +52,9 @@ class OrbitalCameraInputManager(
         // Switch mouse button actions when certain modifier keys are pressed to counteract
         // OrbitControls switching left and right click behavior in that case.
         pointerDownListener = canvas.disposableListener<PointerEvent>("pointerdown", {
+            // Touch and direct pens are implicitly captured before pointerdown listeners run.
+            capturedBeforeControls = canvas.hasPointerCapture(it.pointerId)
+
             if (it.ctrlKey || it.metaKey || it.shiftKey) {
                 controls.mouseButtons = obj {
                     LEFT = MOUSE.ROTATE
@@ -72,13 +78,13 @@ class OrbitalCameraInputManager(
         // one fixed step per event, like three.js r128 did.
         _controls.asDynamic()._getZoomScale = { _: Double -> 0.95.pow(_controls.zoomSpeed) }
 
-        // r186 OrbitControls captures the pointer on pointerdown, which keeps routing mouse moves to
-        // the canvas during a camera drag (e.g. symbol chat trigger tooltips follow the cursor).
-        // r128 didn't capture mouse drags; it tracks the drag through document listeners either way.
-        // Touch and pen keep the browser's implicit capture, as with r128. This listener is added
-        // after OrbitControls' own, so it runs after the capture.
+        // r186 OrbitControls captures the pointer on pointerdown, which keeps routing moves to the
+        // canvas during a camera drag (e.g. symbol chat trigger tooltips follow the cursor). r128
+        // never captured; it tracks the drag through document listeners either way. Release only
+        // the capture OrbitControls added, keeping the browser's implicit capture of touch and
+        // direct pens. This listener is added after OrbitControls' own, so it runs after it.
         pointerCaptureListener = canvas.disposableListener<PointerEvent>("pointerdown", {
-            if (it.pointerType == "mouse" && canvas.hasPointerCapture(it.pointerId)) {
+            if (!capturedBeforeControls && canvas.hasPointerCapture(it.pointerId)) {
                 canvas.releasePointerCapture(it.pointerId)
             }
         })
