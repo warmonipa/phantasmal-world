@@ -830,12 +830,10 @@ external object FloatType : TextureDataType
 external object HalfFloatType : TextureDataType
 external object UnsignedShort4444Type : TextureDataType
 external object UnsignedShort5551Type : TextureDataType
-external object UnsignedShort565Type : TextureDataType
 external object UnsignedInt248Type : TextureDataType
 
 external interface PixelFormat
 external object AlphaFormat : PixelFormat
-external object RGBFormat : PixelFormat
 external object RGBAFormat : PixelFormat
 external object LuminanceFormat : PixelFormat
 external object LuminanceAlphaFormat : PixelFormat

@@ -7,6 +7,8 @@ import world.phantasmal.web.externals.three.CompressedTexture
 import world.phantasmal.web.externals.three.DataTexture
 import world.phantasmal.web.externals.three.LinearMipmapLinearFilter
 import world.phantasmal.web.externals.three.NearestFilter
+import world.phantasmal.web.externals.three.RGBAFormat
+import world.phantasmal.web.externals.three.UnsignedByteType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -40,6 +42,30 @@ class XvrTextureConversionTests {
 
         assertPixel(image, 0, 255, 255, 255, 255)
         assertPixel(image, 1, 255, 255, 255, 85)
+    }
+
+    @Test
+    fun decodes_r5g6b5_to_rgba() {
+        val buf = Buffer.withSize(8).zero()
+        buf.setUShort(0, 0xF800u) // Red.
+        buf.setUShort(2, 0x07E0u) // Green.
+        buf.setUShort(4, 0x001Fu) // Blue.
+        buf.setUShort(6, 0x8410u) // R 16/31, G 32/63, B 16/31.
+        val image = decodeR5G6B5(xvr(Pair(0, 2), 2, 2, buf))
+
+        assertPixel(image, 0, 255, 0, 0, 255)
+        assertPixel(image, 1, 0, 255, 0, 255)
+        assertPixel(image, 2, 0, 0, 255, 255)
+        assertPixel(image, 3, 132, 130, 132, 255)
+    }
+
+    @Test
+    fun r5g6b5_textures_are_rgba_data_textures() {
+        val texture = xvrTextureToThree(xvr(Pair(0, 2), 2, 2, Buffer.withSize(8).zero()))
+
+        assertTrue(texture is DataTexture)
+        assertSame(RGBAFormat, texture.asDynamic().format)
+        assertSame(UnsignedByteType, texture.asDynamic().type)
     }
 
     @Test

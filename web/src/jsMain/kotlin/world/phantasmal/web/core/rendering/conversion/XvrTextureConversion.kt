@@ -16,13 +16,11 @@ import world.phantasmal.web.externals.three.PixelFormat
 import world.phantasmal.web.externals.three.RGBAFormat
 import world.phantasmal.web.externals.three.RGBA_S3TC_DXT1_Format
 import world.phantasmal.web.externals.three.RGBA_S3TC_DXT3_Format
-import world.phantasmal.web.externals.three.RGBFormat
 import world.phantasmal.web.externals.three.Texture
 import world.phantasmal.web.externals.three.TextureDataType
 import world.phantasmal.web.externals.three.TextureFilter
 import world.phantasmal.web.externals.three.UnsignedByteType
 import world.phantasmal.web.externals.three.UnsignedShort5551Type
-import world.phantasmal.web.externals.three.UnsignedShort565Type
 import world.phantasmal.webui.obj
 
 /**
@@ -54,11 +52,11 @@ fun xvrTextureToThree(
     return when (xvr.format.second) {
         // D3DFMT_R5G6B5
         2 -> createDataTexture(
-            Uint16Array(xvr.data.arrayBuffer, 0, xvr.width * xvr.height),
+            decodeR5G6B5(xvr),
             xvr.width,
             xvr.height,
-            RGBFormat,
-            UnsignedShort565Type,
+            RGBAFormat,
+            UnsignedByteType,
             magFilter,
             effectiveMinFilter,
             generateMipmaps = mipmapped,
@@ -124,6 +122,25 @@ fun xvrTextureToThree(
         // 19 -> D3DFMT_X8R8G8B8
         else -> error("Format ${xvr.format.first}, ${xvr.format.second} not supported.")
     }
+}
+
+/**
+ * Expands R5G6B5 texels to RGBA8, rounding like the GPU's 565 expansion. three.js dropped
+ * `UnsignedShort565Type` in r137.
+ */
+internal fun decodeR5G6B5(xvr: XvrTexture): Uint8Array {
+    val texels = Uint16Array(xvr.data.arrayBuffer, 0, xvr.width * xvr.height)
+    val rgba = Uint8Array(4 * texels.length)
+
+    for (i in 0 until texels.length) {
+        val c = texels[i].toInt() and 0xFFFF
+        rgba[4 * i] = (((c ushr 11) * 255 + 15) / 31).toByte()
+        rgba[4 * i + 1] = ((((c ushr 5) and 0x3F) * 255 + 31) / 63).toByte()
+        rgba[4 * i + 2] = (((c and 0x1F) * 255 + 15) / 31).toByte()
+        rgba[4 * i + 3] = 0xFF.toByte()
+    }
+
+    return rgba
 }
 
 private const val DXT1_BLOCK_SIZE = 8
