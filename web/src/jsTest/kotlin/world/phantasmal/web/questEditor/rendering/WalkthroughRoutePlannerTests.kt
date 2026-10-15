@@ -14,6 +14,7 @@ import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
+import world.phantasmal.psolib.asm.OP_GO_FLOOR
 import world.phantasmal.psolib.asm.OP_LETI
 import world.phantasmal.psolib.asm.OP_P_SETPOS
 import world.phantasmal.psolib.asm.OP_RET
@@ -182,6 +183,66 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val route = plan(quest, setOf(1), clientId = 0)
 
         assertEquals(listOf(0.0 to 30.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun untraced_script_exit_does_not_draw_a_guessed_endpoint() = testAsync {
+        // Floor 1 is left through a go_floor in a label no known script entry reaches.
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), eventCollision(1, 80.0), playerSet(2, 0, 0.0)),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(label = 0),
+                instructionSegment(
+                    label = 50,
+                    instruction(OP_LETI, 60, 2),
+                    instruction(OP_GO_FLOOR, 250, 60),
+                ),
+            )),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertTrue(route.segments.isEmpty())
+        assertTrue("Floor 1: no reachable exit to floor 2 for client 0." in route.diagnostics)
+    }
+
+    @Test
+    fun ragol_warp_without_a_teleporter_object_does_not_draw_a_guessed_endpoint() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(0, 0, 0.0),
+                eventCollision(0, 80.0),
+                playerSet(1, 0, 0.0),
+            ),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(label = 0, instruction(OP_SET_MAINWARP, 1)),
+            )),
+        )
+
+        val route = plan(quest, setOf(0), clientId = 0)
+
+        assertTrue(route.segments.isEmpty())
+        assertTrue("Floor 0: no reachable exit to floor 1 for client 0." in route.diagnostics)
+    }
+
+    @Test
+    fun unreachable_exit_does_not_draw_a_guessed_endpoint() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 30.0),
+                teleporter(1, 2, 100.0),
+                playerSet(2, 0, 0.0),
+            ),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            if (from.x <= 40.0 && to.x <= 40.0) listOf(from, to) else null
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertTrue(route.segments.isEmpty())
+        assertTrue("Floor 1: no reachable exit to floor 2 for client 0." in route.diagnostics)
     }
 
     @Test

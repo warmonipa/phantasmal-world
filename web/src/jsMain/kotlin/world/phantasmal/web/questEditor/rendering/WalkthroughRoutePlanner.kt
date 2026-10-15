@@ -607,9 +607,15 @@ private suspend fun planFloor(
         diagnostics += "Floor $floorId: ${gatedObjectives.size} gated route objectives are unreachable."
     }
 
-    val goal = if (completionGated && currentId != entranceId) {
-        preferredExit
-    } else if (preferredExit != null) {
+    if (departure != null && preferredExit == null) {
+        // The journey knows where the client goes next; without a reachable exit the route stops
+        // after the required objectives instead of guessing an endpoint.
+        diagnostics += "Floor $floorId: no reachable exit to floor ${departure.toFloorId} for " +
+            "client $clientId."
+    }
+    val goal = if (
+        preferredExit != null || departure != null || (completionGated && currentId != entranceId)
+    ) {
         preferredExit
     } else {
         val highestPriority = reachableGoals.maxOf { it.goalPriority }

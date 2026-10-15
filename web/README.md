@@ -229,7 +229,11 @@ to a visible floor is planned from its arrival to the exit leading to the journe
 the final Pioneer 2 visit draws nothing because the quest is reported at the Hunter's Guild
 counter, outside quest data. Among usable exits, the one next to the client's Return flag 1 Player
 Set (within 100 units) is preferred, otherwise the farthest. Interactions whose script enables the
-Ragol warp to the next floor are visited before the Ragol teleporter.
+Ragol warp to the next floor are visited before the Ragol teleporter. When a visit's exit cannot be
+reached or placed (an untraced script `go_floor`, a Ragol warp without a teleporter object, exits
+unreachable from the arrival), the route stops after the required objectives and reports "no
+reachable exit" instead of guessing an endpoint; only final and order-unknown visits fall back to
+the farthest objective.
 
 When reachable quest bytecode explicitly disables and later enables map warps on a floor, or a
 reachable DAT/script interaction unlocks a controlled door, the exit is completion-gated. On that
