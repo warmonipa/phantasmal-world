@@ -3,6 +3,8 @@ package world.phantasmal.web.core.rendering
 import kotlinx.browser.document
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.events.WheelEvent
+import org.w3c.dom.pointerevents.PointerEvent
+import org.w3c.dom.pointerevents.PointerEventInit
 import org.w3c.dom.events.WheelEventInit
 import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.externals.three.Vector3
@@ -58,5 +60,30 @@ class OrbitalCameraInputManagerTests : WebTestSuite {
 
         assertEquals(10.0 * 0.95.pow(3.0), camera.position.length(), absoluteTolerance = 1e-9)
         assertEquals(0, manager.controls.asDynamic().state.unsafeCast<Int>())
+    }
+
+    @Test
+    fun camera_drags_do_not_capture_the_pointer() = test {
+        // three.js r128 OrbitControls never captured the pointer, so other canvas listeners stopped
+        // receiving moves during a camera drag (the quest editor shows a pointer trap instead).
+        val canvas = document.createElement("canvas") as HTMLCanvasElement
+        val captured = mutableSetOf<Int>()
+        canvas.asDynamic().setPointerCapture = { id: Int -> captured.add(id) }
+        canvas.asDynamic().releasePointerCapture = { id: Int -> captured.remove(id) }
+        canvas.asDynamic().hasPointerCapture = { id: Int -> id in captured }
+        disposer.add(
+            OrbitalCameraInputManager(
+                canvas = canvas,
+                camera = PerspectiveCamera(60.0, 1.0, 0.1, 1000.0),
+                position = Vector3(0.0, 0.0, 10.0),
+                screenSpacePanning = false,
+            )
+        )
+
+        canvas.dispatchEvent(
+            PointerEvent("pointerdown", PointerEventInit(pointerId = 7, button = 2, buttons = 2))
+        )
+
+        assertEquals(emptySet(), captured)
     }
 }

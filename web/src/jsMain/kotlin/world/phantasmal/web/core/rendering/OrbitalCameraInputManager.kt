@@ -36,6 +36,9 @@ class OrbitalCameraInputManager(
     @Suppress("JoinDeclarationAndAssignment")
     private val wheelListener: Disposable
 
+    @Suppress("JoinDeclarationAndAssignment")
+    private val pointerCaptureListener: Disposable
+
     var enabled: Boolean
         get() = controls.enabled
         set(enabled) {
@@ -68,6 +71,16 @@ class OrbitalCameraInputManager(
         // mouse wheel notch on a high-DPI screen (200 px instead of 100) zooms twice as far. Zoom
         // one fixed step per event, like three.js r128 did.
         _controls.asDynamic()._getZoomScale = { _: Double -> 0.95.pow(_controls.zoomSpeed) }
+
+        // r186 OrbitControls captures the pointer on pointerdown, which keeps routing moves to the
+        // canvas during a camera drag (e.g. symbol chat trigger tooltips follow the cursor). r128
+        // didn't capture; it tracks the drag through document listeners either way. This listener
+        // is added after OrbitControls' own, so it runs after the capture.
+        pointerCaptureListener = canvas.disposableListener<PointerEvent>("pointerdown", {
+            if (canvas.hasPointerCapture(it.pointerId)) {
+                canvas.releasePointerCapture(it.pointerId)
+            }
+        })
 
         // r186 OrbitControls ignores the wheel during any drag; r128 still zoomed while rotating.
         val controlsWheelListener = _controls.asDynamic()._onMouseWheel.unsafeCast<(Event) -> Unit>()
@@ -111,6 +124,7 @@ class OrbitalCameraInputManager(
         controls.dispose()
         pointerDownListener.dispose()
         wheelListener.dispose()
+        pointerCaptureListener.dispose()
         super.dispose()
     }
 
