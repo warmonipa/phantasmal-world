@@ -22,7 +22,7 @@ class QuestJourneyCorpusTest {
 
     @Test
     fun journeys_cover_the_corpus() {
-        val arrivalFallbacks = mutableListOf<String>()
+        val missingArrivals = mutableListOf<String>()
         val unknownOrderQuests = sortedSetOf<String>()
         val files = root.walkTopDown().filter { it.isFile && it.name.endsWith(".qst") }.toList()
         assertTrue(files.isNotEmpty())
@@ -35,9 +35,12 @@ class QuestJourneyCorpusTest {
                 } catch (e: Throwable) {
                     fail("${file.relativeTo(root)} client $clientId: $e")
                 }
-                if (clientId <= 1) {
-                    arrivalFallbacks += journey.diagnostics.filter { "Return flag" in it }
-                        .map { "${file.nameWithoutExtension}: $it" }
+                val clientFloors = playerSetsForClient(quest.objects, clientId)
+                    .mapTo(mutableSetOf()) { it.floorId }
+                for (visit in journey.visits) {
+                    if (visit.floorId in clientFloors && visit.arrival == null) {
+                        missingArrivals += "${file.nameWithoutExtension} client $clientId floor ${visit.floorId}"
+                    }
                 }
                 if (journey.visits.any { !it.orderKnown }) {
                     unknownOrderQuests += file.nameWithoutExtension
@@ -45,9 +48,9 @@ class QuestJourneyCorpusTest {
             }
         }
 
-        // 13 visits in 7 quests arrive on floors whose data lacks a Player Set with the expected
-        // Return flag (e.g. no return set on the arrival floor); the other flag is used instead.
-        assertTrue(arrivalFallbacks.size <= 13, "Arrival fallbacks: $arrivalFallbacks")
+        // Floors with the client's Player Sets always yield an arrival, falling back to the other
+        // Return flag where quests (often those that disable telepipes) omit return sets.
+        assertEquals(emptyList(), missingArrivals)
         assertEquals(EXPECTED_UNKNOWN_ORDER, unknownOrderQuests.toSet())
     }
 
@@ -119,16 +122,7 @@ class QuestJourneyCorpusTest {
     }
 
     private companion object {
-        /**
-         * Quests where no floor transition in the script, traced or not, enters some floor of the
-         * client (e.g. `4-1 the lost ruins` enters the Ruins through the boss-unlocked Ragol warp).
-         */
-        val EXPECTED_UNKNOWN_ORDER = setOf(
-            "4-1 the lost ruins",
-            "respective tomorrow",
-            "sugoroku (unofficial)",
-            "the beak's cafe ver.2",
-            "wilderending",
-        )
+        /** `aol cup -maximum attack-` offers two courses from a Pioneer 2 menu; one is played. */
+        val EXPECTED_UNKNOWN_ORDER = setOf("aol cup -maximum attack- (e)")
     }
 }

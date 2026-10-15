@@ -159,6 +159,34 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun main_warp_operand_matches_the_designated_client_map_id() {
+        // EP4 quests designate floor 1 as client map 36 (Crater East) and Pioneer 2 as map 45.
+        val objects = listOf(playerSet(0, 0, 0), playerSet(1, 0, 0), teleporter(1, 0))
+
+        val journey = plan(
+            objects,
+            episode = Episode.IV,
+            mainWarpAreas = setOf(36),
+            floorMappings = listOf(
+                FloorMapping(0, mapId = 45, mapAreaId = 0, mapVariation = 0),
+                FloorMapping(1, mapId = 36, mapAreaId = 1, mapVariation = 0),
+            ),
+        )
+
+        assertEquals(listOf(0, 1, 0), journey.visits.map { it.floorId })
+    }
+
+    @Test
+    fun ep4_main_warp_operands_count_ragol_areas_from_36() {
+        val objects = listOf(playerSet(0, 0, 0), playerSet(6, 0, 0), playerSet(7, 0, 0))
+
+        val journey = plan(objects, episode = Episode.IV, mainWarpAreas = setOf(42))
+
+        // 42 is Desert 2 (area 7), not the next area after 6.
+        assertEquals(listOf(0, 7), journey.visits.take(2).map { it.floorId })
+    }
+
+    @Test
     fun main_warp_area_is_mapped_through_floor_mappings() {
         val objects = listOf(playerSet(0, 0, 0), playerSet(4, 0, 0))
 
@@ -245,6 +273,127 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun floors_without_any_player_set_are_still_visited() {
+        // Floor 1 has no Player Sets at all; the client appears next to its teleporter back.
+        val backToP2 = teleporter(1, 0)
+        val objects = listOf(
+            playerSet(0, 0, 1), backToP2, bossTeleporter(1), playerSet(11, 0, 0), teleporter(11, 0),
+        )
+
+        val journey = plan(objects, mainWarpAreas = setOf(1), initialFloors = setOf(0))
+
+        assertEquals(listOf(0, 1, 11, 0), journey.visits.map { it.floorId })
+        assertSame(backToP2, journey.visits[1].arrival)
+        assertTrue("Floor 1: no Player Set for client 0; arriving at its exit to floor 0." in journey.diagnostics)
+    }
+
+    @Test
+    fun initial_floor_from_the_script_is_the_start() {
+        val objects = listOf(playerSet(0, 0, 1), playerSet(2, 0, 0), teleporter(2, 0))
+
+        val journey = plan(objects, mainWarpAreas = setOf(2), initialFloors = setOf(0))
+
+        assertEquals(listOf(0, 2, 0), journey.visits.map { it.floorId })
+    }
+
+    @Test
+    fun region_entries_are_reachable_through_the_default_ragol_warp() {
+        // The Ruins (floor 8) open through game progress, not through the quest script.
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(7, 0, 0), teleporter(7, 0),
+            playerSet(8, 0, 0), teleporter(8, 0), playerSet(9, 0, 0), teleporter(8, 9), teleporter(9, 0),
+        )
+
+        val journey = plan(
+            objects,
+            mainWarpAreas = setOf(7),
+            fallback = ScriptFloorTransitions(emptySet(), emptySet(), clearedMainWarpAreas = setOf(9)),
+        )
+
+        assertEquals(listOf(0, 7, 0, 8, 9, 0), journey.visits.map { it.floorId })
+        assertTrue(
+            "Floor 8: entered through the Ragol warp opened by game progress." in journey.diagnostics,
+        )
+    }
+
+    @Test
+    fun cleared_region_entries_are_not_default_ragol_warps() {
+        val objects = listOf(playerSet(0, 0, 0), playerSet(3, 0, 0))
+
+        val journey = plan(
+            objects,
+            fallback = ScriptFloorTransitions(
+                emptySet(), emptySet(), initialFloors = setOf(0), clearedMainWarpAreas = setOf(3),
+            ),
+        )
+
+        assertFalse(journey.visits.single { it.floorId == 3 }.orderKnown)
+    }
+
+    @Test
+    fun script_go_floor_back_to_pioneer_2_connects_alternative_courses() {
+        // A menu sends players to floor 2 or floor 6; the end of course 2 returns to Pioneer 2.
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(2, 0, 0), playerSet(6, 0, 0),
+        )
+
+        val journey = plan(
+            objects,
+            goFloors = setOf(WalkthroughGoFloor(0, 2), WalkthroughGoFloor(0, 6)),
+            fallback = ScriptFloorTransitions(goFloorTargets = setOf(0), mainWarpAreas = emptySet()),
+        )
+
+        assertEquals(listOf(0, 2, 0, 6, 0), journey.visits.map { it.floorId })
+    }
+
+    @Test
+    fun floor_only_reachable_before_another_branch_is_an_alternative() {
+        // Pioneer 2 offers course 2 or course 6; course 2 never returns to Pioneer 2.
+        val objects = listOf(playerSet(0, 0, 0), playerSet(2, 0, 0), playerSet(6, 0, 0))
+
+        val journey = plan(objects, goFloors = setOf(WalkthroughGoFloor(0, 2), WalkthroughGoFloor(0, 6)))
+
+        assertEquals(listOf(0, 2, 6), journey.visits.map { it.floorId })
+        assertFalse(journey.visits[2].orderKnown)
+        assertTrue("Floor 6: alternative branch from floor 0." in journey.diagnostics)
+    }
+
+    @Test
+    fun dead_end_floors_are_left_for_last_when_equally_near() {
+        // From floor 1, floor 2 is a dead end back to Pioneer 2 while floor 3 returns to 1.
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(1, 0, 0), playerSet(2, 0, 0), playerSet(3, 0, 0),
+            teleporter(1, 2), teleporter(1, 3), teleporter(2, 0), teleporter(3, 1),
+        )
+
+        val journey = plan(objects, mainWarpAreas = setOf(1))
+
+        assertEquals(listOf(0, 1, 3, 1, 2, 0), journey.visits.map { it.floorId })
+    }
+
+    @Test
+    fun fallback_diagnostics_name_only_floors_entered_through_fallbacks() {
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(8, 0, 0), playerSet(9, 0, 0), teleporter(8, 9),
+            teleporter(9, 0),
+        )
+
+        // Like "4-1 the lost ruins", floor 9 is designated with the Ruins 1 map area too.
+        val journey = plan(
+            objects,
+            floorMappings = listOf(
+                FloorMapping(8, mapId = 8, mapAreaId = 8, mapVariation = 0),
+                FloorMapping(9, mapId = 8, mapAreaId = 8, mapVariation = 1),
+            ),
+            fallback = ScriptFloorTransitions(emptySet(), emptySet(), initialFloors = setOf(0)),
+        )
+
+        assertEquals(listOf(0, 8, 9, 0), journey.visits.map { it.floorId })
+        assertTrue("Floor 8: entered through the Ragol warp opened by game progress." in journey.diagnostics)
+        assertTrue(journey.diagnostics.none { it.startsWith("Floor 9:") })
+    }
+
+    @Test
     fun unreachable_floor_is_appended_with_unknown_order() {
         val objects = listOf(playerSet(1, 0, 0), playerSet(3, 0, 0))
 
@@ -288,6 +437,7 @@ class QuestJourneyTests {
         floorMappings: List<FloorMapping> = emptyList(),
         isChallengeMode: Boolean = false,
         fallback: ScriptFloorTransitions? = null,
+        initialFloors: Set<Int> = emptySet(),
     ): QuestJourney = planQuestJourney(
         episode,
         objects,
@@ -301,7 +451,7 @@ class QuestJourneyTests {
         ),
         isChallengeMode,
         clientId,
-        fallback,
+        fallback ?: ScriptFloorTransitions(emptySet(), emptySet(), initialFloors),
     )
 
     private fun playerSet(floorId: Int, slot: Int, returnFlag: Int) =
@@ -309,6 +459,8 @@ class QuestJourneyTests {
             data.setFloat(40, slot.toFloat())
             data.setInt(52, returnFlag)
         }
+
+    private fun bossTeleporter(floorId: Int) = QuestObject(ObjectType.BossTeleporter, floorId)
 
     private fun teleporter(floorId: Int, destination: Int) =
         QuestObject(ObjectType.Teleporter, floorId).apply { data.setInt(52, destination) }

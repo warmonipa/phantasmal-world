@@ -199,22 +199,29 @@ map to client IDs 0 through 3); it is derived from quest data, not authored Guid
 has two layers.
 
 **Journey** (`psolib/.../fileFormats/quest/walkthrough/QuestJourney.kt`, no geometry). The floors
-a client plays, in order. A floor without a Player Set for the client is not part of its journey
-and shows no route; this is how quests split players 2/2 or 1/1/1/1. Floors connect through floor
-exit objects (teleporters, Quest Warps, boss teleporters), the Pioneer 2 Ragol warp enabled by a
-reachable `set_mainwarp` (episode-absolute area operand mapped to a logical floor), and
-client-scoped `go_floor`. The journey starts on Pioneer 2 when it has an outgoing warp, otherwise
-on the lowest Ragol floor; it visits the nearest unvisited floor by hops and returns to Pioneer 2
-when Pioneer 2 is part of the client's data. A Ragol warp to the end of a chain lands on the chain's
-head only when that head is the target's single otherwise-unreachable predecessor. Floors still
-unreached are then tried with `go_floor`/`set_mainwarp` found anywhere else in the script, such as
-threads that wait for an event before opening a floor (diagnostic: "entered through a script the
-analysis cannot trace"; their position relative to other floors is a guess). Floors no transition
-enters are appended as "order unknown" visits.
+a client plays, in order. A floor with Player Sets for other clients but none for this one is not
+part of its journey and shows no route; this is how quests split players 2/2 or 1/1/1/1. Floors
+without any Player Set are played by everyone. Floors connect through floor exit objects
+(teleporters, Quest Warps, boss teleporters), the Pioneer 2 Ragol warp enabled by a reachable
+`set_mainwarp` (matched to the client map a floor is designated with, otherwise converted to an
+episode area), and client-scoped `go_floor`. The journey starts on the script's `initial_floor`
+(or Pioneer 2), moves to the nearest unvisited floor by hops while leaving dead ends for last, and
+returns to Pioneer 2 when Pioneer 2 is part of the client's data. A Ragol warp to the end of a
+chain lands on the chain's head only when that head is the target's single otherwise-unreachable
+predecessor.
+
+Floors still unreached are then tried with `go_floor`/`set_mainwarp` found elsewhere in the
+script, such as threads that wait for an event before opening a floor ("entered through a script
+the analysis cannot trace"; their position relative to other floors is a guess), and finally with
+the Ragol warp destinations that game progress opens (the first floor of each region, unless the
+quest runs `clear_mainwarp` on it). A floor whose entrance the journey passed but could not return
+to is reported as an alternative branch (e.g. a menu choice between courses).
+
 A client arrives on a floor at its Player Set with Return flag 0 going forward and Return flag 1
 coming back from a later floor (Quest Warps name their Player Set; quests that disable telepipes
 often omit Return flag 1 sets, in which case the other flag is used); Return flags use the low 16
-bits and floors that number slots 1–4 map client c to slot c + 1. Challenge quests visit their
+bits and floors that number slots 1–4 map client c to slot c + 1. On a floor without Player Sets
+the client appears at the floor's exit back to where it came from. Challenge quests visit their
 floors in ascending order.
 
 **Floor route** (`WalkthroughRoutePlanner`, walkable collision of the visible floor). Each visit

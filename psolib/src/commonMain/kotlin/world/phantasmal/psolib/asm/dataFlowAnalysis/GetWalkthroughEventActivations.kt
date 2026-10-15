@@ -390,6 +390,10 @@ data class ScriptFloorTransitions(
     val goFloorTargets: Set<Int>,
     /** Raw `set_mainwarp` operands. */
     val mainWarpAreas: Set<Int>,
+    /** Operands of `initial_floor`, the floor the quest starts on. */
+    val initialFloors: Set<Int> = emptySet(),
+    /** Raw `clear_mainwarp` operands: Ragol warp destinations the quest closes. */
+    val clearedMainWarpAreas: Set<Int> = emptySet(),
 )
 
 /**
@@ -408,8 +412,16 @@ fun scanScriptFloorTransitions(
 ): ScriptFloorTransitions {
     val goFloorTargets = linkedSetOf<Int>()
     val mainWarpAreas = linkedSetOf<Int>()
+    val initialFloors = linkedSetOf<Int>()
+    val clearedMainWarpAreas = linkedSetOf<Int>()
     for (segment in bytecodeIr.instructionSegments()) {
         for (instruction in segment.instructions) {
+            when (instruction.opcode.mnemonic) {
+                "initial_floor" -> initialFloors +=
+                    resolveInstructionInts(controlFlowGraph, instruction, 0, emptyMap())
+                "clear_mainwarp" -> clearedMainWarpAreas +=
+                    resolveInstructionInts(controlFlowGraph, instruction, 0, emptyMap())
+            }
             if (instruction in excluded) continue
             when (instruction.opcode.mnemonic) {
                 "go_floor" -> {
@@ -424,7 +436,7 @@ fun scanScriptFloorTransitions(
             }
         }
     }
-    return ScriptFloorTransitions(goFloorTargets, mainWarpAreas)
+    return ScriptFloorTransitions(goFloorTargets, mainWarpAreas, initialFloors, clearedMainWarpAreas)
 }
 
 private const val MAX_CALL_DEPTH = 64

@@ -90,6 +90,21 @@ private val FLOOR_EXIT_TYPES = setOf(
     ObjectType.WarpInBarbaRayRoom,
 )
 
+/**
+ * Areas the Pioneer 2 Ragol warp offers once game progress unlocks them: the first area of each
+ * region. Quests add destinations with `set_mainwarp` and close them with `clear_mainwarp`.
+ */
+private val RAGOL_WARP_REGION_ENTRIES: Map<Episode, Set<Int>> = mapOf(
+    // Forest 1, Cave 1, Mine 1, Ruins 1.
+    Episode.I to setOf(1, 3, 6, 8),
+    // VR Temple Alpha, VR Spaceship Alpha, Central Control Area, Seabed Upper Levels.
+    Episode.II to setOf(1, 3, 5, 10),
+    // Crater routes (East, West, South, North) and Desert 1.
+    Episode.IV to setOf(1, 2, 3, 4, 6),
+)
+
+private const val DEAD_END_COST = 1000
+
 /** Episode 2 Challenge quests lack the DAT Challenge flag but use Challenge opcodes. */
 fun usesChallengeModeScript(bytecodeIr: BytecodeIr): Boolean =
     bytecodeIr.instructionSegments().any { segment ->
@@ -116,29 +131,50 @@ fun planQuestJourney(
     fallback: ScriptFloorTransitions? = null,
 ): QuestJourney {
     val playerSets = playerSetsForClient(objects, clientId)
-    if (playerSets.isEmpty()) {
+    val anyPlayerSetFloors = objects
+        .filter { it.type == ObjectType.PlayerSet }
+        .mapTo(mutableSetOf()) { it.floorId }
+    if (playerSets.isEmpty() && anyPlayerSetFloors.isNotEmpty()) {
         return QuestJourney(emptyList(), listOf("No Player Set for client $clientId."), emptyMap())
     }
     val diagnostics = mutableListOf<String>()
-    // Floors without a Player Set for this client are floors the client does not visit.
-    val requiredFloors: List<Int> = playerSets.map { it.floorId }.distinct().sorted()
+    val clientPlayerSetFloors = playerSets.mapTo(mutableSetOf()) { it.floorId }
+    // A floor with Player Sets for other clients only is a floor this client does not visit:
+    // that is how quests split players. Floors without any Player Set are played by everyone.
+    val requiredFloors: List<Int> = objects
+        .map { it.floorId }
+        .distinct()
+        .filter { it in clientPlayerSetFloors || it !in anyPlayerSetFloors }
+        .sorted()
 
     fun playerSet(floorId: Int, returnFlag: Int): QuestObject? =
         playerSets.firstOrNull { it.floorId == floorId && it.playerSetReturnFlag() == returnFlag }
 
-    fun arrival(floorId: Int, returnFlag: Int): QuestObject? {
-        playerSet(floorId, returnFlag)?.let { return it }
-        if (floorId !in requiredFloors) return null
-        // Quests that disable telepipes (p_disablewarp) often omit return Player Sets.
-        diagnostics += "Floor $floorId: no Player Set with Return flag $returnFlag for client " +
-            "$clientId; using the other Return flag."
-        return playerSet(floorId, if (returnFlag == 0) 1 else 0)
-            ?: playerSets.first { it.floorId == floorId }
-    }
-
     val exitsByFloor: Map<Int, List<Pair<QuestObject, Int>>> = objects
         .mapNotNull { obj -> obj.exitDestinationFloor(episode)?.let { obj to it } }
         .groupBy { it.first.floorId }
+
+    fun arrival(floorId: Int, returnFlag: Int, fromFloorId: Int?): QuestObject? {
+        playerSet(floorId, returnFlag)?.let { return it }
+        if (floorId !in requiredFloors) return null
+        if (floorId in clientPlayerSetFloors) {
+            // Quests that disable telepipes (p_disablewarp) often omit return Player Sets.
+            diagnostics += "Floor $floorId: no Player Set with Return flag $returnFlag for client " +
+                "$clientId; using the other Return flag."
+            return playerSet(floorId, if (returnFlag == 0) 1 else 0)
+                ?: playerSets.first { it.floorId == floorId }
+        }
+        // No Player Set at all: players appear next to the floor's teleporter back.
+        val exits = exitsByFloor[floorId].orEmpty()
+        val proxy = exits.firstOrNull { it.second == fromFloorId } ?: exits.firstOrNull()
+        diagnostics += if (proxy == null) {
+            "Floor $floorId: no Player Set for client $clientId; arrival unknown."
+        } else {
+            "Floor $floorId: no Player Set for client $clientId; arriving at its exit to " +
+                "floor ${proxy.second}."
+        }
+        return proxy?.first
+    }
 
     if (isChallengeMode) {
         val floors = requiredFloors.filter { it != 0 }
@@ -146,7 +182,7 @@ fun planQuestJourney(
             val next = floors.getOrNull(index + 1)
             FloorVisit(
                 floorId,
-                arrival(floorId, 0),
+                arrival(floorId, 0, floors.getOrNull(index - 1)),
                 next?.let {
                     FloorTransition.Exit(exitsByFloor[floorId].orEmpty().map { it.first }, it)
                 },
@@ -212,7 +248,10 @@ fun planQuestJourney(
         edges.getOrPut(0, ::mutableMapOf).getOrPut(landing) { FloorTransition.MainWarp(landing) }
     }
 
-    val start = if (playerSet(0, 0) != null && !edges[0].isNullOrEmpty()) {
+    val initialFloor = fallback?.initialFloors?.singleOrNull()?.takeIf { it in requiredFloors }
+    val start = if (initialFloor != null) {
+        initialFloor
+    } else if (playerSets.any { it.floorId == 0 } && !edges[0].isNullOrEmpty()) {
         0
     } else {
         requiredFloors.filter { it != 0 && playerSet(it, 0) != null }.minOrNull()
@@ -238,30 +277,38 @@ fun planQuestJourney(
     val order = mutableListOf(start)
     val transitions = mutableListOf<FloorTransition>()
     val visited = mutableSetOf(start)
+    // Edges added by the fallbacks, and the floors first entered through them.
+    val fallbackEdges = mutableSetOf<Pair<Int, Int>>()
+    val progressEdges = mutableSetOf<Pair<Int, Int>>()
+    val inferredFloors = mutableSetOf<Int>()
+    val progressFloors = mutableSetOf<Int>()
     fun walk(path: List<Int>) {
         for ((from, to) in path.zipWithNext()) {
             transitions += edges.getValue(from).getValue(to)
             order += to
+            if (to !in visited) {
+                if (from to to in fallbackEdges) inferredFloors += to
+                if (from to to in progressEdges) progressFloors += to
+            }
             visited += to
         }
     }
-    // Floors entered through fallback transitions, i.e. scripts the analysis cannot trace.
-    val inferredFloors = mutableSetOf<Int>()
     fun addFallbackEdges(): Boolean {
         if (fallback == null) return false
         val unvisited = requiredFloors.filter { it != 0 && it !in visited }
         var added = false
         for (target in fallback.goFloorTargets) {
-            if (target !in unvisited) continue
+            // Targets already visited (e.g. Pioneer 2) still connect the remaining floors.
+            if (target != 0 && target !in requiredFloors) continue
             // The script's floor is unknown: it can run on any floor the client is on.
             for (from in requiredFloors + 0) {
                 if (from == target) continue
                 edges.getOrPut(from, ::mutableMapOf).getOrPut(target) {
                     added = true
+                    fallbackEdges += from to target
                     FloorTransition.Script(target)
                 }
             }
-            inferredFloors += target
         }
         for (operand in fallback.mainWarpAreas) {
             val landing = mainWarpFloor(operand, floorMappings, requiredFloors) ?: continue
@@ -269,24 +316,63 @@ fun planQuestJourney(
             mainWarpLandings.getOrPut(operand) { landing }
             edges.getOrPut(0, ::mutableMapOf).getOrPut(landing) {
                 added = true
+                fallbackEdges += 0 to landing
                 FloorTransition.MainWarp(landing)
             }
-            inferredFloors += landing
+        }
+        return added
+    }
+
+    fun addProgressWarpEdges(): Boolean {
+        val cleared = fallback?.clearedMainWarpAreas.orEmpty()
+            .mapNotNull { mainWarpFloor(it, floorMappings, requiredFloors) }
+        val entries = RAGOL_WARP_REGION_ENTRIES[episode].orEmpty()
+        var added = false
+        for (floorId in requiredFloors) {
+            if (floorId == 0 || floorId in visited || floorId in cleared) continue
+            val area = floorMappings.firstOrNull { it.floorId == floorId }?.mapAreaId ?: floorId
+            if (area !in entries) continue
+            edges.getOrPut(0, ::mutableMapOf).getOrPut(floorId) {
+                added = true
+                progressEdges += 0 to floorId
+                FloorTransition.MainWarp(floorId)
+            }
         }
         return added
     }
 
     var current = start
-    var fallbackAdded = false
+    var fallbackStage = 0
     while (true) {
         val paths = shortestPaths(current)
-        val next = requiredFloors
-            .filter { it !in visited && it in paths }
-            .minWithOrNull(compareBy({ paths.getValue(it).size }, { it }))
+        val unvisited = requiredFloors.filter { it !in visited && it in paths }
+        // Look one floor ahead so that a dead end (e.g. a boss arena that returns to Pioneer 2)
+        // is left for last when another floor is equally near.
+        fun lookahead(candidate: Int): Int {
+            val others = unvisited.filter { it != candidate }
+            if (others.isEmpty()) return 0
+            val onward = shortestPaths(candidate)
+            return others
+                .filter { it in onward }
+                .minOfOrNull { onward.getValue(it).size }
+                // Nothing else is reachable from there: a dead end.
+                ?: DEAD_END_COST
+        }
+        val next = unvisited.minWithOrNull(compareBy(
+            { paths.getValue(it).size + lookahead(it) },
+            { paths.getValue(it).size },
+            { it },
+        ))
         if (next == null) {
-            if (!fallbackAdded) {
-                fallbackAdded = true
+            // Unplaced floors: first scripts the analysis cannot trace, then the Ragol warp
+            // destinations that game progress opens (quests only add or clear them).
+            if (fallbackStage == 0) {
+                fallbackStage = 1
                 if (addFallbackEdges()) continue
+            }
+            if (fallbackStage == 1) {
+                fallbackStage = 2
+                if (addProgressWarpEdges()) continue
             }
             break
         }
@@ -294,8 +380,11 @@ fun planQuestJourney(
         current = next
     }
     for (floorId in requiredFloors) {
-        if (floorId in inferredFloors && floorId in visited) {
+        if (floorId !in visited) continue
+        if (floorId in inferredFloors) {
             diagnostics += "Floor $floorId: entered through a script the analysis cannot trace."
+        } else if (floorId in progressFloors) {
+            diagnostics += "Floor $floorId: entered through the Ragol warp opened by game progress."
         }
     }
     // The quest is reported at the Hunter's Guild counter on Pioneer 2, when Pioneer 2 is part of
@@ -304,7 +393,11 @@ fun planQuestJourney(
 
     val visits = order.mapIndexed { index, floorId ->
         val arrival = if (index == 0) {
-            arrival(floorId, 0)
+            // The quest start may use any of the client's Player Sets on its floor (some quests
+            // only place return sets on Pioneer 2).
+            playerSet(floorId, 0)
+                ?: playerSets.firstOrNull { it.floorId == floorId }
+                ?: arrival(floorId, 0, null)
         } else {
             val from = order[index - 1]
             val questWarp = (transitions[index - 1] as? FloorTransition.Exit)
@@ -314,37 +407,52 @@ fun planQuestJourney(
                 floorId == 0 || (from != 0 && from > floorId) -> 1
                 else -> 0
             }
-            arrival(floorId, returnFlag)
+            arrival(floorId, returnFlag, from)
         }
         FloorVisit(floorId, arrival, transitions.getOrNull(index))
     }.toMutableList()
 
     for (floorId in requiredFloors.filter { it != 0 && it !in visited }) {
-        diagnostics += "Floor $floorId: order unknown for client $clientId."
-        visits += FloorVisit(floorId, arrival(floorId, 0), null, orderKnown = false)
+        // A floor the journey passed the entrance of, but could not come back to, is an
+        // alternative branch (e.g. a menu choice between courses).
+        val branchFrom = order.firstOrNull { from -> floorId in shortestPaths(from) }
+        diagnostics += if (branchFrom != null) {
+            "Floor $floorId: alternative branch from floor $branchFrom."
+        } else {
+            "Floor $floorId: order unknown for client $clientId."
+        }
+        visits += FloorVisit(floorId, arrival(floorId, 0, null), null, orderKnown = false)
     }
 
     return QuestJourney(visits, diagnostics, mainWarpLandings)
 }
 
 /**
- * Maps a raw `set_mainwarp` operand (episode-absolute area) to the logical floor it lands on, or
- * the next quest floor with a higher area when the area itself is not in the quest.
+ * Maps a raw `set_mainwarp` operand to the logical floor it lands on.
+ *
+ * The operand is a client map number: it first matches the map a floor is designated with
+ * (`bb_map_designate`). Otherwise it is converted to an episode area (Episode IV counts Ragol
+ * areas from 36, Episode II areas from 18) and mapped to the quest floor with that area, or the
+ * next quest floor with a higher area when the area itself is not in the quest.
  */
 private fun mainWarpFloor(
     operand: Int,
     floorMappings: List<FloorMapping>,
     requiredFloors: List<Int>,
 ): Int? {
+    val candidates = requiredFloors.filter { it != 0 }
+    floorMappings
+        .filter { it.mapId == operand && it.floorId in candidates }
+        .minOfOrNull { it.floorId }
+        ?.let { return it }
     val area = when {
-        operand >= 36 -> operand - 36
+        operand >= 36 -> operand - 35
         operand >= 18 -> operand - 18
         else -> operand
     }
     if (area == 0) return null
     fun areaOf(floorId: Int): Int =
         floorMappings.firstOrNull { it.floorId == floorId }?.mapAreaId ?: floorId
-    val candidates = requiredFloors.filter { it != 0 }
     candidates.filter { areaOf(it) == area }.minOrNull()?.let { return it }
     return candidates
         .filter { areaOf(it) > area }
