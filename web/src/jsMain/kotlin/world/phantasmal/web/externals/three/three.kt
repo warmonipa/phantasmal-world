@@ -666,7 +666,11 @@ external object MultiplyBlending : Blending
 external object CustomBlending : Blending
 
 external interface BlendingFactor
+external object ZeroFactor : BlendingFactor
 external object OneFactor : BlendingFactor
+external object SrcColorFactor : BlendingFactor
+external object OneMinusSrcColorFactor : BlendingFactor
+external object DstColorFactor : BlendingFactor
 external object SrcAlphaFactor : BlendingFactor
 external object OneMinusSrcAlphaFactor : BlendingFactor
 external object DstAlphaFactor : BlendingFactor
@@ -681,6 +685,8 @@ external interface MaterialParameters {
     var side: Side
     var transparent: Boolean
     var opacity: Double
+    var depthWrite: Boolean
+    var vertexColors: Boolean
 }
 
 open external class Material : EventDispatcher {
@@ -760,6 +766,7 @@ external class LineBasicMaterial(
 
 open external class Texture : EventDispatcher {
     var needsUpdate: Boolean
+    var generateMipmaps: Boolean
 
     fun dispose()
 }

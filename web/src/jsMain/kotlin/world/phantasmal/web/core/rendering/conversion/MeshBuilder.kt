@@ -19,6 +19,12 @@ class MeshBuilder(
     private val positions = mutableListOf<Vector3>()
     private val normals = mutableListOf<Vector3>()
     private val uvs = mutableListOf<Vector2>()
+
+    /**
+     * ARGB vertex colors, only used when at least one vertex has a color.
+     */
+    private val colors = mutableListOf<Int>()
+    private var hasColors = false
     private val boneIndices = mutableListOf<Short>()
     private val boneWeights = mutableListOf<Float>()
     private val bones = mutableListOf<Bone>()
@@ -31,24 +37,55 @@ class MeshBuilder(
 
     private var defaultMaterial: Material? = null
 
+    /**
+     * @param alpha Whether the group is alpha blended, otherwise it's rendered opaque.
+     * @param alphaTest Texels with a lower alpha are discarded. Only used for opaque groups.
+     * @param srcAlpha Ninja source blend factor, see [ninjaBlendFactor].
+     * @param dstAlpha Ninja destination blend factor, see [ninjaBlendFactor].
+     * @param doubleSide Whether back faces are rendered.
+     * @param diffuse Material diffuse color as ARGB, multiplied with the texture. Its alpha is
+     * only used by [alpha] groups. Untextured groups with a diffuse color are drawn in that color
+     * instead of with the default material.
+     */
     fun getGroupIndex(
         textureIndex: Int?,
         alpha: Boolean,
-        additiveBlending: Boolean,
+        srcAlpha: Int? = NJ_BLEND_SRC_ALPHA,
+        dstAlpha: Int? = NJ_BLEND_INV_SRC_ALPHA,
         environmentMapping: Boolean = false,
+        alphaTest: Double = 0.0,
+        doubleSide: Boolean = true,
+        diffuse: Int? = null,
     ): Int {
         val textureIndex = textureIndex?.let { textureIndexOverrides[it] ?: it }
+        val srcAlpha = srcAlpha ?: NJ_BLEND_SRC_ALPHA
+        val dstAlpha = dstAlpha ?: NJ_BLEND_INV_SRC_ALPHA
         val groupIndex = groups.indexOfFirst {
             it.textureIndex == textureIndex &&
                     it.alpha == alpha &&
-                    it.additiveBlending == additiveBlending &&
-                    it.environmentMapping == environmentMapping
+                    it.srcAlpha == srcAlpha &&
+                    it.dstAlpha == dstAlpha &&
+                    it.environmentMapping == environmentMapping &&
+                    it.alphaTest == alphaTest &&
+                    it.doubleSide == doubleSide &&
+                    it.diffuse == diffuse
         }
 
         return if (groupIndex != -1) {
             groupIndex
         } else {
-            groups.add(Group(textureIndex, alpha, additiveBlending, environmentMapping))
+            groups.add(
+                Group(
+                    textureIndex,
+                    alpha,
+                    srcAlpha,
+                    dstAlpha,
+                    environmentMapping,
+                    alphaTest,
+                    doubleSide,
+                    diffuse,
+                )
+            )
             groups.lastIndex
         }
     }
@@ -68,10 +105,13 @@ class MeshBuilder(
         uv: Vector2? = null,
         boneIndices: IntArray? = null,
         boneWeights: FloatArray? = null,
+        color: Int? = null,
     ) {
         positions.add(position)
         normals.add(normal)
         uv?.let { uvs.add(uv) }
+        colors.add(color ?: WHITE)
+        hasColors = hasColors || color != null
 
         if (boneIndices != null && boneWeights != null) {
             require(boneIndices.size == 4)
@@ -162,6 +202,19 @@ class MeshBuilder(
         geom.setAttribute("normal", Float32BufferAttribute(normals, 3))
         uvs?.let { geom.setAttribute("uv", Float32BufferAttribute(uvs, 2)) }
 
+        if (hasColors) {
+            val colors = Float32Array(4 * this.colors.size)
+
+            for ((i, argb) in this.colors.withIndex()) {
+                colors[4 * i] = ((argb ushr 16) and 0xFF) / 255f
+                colors[4 * i + 1] = ((argb ushr 8) and 0xFF) / 255f
+                colors[4 * i + 2] = (argb and 0xFF) / 255f
+                colors[4 * i + 3] = ((argb ushr 24) and 0xFF) / 255f
+            }
+
+            geom.setAttribute("color", Float32BufferAttribute(colors, 4))
+        }
+
         if (skinning) {
             check(this.positions.size == boneIndices.size / 4)
             check(this.positions.size == boneWeights.size / 4)
@@ -208,41 +261,27 @@ class MeshBuilder(
                 }
             }
 
-            val mat = if (tex == null) {
+            val mat = if (tex == null && group.textureIndex == null && group.diffuse != null) {
+                MeshLambertMaterial(obj {
+                    this.skinning = skinning
+                    color = diffuseColor(group.diffuse)
+                    applyGroup(group)
+                })
+            } else if (tex == null) {
                 defaultMaterial
             } else if (group.environmentMapping) {
                 MeshMatcapMaterial(obj {
                     this.skinning = skinning
                     matcap = tex
-                    side = DoubleSide
-
-                    if (group.alpha) {
-                        transparent = true
-                        alphaTest = 0.01
-                    }
-
-                    if (group.additiveBlending) {
-                        transparent = true
-                        alphaTest = 0.01
-                        blending = AdditiveBlending
-                    }
+                    color = diffuseColor(group.diffuse ?: WHITE)
+                    applyGroup(group)
                 })
             } else {
                 MeshBasicMaterial(obj {
                     this.skinning = skinning
                     map = tex
-                    side = DoubleSide
-
-                    if (group.alpha) {
-                        transparent = true
-                        alphaTest = 0.01
-                    }
-
-                    if (group.additiveBlending) {
-                        transparent = true
-                        alphaTest = 0.01
-                        blending = AdditiveBlending
-                    }
+                    color = diffuseColor(group.diffuse ?: WHITE)
+                    applyGroup(group)
                 })
             }
 
@@ -260,12 +299,72 @@ class MeshBuilder(
         return createMesh(geom, materials.toTypedArray(), bones.toTypedArray())
     }
 
+    private fun MaterialParameters.applyGroup(group: Group) {
+        side = if (group.doubleSide) DoubleSide else FrontSide
+        vertexColors = hasColors
+
+        val diffuseAlpha = (((group.diffuse ?: WHITE) ushr 24) and 0xFF) / 255.0
+
+        if (group.alpha && diffuseAlpha < 1.0) {
+            opacity = diffuseAlpha
+        }
+
+        if (group.srcAlpha != NJ_BLEND_SRC_ALPHA || group.dstAlpha != NJ_BLEND_INV_SRC_ALPHA) {
+            transparent = true
+            depthWrite = false
+            alphaTest = 0.01
+            blending = CustomBlending
+            blendSrc = ninjaBlendFactor(group.srcAlpha, source = true)
+            blendDst = ninjaBlendFactor(group.dstAlpha, source = false)
+        } else if (group.alpha) {
+            transparent = true
+            alphaTest = 0.01
+        } else if (group.alphaTest > 0.0) {
+            alphaTest = group.alphaTest
+        }
+    }
+
     private class Group(
         val textureIndex: Int?,
         val alpha: Boolean,
-        val additiveBlending: Boolean,
+        val srcAlpha: Int,
+        val dstAlpha: Int,
         val environmentMapping: Boolean,
+        val alphaTest: Double,
+        val doubleSide: Boolean,
+        val diffuse: Int?,
     ) {
         val indices = jsArrayOf<Short>()
     }
+
+    private fun diffuseColor(argb: Int): Color =
+        Color(
+            ((argb ushr 16) and 0xFF) / 255.0,
+            ((argb ushr 8) and 0xFF) / 255.0,
+            (argb and 0xFF) / 255.0,
+        )
+
+    companion object {
+        private const val WHITE = -1 // 0xFFFFFFFF
+
+        const val NJ_BLEND_SRC_ALPHA = 4
+        const val NJ_BLEND_INV_SRC_ALPHA = 5
+    }
 }
+
+/**
+ * Converts a Ninja blend mode value to a three.js blend factor. "Other color" is the destination
+ * color for source factors and the source color for destination factors.
+ */
+internal fun ninjaBlendFactor(value: Int, source: Boolean): BlendingFactor =
+    when (value) {
+        0 -> ZeroFactor
+        1 -> OneFactor
+        2 -> if (source) DstColorFactor else SrcColorFactor
+        3 -> if (source) OneMinusDstColorFactor else OneMinusSrcColorFactor
+        4 -> SrcAlphaFactor
+        5 -> OneMinusSrcAlphaFactor
+        6 -> DstAlphaFactor
+        7 -> OneMinusDstAlphaFactor
+        else -> if (source) SrcAlphaFactor else OneMinusSrcAlphaFactor
+    }

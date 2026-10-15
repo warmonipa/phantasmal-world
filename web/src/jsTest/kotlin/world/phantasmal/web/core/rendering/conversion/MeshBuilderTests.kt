@@ -2,35 +2,169 @@ package world.phantasmal.web.core.rendering.conversion
 
 import org.khronos.webgl.Uint8Array
 import world.phantasmal.core.unsafe.UnsafeMap
+import world.phantasmal.web.externals.three.CustomBlending
 import world.phantasmal.web.externals.three.DataTexture
+import world.phantasmal.web.externals.three.DoubleSide
+import world.phantasmal.web.externals.three.DstColorFactor
+import world.phantasmal.web.externals.three.FrontSide
+import world.phantasmal.web.externals.three.Material
 import world.phantasmal.web.externals.three.MeshBasicMaterial
+import world.phantasmal.web.externals.three.MeshLambertMaterial
+import world.phantasmal.web.externals.three.NormalBlending
+import world.phantasmal.web.externals.three.OneFactor
+import world.phantasmal.web.externals.three.SrcAlphaFactor
+import world.phantasmal.web.externals.three.SrcColorFactor
 import world.phantasmal.web.externals.three.Texture
 import world.phantasmal.web.externals.three.Vector2
 import world.phantasmal.web.externals.three.Vector3
 import kotlin.js.unsafeCast
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class MeshBuilderTests {
     @Test
     fun material_groups_reuse_cached_texture() {
-        val texture = DataTexture(Uint8Array(4), 1, 1)
-        val textureCache = UnsafeMap<Int, Texture?>().apply { set(3, texture) }
-        val builder = MeshBuilder(textureCache = textureCache)
-        val opaqueGroup = builder.getGroupIndex(3, alpha = false, additiveBlending = false)
-        val alphaGroup = builder.getGroupIndex(3, alpha = true, additiveBlending = false)
+        val (builder, texture) = builderWithTexture()
+        val opaqueGroup = builder.getGroupIndex(3, alpha = false)
+        val alphaGroup = builder.getGroupIndex(3, alpha = true)
 
-        builder.vertex(Vector3(), Vector3(0.0, 1.0, 0.0), Vector2())
-        builder.vertex(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector2(1.0, 0.0))
-        builder.vertex(Vector3(0.0, 0.0, 1.0), Vector3(0.0, 1.0, 0.0), Vector2(0.0, 1.0))
-        for (index in 0..2) {
-            builder.index(opaqueGroup, index)
-            builder.index(alphaGroup, index)
-        }
+        addTriangle(builder, opaqueGroup, alphaGroup)
 
         val materials = builder.buildMesh().material.unsafeCast<Array<MeshBasicMaterial>>()
 
         assertSame(texture, materials[0].map)
         assertSame(texture, materials[1].map)
+    }
+
+    @Test
+    fun vertex_colors_become_an_rgba_attribute() {
+        val (builder, _) = builderWithTexture()
+        val group = builder.getGroupIndex(3, alpha = false)
+
+        builder.vertex(Vector3(), Vector3(0.0, 1.0, 0.0), Vector2(), color = 0x80FF0000.toInt())
+        builder.vertex(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector2())
+        builder.vertex(Vector3(0.0, 0.0, 1.0), Vector3(0.0, 1.0, 0.0), Vector2())
+        for (index in 0..2) builder.index(group, index)
+
+        val mesh = builder.buildMesh()
+        val color = mesh.geometry.asDynamic().attributes.color
+
+        assertEquals(4, color.itemSize)
+        val array = color.array
+        assertEquals(1.0, array[0].unsafeCast<Double>())
+        assertEquals(0.0, array[1].unsafeCast<Double>())
+        assertEquals(128.0 / 255, array[3].unsafeCast<Double>(), 1e-6)
+        // Vertices without a color are white.
+        for (i in 4 until 8) assertEquals(1.0, array[i].unsafeCast<Double>())
+
+        val material = mesh.material.unsafeCast<Array<MeshBasicMaterial>>()[0].asDynamic()
+        assertTrue(material.vertexColors.unsafeCast<Boolean>())
+    }
+
+    @Test
+    fun no_color_attribute_without_vertex_colors() {
+        val (builder, _) = builderWithTexture()
+        val group = builder.getGroupIndex(3, alpha = false)
+        addTriangle(builder, group)
+
+        val mesh = builder.buildMesh()
+
+        assertNull(mesh.geometry.asDynamic().attributes.color)
+        val material = mesh.material.unsafeCast<Array<MeshBasicMaterial>>()[0].asDynamic()
+        assertFalse(material.vertexColors.unsafeCast<Boolean>())
+    }
+
+    @Test
+    fun ninja_blend_modes_map_to_three_blending() {
+        val (builder, _) = builderWithTexture()
+        val normal = builder.getGroupIndex(3, alpha = true, srcAlpha = 4, dstAlpha = 5)
+        val additive = builder.getGroupIndex(3, alpha = true, srcAlpha = 4, dstAlpha = 1)
+        val cutout = builder.getGroupIndex(3, alpha = false, alphaTest = .5)
+        addTriangle(builder, normal, additive, cutout)
+
+        val materials = builder.buildMesh().material.unsafeCast<Array<MeshBasicMaterial>>()
+            .map { it.asDynamic() }
+
+        assertSame(NormalBlending, materials[0].blending)
+        assertTrue(materials[0].transparent.unsafeCast<Boolean>())
+
+        assertSame(CustomBlending, materials[1].blending)
+        assertSame(SrcAlphaFactor, materials[1].blendSrc)
+        assertSame(OneFactor, materials[1].blendDst)
+        assertFalse(materials[1].depthWrite.unsafeCast<Boolean>())
+
+        assertFalse(materials[2].transparent.unsafeCast<Boolean>())
+        assertEquals(.5, materials[2].alphaTest.unsafeCast<Double>())
+    }
+
+    @Test
+    fun double_side_and_diffuse_are_applied_to_materials() {
+        val (builder, _) = builderWithTexture()
+        val single = builder.getGroupIndex(
+            3, alpha = true, doubleSide = false, diffuse = 0x80FF8000.toInt(),
+        )
+        val double = builder.getGroupIndex(3, alpha = false, diffuse = 0x80FF8000.toInt())
+        addTriangle(builder, single, double)
+
+        val materials = builder.buildMesh().material.unsafeCast<Array<MeshBasicMaterial>>()
+            .map { it.asDynamic() }
+
+        assertSame(FrontSide, materials[0].side)
+        assertEquals(1.0, materials[0].color.r.unsafeCast<Double>())
+        assertEquals(128.0 / 255, materials[0].color.g.unsafeCast<Double>(), 1e-6)
+        assertEquals(0.0, materials[0].color.b.unsafeCast<Double>())
+        assertEquals(128.0 / 255, materials[0].opacity.unsafeCast<Double>(), 1e-6)
+
+        assertSame(DoubleSide, materials[1].side)
+        // Diffuse alpha only affects alpha blended groups.
+        assertEquals(1.0, materials[1].opacity.unsafeCast<Double>())
+    }
+
+    @Test
+    fun untextured_groups_use_their_diffuse_color() {
+        val defaultMaterial = MeshLambertMaterial()
+        val builder = MeshBuilder()
+        builder.defaultMaterial(defaultMaterial)
+        val colored = builder.getGroupIndex(null, alpha = false, diffuse = 0xFF0080FF.toInt())
+        val plain = builder.getGroupIndex(null, alpha = false)
+        addTriangle(builder, colored, plain)
+
+        val materials = builder.buildMesh().material.unsafeCast<Array<Material>>()
+
+        assertTrue(materials[0] is MeshLambertMaterial)
+        assertNotSame(defaultMaterial, materials[0])
+        val color = materials[0].asDynamic().color
+        assertEquals(0.0, color.r.unsafeCast<Double>())
+        assertEquals(128.0 / 255, color.g.unsafeCast<Double>(), 1e-6)
+        assertEquals(1.0, color.b.unsafeCast<Double>())
+        assertSame(defaultMaterial, materials[1])
+    }
+
+    @Test
+    fun ninja_blend_factors() {
+        assertSame(SrcAlphaFactor, ninjaBlendFactor(4, source = true))
+        assertSame(OneFactor, ninjaBlendFactor(1, source = false))
+        assertSame(DstColorFactor, ninjaBlendFactor(2, source = true))
+        assertSame(SrcColorFactor, ninjaBlendFactor(2, source = false))
+    }
+
+    private fun builderWithTexture(): Pair<MeshBuilder, Texture> {
+        val texture = DataTexture(Uint8Array(4), 1, 1)
+        val textureCache = UnsafeMap<Int, Texture?>().apply { set(3, texture) }
+        return Pair(MeshBuilder(textureCache = textureCache), texture)
+    }
+
+    private fun addTriangle(builder: MeshBuilder, vararg groups: Int) {
+        builder.vertex(Vector3(), Vector3(0.0, 1.0, 0.0), Vector2())
+        builder.vertex(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector2(1.0, 0.0))
+        builder.vertex(Vector3(0.0, 0.0, 1.0), Vector3(0.0, 1.0, 0.0), Vector2(0.0, 1.0))
+        for (index in 0..2) {
+            for (group in groups) builder.index(group, index)
+        }
     }
 }

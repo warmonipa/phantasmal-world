@@ -30,7 +30,12 @@ fun parseXjModel(cursor: Cursor): XjModel {
     val meshes = mutableListOf<XjMesh>()
 
     meshes.addAll(
-        parseTriangleStripTable(cursor, triangleStripTableOffset, triangleStripCount),
+        parseTriangleStripTable(
+            cursor,
+            triangleStripTableOffset,
+            triangleStripCount,
+            transparent = false,
+        ),
     )
 
     meshes.addAll(
@@ -38,6 +43,7 @@ fun parseXjModel(cursor: Cursor): XjModel {
             cursor,
             transparentTriangleStripTableOffset,
             transparentTriangleStripCount,
+            transparent = true,
         ),
     )
 
@@ -62,6 +68,7 @@ private fun parseVertexInfoTable(cursor: Cursor, vertexInfoTableOffset: Int): Li
 
         val position = cursor.vec3Float()
         var normal: Vec3? = null
+        var color: Int? = null
         var uv: Vec2? = null
 
         when (vertexType) {
@@ -73,20 +80,19 @@ private fun parseVertexInfoTable(cursor: Cursor, vertexInfoTableOffset: Int): Li
                 uv = cursor.vec2Float()
             }
             4 -> {
-                // Skip 4 bytes.
+                color = cursor.int()
             }
             5 -> {
-                cursor.seek(4)
+                color = cursor.int()
                 uv = cursor.vec2Float()
             }
             6 -> {
                 normal = cursor.vec3Float()
-                // Skip 4 bytes.
+                color = cursor.int()
             }
             7 -> {
                 normal = cursor.vec3Float()
-                // Skip 4-byte vertex color.
-                cursor.seek(4)
+                color = cursor.int()
                 uv = cursor.vec2Float()
             }
             else -> {
@@ -97,6 +103,7 @@ private fun parseVertexInfoTable(cursor: Cursor, vertexInfoTableOffset: Int): Li
         XjVertex(
             position,
             normal,
+            color,
             uv,
         )
     }
@@ -106,6 +113,7 @@ private fun parseTriangleStripTable(
     cursor: Cursor,
     triangleStripListOffset: Int,
     triangleStripCount: Int,
+    transparent: Boolean,
 ): List<XjMesh> {
     return (0 until triangleStripCount).map { i ->
         cursor.seekStart(triangleStripListOffset + i * 20)
@@ -127,6 +135,7 @@ private fun parseTriangleStripTable(
         XjMesh(
             material,
             indices = indices.map { it.toInt() },
+            transparent,
         )
     }
 }

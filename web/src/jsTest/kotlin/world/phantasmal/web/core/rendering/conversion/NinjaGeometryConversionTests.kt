@@ -38,7 +38,7 @@ class NinjaGeometryConversionTests {
     }
 
     private fun vertex(uv: Vec2?) =
-        XjVertex(Vec3(0f, 0f, 0f), Vec3(0f, 1f, 0f), uv)
+        XjVertex(Vec3(0f, 0f, 0f), Vec3(0f, 1f, 0f), color = null, uv = uv)
 
     private fun mesh(vararg indices: Int) =
         XjMesh(

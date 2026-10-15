@@ -15,6 +15,7 @@ import world.phantasmal.psolib.fileFormats.CollisionGeometry
 import world.phantasmal.psolib.fileFormats.CollisionTriangle
 import world.phantasmal.psolib.fileFormats.ninja.NinjaModel
 import world.phantasmal.psolib.fileFormats.ninja.NinjaObject
+import world.phantasmal.psolib.fileFormats.ninja.NjArgb
 import world.phantasmal.psolib.fileFormats.ninja.NjModel
 import world.phantasmal.psolib.fileFormats.ninja.NjObject
 import world.phantasmal.psolib.fileFormats.ninja.XjModel
@@ -46,11 +47,18 @@ import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.webui.obj
 import kotlin.collections.component1
 import kotlin.collections.component2
+import kotlin.math.roundToInt
 
 private val logger = KotlinLogging.logger {}
 
 private val DEFAULT_NORMAL = Vector3(0.0, 1.0, 0.0)
 private val DEFAULT_UV = Vector2(0.0, 0.0)
+
+/**
+ * Alpha test threshold for XJ strips from the opaque strip table, so cut-out textures such as
+ * foliage and fences keep their holes without needing blending and sorting.
+ */
+private const val XJ_OPAQUE_ALPHA_TEST = 0.5
 private val NO_TRANSLATION = Vector3(0.0, 0.0, 0.0)
 private val NO_ROTATION = Quaternion()
 private val NO_SCALE = Vector3(1.0, 1.0, 1.0)
@@ -454,6 +462,7 @@ private class NinjaToMeshConverter(
                     normal,
                     vertex.boneWeight,
                     vertex.boneWeightStatus,
+                    vertex.color,
                 )
             }
         }
@@ -464,7 +473,10 @@ private class NinjaToMeshConverter(
             val group = builder.getGroupIndex(
                 mesh.textureId,
                 alpha = mesh.useAlpha,
-                additiveBlending = mesh.srcAlpha != 4 || mesh.dstAlpha != 5,
+                srcAlpha = mesh.srcAlpha,
+                dstAlpha = mesh.dstAlpha,
+                doubleSide = mesh.doubleSide,
+                diffuse = mesh.diffuse?.toArgb(),
             )
             var i = 0
 
@@ -510,6 +522,7 @@ private class NinjaToMeshConverter(
                         meshVertex.texCoords?.let(::vec2ToThree) ?: DEFAULT_UV,
                         boneIndices,
                         boneWeights,
+                        color = meshVertex.color ?: vertex.color,
                     )
 
                     if (i >= 2) {
@@ -543,7 +556,7 @@ private class NinjaToMeshConverter(
 
             val uv = vertex.uv?.let(::vec2ToThree) ?: DEFAULT_UV
 
-            builder.vertex(p, n, uv)
+            builder.vertex(p, n, uv, color = vertex.color)
         }
 
         var currentTextureIdx: Int? = null
@@ -557,14 +570,17 @@ private class NinjaToMeshConverter(
 
             val group = builder.getGroupIndex(
                 currentTextureIdx,
-                alpha = true,
-                additiveBlending = currentSrcAlpha != 4 || currentDstAlpha != 5,
+                // Strips from the opaque table are drawn without blending, with cut-out alpha.
+                alpha = mesh.transparent,
+                srcAlpha = currentSrcAlpha,
+                dstAlpha = currentDstAlpha,
                 environmentMapping = usesEnvironmentMapping(
                     model,
                     mesh,
                     currentTextureIdx,
                     enabled = environmentMapping,
                 ),
+                alphaTest = if (mesh.transparent) 0.0 else XJ_OPAQUE_ALPHA_TEST,
             )
 
             var clockwise = false
@@ -634,7 +650,13 @@ private class Vertex(
     val normal: Vector3?,
     val boneWeight: Float?,
     val boneWeightStatus: Int,
+    val color: Int?,
 )
+
+private fun NjArgb.toArgb(): Int {
+    fun channel(value: Float) = (value * 255f).roundToInt().coerceIn(0, 255)
+    return (channel(a) shl 24) or (channel(r) shl 16) or (channel(g) shl 8) or channel(b)
+}
 
 private class VertexHolder {
     private val buffer = mutableListOf<MutableList<Vertex>>()

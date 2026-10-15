@@ -4,12 +4,12 @@ import org.khronos.webgl.Uint16Array
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
 import org.khronos.webgl.set
-import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.ninja.XvrTexture
 import world.phantasmal.web.externals.three.CompressedPixelFormat
 import world.phantasmal.web.externals.three.CompressedTexture
 import world.phantasmal.web.externals.three.DataTexture
 import world.phantasmal.web.externals.three.LinearFilter
+import world.phantasmal.web.externals.three.LinearMipmapLinearFilter
 import world.phantasmal.web.externals.three.Mipmap
 import world.phantasmal.web.externals.three.MirroredRepeatWrapping
 import world.phantasmal.web.externals.three.PixelFormat
@@ -20,33 +20,53 @@ import world.phantasmal.web.externals.three.RGBFormat
 import world.phantasmal.web.externals.three.Texture
 import world.phantasmal.web.externals.three.TextureDataType
 import world.phantasmal.web.externals.three.TextureFilter
+import world.phantasmal.web.externals.three.UnsignedByteType
 import world.phantasmal.web.externals.three.UnsignedShort5551Type
 import world.phantasmal.web.externals.three.UnsignedShort565Type
 import world.phantasmal.webui.obj
-import kotlin.math.roundToInt
 
+/**
+ * Anisotropic filtering level for textures loaded without access to a renderer. three.js clamps it
+ * to the maximum the GPU supports.
+ */
+const val DEFAULT_TEXTURE_ANISOTROPY = 8
+
+/**
+ * Set in the first XVR format field when the texture data contains a full mipmap chain down to
+ * 1 x 1 after the base level.
+ */
+private const val XVR_FLAG_MIPMAPS = 1
+
+/**
+ * @param minFilter When null, textures are trilinearly filtered. Mipmaps stored in the XVR are
+ * used when present, otherwise they are generated on the GPU (DXT data is decoded to RGBA first,
+ * because compressed textures can't have mipmaps generated for them).
+ */
 fun xvrTextureToThree(
     xvr: XvrTexture,
     magFilter: TextureFilter = LinearFilter,
-    // TODO: Use LinearMipmapLinearFilter once we figure out mipmapping.
-    minFilter: TextureFilter = LinearFilter,
+    minFilter: TextureFilter? = null,
     anisotropy: Int = 1,
-): Texture =
-    when (xvr.format.second) {
+): Texture {
+    val mipmapped = minFilter == null
+    val effectiveMinFilter = minFilter ?: LinearMipmapLinearFilter
+
+    return when (xvr.format.second) {
         // D3DFMT_R5G6B5
         2 -> createDataTexture(
-            Uint16Array(xvr.data.arrayBuffer),
+            Uint16Array(xvr.data.arrayBuffer, 0, xvr.width * xvr.height),
             xvr.width,
             xvr.height,
             RGBFormat,
             UnsignedShort565Type,
             magFilter,
-            minFilter,
+            effectiveMinFilter,
+            generateMipmaps = mipmapped,
             anisotropy,
         )
         // D3DFMT_A1R5G5B5
         3 -> {
-            val originalData = Uint16Array(xvr.data.arrayBuffer)
+            val originalData = Uint16Array(xvr.data.arrayBuffer, 0, xvr.width * xvr.height)
             val data = Uint16Array(originalData.length)
 
             // Change bit order from ARGB 1555 to RGBA 5551.
@@ -62,87 +82,34 @@ fun xvrTextureToThree(
                 RGBAFormat,
                 UnsignedShort5551Type,
                 magFilter,
-                minFilter,
+                effectiveMinFilter,
+                generateMipmaps = mipmapped,
                 anisotropy,
             )
         }
         // D3DFMT_DXT1
-        6 -> {
-            val mipmaps = mutableListOf<Mipmap>()
-            var byteOffset = 0
-            var width = xvr.width
-            var height = xvr.height
-
-            while (byteOffset < xvr.data.size && width * height > 0) {
-                val byteSize = (width * height) / 2
-
-                mipmaps.add(obj {
-                    this.data = Uint8Array(xvr.data.arrayBuffer, byteOffset, byteSize)
-                    this.width = width
-                    this.height = height
-                })
-
-                byteOffset += byteSize
-                width /= 2
-                height /= 2
-
-                // TODO: Figure out what the problem with mipmaps is and remove this break.
-                //       Do we interpret the XVR format incorrectly or is there a problem with
-                //       Three.js/WebGL?
-                break
-            }
-
-            createCompressedTexture(
-                mipmaps.toTypedArray(),
-                xvr.width,
-                xvr.height,
-                RGBA_S3TC_DXT1_Format,
-                magFilter,
-                minFilter,
-                anisotropy,
-            )
-        }
+        6 -> createDxtTexture(
+            xvr,
+            RGBA_S3TC_DXT1_Format,
+            DXT1_BLOCK_SIZE,
+            magFilter,
+            minFilter,
+            anisotropy,
+        )
         // D3DFMT_DXT2
-        // TODO: Correctly interpret this (DXT2 is basically DXT3 with premultiplied alpha).
-        7 -> {
-            val mipmaps = mutableListOf<Mipmap>()
-            var byteOffset = 0
-            var width = xvr.width
-            var height = xvr.height
-
-            while (byteOffset < xvr.data.size && width * height > 0) {
-                val byteSize = width * height
-
-                mipmaps.add(obj {
-                    this.data = Uint8Array(xvr.data.arrayBuffer, byteOffset, byteSize)
-                    this.width = width
-                    this.height = height
-                })
-
-                byteOffset += byteSize
-                width /= 2
-                height /= 2
-
-                // TODO: Figure out what the problem with mipmaps is and remove this break.
-                //       Do we interpret the XVR format incorrectly or is there a problem with
-                //       Three.js/WebGL?
-                break
-            }
-
-            createCompressedTexture(
-                mipmaps.toTypedArray(),
-                xvr.width,
-                xvr.height,
-                RGBA_S3TC_DXT3_Format,
-                magFilter,
-                minFilter,
-                anisotropy,
-            )
-        }
+        // Although DXT2 nominally has premultiplied alpha, PSO's DXT2 texels have color channels
+        // exceeding their alpha, so they are straight alpha and decoded like DXT3.
+        7 -> createDxtTexture(
+            xvr,
+            RGBA_S3TC_DXT3_Format,
+            DXT3_BLOCK_SIZE,
+            magFilter,
+            minFilter,
+            anisotropy,
+        )
         // 1 -> D3DFMT_A8R8G8B8
         // 4 -> D3DFMT_A4R4G4B4
         // 5 -> D3DFMT_P8
-        // 6 -> D3DFMT_R5G6B5
         // 8 -> D3DFMT_DXT3
         // 9 -> D3DFMT_DXT4
         // 10 -> D3DFMT_DXT5
@@ -157,6 +124,84 @@ fun xvrTextureToThree(
         // 19 -> D3DFMT_X8R8G8B8
         else -> error("Format ${xvr.format.first}, ${xvr.format.second} not supported.")
     }
+}
+
+private const val DXT1_BLOCK_SIZE = 8
+private const val DXT3_BLOCK_SIZE = 16
+
+private fun createDxtTexture(
+    xvr: XvrTexture,
+    format: CompressedPixelFormat,
+    blockSize: Int,
+    magFilter: TextureFilter,
+    minFilter: TextureFilter?,
+    anisotropy: Int,
+): Texture {
+    val hasMipmaps = (xvr.format.first and XVR_FLAG_MIPMAPS) != 0
+
+    if (minFilter == null && !hasMipmaps) {
+        // Without stored mipmaps, decode to RGBA so the GPU can generate them. Minifying a
+        // texture without mipmaps causes heavy aliasing on distant surfaces.
+        return createDataTexture(
+            decodeDxt(xvr, blockSize),
+            xvr.width,
+            xvr.height,
+            RGBAFormat,
+            UnsignedByteType,
+            magFilter,
+            LinearMipmapLinearFilter,
+            generateMipmaps = true,
+            anisotropy,
+        )
+    }
+
+    // Here, minFilter == null implies the XVR contains mipmaps.
+    val useMipmaps = minFilter == null
+    val mipmaps = mutableListOf<Mipmap>()
+    var byteOffset = 0
+    var width = xvr.width
+    var height = xvr.height
+
+    while (true) {
+        val byteSize = dxtLevelSize(width, height, blockSize)
+
+        if (byteOffset + byteSize > xvr.data.size) break
+
+        mipmaps.add(obj {
+            this.data = Uint8Array(xvr.data.arrayBuffer, byteOffset, byteSize)
+            this.width = width
+            this.height = height
+        })
+
+        byteOffset += byteSize
+
+        if (!useMipmaps || (width == 1 && height == 1)) break
+
+        width = maxOf(1, width / 2)
+        height = maxOf(1, height / 2)
+    }
+
+    // WebGL requires a complete mipmap chain down to 1 x 1, fall back to the base level otherwise.
+    val completeChain = useMipmaps && mipmaps.size > 1 &&
+            mipmaps.last().let { it.width == 1 && it.height == 1 }
+
+    if (!completeChain && mipmaps.size > 1) {
+        mipmaps.subList(1, mipmaps.size).clear()
+    }
+
+    return createCompressedTexture(
+        mipmaps.toTypedArray(),
+        xvr.width,
+        xvr.height,
+        format,
+        magFilter,
+        minFilter ?: if (completeChain) LinearMipmapLinearFilter else LinearFilter,
+        anisotropy,
+    )
+}
+
+private fun dxtLevelSize(width: Int, height: Int, blockSize: Int): Int =
+    ((width + 3) / 4) * ((height + 3) / 4) * blockSize
 
 private fun createDataTexture(
     data: Any,
@@ -166,9 +211,10 @@ private fun createDataTexture(
     type: TextureDataType,
     magFilter: TextureFilter,
     minFilter: TextureFilter,
+    generateMipmaps: Boolean,
     anisotropy: Int,
-): DataTexture =
-    DataTexture(
+): DataTexture {
+    val texture = DataTexture(
         data,
         width,
         height,
@@ -180,6 +226,10 @@ private fun createDataTexture(
         minFilter = minFilter,
         anisotropy = anisotropy,
     )
+    texture.generateMipmaps = generateMipmaps
+    texture.needsUpdate = true
+    return texture
+}
 
 private fun createCompressedTexture(
     mipmaps: Array<Mipmap>,
@@ -205,107 +255,84 @@ private fun createCompressedTexture(
     return texture
 }
 
-private fun xvrTextureToUint8Array(xvr: XvrTexture): Uint8Array {
-    val dataSize = when (xvr.format.second) {
-        6 -> (xvr.width * xvr.height) / 2
-        7 -> xvr.width * xvr.height
-        else -> error("Format ${xvr.format.first}, ${xvr.format.second} not supported.")
-    }
+/**
+ * Decodes the base level of a DXT1 (8-byte blocks) or DXT2/3 (16-byte blocks) texture to
+ * 8-bit RGBA.
+ */
+internal fun decodeDxt(xvr: XvrTexture, blockSize: Int): Uint8Array {
+    val width = xvr.width
+    val height = xvr.height
+    val src = Uint8Array(xvr.data.arrayBuffer, 0, dxtLevelSize(width, height, blockSize))
+    val image = Uint8Array(width * height * 4)
+    val palette = IntArray(16) // 4 RGBA colors.
+    val hasExplicitAlpha = blockSize == DXT3_BLOCK_SIZE
+    var offset = 0
 
-    val cursor = xvr.data.cursor(size = dataSize)
-    val image = Uint8Array(xvr.width * xvr.height * 4)
+    for (blockY in 0 until (height + 3) / 4) {
+        for (blockX in 0 until (width + 3) / 4) {
+            val alphaOffset = offset
+            val colorOffset = if (hasExplicitAlpha) offset + 8 else offset
+            offset += blockSize
 
-    val stride = 4 * xvr.width
-    var i = 0
+            val c0 = u8(src, colorOffset) or (u8(src, colorOffset + 1) shl 8)
+            val c1 = u8(src, colorOffset + 2) or (u8(src, colorOffset + 3) shl 8)
+            rgb565(c0, palette, 0)
+            rgb565(c1, palette, 4)
 
-    while (cursor.bytesLeft >= 8) {
-        // Each block of 4 x 4 pixels is compressed to 8 bytes.
-        val c0 = cursor.uShort().toInt() // Color 0
-        val c1 = cursor.uShort().toInt() // Color 1
-        val codes = cursor.int() // A 2-bit code per pixel.
-
-        // Extract color components and normalize them to the range [0, 1].
-        val c0r = (c0 ushr 11) / 31.0
-        val c0g = ((c0 ushr 5) and 0x3F) / 63.0
-        val c0b = (c0 and 0x1F) / 31.0
-
-        val c1r = (c1 ushr 11) / 31.0
-        val c1g = ((c1 ushr 5) and 0x3F) / 63.0
-        val c1b = (c1 and 0x1F) / 31.0
-
-        // Loop over the codes.
-        for (j in 0 until 16) {
-            val shift = 2 * (16 - j - 1)
-            val r: Double
-            val g: Double
-            val b: Double
-            val a: Double
-
-            when ((codes ushr shift) and 0b11) {
-                0 -> {
-                    r = c0r
-                    g = c0g
-                    b = c0b
-                    a = 1.0
+            if (c0 > c1 || hasExplicitAlpha) {
+                for (k in 0 until 3) {
+                    palette[8 + k] = (2 * palette[k] + palette[4 + k] + 1) / 3
+                    palette[12 + k] = (palette[k] + 2 * palette[4 + k] + 1) / 3
                 }
-
-                1 -> {
-                    r = c1r
-                    g = c1g
-                    b = c1b
-                    a = 1.0
+                palette[11] = 255
+                palette[15] = 255
+            } else {
+                for (k in 0 until 3) {
+                    palette[8 + k] = (palette[k] + palette[4 + k]) / 2
+                    palette[12 + k] = 0
                 }
-
-                2 -> {
-                    if (c0 > c1) {
-                        r = (2 * c0r + c1r) / 3
-                        g = (2 * c0g + c1g) / 3
-                        b = (2 * c0b + c1b) / 3
-                        a = 1.0
-                    } else {
-                        r = (c0r + c1r) / 2
-                        g = (c0g + c1g) / 2
-                        b = (c0b + c1b) / 2
-                        a = 1.0
-                    }
-                }
-
-                3 -> {
-                    if (c0 > c1) {
-                        r = (c0r + 2 * c1r) / 3
-                        g = (c0g + 2 * c1g) / 3
-                        b = (c0b + 2 * c1b) / 3
-                        a = 1.0
-                    } else {
-                        r = 0.0
-                        g = 0.0
-                        b = 0.0
-                        a = 0.0
-                    }
-                }
-                // Unreachable case.
-                else -> error("Invalid code.")
+                palette[11] = 255
+                palette[15] = 0
             }
 
-            // Block-relative pixel coordinates.
-            val blockX = 3 - j % 4
-            val blockY = 3 - j / 4
-            // Offset into the image array.
-            val offset = i + (4 * blockX + blockY * stride)
-            image[offset] = (r * 255).roundToInt().toByte()
-            image[offset + 1] = (g * 255).roundToInt().toByte()
-            image[offset + 2] = (b * 255).roundToInt().toByte()
-            image[offset + 3] = (a * 255).roundToInt().toByte()
-        }
+            for (py in 0 until 4) {
+                val y = blockY * 4 + py
+                if (y >= height) break
 
-        // Jump ahead 4 pixels.
-        i += 16
+                val codes = u8(src, colorOffset + 4 + py)
 
-        if (i % stride == 0) {
-            // Jump ahead 4 rows.
-            i += 3 * stride
+                for (px in 0 until 4) {
+                    val x = blockX * 4 + px
+                    if (x >= width) break
+
+                    val code = (codes ushr (2 * px)) and 3
+                    val dst = 4 * (y * width + x)
+                    image[dst] = palette[4 * code].toByte()
+                    image[dst + 1] = palette[4 * code + 1].toByte()
+                    image[dst + 2] = palette[4 * code + 2].toByte()
+                    image[dst + 3] = if (hasExplicitAlpha) {
+                        val a = (u8(src, alphaOffset + 2 * py + px / 2) ushr (4 * (px % 2))) and 0xF
+                        (a * 17).toByte()
+                    } else {
+                        palette[4 * code + 3].toByte()
+                    }
+                }
+            }
         }
     }
 
     return image
+}
+
+private fun u8(array: Uint8Array, index: Int): Int =
+    array[index].toInt() and 0xFF
+
+private fun rgb565(color: Int, palette: IntArray, offset: Int) {
+    val r = (color ushr 11) and 0x1F
+    val g = (color ushr 5) and 0x3F
+    val b = color and 0x1F
+    palette[offset] = (r shl 3) or (r ushr 2)
+    palette[offset + 1] = (g shl 2) or (g ushr 4)
+    palette[offset + 2] = (b shl 3) or (b ushr 2)
+    palette[offset + 3] = 255
 }

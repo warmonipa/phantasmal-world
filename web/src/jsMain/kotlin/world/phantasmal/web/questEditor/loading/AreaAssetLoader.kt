@@ -203,37 +203,39 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
         val fix = MANUAL_FIXES[Pair(episode, areaVariant.area.id)]
         val sections = mutableMapOf<Int, SectionModel>()
 
-        // TODO: Pass anisotropy parameter.
-        val group =
-            renderGeometryToGroup(renderGeometry, textures) { renderSection, areaObj, mesh ->
-                if (fix != null) {
-                    if (fix.shouldRenderOnTop(areaObj.xjObject)) {
-                        mesh.renderOrder = 1
-                    }
-
-                    if (fix.shouldHide(areaObj)) {
-                        mesh.visible = false
-                    }
+        val group = renderGeometryToGroup(
+            renderGeometry,
+            textures,
+            anisotropy = DEFAULT_TEXTURE_ANISOTROPY,
+        ) { renderSection, areaObj, mesh ->
+            if (fix != null) {
+                if (fix.shouldRenderOnTop(areaObj.xjObject)) {
+                    mesh.renderOrder = 1
                 }
 
-                val sectionModel = if (renderSection.id >= 0) {
-                    sections.getOrPut(renderSection.id) {
-                        SectionModel(
-                            renderSection.id,
-                            vec3ToThree(renderSection.position),
-                            vec3ToEuler(renderSection.rotation),
-                            areaVariant,
-                        )
-                    }
-                } else {
-                    null
+                if (fix.shouldHide(areaObj)) {
+                    mesh.visible = false
                 }
-
-                mesh.userData = AreaUserData(
-                    sectionModel,
-                    mesh.userData.unsafeCast<AreaObjectUserData>().areaObject,
-                )
             }
+
+            val sectionModel = if (renderSection.id >= 0) {
+                sections.getOrPut(renderSection.id) {
+                    SectionModel(
+                        renderSection.id,
+                        vec3ToThree(renderSection.position),
+                        vec3ToEuler(renderSection.rotation),
+                        areaVariant,
+                    )
+                }
+            } else {
+                null
+            }
+
+            mesh.userData = AreaUserData(
+                sectionModel,
+                mesh.userData.unsafeCast<AreaObjectUserData>().areaObject,
+            )
+        }
 
         return Pair(group, sections.values.toList())
     }

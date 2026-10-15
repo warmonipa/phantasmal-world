@@ -9,7 +9,6 @@ import world.phantasmal.psolib.fileFormats.vec3Float
 import kotlin.math.abs
 
 // TODO:
-//  - colors
 //  - bump maps
 
 private val logger = KotlinLogging.logger {}
@@ -40,6 +39,7 @@ fun parseNjModel(cursor: Cursor, cachedChunks: MutableMap<Int, List<NjChunk>>): 
                         vertex.boneWeight,
                         vertex.boneWeightStatus,
                         vertex.calcContinue,
+                        vertex.color,
                     )
                 }
             }
@@ -67,6 +67,11 @@ private class PolygonChunkProcessor(
     private var textureId: Int? = null
     private var srcAlpha: Int? = null
     private var dstAlpha: Int? = null
+    private var diffuse: NjArgb? = null
+    private var flipU = false
+    private var flipV = false
+    private var clampU = false
+    private var clampV = false
 
     /**
      * When [cacheList] is non-null we are caching chunks.
@@ -101,11 +106,16 @@ private class PolygonChunkProcessor(
 
                     is NjChunk.Tiny -> {
                         textureId = chunk.textureId
+                        flipU = chunk.flipU
+                        flipV = chunk.flipV
+                        clampU = chunk.clampU
+                        clampV = chunk.clampV
                     }
 
                     is NjChunk.Material -> {
                         srcAlpha = chunk.srcAlpha
                         dstAlpha = chunk.dstAlpha
+                        chunk.diffuse?.let { diffuse = it }
                     }
 
                     is NjChunk.Strip -> {
@@ -113,6 +123,11 @@ private class PolygonChunkProcessor(
                             strip.textureId = textureId
                             strip.srcAlpha = srcAlpha
                             strip.dstAlpha = dstAlpha
+                            strip.diffuse = diffuse
+                            strip.flipU = flipU
+                            strip.flipV = flipV
+                            strip.clampU = clampU
+                            strip.clampV = clampV
                         }
 
                         meshes.addAll(chunk.triangleStrips)
@@ -305,6 +320,7 @@ private fun parseVertexChunk(
         val position = cursor.vec3Float()
         var normal: Vec3? = null
         var boneWeight: Float? = null
+        var color: Int? = null
 
         when (chunkTypeId) {
             32 -> {
@@ -327,8 +343,10 @@ private fun parseVertexChunk(
                     // NinjaFlags32
                     vertexIndex = index + cursor.uShort()
                     boneWeight = cursor.uShort().toFloat() / 255f
-                } else {
+                } else if (chunkTypeId == 35) {
                     // NJD_CV_D8
+                    color = cursor.int()
+                } else {
                     // NJD_CV_UF
                     // NJD_CV_S5
                     // NJD_CV_S4
@@ -349,8 +367,10 @@ private fun parseVertexChunk(
                     // NinjaFlags32
                     vertexIndex = index + cursor.uShort()
                     boneWeight = cursor.uShort().toFloat() / 255f
-                } else {
+                } else if (chunkTypeId == 42) {
                     // NJD_CV_VN_D8
+                    color = cursor.int()
+                } else {
                     // NJD_CV_VN_UF
                     // NJD_CV_VN_S5
                     // NJD_CV_VN_S4
@@ -369,10 +389,12 @@ private fun parseVertexChunk(
                     (n and 0x3FFu).toFloat() / 0x3FF,
                 )
 
-                if (chunkTypeId >= 49) {
+                if (chunkTypeId == 49) {
                     // NJD_CV_VNX_D8
+                    color = cursor.int()
+                } else if (chunkTypeId == 50) {
                     // NJD_CV_VNX_UF
-                    // Skip user flags and material information.
+                    // Skip user flags.
                     cursor.seek(4)
                 }
             }
@@ -386,6 +408,7 @@ private fun parseVertexChunk(
             boneWeight,
             boneWeightStatus,
             calcContinue,
+            color,
         ))
     }
 
@@ -458,10 +481,7 @@ private fun parseTriangleStripChunk(
                 Vec2(cursor.uShort().toFloat() / 255f, cursor.uShort().toFloat() / 255f)
             } else null
 
-            // Ignore ARGB8888 color.
-            if (hasColor) {
-                cursor.seek(4)
-            }
+            val color = if (hasColor) cursor.int() else null
 
             val normal = if (hasNormal) {
                 Vec3(
@@ -485,6 +505,7 @@ private fun parseTriangleStripChunk(
                 index,
                 normal,
                 texCoords,
+                color,
             ))
         }
 

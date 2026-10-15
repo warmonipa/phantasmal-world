@@ -17,6 +17,7 @@ import world.phantasmal.web.core.loading.LoadingCache
 import world.phantasmal.web.core.loading.NPCS_WITH_ULTIMATE_SKIN
 import world.phantasmal.web.core.models.ObjectVisualClass
 import world.phantasmal.web.core.models.objectVisualClass
+import world.phantasmal.web.core.rendering.conversion.DEFAULT_TEXTURE_ANISOTROPY
 import world.phantasmal.web.core.rendering.conversion.ninjaObjectToInstancedMesh
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
@@ -89,7 +90,6 @@ class EntityAssetLoader internal constructor(
 
         val textures = loadTextures(type, model, ultimate)
 
-        // TODO: Pass anisotropy parameter.
         return ninjaObjectToInstancedMesh(
             ninjaObject,
             textures,
@@ -99,6 +99,7 @@ class EntityAssetLoader internal constructor(
                 side = DoubleSide
             }),
             boundingVolumes = true,
+            anisotropy = DEFAULT_TEXTURE_ANISOTROPY,
             textureIndexOverrides = if (type == ObjectType.ForestDoor) {
                 mapOf(FOREST_DOOR_DEFAULT_DIGIT_TEXTURE to (renderVariant ?: 0))
             } else {

@@ -171,6 +171,10 @@ class NjVertex(
     val boneWeight: Float?,
     val boneWeightStatus: Int,
     val calcContinue: Boolean,
+    /**
+     * Diffuse vertex color as a 32-bit ARGB value.
+     */
+    val color: Int? = null,
 )
 
 class NjTriangleStrip(
@@ -188,12 +192,25 @@ class NjTriangleStrip(
     var srcAlpha: Int?,
     var dstAlpha: Int?,
     val vertices: List<NjMeshVertex>,
-)
+) {
+    /**
+     * Material diffuse color, from the last material chunk that specified one.
+     */
+    var diffuse: NjArgb? = null
+    var flipU: Boolean = false
+    var flipV: Boolean = false
+    var clampU: Boolean = false
+    var clampV: Boolean = false
+}
 
 class NjMeshVertex(
     val index: Int,
     val normal: Vec3?,
     val texCoords: Vec2?,
+    /**
+     * Per-strip-vertex ARGB color.
+     */
+    val color: Int? = null,
 )
 
 sealed class NjChunk(val typeId: Int) {
@@ -248,6 +265,7 @@ class NjChunkVertex(
     val boneWeight: Float?,
     val boneWeightStatus: Int,
     val calcContinue: Boolean,
+    val color: Int? = null,
 )
 
 /**
@@ -280,12 +298,21 @@ class XjModel(
 class XjVertex(
     val position: Vec3,
     val normal: Vec3?,
+    /**
+     * Diffuse vertex color as a 32-bit ARGB value (D3DCOLOR).
+     */
+    val color: Int?,
     val uv: Vec2?,
 )
 
 class XjMesh(
     val material: XjMaterial,
     val indices: List<Int>,
+    /**
+     * Whether this strip comes from the model's transparent strip table rather than its opaque
+     * strip table.
+     */
+    val transparent: Boolean = false,
 )
 
 class XjMaterial(
