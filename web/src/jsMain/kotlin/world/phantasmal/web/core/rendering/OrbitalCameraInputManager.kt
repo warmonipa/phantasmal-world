@@ -10,6 +10,7 @@ import world.phantasmal.webui.obj
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.pow
 
 class OrbitalCameraInputManager(
     canvas: HTMLCanvasElement,
@@ -57,6 +58,11 @@ class OrbitalCameraInputManager(
 
         // Ensure OrbitControls is instantiated after the pointerdown event listener is attached.
         _controls = OrbitControls(camera, canvas)
+
+        // three.js r186 OrbitControls scales wheel and middle-drag zoom by the event's delta, so a
+        // mouse wheel notch on a high-DPI screen (200 px instead of 100) zooms twice as far. Zoom
+        // one fixed step per event, like three.js r128 did.
+        _controls.asDynamic()._getZoomScale = { _: Double -> 0.95.pow(_controls.zoomSpeed) }
 
         _controls.mouseButtons = obj {
             LEFT = MOUSE.PAN
