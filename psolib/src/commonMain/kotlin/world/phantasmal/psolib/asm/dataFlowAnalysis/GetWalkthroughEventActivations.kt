@@ -385,6 +385,48 @@ fun analyzeWalkthroughScript(
     )
 }
 
+/** Floor transitions found anywhere in a quest script, reachable or not. */
+data class ScriptFloorTransitions(
+    val goFloorTargets: Set<Int>,
+    /** Raw `set_mainwarp` operands. */
+    val mainWarpAreas: Set<Int>,
+)
+
+/**
+ * Collects every `go_floor` that may move [clientId] and every `set_mainwarp` in the script, with
+ * statically resolvable operands, except the [excluded] instructions (those a known script entry
+ * already reaches, whose floors are known).
+ *
+ * Quests open floors from threads started in ways the reachability analysis cannot follow (e.g.
+ * threads waiting on a flag set by a DAT event); this is the fallback for floors it cannot place.
+ */
+fun scanScriptFloorTransitions(
+    bytecodeIr: BytecodeIr,
+    clientId: Int,
+    controlFlowGraph: ControlFlowGraph = ControlFlowGraph.create(bytecodeIr),
+    excluded: Set<Instruction> = emptySet(),
+): ScriptFloorTransitions {
+    val goFloorTargets = linkedSetOf<Int>()
+    val mainWarpAreas = linkedSetOf<Int>()
+    for (segment in bytecodeIr.instructionSegments()) {
+        for (instruction in segment.instructions) {
+            if (instruction in excluded) continue
+            when (instruction.opcode.mnemonic) {
+                "go_floor" -> {
+                    val players = resolveRegister(controlFlowGraph, instruction, 0, emptyMap())
+                    if (mayTargetClient(players, clientId)) {
+                        goFloorTargets += resolveRegister(controlFlowGraph, instruction, 1, emptyMap())
+                    }
+                }
+                "set_mainwarp" -> {
+                    mainWarpAreas += resolveInstructionInts(controlFlowGraph, instruction, 0, emptyMap())
+                }
+            }
+        }
+    }
+    return ScriptFloorTransitions(goFloorTargets, mainWarpAreas)
+}
+
 private const val MAX_CALL_DEPTH = 64
 private const val STATE_BUDGET = 20_000
 

@@ -12,6 +12,7 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptSpatialInteraction
 import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughScriptAnalysis
 import world.phantasmal.psolib.asm.dataFlowAnalysis.analyzeWalkthroughScript
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scanScriptFloorTransitions
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.activeScriptLabelOrNull
 import world.phantasmal.psolib.fileFormats.quest.walkthrough.FloorTransition
@@ -149,6 +150,12 @@ internal suspend fun planWalkthroughRoute(
         isChallengeMode = quest.events.value.any { it.cmWaveSettings.value != null } ||
             usesChallengeModeScript(quest.bytecodeIr),
         clientId,
+        scanScriptFloorTransitions(
+            quest.bytecodeIr,
+            clientId,
+            controlFlowGraph,
+            excluded = reachableInstructionFloors.mapTo(mutableSetOf()) { it.instruction },
+        ),
     )
     diagnostics += journey.diagnostics
     for (floorId in visibleFloorIds.sorted()) {

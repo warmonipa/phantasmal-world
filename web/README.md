@@ -204,10 +204,16 @@ and shows no route; this is how quests split players 2/2 or 1/1/1/1. Floors conn
 exit objects (teleporters, Quest Warps, boss teleporters), the Pioneer 2 Ragol warp enabled by a
 reachable `set_mainwarp` (episode-absolute area operand mapped to a logical floor), and
 client-scoped `go_floor`. The journey starts on Pioneer 2 when it has an outgoing warp, otherwise
-on the lowest Ragol floor; it visits the nearest unvisited floor by hops, returns to Pioneer 2 when
-Pioneer 2 is part of the client's data, and appends unreachable floors as "order unknown" visits.
+on the lowest Ragol floor; it visits the nearest unvisited floor by hops and returns to Pioneer 2
+when Pioneer 2 is part of the client's data. A Ragol warp to the end of a chain lands on the chain's
+head only when that head is the target's single otherwise-unreachable predecessor. Floors still
+unreached are then tried with `go_floor`/`set_mainwarp` found anywhere else in the script, such as
+threads that wait for an event before opening a floor (diagnostic: "entered through a script the
+analysis cannot trace"; their position relative to other floors is a guess). Floors no transition
+enters are appended as "order unknown" visits.
 A client arrives on a floor at its Player Set with Return flag 0 going forward and Return flag 1
-coming back from a later floor (Quest Warps name their Player Set); Return flags use the low 16
+coming back from a later floor (Quest Warps name their Player Set; quests that disable telepipes
+often omit Return flag 1 sets, in which case the other flag is used); Return flags use the low 16
 bits and floors that number slots 1–4 map client c to slot c + 1. Challenge quests visit their
 floors in ascending order.
 

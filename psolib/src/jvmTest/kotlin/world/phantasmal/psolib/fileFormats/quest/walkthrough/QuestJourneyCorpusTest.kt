@@ -3,6 +3,7 @@ package world.phantasmal.psolib.fileFormats.quest.walkthrough
 import world.phantasmal.core.Success
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ControlFlowGraph
 import world.phantasmal.psolib.asm.dataFlowAnalysis.analyzeWalkthroughScript
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scanScriptFloorTransitions
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.quest.Quest
@@ -47,10 +48,7 @@ class QuestJourneyCorpusTest {
         // 13 visits in 7 quests arrive on floors whose data lacks a Player Set with the expected
         // Return flag (e.g. no return set on the arrival floor); the other flag is used instead.
         assertTrue(arrivalFallbacks.size <= 13, "Arrival fallbacks: $arrivalFallbacks")
-        assertTrue(
-            unknownOrderQuests.all { it in EXPECTED_UNKNOWN_ORDER },
-            "Quests with unknown floor order: $unknownOrderQuests",
-        )
+        assertEquals(EXPECTED_UNKNOWN_ORDER, unknownOrderQuests.toSet())
     }
 
     @Test
@@ -113,18 +111,21 @@ class QuestJourneyCorpusTest {
             analyses,
             quest.events.any { it.isChallengeMode } || usesChallengeModeScript(quest.bytecodeIr),
             clientId,
+            scanScriptFloorTransitions(
+                quest.bytecodeIr, clientId, cfg,
+                excluded = analyses.flatMapTo(mutableSetOf()) { it.reachableInstructionFloors.keys },
+            ),
         )
     }
 
     private companion object {
-        /** Quests where no statically resolvable transition enters some floor of the client. */
+        /**
+         * Quests where no floor transition in the script, traced or not, enters some floor of the
+         * client (e.g. `4-1 the lost ruins` enters the Ruins through the boss-unlocked Ragol warp).
+         */
         val EXPECTED_UNKNOWN_ORDER = setOf(
-            "01 seat of the heart",
             "4-1 the lost ruins",
-            "7-5 isle of mutants",
             "respective tomorrow",
-            "seat of the heart",
-            "seat of the heart (online version) (gc port, fixed)",
             "sugoroku (unofficial)",
             "the beak's cafe ver.2",
             "wilderending",

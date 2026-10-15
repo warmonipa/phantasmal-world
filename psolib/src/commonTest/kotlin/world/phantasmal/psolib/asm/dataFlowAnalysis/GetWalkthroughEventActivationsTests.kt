@@ -668,6 +668,47 @@ class GetWalkthroughEventActivationsTests {
     }
 
     @Test
+    fun scans_floor_transitions_anywhere_in_the_script() {
+        // Label 50 is never started from label 0, so the reachability analysis misses it.
+        val bytecode = bytecode("""
+            0:
+                ret
+            50:
+                leti r60, 8
+                go_floor r250, r60
+                set_mainwarp 9
+                leti r10, 2
+                leti r11, 3
+                go_floor r10, r11
+                ret
+        """)
+
+        val transitions = scanScriptFloorTransitions(bytecode, clientId = 1)
+
+        assertEquals(setOf(8), transitions.goFloorTargets)
+        assertEquals(setOf(9), transitions.mainWarpAreas)
+    }
+
+    @Test
+    fun scan_skips_transitions_the_reachability_analysis_already_placed() {
+        val bytecode = bytecode("""
+            0:
+                leti r60, 8
+                go_floor r250, r60
+                ret
+            50:
+                set_mainwarp 9
+                ret
+        """)
+        val reached = analyzeWalkthroughScript(bytecode, 0, 3, 0).reachableInstructionFloors.keys
+
+        val transitions = scanScriptFloorTransitions(bytecode, clientId = 0, excluded = reached)
+
+        assertEquals(emptySet(), transitions.goFloorTargets)
+        assertEquals(setOf(9), transitions.mainWarpAreas)
+    }
+
+    @Test
     fun independent_constant_branches_do_not_multiply_analysis_states() {
         // Each block optionally sets its own register. Path-sensitive register tracking without
         // merging would explore 2^24 register combinations.

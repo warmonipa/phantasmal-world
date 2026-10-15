@@ -2,6 +2,7 @@ package world.phantasmal.psolib.fileFormats.quest.walkthrough
 
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptFloorTransitions
 import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughGoFloor
 import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughScriptAnalysis
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
@@ -197,6 +198,53 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun script_transitions_outside_known_entries_place_otherwise_unreached_floors() {
+        // A go_floor of unknown origin can run on whatever floor the client is on.
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(0, 0, 1), playerSet(1, 0, 0), playerSet(3, 0, 0),
+            playerSet(4, 0, 0), teleporter(1, 0), teleporter(3, 0), teleporter(4, 0),
+        )
+
+        val journey = plan(
+            objects,
+            mainWarpAreas = setOf(1),
+            fallback = ScriptFloorTransitions(goFloorTargets = setOf(4), mainWarpAreas = setOf(3)),
+        )
+
+        assertEquals(listOf(0, 1, 4, 0, 3, 0), journey.visits.map { it.floorId })
+        assertTrue(journey.visits.all { it.orderKnown })
+        assertTrue("Floor 3: entered through a script the analysis cannot trace." in journey.diagnostics)
+        assertTrue("Floor 4: entered through a script the analysis cannot trace." in journey.diagnostics)
+    }
+
+    @Test
+    fun fallback_transitions_are_not_used_when_floors_are_reachable() {
+        val objects = listOf(playerSet(1, 0, 0), playerSet(2, 0, 0), teleporter(1, 2))
+
+        val journey = plan(
+            objects,
+            fallback = ScriptFloorTransitions(goFloorTargets = setOf(2), mainWarpAreas = emptySet()),
+        )
+
+        assertEquals(FloorTransition.Exit(listOf(objects[2]), 2), journey.visits[0].departure)
+        assertTrue(journey.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun main_warp_to_a_hub_with_several_predecessors_lands_on_the_hub() {
+        // Floors 6 and 7 both lead back to hub 5 and to each other (opened later by the script).
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(5, 0, 0), playerSet(6, 0, 0), playerSet(7, 0, 0),
+            teleporter(5, 0), teleporter(6, 5), teleporter(6, 7), teleporter(7, 5), teleporter(7, 6),
+        )
+
+        val journey = plan(objects, mainWarpAreas = setOf(5))
+
+        assertEquals(mapOf(5 to 5), journey.mainWarpLandings)
+        assertEquals(listOf(0, 5), journey.visits.take(2).map { it.floorId })
+    }
+
+    @Test
     fun unreachable_floor_is_appended_with_unknown_order() {
         val objects = listOf(playerSet(1, 0, 0), playerSet(3, 0, 0))
 
@@ -239,6 +287,7 @@ class QuestJourneyTests {
         goFloors: Set<WalkthroughGoFloor> = emptySet(),
         floorMappings: List<FloorMapping> = emptyList(),
         isChallengeMode: Boolean = false,
+        fallback: ScriptFloorTransitions? = null,
     ): QuestJourney = planQuestJourney(
         episode,
         objects,
@@ -252,6 +301,7 @@ class QuestJourneyTests {
         ),
         isChallengeMode,
         clientId,
+        fallback,
     )
 
     private fun playerSet(floorId: Int, slot: Int, returnFlag: Int) =

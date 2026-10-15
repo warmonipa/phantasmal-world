@@ -3,6 +3,7 @@ package world.phantasmal.psolib.fileFormats.quest.walkthrough
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptFloorTransitions
 import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughScriptAnalysis
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
@@ -102,6 +103,8 @@ fun usesChallengeModeScript(bytecodeIr: BytecodeIr): Boolean =
  * Plans the floor visits of [clientId].
  *
  * @param analyses script analyses of every script entry reachable for [clientId].
+ * @param fallback floor transitions anywhere in the script; used only for floors that the
+ * reachable transitions cannot place.
  */
 fun planQuestJourney(
     episode: Episode,
@@ -110,6 +113,7 @@ fun planQuestJourney(
     analyses: List<WalkthroughScriptAnalysis>,
     isChallengeMode: Boolean,
     clientId: Int,
+    fallback: ScriptFloorTransitions? = null,
 ): QuestJourney {
     val playerSets = playerSetsForClient(objects, clientId)
     if (playerSets.isEmpty()) {
@@ -125,7 +129,9 @@ fun planQuestJourney(
     fun arrival(floorId: Int, returnFlag: Int): QuestObject? {
         playerSet(floorId, returnFlag)?.let { return it }
         if (floorId !in requiredFloors) return null
-        diagnostics += "Floor $floorId: no Player Set with Return flag $returnFlag for client $clientId."
+        // Quests that disable telepipes (p_disablewarp) often omit return Player Sets.
+        diagnostics += "Floor $floorId: no Player Set with Return flag $returnFlag for client " +
+            "$clientId; using the other Return flag."
         return playerSet(floorId, if (returnFlag == 0) 1 else 0)
             ?: playerSets.first { it.floorId == floorId }
     }
@@ -191,12 +197,13 @@ fun planQuestJourney(
         var head = target
         val seen = mutableSetOf(target)
         while (true) {
+            // Only a single unreachable predecessor forms a chain; several (a hub that other
+            // floors return to) mean the warp lands on the hub itself.
             val predecessor = edges.entries
                 .filter { (from, to) -> head in to && from != 0 && from !in reachable }
                 .map { it.key }
-                .filter { it !in seen }
-                .minOrNull() ?: break
-            seen += predecessor
+                .singleOrNull() ?: break
+            if (!seen.add(predecessor)) break
             head = predecessor
         }
         mainWarpLandings[operand] = head
@@ -238,15 +245,58 @@ fun planQuestJourney(
             visited += to
         }
     }
+    // Floors entered through fallback transitions, i.e. scripts the analysis cannot trace.
+    val inferredFloors = mutableSetOf<Int>()
+    fun addFallbackEdges(): Boolean {
+        if (fallback == null) return false
+        val unvisited = requiredFloors.filter { it != 0 && it !in visited }
+        var added = false
+        for (target in fallback.goFloorTargets) {
+            if (target !in unvisited) continue
+            // The script's floor is unknown: it can run on any floor the client is on.
+            for (from in requiredFloors + 0) {
+                if (from == target) continue
+                edges.getOrPut(from, ::mutableMapOf).getOrPut(target) {
+                    added = true
+                    FloorTransition.Script(target)
+                }
+            }
+            inferredFloors += target
+        }
+        for (operand in fallback.mainWarpAreas) {
+            val landing = mainWarpFloor(operand, floorMappings, requiredFloors) ?: continue
+            if (landing !in unvisited) continue
+            mainWarpLandings.getOrPut(operand) { landing }
+            edges.getOrPut(0, ::mutableMapOf).getOrPut(landing) {
+                added = true
+                FloorTransition.MainWarp(landing)
+            }
+            inferredFloors += landing
+        }
+        return added
+    }
+
     var current = start
+    var fallbackAdded = false
     while (true) {
         val paths = shortestPaths(current)
         val next = requiredFloors
             .filter { it !in visited && it in paths }
             .minWithOrNull(compareBy({ paths.getValue(it).size }, { it }))
-            ?: break
+        if (next == null) {
+            if (!fallbackAdded) {
+                fallbackAdded = true
+                if (addFallbackEdges()) continue
+            }
+            break
+        }
         walk(paths.getValue(next))
         current = next
+    }
+    for (floorId in requiredFloors) {
+        if (floorId in inferredFloors && floorId in visited) {
+            diagnostics += "Floor $floorId: entered through a script the analysis cannot trace."
+        }
     }
     // The quest is reported at the Hunter's Guild counter on Pioneer 2, when Pioneer 2 is part of
     // this client's quest data.
