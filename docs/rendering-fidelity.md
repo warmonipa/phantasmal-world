@@ -76,10 +76,11 @@ isolated texels of high-frequency textures. What keeps it that way:
 | Color | `ColorManagement.enabled = false` (in `main()`, before any `Color` exists) and `outputColorSpace = LinearSRGBColorSpace`; textures keep `NoColorSpace`. Colors, textures and vertex colors pass through unconverted, as in r128. Moving to an sRGB workflow is a separate decision. |
 | Lights | r155+ uses physically based light units; every light intensity is multiplied by `LEGACY_LIGHT_SCALE` (π). |
 | Lambert shading | Per fragment since r144 (smoother); accepted. |
-| Blending | Blended model strips set `forceSinglePass`, because r149+ draws double-sided transparent materials in two passes. |
+| Blending | Every transparent double-sided material (blended model strips, the area section fallback material, quest editor overlays) sets `forceSinglePass`, because r149+ draws such materials in two passes. |
 | R5G6B5 textures | Decoded to RGBA8: `UnsignedShort565Type` was removed in r137. |
-| Instanced meshes | r151+ culls and raycasts against cached instance bounds; `InstancedMesh.instancesChanged()` drops them whenever instances change, otherwise entities vanish or can't be clicked. |
-| Wheel zoom | r186 `OrbitControls` scales zoom by the wheel delta (twice as fast on high-DPI screens); `OrbitalCameraInputManager` restores one step per event. |
+| Instanced meshes | r151+ culls and raycasts against cached instance bounds; `InstancedMesh.instancesChanged()` drops them whenever instances change, otherwise entities vanish or can't be clicked. `Box3.setFromObject` also prefers those all-instance bounds, so the selection and hover boxes are sized from the entity geometry alone. |
+| Wheel zoom | r186 `OrbitControls` scales zoom by the wheel delta (twice as fast on high-DPI screens) and ignores the wheel during a drag; `OrbitalCameraInputManager` restores one step per event and zooming while rotating. |
+| Anisotropic filtering | r186 applies it only with trilinear (mipmapped) minification; the only affected textures are DXT textures whose stored mipmap chain is incomplete, which fall back to `LinearFilter`. Accepted. |
 | Module resolution | `require("three")` resolves to `three.module.js` (webpack alias): the deprecated CommonJS entry calls `process.emitWarning`. Addon `@JsModule` paths end in `.js`. |
 
 Known console warning: `THREE.Clock` is deprecated (r183) and still used by the viewer's animation
