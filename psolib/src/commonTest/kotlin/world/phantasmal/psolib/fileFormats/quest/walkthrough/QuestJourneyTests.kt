@@ -101,6 +101,19 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun one_based_slot_ids_on_a_floor_are_shifted_to_client_ids() {
+        val oneBased = (1..4).map { playerSet(2, slot = it, returnFlag = 0) }
+        val objects = listOf(playerSet(1, 0, 0), playerSet(1, 3, 0), teleporter(1, 2)) + oneBased
+
+        assertSame(oneBased[0], plan(objects, clientId = 0).visits[1].arrival)
+        assertSame(oneBased[3], plan(objects, clientId = 3).visits[1].arrival)
+        assertEquals(
+            listOf(oneBased[3]),
+            playerSetsForClient(objects, 3).filter { it.floorId == 2 },
+        )
+    }
+
+    @Test
     fun challenge_quests_visit_floors_in_ascending_order_without_pioneer_2() {
         val objects = listOf(
             playerSet(0, 0, 0), playerSet(5, 0, 0), playerSet(3, 0, 0), playerSet(4, 0, 0),
@@ -161,6 +174,19 @@ class QuestJourneyTests {
 
         assertEquals(listOf(0, 1, 2, 0), journey.visits.map { it.floorId })
         assertEquals(mapOf(2 to 1), journey.mainWarpLandings)
+    }
+
+    @Test
+    fun main_warp_does_not_move_to_a_predecessor_reachable_from_its_landing() {
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(1, 0, 0), playerSet(2, 0, 0),
+            teleporter(1, 2), teleporter(2, 1), teleporter(2, 0),
+        )
+
+        val journey = plan(objects, mainWarpAreas = setOf(1))
+
+        assertEquals(listOf(0, 1, 2, 0), journey.visits.map { it.floorId })
+        assertEquals(mapOf(1 to 1), journey.mainWarpLandings)
     }
 
     @Test

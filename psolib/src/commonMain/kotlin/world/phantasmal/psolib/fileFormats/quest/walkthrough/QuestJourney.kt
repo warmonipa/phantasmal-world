@@ -50,6 +50,23 @@ fun QuestObject.playerSetSlot(): Int = data.getFloat(40).roundToInt()
 /** Only the low 16 bits are meaningful: some quests store 65536 for a forward Player Set. */
 fun QuestObject.playerSetReturnFlag(): Int = data.getInt(52) and 0xFFFF
 
+/**
+ * The Player Sets of [clientId]. Most quests number slots 0–3, but some floors number them 1–4;
+ * when a floor's Player Sets with one Return flag use exactly slots 1–4, client c uses slot c + 1.
+ */
+fun playerSetsForClient(objects: List<QuestObject>, clientId: Int): List<QuestObject> =
+    objects
+        .filter { it.type == ObjectType.PlayerSet }
+        .groupBy { it.floorId to it.playerSetReturnFlag() }
+        .values
+        .flatMap { group ->
+            val slots = group.mapTo(mutableSetOf()) { it.playerSetSlot() }
+            val slot = if (slots == ONE_BASED_SLOTS) clientId + 1 else clientId
+            group.filter { it.playerSetSlot() == slot }
+        }
+
+private val ONE_BASED_SLOTS = setOf(1, 2, 3, 4)
+
 /** The Player set ID a Quest Warp lands on (`float@40`). */
 fun QuestObject.questWarpPlayerSetId(): Int = data.getFloat(40).roundToInt()
 
@@ -94,15 +111,13 @@ fun planQuestJourney(
     isChallengeMode: Boolean,
     clientId: Int,
 ): QuestJourney {
-    val playerSets = objects.filter {
-        it.type == ObjectType.PlayerSet && it.playerSetSlot() == clientId
-    }
+    val playerSets = playerSetsForClient(objects, clientId)
     if (playerSets.isEmpty()) {
         return QuestJourney(emptyList(), listOf("No Player Set for client $clientId."), emptyMap())
     }
     val diagnostics = mutableListOf<String>()
     // Floors without a Player Set for this client are floors the client does not visit.
-    val requiredFloors = playerSets.mapTo(sortedSetOf()) { it.floorId }
+    val requiredFloors: List<Int> = playerSets.map { it.floorId }.distinct().sorted()
 
     fun playerSet(floorId: Int, returnFlag: Int): QuestObject? =
         playerSets.firstOrNull { it.floorId == floorId && it.playerSetReturnFlag() == returnFlag }
@@ -154,7 +169,7 @@ fun planQuestJourney(
     }
 
     val mainWarpLandings = mutableMapOf<Int, Int>()
-    for (operand in analyses.flatMapTo(sortedSetOf()) { it.mainWarpAreas }) {
+    for (operand in analyses.flatMap { it.mainWarpAreas }.distinct().sorted()) {
         val floorId = mainWarpFloor(operand, floorMappings, requiredFloors) ?: continue
         mainWarpLandings[operand] = floorId
     }
@@ -169,14 +184,15 @@ fun planQuestJourney(
         return seen
     }
     // A Ragol warp to the second floor of a teleporter chain lands on the chain's head when the
-    // head cannot be reached otherwise (e.g. VR Temple Alpha before Beta).
-    val reachableWithoutWarp = reachableFrom(0, edges)
+    // head cannot be reached otherwise, not even from the warp's own landing floor (e.g. VR
+    // Temple Alpha before Beta).
     for ((operand, target) in mainWarpLandings.toMap()) {
+        val reachable = reachableFrom(0, edges) + reachableFrom(target, edges)
         var head = target
         val seen = mutableSetOf(target)
         while (true) {
             val predecessor = edges.entries
-                .filter { (from, to) -> head in to && from != 0 && from !in reachableWithoutWarp }
+                .filter { (from, to) -> head in to && from != 0 && from !in reachable }
                 .map { it.key }
                 .filter { it !in seen }
                 .minOrNull() ?: break
@@ -185,7 +201,7 @@ fun planQuestJourney(
         }
         mainWarpLandings[operand] = head
     }
-    for (landing in mainWarpLandings.values.toSortedSet()) {
+    for (landing in mainWarpLandings.values.distinct().sorted()) {
         edges.getOrPut(0, ::mutableMapOf).getOrPut(landing) { FloorTransition.MainWarp(landing) }
     }
 
@@ -225,8 +241,8 @@ fun planQuestJourney(
     var current = start
     while (true) {
         val paths = shortestPaths(current)
-        val next = (requiredFloors - visited)
-            .filter { it in paths }
+        val next = requiredFloors
+            .filter { it !in visited && it in paths }
             .minWithOrNull(compareBy({ paths.getValue(it).size }, { it }))
             ?: break
         walk(paths.getValue(next))
@@ -252,7 +268,7 @@ fun planQuestJourney(
         FloorVisit(floorId, arrival, transitions.getOrNull(index))
     }.toMutableList()
 
-    for (floorId in requiredFloors - visited - setOf(0)) {
+    for (floorId in requiredFloors.filter { it != 0 && it !in visited }) {
         diagnostics += "Floor $floorId: order unknown for client $clientId."
         visits += FloorVisit(floorId, arrival(floorId, 0), null, orderKnown = false)
     }
@@ -267,7 +283,7 @@ fun planQuestJourney(
 private fun mainWarpFloor(
     operand: Int,
     floorMappings: List<FloorMapping>,
-    requiredFloors: Set<Int>,
+    requiredFloors: List<Int>,
 ): Int? {
     val area = when {
         operand >= 36 -> operand - 36
