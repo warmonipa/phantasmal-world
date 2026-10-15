@@ -12,6 +12,7 @@ import world.phantasmal.web.externals.three.InstancedMesh
 import world.phantasmal.web.externals.three.MeshBasicMaterial
 import world.phantasmal.web.externals.three.PlaneGeometry
 import world.phantasmal.web.externals.three.PerspectiveCamera
+import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityMeshLoader
 import world.phantasmal.web.test.WebTestSuite
@@ -134,6 +135,46 @@ class EntityMeshManagerTests : WebTestSuite {
         components.questEditorStore.setSelectedEntity(null)
 
         assertEquals(1, selectionMarkers(context).count { it.visible })
+    }
+
+    @Test
+    fun selection_box_encloses_one_instance_of_a_shared_mesh() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val loader = GatedMeshLoader()
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                loader,
+            )
+        )
+        val near = createQuestObjectModel(ObjectType.Probe)
+        val far = createQuestObjectModel(ObjectType.Probe).apply {
+            setPosition(Vector3(100.0, 0.0, 50.0))
+        }
+
+        manager.add(near)
+        manager.add(far)
+        awaitCondition { loader.meshFor(0)?.count == 2 }
+        components.questEditorStore.setSelectedEntity(far)
+        awaitVisibleSelectionMarker(context)
+
+        // The box is built in the entity's local space and then follows the instance, so it must
+        // enclose the model's geometry only, not every instance of the shared InstancedMesh.
+        val geometry = selectionMarkers(context).first { it.visible }.asDynamic().geometry
+        geometry.computeBoundingBox()
+        val box = geometry.boundingBox
+
+        assertEquals(-0.5, box.min.x.unsafeCast<Double>(), absoluteTolerance = 1e-6)
+        assertEquals(0.5, box.max.x.unsafeCast<Double>(), absoluteTolerance = 1e-6)
+        assertEquals(-0.5, box.min.y.unsafeCast<Double>(), absoluteTolerance = 1e-6)
+        assertEquals(0.5, box.max.y.unsafeCast<Double>(), absoluteTolerance = 1e-6)
     }
 
     @Test

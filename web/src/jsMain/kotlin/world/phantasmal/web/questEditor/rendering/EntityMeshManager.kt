@@ -290,7 +290,10 @@ class EntityMeshManager(
         oldInstance?.follower = null
 
         if (newInstance != null) {
-            box.setFromObject(newInstance.mesh)
+            // Size the box from the model's geometry; the follower then applies the instance's
+            // transform. three.js r151+ gives InstancedMesh its own bounding box enclosing every
+            // instance, which Box3.setFromObject prefers over the geometry's.
+            box.setFromObject(Mesh(newInstance.mesh.geometry))
             newInstance.follower = box
             box.visible = true
         }
