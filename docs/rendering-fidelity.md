@@ -69,7 +69,7 @@ as is back-face culling for NJ models.
 
 The renderer runs on three.js r186 (`0.186.1`, upgraded from r128). The upgrade keeps r128's
 output; screenshots of areas, models and quest editor overlays before and after differ only in
-isolated texels of high-frequency textures. What keeps it that way:
+isolated texels. What keeps it that way:
 
 | Item | Notes |
 | --- | --- |
@@ -81,6 +81,8 @@ isolated texels of high-frequency textures. What keeps it that way:
 | Instanced meshes | r151+ culls and raycasts against cached instance bounds; `InstancedMesh.instancesChanged()` drops them whenever instances change, otherwise entities vanish or can't be clicked. `Box3.setFromObject` also prefers those all-instance bounds, so the selection and hover boxes are sized from the entity geometry alone. |
 | Wheel zoom | r186 `OrbitControls` scales zoom by the wheel delta (twice as fast on high-DPI screens) and ignores the wheel during a drag; `OrbitalCameraInputManager` restores one step per event and zooming while rotating. |
 | Anisotropic filtering | r186 applies it only with trilinear (mipmapped) minification; the only affected textures are DXT textures whose stored mipmap chain is incomplete, which fall back to `LinearFilter`. Accepted. |
+| Opaque alpha | r186 writes alpha 1 for opaque (non-transparent, normal-blended) materials. r128 wrote the texel/vertex alpha, so on the transparent canvas the cut-out fringes of alpha-tested foliage let the page background show through slightly, and entity icons kept partly transparent fringes. Accepted: r186 is correct and the difference is limited to isolated fringe texels. |
+| Canvas textures | Since r135 a texture's size can't change after its first upload; the symbol chat billboard creates a new texture when its canvas is resized. |
 | Module resolution | `require("three")` resolves to `three.module.js` (webpack alias): the deprecated CommonJS entry calls `process.emitWarning`. Addon `@JsModule` paths end in `.js`. |
 
 Known console warning: `THREE.Clock` is deprecated (r183) and still used by the viewer's animation
