@@ -526,7 +526,7 @@ class GetWalkthroughEventActivationsTests {
     }
 
     @Test
-    fun skips_go_floor_and_relocations_of_other_or_unknown_clients() {
+    fun skips_go_floor_of_other_clients_and_relocations_with_unresolved_points() {
         val bytecode = bytecode("""
             0:
                 leti r10, 2
@@ -541,6 +541,241 @@ class GetWalkthroughEventActivationsTests {
 
         assertEquals(emptySet(), analysis.goFloors)
         assertEquals(emptySet(), analysis.relocations)
+    }
+
+    @Test
+    fun go_floor_with_an_unknown_player_register_moves_the_executing_client() {
+        // r250 is set by get_slotnumber in another thread, so it is unknown here.
+        val bytecode = bytecode("""
+            0:
+                leti r60, 4
+                go_floor r250, r60
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 3, 2)
+
+        assertEquals(setOf(WalkthroughGoFloor(3, 4)), analysis.goFloors)
+    }
+
+    @Test
+    fun call_graphs_with_many_contexts_stay_bounded() {
+        // Every function calls the next one from two call sites: 2^22 distinct call stacks.
+        val bytecode = bytecode("""
+            0:
+                call 1000
+                setevt 8
+                ret
+            1000:
+                call 1001
+                call 1001
+                ret
+            1001:
+                call 1002
+                call 1002
+                ret
+            1002:
+                call 1003
+                call 1003
+                ret
+            1003:
+                call 1004
+                call 1004
+                ret
+            1004:
+                call 1005
+                call 1005
+                ret
+            1005:
+                call 1006
+                call 1006
+                ret
+            1006:
+                call 1007
+                call 1007
+                ret
+            1007:
+                call 1008
+                call 1008
+                ret
+            1008:
+                call 1009
+                call 1009
+                ret
+            1009:
+                call 1010
+                call 1010
+                ret
+            1010:
+                call 1011
+                call 1011
+                ret
+            1011:
+                call 1012
+                call 1012
+                ret
+            1012:
+                call 1013
+                call 1013
+                ret
+            1013:
+                call 1014
+                call 1014
+                ret
+            1014:
+                call 1015
+                call 1015
+                ret
+            1015:
+                call 1016
+                call 1016
+                ret
+            1016:
+                call 1017
+                call 1017
+                ret
+            1017:
+                call 1018
+                call 1018
+                ret
+            1018:
+                call 1019
+                call 1019
+                ret
+            1019:
+                call 1020
+                call 1020
+                ret
+            1020:
+                call 1021
+                call 1021
+                ret
+            1021:
+                call 1022
+                call 1022
+                ret
+            1022:
+                setevt 9
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 3, 0)
+
+        assertEquals(
+            setOf(WalkthroughEventActivation(3, 8), WalkthroughEventActivation(3, 9)),
+            analysis.eventActivations,
+        )
+    }
+
+    @Test
+    fun independent_constant_branches_do_not_multiply_analysis_states() {
+        // Each block optionally sets its own register. Path-sensitive register tracking without
+        // merging would explore 2^24 register combinations.
+        val bytecode = bytecode("""
+            0:
+            100:
+                jmpi_= r200, 0, 200
+                leti r10, 0
+            200:
+            101:
+                jmpi_= r200, 0, 201
+                leti r11, 1
+            201:
+            102:
+                jmpi_= r200, 0, 202
+                leti r12, 2
+            202:
+            103:
+                jmpi_= r200, 0, 203
+                leti r13, 3
+            203:
+            104:
+                jmpi_= r200, 0, 204
+                leti r14, 4
+            204:
+            105:
+                jmpi_= r200, 0, 205
+                leti r15, 5
+            205:
+            106:
+                jmpi_= r200, 0, 206
+                leti r16, 6
+            206:
+            107:
+                jmpi_= r200, 0, 207
+                leti r17, 7
+            207:
+            108:
+                jmpi_= r200, 0, 208
+                leti r18, 8
+            208:
+            109:
+                jmpi_= r200, 0, 209
+                leti r19, 9
+            209:
+            110:
+                jmpi_= r200, 0, 210
+                leti r20, 10
+            210:
+            111:
+                jmpi_= r200, 0, 211
+                leti r21, 11
+            211:
+            112:
+                jmpi_= r200, 0, 212
+                leti r22, 12
+            212:
+            113:
+                jmpi_= r200, 0, 213
+                leti r23, 13
+            213:
+            114:
+                jmpi_= r200, 0, 214
+                leti r24, 14
+            214:
+            115:
+                jmpi_= r200, 0, 215
+                leti r25, 15
+            215:
+            116:
+                jmpi_= r200, 0, 216
+                leti r26, 16
+            216:
+            117:
+                jmpi_= r200, 0, 217
+                leti r27, 17
+            217:
+            118:
+                jmpi_= r200, 0, 218
+                leti r28, 18
+            218:
+            119:
+                jmpi_= r200, 0, 219
+                leti r29, 19
+            219:
+            120:
+                jmpi_= r200, 0, 220
+                leti r30, 20
+            220:
+            121:
+                jmpi_= r200, 0, 221
+                leti r31, 21
+            221:
+            122:
+                jmpi_= r200, 0, 222
+                leti r32, 22
+            222:
+            123:
+                jmpi_= r200, 0, 223
+                leti r33, 23
+            223:
+                setevt 7
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 3, 0)
+
+        assertEquals(setOf(WalkthroughEventActivation(3, 7)), analysis.eventActivations)
     }
 
     private fun bytecode(assembly: String): BytecodeIr =

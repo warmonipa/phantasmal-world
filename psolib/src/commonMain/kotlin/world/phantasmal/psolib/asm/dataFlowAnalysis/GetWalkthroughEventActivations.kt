@@ -119,7 +119,15 @@ fun analyzeWalkthroughScript(
     val relocations = linkedSetOf<WalkthroughRelocation>()
     val reachableInstructionFloors = mutableMapOf<Instruction, MutableSet<Int>>()
     val queue = ArrayDeque<State>()
-    val visited = mutableSetOf<State>()
+    // Known register values are merged per state (constant propagation): a state is processed
+    // again only when the registers whose values agree across its predecessors shrink. Keeping
+    // every path's register snapshot separately multiplies states exponentially with independent
+    // branches.
+    val knownAtState = mutableMapOf<State, Map<Int, Int>>()
+    // Callee entries already explored per floor. Beyond STATE_BUDGET states, a callee explored in
+    // one call context is not explored again in another: call graphs where functions are called
+    // from several sites otherwise produce exponentially many call stacks.
+    val exploredCallees = mutableSetOf<Pair<BasicBlock, Int>>()
     queue.add(State(
         entry,
         entryFloorId,
@@ -132,12 +140,20 @@ fun analyzeWalkthroughScript(
     ))
 
     while (queue.isNotEmpty()) {
-        val state = queue.removeFirst()
-        if (!visited.add(state)) continue
+        val incoming = queue.removeFirst()
+        val state = incoming.copy(knownRegisters = emptyMap())
+        val previous = knownAtState[state]
+        val merged = if (previous == null) {
+            incoming.knownRegisters
+        } else {
+            previous.filter { (register, value) -> incoming.knownRegisters[register] == value }
+        }
+        if (previous != null && merged.size == previous.size) continue
+        knownAtState[state] = merged
 
         var clientRegs = state.clientIdRegisters
         var floorRegs = state.floorIdRegisters
-        var knownRegs = state.knownRegisters
+        var knownRegs = merged
         var floorHandlers = state.floorHandlers
         var callbackHandlers = state.callbackHandlers
         for (i in state.block.start until state.block.end) {
@@ -171,8 +187,7 @@ fun analyzeWalkthroughScript(
                     mainWarpAreas += resolveInstructionInts(cfg, instruction, 0, knownRegs)
                 }
                 "go_floor" -> {
-                    val players = resolveRegister(cfg, instruction, 0, knownRegs)
-                    if (players == setOf(clientId)) {
+                    if (mayTargetClient(resolveRegister(cfg, instruction, 0, knownRegs), clientId)) {
                         for (floor in resolveRegister(cfg, instruction, 1, knownRegs)) {
                             goFloors += WalkthroughGoFloor(state.floorId, floor)
                         }
@@ -186,7 +201,8 @@ fun analyzeWalkthroughScript(
                 }
                 "p_move", "p_move_v3" -> {
                     // Registers: destination x, y, z, angle, client ID.
-                    if (resolveRegister(cfg, instruction, 0, knownRegs, offset = 4) == setOf(clientId)) {
+                    val clients = resolveRegister(cfg, instruction, 0, knownRegs, offset = 4)
+                    if (mayTargetClient(clients, clientId)) {
                         relocationAt(cfg, instruction, 0, knownRegs, state.floorId)
                             ?.let { relocations += it }
                     }
@@ -316,7 +332,18 @@ fun analyzeWalkthroughScript(
                     } else {
                         state.returnStack + continuation
                     }
-                    for (callee in callees) {
+                    val overBudget = knownAtState.size > STATE_BUDGET
+                    val toExplore = callees.filter { callee ->
+                        exploredCallees.add(callee to state.floorId) || !overBudget
+                    }
+                    if (toExplore.size < callees.size && continuation != null) {
+                        // The skipped callee's effects were recorded in its first context.
+                        queue.add(State(
+                            continuation, state.floorId, clientRegs, floorRegs, knownRegs,
+                            state.returnStack, floorHandlers, callbackHandlers,
+                        ))
+                    }
+                    for (callee in toExplore) {
                         queue.add(State(
                             callee, state.floorId, clientRegs, floorRegs, knownRegs, returnStack,
                             floorHandlers, callbackHandlers,
@@ -359,6 +386,7 @@ fun analyzeWalkthroughScript(
 }
 
 private const val MAX_CALL_DEPTH = 64
+private const val STATE_BUDGET = 20_000
 
 private fun lifecycleEntries(
     cfg: ControlFlowGraph,
@@ -400,6 +428,13 @@ private fun resolveInstructionInts(
 }
 
 private const val MAX_STATIC_VALUE_ALTERNATIVES = 256L
+
+/**
+ * Scripts run locally, so a player operand that cannot be resolved (typically a slot number read
+ * by `get_slotnumber` in another thread) refers to the executing client.
+ */
+private fun mayTargetClient(players: Set<Int>, clientId: Int): Boolean =
+    players.isEmpty() || clientId in players
 
 /** Possible values of the register named by register-typed argument [argumentIndex] + [offset]. */
 private fun resolveRegister(
