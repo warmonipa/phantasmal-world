@@ -17,6 +17,20 @@ data class WalkthroughDoorUnlock(
     val doorId: Int,
 )
 
+/** A `go_floor` that sends the selected client from [sourceFloorId] to [targetFloorId]. */
+data class WalkthroughGoFloor(
+    val sourceFloorId: Int,
+    val targetFloorId: Int,
+)
+
+/** A `p_setpos`/`p_move` that moves the selected client to a point on [floorId]. */
+data class WalkthroughRelocation(
+    val floorId: Int,
+    val x: Int,
+    val y: Int,
+    val z: Int,
+)
+
 /** Client-specific script reachability used to build one walkthrough route. */
 data class WalkthroughScriptAnalysis(
     val eventActivations: Set<WalkthroughEventActivation>,
@@ -24,6 +38,10 @@ data class WalkthroughScriptAnalysis(
     val allDoorsUnlockedFloorIds: Set<Int>,
     val warpsEnabledFloorIds: Set<Int>,
     val reachableInstructionFloors: Map<Instruction, Set<Int>>,
+    /** Raw `set_mainwarp` operands (episode-absolute map areas). */
+    val mainWarpAreas: Set<Int> = emptySet(),
+    val goFloors: Set<WalkthroughGoFloor> = emptySet(),
+    val relocations: Set<WalkthroughRelocation> = emptySet(),
 )
 
 /**
@@ -96,6 +114,9 @@ fun analyzeWalkthroughScript(
     val doorUnlocks = linkedSetOf<WalkthroughDoorUnlock>()
     val allDoorsUnlockedFloorIds = linkedSetOf<Int>()
     val warpsEnabledFloorIds = linkedSetOf<Int>()
+    val mainWarpAreas = linkedSetOf<Int>()
+    val goFloors = linkedSetOf<WalkthroughGoFloor>()
+    val relocations = linkedSetOf<WalkthroughRelocation>()
     val reachableInstructionFloors = mutableMapOf<Instruction, MutableSet<Int>>()
     val queue = ArrayDeque<State>()
     val visited = mutableSetOf<State>()
@@ -146,6 +167,30 @@ fun analyzeWalkthroughScript(
                 }
                 "masterkey_off" -> allDoorsUnlockedFloorIds.add(state.floorId)
                 "warp_on" -> warpsEnabledFloorIds.add(state.floorId)
+                "set_mainwarp" -> {
+                    mainWarpAreas += resolveInstructionInts(cfg, instruction, 0, knownRegs)
+                }
+                "go_floor" -> {
+                    val players = resolveRegister(cfg, instruction, 0, knownRegs)
+                    if (players == setOf(clientId)) {
+                        for (floor in resolveRegister(cfg, instruction, 1, knownRegs)) {
+                            goFloors += WalkthroughGoFloor(state.floorId, floor)
+                        }
+                    }
+                }
+                "p_setpos" -> {
+                    if (resolveInstructionInts(cfg, instruction, 0, knownRegs) == setOf(clientId)) {
+                        relocationAt(cfg, instruction, 1, knownRegs, state.floorId)
+                            ?.let { relocations += it }
+                    }
+                }
+                "p_move", "p_move_v3" -> {
+                    // Registers: destination x, y, z, angle, client ID.
+                    if (resolveRegister(cfg, instruction, 0, knownRegs, offset = 4) == setOf(clientId)) {
+                        relocationAt(cfg, instruction, 0, knownRegs, state.floorId)
+                            ?.let { relocations += it }
+                    }
+                }
             }
             clientRegs = updateClientIdRegisters(instruction, clientRegs)
             floorRegs = updateFloorIdRegisters(instruction, floorRegs)
@@ -307,6 +352,9 @@ fun analyzeWalkthroughScript(
         allDoorsUnlockedFloorIds,
         warpsEnabledFloorIds,
         reachableInstructionFloors.mapValues { it.value.toSet() },
+        mainWarpAreas,
+        goFloors,
+        relocations,
     )
 }
 
@@ -352,6 +400,37 @@ private fun resolveInstructionInts(
 }
 
 private const val MAX_STATIC_VALUE_ALTERNATIVES = 256L
+
+/** Possible values of the register named by register-typed argument [argumentIndex] + [offset]. */
+private fun resolveRegister(
+    cfg: ControlFlowGraph,
+    instruction: Instruction,
+    argumentIndex: Int,
+    knownRegisters: Map<Int, Int>,
+    offset: Int = 0,
+): Set<Int> {
+    val base = (instruction.args.getOrNull(argumentIndex) as? IntArg)?.value ?: return emptySet()
+    val register = base + offset
+    knownRegisters[register]?.let { return setOf(it) }
+    val values = getRegisterValue(cfg, instruction, register)
+    if (values.size > MAX_STATIC_VALUE_ALTERNATIVES) return emptySet()
+    return values.toSet()
+}
+
+/** The point named by three consecutive coordinate registers, if each has one known value. */
+private fun relocationAt(
+    cfg: ControlFlowGraph,
+    instruction: Instruction,
+    argumentIndex: Int,
+    knownRegisters: Map<Int, Int>,
+    floorId: Int,
+): WalkthroughRelocation? {
+    val (x, y, z) = (0..2).map { offset ->
+        resolveRegister(cfg, instruction, argumentIndex, knownRegisters, offset).singleOrNull()
+            ?: return null
+    }
+    return WalkthroughRelocation(floorId, x, y, z)
+}
 
 private fun walkthroughSpecificSuccessors(
     block: BasicBlock,

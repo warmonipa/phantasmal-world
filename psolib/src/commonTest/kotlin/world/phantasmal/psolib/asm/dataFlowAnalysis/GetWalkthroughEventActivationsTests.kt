@@ -492,6 +492,57 @@ class GetWalkthroughEventActivationsTests {
         )
     }
 
+    @Test
+    fun records_main_warp_go_floor_and_relocations_for_the_selected_client() {
+        val bytecode = bytecode("""
+            0:
+                set_mainwarp 41
+                get_slotnumber r10
+                leti r11, 4
+                go_floor r10, r11
+                leti r60, 100
+                leti r61, 0
+                leti r62, -50
+                leti r63, 0
+                p_setpos 1, r60
+                p_setpos 2, r60
+                leti r70, 7
+                leti r71, 8
+                leti r72, 9
+                leti r73, 0
+                leti r74, 1
+                p_move_v3 r70
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 3, 1)
+
+        assertEquals(setOf(41), analysis.mainWarpAreas)
+        assertEquals(setOf(WalkthroughGoFloor(3, 4)), analysis.goFloors)
+        assertEquals(
+            setOf(WalkthroughRelocation(3, 100, 0, -50), WalkthroughRelocation(3, 7, 8, 9)),
+            analysis.relocations,
+        )
+    }
+
+    @Test
+    fun skips_go_floor_and_relocations_of_other_or_unknown_clients() {
+        val bytecode = bytecode("""
+            0:
+                leti r10, 2
+                leti r11, 4
+                go_floor r10, r11
+                p_setpos 0, r60
+                p_setpos 1, r60
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 3, 1)
+
+        assertEquals(emptySet(), analysis.goFloors)
+        assertEquals(emptySet(), analysis.relocations)
+    }
+
     private fun bytecode(assembly: String): BytecodeIr =
         BytecodeIr(toInstructions(assembly.trimIndent()))
 }
