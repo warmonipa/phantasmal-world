@@ -213,8 +213,15 @@ class MeshRenderer(
                         val bSphere = boundingSphere(obj3d)
                         val cameraDistFactor =
                             1.5 / tan(degToRad((context.camera as PerspectiveCamera).fov) / 2)
+                        // Some models must be seen from a particular side (e.g. into a pan);
+                        // their view axis is in model space and follows the presentation rotation.
+                        val viewDirection =
+                            modelViewAxis(viewerStore.currentModel.value)
+                                ?.clone()
+                                ?.transformDirection(mesh.matrixWorld)
+                                ?: CAMERA_POS
                         val cameraPos = bSphere.center.clone().add(
-                            CAMERA_POS * (bSphere.radius * cameraDistFactor)
+                            viewDirection * (bSphere.radius * cameraDistFactor)
                         )
                         inputManager.lookAt(cameraPos, bSphere.center)
                     }
@@ -558,6 +565,20 @@ class MeshRenderer(
                     27, 29, 37, 183, 190, 197, 202, 204, 205, 206, 220, 221, 222,
                     234, 239, 251, 254, 255, 256, 260, 261, 262, 267,
                 )
+
+        /**
+         * The model-space direction to view [model] from by default, when [CAMERA_POS] would only
+         * show its back. Akiko's Frying Pan opens towards +Y (its rim lies above its bottom) with
+         * the handle towards -Z, so it is seen into the pan, tilted towards the handle.
+         */
+        internal fun modelViewAxis(model: ViewerModel?): Vector3? =
+            if (model is ViewerModel.Item && model.index == FRYING_PAN_MODEL_INDEX) {
+                Vector3(.35, 3.0, -1.0).normalize()
+            } else {
+                null
+            }
+
+        private const val FRYING_PAN_MODEL_INDEX = 21
 
         internal fun presentationProfile(model: ViewerModel?): ItemPresentationProfile? =
             when {

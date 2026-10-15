@@ -29,7 +29,8 @@ as is back-face culling for NJ models.
 | NJ back-face culling | NJ strips without the double-side flag render `FrontSide`. |
 | DXT2 | Decoded like DXT3. Despite the name, PSO's DXT2 data is straight alpha: in 206 of 338 DXT2 textures, partially transparent texels have color channels above their alpha, which premultiplied data can't have. |
 | XJ environment mapping | XJ meshes with a texture but no UVs use `MeshMatcapMaterial`; enabled for multi-part XJ models in the viewer (e.g. items). |
-| Lighting of models without baked lighting | A model whose vertex colors are missing or all white (items: every vertex `ffffffff`; NPC and player NJ models: none) uses `MeshLambertMaterial`. The shared light rig is a hemisphere light (0.65) plus a key directional light (0.6) from the upper left; the Viewer rotates it with the camera. Unlit, the two sides of Akiko's Frying Pan (0x001600, which has both an inner and an outer surface) could not be told apart. |
+| Lighting of models without baked lighting | A model whose vertex colors are missing or all white (items: every vertex `ffffffff`; NPC and player NJ models: none) uses `MeshLambertMaterial`. The shared light rig is the usual model viewer setup: ambient (0.45) + key directional light (0.6) from the upper left + fill directional light (0.2) from the lower right; the Viewer rotates it with the camera. Unlit, the two sides of Akiko's Frying Pan (0x001600, which has both an inner and an outer surface) could not be told apart. |
+| Normal repair for lit models | Low-poly models share one vertex, and so one normal, between surfaces facing different ways. `MeshBuilder` gives a triangle corner whose normal points more than 60° away from its triangle the triangle's own normal (on a copy of the vertex); other normals stay as authored. Without it, Gouraud lighting turned such triangles nearly black, which read as holes (e.g. 14 triangles at the rim and handle joint of Akiko's Frying Pan). Models with baked lighting are unlit and untouched. |
 | Antialiasing and pixel ratio | MSAA and `devicePixelRatio` rendering. |
 | Skinning and NJM motions | Skinned meshes with motion tracks converted to three.js keyframe tracks; spline motions use smooth interpolation. |
 
@@ -55,7 +56,7 @@ as is back-face culling for NJ models.
 | Other XVR formats (A8R8G8B8, A4R4G4B4, P8, …) | Bundled area, NPC and object textures only use formats 2, 3, 6 and 7. |
 | NJ ambient, specular and `ignoreLight` | Only meaningful with a lighting model; textured surfaces are unlit. |
 | NJ double UVs and bump maps | Skipped by the parser; no visible use in an editor. |
-| Calibrated game lighting | Area lighting is baked; models use a simple hemisphere + key light rig for shape, not the game's light setup. |
+| Calibrated game lighting | Area lighting is baked; models use an ambient + key + fill rig for shape, not the game's light setup. |
 | Brightness calibration | Without in-game reference captures there is nothing to calibrate against. Revisit with screenshots. |
 
 ## Open
@@ -69,6 +70,6 @@ as is back-face culling for NJ models.
 - Upgrade three.js from r128 (2021-04) to r186 (2026-09). Check every breaking change between them
   against the migration guide before starting. Known impact areas: the removed material
   `skinning` parameter (`MeshBuilder`), color management/sRGB defaults (textures and vertex
-  colors), physically based light intensities (hemisphere light, Lambert materials), removed
+  colors), physically based light intensities (ambient and directional lights, Lambert materials), removed
   `encoding`/UMD builds, and the Kotlin externals in `web/.../externals/three`. Use before/after
   screenshots of areas and models as the regression check.

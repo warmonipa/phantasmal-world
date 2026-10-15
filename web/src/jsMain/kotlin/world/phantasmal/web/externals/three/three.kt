@@ -107,6 +107,7 @@ external class Vector3(
     fun applyNormalMatrix(m: Matrix3): Vector3
     fun applyMatrix4(m: Matrix4): Vector3
     fun applyQuaternion(q: Quaternion): Vector3
+    fun transformDirection(m: Matrix4): Vector3
 }
 
 external class Quaternion(
@@ -505,6 +506,11 @@ external class OrthographicCamera(
 }
 
 open external class Light : Object3D
+
+external class AmbientLight(
+    color: Int = definedExternally,
+    intensity: Double = definedExternally,
+) : Light
 
 external class DirectionalLight(
     color: Int = definedExternally,

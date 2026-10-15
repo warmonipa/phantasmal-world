@@ -175,6 +175,13 @@ class MeshBuilder(
         check(positions.size == normals.size)
         check(uvs.isEmpty() || positions.size == uvs.size)
 
+        // Area geometry carries baked lighting in its vertex colors; all-white colors bake none.
+        val bakedLighting = hasColors && colors.any { it != WHITE }
+
+        if (!bakedLighting) {
+            repairNormals()
+        }
+
         val positions = Float32Array(3 * positions.size)
         val normals = Float32Array(3 * normals.size)
         val uvs = if (uvs.isEmpty()) null else Float32Array(2 * uvs.size)
@@ -238,8 +245,6 @@ class MeshBuilder(
         var offset = 0
 
         val materials = mutableListOf<Material>()
-        // Area geometry carries baked lighting in its vertex colors; all-white colors bake none.
-        val bakedLighting = hasColors && colors.any { it != WHITE }
 
         val defaultMaterial = defaultMaterial ?: MeshLambertMaterial(obj {
             this.skinning = skinning
@@ -310,6 +315,65 @@ class MeshBuilder(
         return createMesh(geom, materials.toTypedArray(), bones.toTypedArray())
     }
 
+    /**
+     * Gives every triangle corner whose normal points more than 60° away from its triangle the
+     * triangle's own normal, on a copy of the vertex. Low-poly models share one vertex, and so one
+     * normal, between surfaces facing different ways (e.g. the inner and outer walls at the rim of
+     * Akiko's Frying Pan). Lit with the other surface's normal, such a triangle turns nearly black
+     * and reads as a hole. Well-formed normals are kept as authored.
+     */
+    private fun repairNormals() {
+        val copies = mutableMapOf<String, Int>()
+        val a = Vector3()
+        val b = Vector3()
+
+        for (group in groups) {
+            val indices = group.indices.asArray()
+
+            for (t in 0 until indices.size - 2 step 3) {
+                val p0 = positions[indices[t].toInt() and 0xFFFF]
+                a.subVectors(positions[indices[t + 1].toInt() and 0xFFFF], p0)
+                b.subVectors(positions[indices[t + 2].toInt() and 0xFFFF], p0)
+                val faceNormal = a.clone().cross(b)
+
+                // Degenerate triangles (strip joints) are never drawn.
+                if (faceNormal.length() < 1e-9) continue
+
+                faceNormal.normalize()
+
+                for (c in t..t + 2) {
+                    val index = indices[c].toInt() and 0xFFFF
+
+                    if (normals[index].dot(faceNormal) >= MIN_NORMAL_AGREEMENT) continue
+
+                    val key = "$index:${faceNormal.x.toFloat()}:${faceNormal.y.toFloat()}:${faceNormal.z.toFloat()}"
+                    val copy = copies.getOrPut(key) { copyVertex(index, faceNormal) }
+
+                    // Indices are 16-bit.
+                    if (copy > 0xFFFF) return
+
+                    indices[c] = copy.toShort()
+                }
+            }
+        }
+    }
+
+    private fun copyVertex(index: Int, normal: Vector3): Int {
+        positions.add(positions[index])
+        normals.add(normal)
+        if (uvs.isNotEmpty()) uvs.add(uvs[index])
+        colors.add(colors[index])
+
+        if (boneIndices.isNotEmpty()) {
+            for (i in 0..3) {
+                boneIndices.add(boneIndices[4 * index + i])
+                boneWeights.add(boneWeights[4 * index + i])
+            }
+        }
+
+        return positions.size - 1
+    }
+
     private fun MaterialParameters.applyGroup(group: Group) {
         side = if (group.doubleSide) DoubleSide else FrontSide
         vertexColors = hasColors
@@ -357,6 +421,11 @@ class MeshBuilder(
 
     companion object {
         private const val WHITE = -1 // 0xFFFFFFFF
+
+        /**
+         * cos(60°): minimum agreement between a vertex normal and its triangle's normal.
+         */
+        private const val MIN_NORMAL_AGREEMENT = 0.5
 
         const val NJ_BLEND_SRC_ALPHA = 4
         const val NJ_BLEND_INV_SRC_ALPHA = 5

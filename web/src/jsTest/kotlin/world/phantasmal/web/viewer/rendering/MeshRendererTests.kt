@@ -32,6 +32,17 @@ class MeshRendererTests : WebTestSuite {
     }
 
     @Test
+    fun frying_pan_is_viewed_from_its_opening() = test {
+        // Akiko's Frying Pan opens towards +Y in model space (rim above the bottom); the default
+        // camera direction only shows its outside.
+        val pan = weapon(0x001600)
+        val axis = assertNotNull(MeshRenderer.modelViewAxis(pan))
+        assertTrue(axis.y > .9, "view axis $axis")
+
+        assertNull(MeshRenderer.modelViewAxis(weapon(0x002A00)))
+    }
+
+    @Test
     fun explicitly_verified_named_weapons_use_their_overrides() = test {
         val yasminkovs = listOf(0x006A00, 0x006500, 0x006B00, 0x006C00)
         for ((index, itemTypeId) in yasminkovs.withIndex()) {

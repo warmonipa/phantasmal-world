@@ -99,6 +99,49 @@ class MeshBuilderTests {
     }
 
     @Test
+    fun lit_models_get_face_normals_where_vertex_normals_face_away() {
+        // Two triangles share vertices 0 and 1: a floor (normal +y) and a wall facing +z. The
+        // shared vertices carry the floor's normal, which lies in the wall's plane.
+        val builder = MeshBuilder()
+        val group = builder.getGroupIndex(null, alpha = false)
+        val up = Vector3(0.0, 1.0, 0.0)
+        builder.vertex(Vector3(0.0, 0.0, 0.0), up)
+        builder.vertex(Vector3(1.0, 0.0, 0.0), up)
+        builder.vertex(Vector3(0.0, 0.0, -1.0), up)
+        builder.vertex(Vector3(0.0, -1.0, 0.0), Vector3(0.0, 0.0, 1.0))
+        for (index in listOf(0, 1, 2, 0, 3, 1)) builder.index(group, index)
+
+        val geometry = builder.buildMesh().geometry.asDynamic()
+        val normals = geometry.attributes.normal.array
+        val index = geometry.index.array
+
+        // Floor corners keep their authored normal.
+        for (c in 0..2) {
+            assertEquals(1.0, (normals[3 * (index[c] as Int) + 1] as Number).toDouble(), 1e-6)
+        }
+        // Wall corners all face +z, on copies of the shared vertices.
+        for (c in 3..5) {
+            assertEquals(1.0, (normals[3 * (index[c] as Int) + 2] as Number).toDouble(), 1e-6)
+        }
+        assertEquals(6, geometry.attributes.position.count as Int)
+    }
+
+    @Test
+    fun baked_lighting_models_keep_their_normals() {
+        val builder = MeshBuilder()
+        val group = builder.getGroupIndex(null, alpha = false)
+        builder.vertex(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), color = 0xFF808080.toInt())
+        builder.vertex(Vector3(0.0, 0.0, 1.0), Vector3(0.0, 1.0, 0.0), color = 0xFF808080.toInt())
+        builder.vertex(Vector3(0.0, -1.0, 0.0), Vector3(0.0, 1.0, 0.0), color = 0xFF808080.toInt())
+        for (index in 0..2) builder.index(group, index)
+
+        val geometry = builder.buildMesh().geometry.asDynamic()
+
+        assertEquals(3, geometry.attributes.position.count as Int)
+        assertEquals(1.0, (geometry.attributes.normal.array[1] as Number).toDouble(), 1e-6)
+    }
+
+    @Test
     fun no_color_attribute_without_vertex_colors() {
         val (builder, _) = builderWithTexture()
         val group = builder.getGroupIndex(3, alpha = false)
