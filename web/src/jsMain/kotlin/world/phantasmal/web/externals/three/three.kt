@@ -506,6 +506,11 @@ external class OrthographicCamera(
 
 open external class Light : Object3D
 
+external class DirectionalLight(
+    color: Int = definedExternally,
+    intensity: Double = definedExternally,
+) : Light
+
 external class HemisphereLight(
     skyColor: Color = definedExternally,
     groundColor: Color = definedExternally,

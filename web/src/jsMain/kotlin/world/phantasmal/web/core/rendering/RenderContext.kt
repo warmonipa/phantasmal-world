@@ -11,10 +11,17 @@ open class RenderContext(
     private val light = HemisphereLight(
         skyColor = 0xffffff,
         groundColor = 0x505050,
-        intensity = 1.0
+        intensity = 0.65
     )
 
-    val lightHolder = Group().add(light)
+    // A key light from the upper left: models without baked lighting (items, characters) need a
+    // directional cue, otherwise concave and convex surfaces look the same. Renderers that rotate
+    // [lightHolder] with the camera keep it at the viewer's upper left.
+    private val keyLight = DirectionalLight(color = 0xffffff, intensity = 0.6).apply {
+        position.set(-1.0, 1.2, 1.5)
+    }
+
+    val lightHolder = Group().add(light, keyLight)
 
     var width: Int = 0
     var height: Int = 0

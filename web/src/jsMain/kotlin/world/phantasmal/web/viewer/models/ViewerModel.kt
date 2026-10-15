@@ -279,8 +279,6 @@ sealed class ViewerModel {
         private const val TOOL_MODEL_OFFSET = 362
         private const val OTHER_ITEM_MODEL_OFFSET = 368
 
-        // TODO: Investigate the material rendering issue on item type 0x001600
-        // (Akiko's Frying Pan, model/texture 21).
         private fun weaponCatalogItem(entry: ViewerWeaponCatalogEntry): Item {
             val itemTypeId = entry.itemTypeId.toString(16).padStart(6, '0').uppercase()
             val displayName =

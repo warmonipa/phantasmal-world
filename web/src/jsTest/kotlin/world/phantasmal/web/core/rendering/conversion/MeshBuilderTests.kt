@@ -67,6 +67,38 @@ class MeshBuilderTests {
     }
 
     @Test
+    fun models_without_baked_lighting_use_lit_materials() {
+        // Items and characters carry no (or only white) vertex colors: the game lights them.
+        for (color in listOf(null, -1)) {
+            val (builder, texture) = builderWithTexture()
+            val group = builder.getGroupIndex(3, alpha = false)
+            for (x in 0..2) {
+                builder.vertex(Vector3(x.toDouble(), 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector2(), color = color)
+                builder.index(group, x)
+            }
+
+            val material = builder.buildMesh().material.unsafeCast<Array<Material>>()[0]
+
+            assertTrue(material is MeshLambertMaterial, "vertex color $color")
+            assertSame(texture, material.asDynamic().map)
+        }
+    }
+
+    @Test
+    fun models_with_baked_lighting_stay_unlit() {
+        val (builder, _) = builderWithTexture()
+        val group = builder.getGroupIndex(3, alpha = false)
+        for (x in 0..2) {
+            builder.vertex(Vector3(x.toDouble(), 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector2(), color = 0xFF808080.toInt())
+            builder.index(group, x)
+        }
+
+        val material = builder.buildMesh().material.unsafeCast<Array<Material>>()[0]
+
+        assertTrue(material is MeshBasicMaterial)
+    }
+
+    @Test
     fun no_color_attribute_without_vertex_colors() {
         val (builder, _) = builderWithTexture()
         val group = builder.getGroupIndex(3, alpha = false)

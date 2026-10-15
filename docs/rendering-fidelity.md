@@ -4,7 +4,9 @@ Scope and decisions for how closely the 3D renderer reproduces PSO's look. Phant
 quest editor and model viewer, not a game client: anything that helps assets look correct is in
 scope, anything that only reproduces runtime presentation and gets in the way of editing is not.
 
-Textured surfaces are unlit (`MeshBasicMaterial`: texture × vertex color × material diffuse).
+Area geometry, whose vertex colors carry baked lighting, is unlit (`MeshBasicMaterial`: texture ×
+vertex color × material diffuse). Models without baked lighting (items, characters, enemies,
+objects) are lit (`MeshLambertMaterial`), as the game lights them.
 Area geometry and entities are XJ or NJ models converted by
 `web/.../core/rendering/conversion/NinjaGeometryConversion.kt` and `MeshBuilder.kt`; textures by
 `XvrTextureConversion.kt`; parsers live in `psolib/.../fileFormats/ninja`.
@@ -27,6 +29,7 @@ as is back-face culling for NJ models.
 | NJ back-face culling | NJ strips without the double-side flag render `FrontSide`. |
 | DXT2 | Decoded like DXT3. Despite the name, PSO's DXT2 data is straight alpha: in 206 of 338 DXT2 textures, partially transparent texels have color channels above their alpha, which premultiplied data can't have. |
 | XJ environment mapping | XJ meshes with a texture but no UVs use `MeshMatcapMaterial`; enabled for multi-part XJ models in the viewer (e.g. items). |
+| Lighting of models without baked lighting | A model whose vertex colors are missing or all white (items: every vertex `ffffffff`; NPC and player NJ models: none) uses `MeshLambertMaterial`. The shared light rig is a hemisphere light (0.65) plus a key directional light (0.6) from the upper left; the Viewer rotates it with the camera. Unlit, the two sides of Akiko's Frying Pan (0x001600, which has both an inner and an outer surface) could not be told apart. |
 | Antialiasing and pixel ratio | MSAA and `devicePixelRatio` rendering. |
 | Skinning and NJM motions | Skinned meshes with motion tracks converted to three.js keyframe tracks; spline motions use smooth interpolation. |
 
@@ -52,7 +55,7 @@ as is back-face culling for NJ models.
 | Other XVR formats (A8R8G8B8, A4R4G4B4, P8, …) | Bundled area, NPC and object textures only use formats 2, 3, 6 and 7. |
 | NJ ambient, specular and `ignoreLight` | Only meaningful with a lighting model; textured surfaces are unlit. |
 | NJ double UVs and bump maps | Skipped by the parser; no visible use in an editor. |
-| Real-time lighting model | Baked vertex colors already carry area lighting; a lighting model would need calibration against the game. |
+| Calibrated game lighting | Area lighting is baked; models use a simple hemisphere + key light rig for shape, not the game's light setup. |
 | Brightness calibration | Without in-game reference captures there is nothing to calibrate against. Revisit with screenshots. |
 
 ## Open

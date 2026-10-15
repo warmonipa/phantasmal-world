@@ -238,6 +238,8 @@ class MeshBuilder(
         var offset = 0
 
         val materials = mutableListOf<Material>()
+        // Area geometry carries baked lighting in its vertex colors; all-white colors bake none.
+        val bakedLighting = hasColors && colors.any { it != WHITE }
 
         val defaultMaterial = defaultMaterial ?: MeshLambertMaterial(obj {
             this.skinning = skinning
@@ -276,8 +278,17 @@ class MeshBuilder(
                     color = diffuseColor(group.diffuse ?: WHITE)
                     applyGroup(group)
                 })
-            } else {
+            } else if (bakedLighting) {
                 MeshBasicMaterial(obj {
+                    this.skinning = skinning
+                    map = tex
+                    color = diffuseColor(group.diffuse ?: WHITE)
+                    applyGroup(group)
+                })
+            } else {
+                // Without baked vertex lighting (items, characters) the game lights the model;
+                // unlit, concave and convex surfaces become indistinguishable.
+                MeshLambertMaterial(obj {
                     this.skinning = skinning
                     map = tex
                     color = diffuseColor(group.diffuse ?: WHITE)
