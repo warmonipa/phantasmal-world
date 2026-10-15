@@ -841,5 +841,18 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         visibleFloorIds = visibleFloorIds,
         clientId = clientId,
         pathfinder = pathfinder,
-    )
+    ).also(::assertContinuous)
+
+    /**
+     * A route is continuous except where a leg ends: a non-rendered warp or relocation, or the end
+     * of a floor visit.
+     */
+    private fun assertContinuous(route: WalkthroughRoute) {
+        for ((previous, next) in route.segments.zipWithNext()) {
+            if (!previous.endsLeg) {
+                assertEquals(previous.to, next.from, "Route breaks without a warp: $previous -> $next")
+                assertEquals(previous.floorId, next.floorId)
+            }
+        }
+    }
 }
