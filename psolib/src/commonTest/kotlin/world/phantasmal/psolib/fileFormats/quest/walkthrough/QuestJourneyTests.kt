@@ -38,6 +38,13 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun journey_does_not_return_to_pioneer_2_without_the_clients_pioneer_2_data() {
+        val objects = listOf(playerSet(1, 0, 0), teleporter(1, 0))
+
+        assertEquals(listOf(1), plan(objects).visits.map { it.floorId })
+    }
+
+    @Test
     fun coming_back_from_a_later_floor_uses_the_return_player_set() {
         val f1Return = playerSet(1, 0, 1)
         val objects = listOf(

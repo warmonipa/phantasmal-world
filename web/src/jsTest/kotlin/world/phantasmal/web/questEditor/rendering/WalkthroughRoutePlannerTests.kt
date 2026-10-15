@@ -14,7 +14,10 @@ import world.phantasmal.psolib.asm.BytecodeIr
 import world.phantasmal.psolib.asm.Instruction
 import world.phantasmal.psolib.asm.InstructionSegment
 import world.phantasmal.psolib.asm.IntArg
+import world.phantasmal.psolib.asm.OP_LETI
+import world.phantasmal.psolib.asm.OP_P_SETPOS
 import world.phantasmal.psolib.asm.OP_RET
+import world.phantasmal.psolib.asm.OP_SET_MAINWARP
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER_V3_V4
 import world.phantasmal.psolib.asm.OP_UNLOCK_DOOR2
 import world.phantasmal.psolib.asm.OP_WARP_OFF
@@ -45,6 +48,140 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
 
         assertEquals(0.0, redRoute.segments.first().from.x)
         assertEquals(100.0, greenRoute.segments.first().from.x)
+    }
+
+    @Test
+    fun floor_the_client_does_not_visit_has_no_route() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                playerSet(1, 1, 0.0),
+                playerSet(2, 1, 0.0),
+                eventCollision(2, 50.0),
+                teleporter(1, 2, 20.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(2), clientId = 0)
+
+        assertTrue(route.segments.isEmpty())
+        assertTrue("Client 0 does not visit floor 2." in route.diagnostics)
+        assertTrue(plan(quest, setOf(2), clientId = 1).segments.isNotEmpty())
+    }
+
+    @Test
+    fun return_player_set_next_to_an_exit_selects_that_exit() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(3, 0, 0.0),
+                playerSet(3, 0, 48.0, returnFlag = 1),
+                teleporter(3, 0, 5.0),
+                teleporter(3, 0, 50.0),
+                teleporter(3, 0, 100.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(3), clientId = 0)
+
+        assertEquals(listOf(0.0 to 50.0), route.segments.map { it.from.x to it.to.x })
+    }
+
+    @Test
+    fun pioneer_2_leg_visits_the_main_warp_unlock_before_the_ragol_teleporter() = testAsync {
+        val ragolTeleporter = createQuestObjectModel(ObjectType.MainRagolTeleporter, 0).apply {
+            setWorldPosition(Vector3(40.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(0, 0, 0.0),
+                playerSet(0, 0, 45.0, returnFlag = 1),
+                scriptInteraction(0, 80.0, label = 100),
+                ragolTeleporter,
+                playerSet(1, 0, 0.0),
+                teleporter(1, 0, 30.0),
+            ),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(label = 0),
+                instructionSegment(label = 100, instruction(OP_SET_MAINWARP, 1)),
+            )),
+        )
+
+        val route = plan(quest, setOf(0), clientId = 0)
+
+        // The final visit back on Pioneer 2 ends at the Hunter's Guild counter: no route.
+        assertEquals(
+            listOf(0.0 to 80.0, 80.0 to 40.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun coming_back_to_a_floor_starts_at_the_return_player_set() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                playerSet(1, 0, 200.0, returnFlag = 1),
+                teleporter(1, 2, 50.0),
+                teleporter(1, 3, 300.0),
+                playerSet(2, 0, 0.0),
+                teleporter(2, 1, 10.0),
+                playerSet(3, 0, 0.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(
+            listOf(0.0 to 50.0, 200.0 to 300.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun scripted_relocation_is_a_non_rendered_warp() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                scriptInteraction(1, 20.0, label = 100),
+                teleporter(1, 2, 510.0),
+            ),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(label = 0),
+                instructionSegment(
+                    label = 100,
+                    instruction(OP_LETI, 60, 500),
+                    instruction(OP_LETI, 61, 0),
+                    instruction(OP_LETI, 62, 0),
+                    instruction(OP_LETI, 63, 0),
+                    instruction(OP_P_SETPOS, 0, 60),
+                ),
+            )),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..20.0 && to.x in 0.0..20.0 -> listOf(from, to)
+                from.x in 500.0..510.0 && to.x in 500.0..510.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0 to 20.0, 500.0 to 510.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
+    fun entrance_return_flag_uses_only_its_low_16_bits() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0, returnFlag = 65536), eventCollision(1, 30.0)),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 30.0), route.segments.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -539,7 +676,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val route = plan(quest, setOf(1), clientId = 1)
 
         assertTrue(route.segments.isEmpty())
-        assertTrue(route.diagnostics.any { "no Player Set entrance" in it })
+        assertTrue("No Player Set for client 1." in route.diagnostics)
     }
 
     @Test
@@ -622,12 +759,21 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         }
     }
 
-    private fun playerSet(floorId: Int, clientId: Int, x: Double) =
+    private fun playerSet(floorId: Int, clientId: Int, x: Double, returnFlag: Int = 0) =
         createQuestObjectModel(ObjectType.PlayerSet, floorId).apply {
             entity.data.setFloat(40, clientId.toFloat())
-            entity.data.setInt(52, 0)
+            entity.data.setInt(52, returnFlag)
             setWorldPosition(Vector3(x, 0.0, 0.0))
         }
+
+    private fun teleporter(floorId: Int, destination: Int, x: Double) =
+        createQuestObjectModel(ObjectType.Teleporter, floorId).apply {
+            entity.data.setInt(52, destination)
+            setWorldPosition(Vector3(x, 0.0, 0.0))
+        }
+
+    private fun instruction(opcode: world.phantasmal.psolib.asm.Opcode, vararg args: Int) =
+        Instruction(opcode, args.map { IntArg(it) }, valid = true, srcLoc = null)
 
     private fun eventCollision(floorId: Int, x: Double, eventId: Int = 0) =
         createQuestObjectModel(ObjectType.EventCollision, floorId).apply {

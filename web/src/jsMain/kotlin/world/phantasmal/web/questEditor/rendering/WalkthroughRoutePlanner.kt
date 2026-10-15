@@ -3,7 +3,6 @@ package world.phantasmal.web.questEditor.rendering
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.yield
 import kotlin.math.cos
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.coroutines.coroutineContext
@@ -15,7 +14,14 @@ import world.phantasmal.psolib.asm.dataFlowAnalysis.WalkthroughScriptAnalysis
 import world.phantasmal.psolib.asm.dataFlowAnalysis.analyzeWalkthroughScript
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.activeScriptLabelOrNull
-import world.phantasmal.psolib.fileFormats.quest.getNormalBossTeleporterDestinationFloor
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.FloorTransition
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.FloorVisit
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.exitDestinationFloor
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.planQuestJourney
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.playerSetReturnFlag
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.playerSetsForClient
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.questWarpPlayerSetId
+import world.phantasmal.psolib.fileFormats.quest.walkthrough.usesChallengeModeScript
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
 import world.phantasmal.web.questEditor.models.QuestModel
 import world.phantasmal.web.questEditor.models.QuestObjectModel
@@ -55,7 +61,10 @@ private data class RouteEdge(
 
 private data class InstructionFloor(val instruction: Instruction, val floorId: Int)
 
-/** Builds one primary physical route for each selected logical floor. */
+/**
+ * Plans [clientId]'s journey through the quest and builds the route of each visit to one of the
+ * [visibleFloorIds]: from where the client appears to the exit it takes next.
+ */
 internal suspend fun planWalkthroughRoute(
     quest: QuestModel,
     visibleFloorIds: Set<Int>,
@@ -75,7 +84,9 @@ internal suspend fun planWalkthroughRoute(
         }
 
     val reachableInstructionFloors = mutableSetOf<InstructionFloor>()
+    val includedEntries = linkedSetOf<Pair<Int, Int>>()
     fun includeAnalysis(label: Int, floorId: Int): Boolean {
+        includedEntries += label to floorId
         var changed = false
         for ((instruction, floors) in analysis(label, floorId).reachableInstructionFloors) {
             for (reachableFloorId in floors) {
@@ -130,30 +141,49 @@ internal suspend fun planWalkthroughRoute(
     val scriptGatedFloorIds = warpInstructionsByFloor
         .filterValues { "warp_off" in it && "warp_on" in it }
         .keys
+    val journey = planQuestJourney(
+        quest.episode,
+        quest.objects.value.map { it.entity },
+        quest.floorMappings,
+        includedEntries.map { (label, floorId) -> analysis(label, floorId) },
+        isChallengeMode = quest.events.value.any { it.cmWaveSettings.value != null } ||
+            usesChallengeModeScript(quest.bytecodeIr),
+        clientId,
+    )
+    diagnostics += journey.diagnostics
     for (floorId in visibleFloorIds.sorted()) {
-        coroutineContext.ensureActive()
-        val floorRoute = planFloor(
-            quest,
-            floorId,
-            clientId,
-            scriptNpcSpawns,
-            scriptSpatialInteractions,
-            ::isReachable,
-            ::analysis,
-            pathfinder,
-            floorId in scriptGatedFloorIds,
-        )
-        segments += floorRoute.segments
-        diagnostics += floorRoute.diagnostics
-        yield()
+        val visits = journey.visits.filter { it.floorId == floorId }
+        if (visits.isEmpty()) {
+            diagnostics += "Client $clientId does not visit floor $floorId."
+            continue
+        }
+        for (visit in visits) {
+            coroutineContext.ensureActive()
+            val floorRoute = planFloor(
+                quest,
+                visit,
+                clientId,
+                journey.mainWarpLandings,
+                scriptNpcSpawns,
+                scriptSpatialInteractions,
+                ::isReachable,
+                ::analysis,
+                pathfinder,
+                floorId in scriptGatedFloorIds,
+            )
+            segments += floorRoute.segments
+            diagnostics += floorRoute.diagnostics
+            yield()
+        }
     }
     return WalkthroughRoute(segments, diagnostics)
 }
 
 private suspend fun planFloor(
     quest: QuestModel,
-    floorId: Int,
+    visit: FloorVisit,
     clientId: Int,
+    mainWarpLandings: Map<Int, Int>,
     scriptNpcSpawns: List<ScriptNpcSpawn>,
     scriptSpatialInteractions: List<ScriptSpatialInteraction>,
     isReachable: (instruction: Instruction?, floorId: Int) -> Boolean,
@@ -161,6 +191,10 @@ private suspend fun planFloor(
     pathfinder: WalkthroughPathfinder,
     warpsAreScriptGated: Boolean,
 ): WalkthroughRoute {
+    val floorId = visit.floorId
+    val departure = visit.departure
+    // The quest is reported at the Hunter's Guild counter, which is not part of the quest data.
+    if (departure == null && floorId == 0) return WalkthroughRoute(emptyList(), emptyList())
     val objects = quest.objects.value.filter { it.floorId == floorId }
     val npcs = quest.npcs.value.filter { it.floorId == floorId }
     val diagnostics = mutableListOf<String>()
@@ -210,8 +244,29 @@ private suspend fun planFloor(
         return id
     }
 
+    val mainWarpObjectiveIds = mutableSetOf<Int>()
+    val goFloorTerminalPoints = mutableListOf<WalkthroughPoint>()
+    val relocations = mutableListOf<Pair<Int, WalkthroughPoint>>()
     fun registerScriptProgression(nodeId: Int, label: Int, entryFloorId: Int) {
         val analysis = analyzeScript(label, entryFloorId)
+        if (departure is FloorTransition.MainWarp &&
+            analysis.mainWarpAreas.any { mainWarpLandings[it] == departure.toFloorId }
+        ) {
+            mainWarpObjectiveIds += nodeId
+        }
+        if (departure is FloorTransition.Script && analysis.goFloors.any {
+                it.sourceFloorId == floorId && it.targetFloorId == departure.toFloorId
+            }
+        ) {
+            goFloorTerminalPoints += nodes.first { it.id == nodeId }.point
+        }
+        for (relocation in analysis.relocations) {
+            if (relocation.floorId == floorId) {
+                relocations += nodeId to WalkthroughPoint(
+                    relocation.x.toDouble(), relocation.y.toDouble(), relocation.z.toDouble(),
+                )
+            }
+        }
         val scriptUnlockedDoorIds = analysis.doorUnlocks.asSequence()
             .filter { it.floorId == floorId }
             .mapTo(mutableSetOf()) { it.doorId }
@@ -228,17 +283,15 @@ private suspend fun planFloor(
         }
         if (scriptUnlockedDoorIds.isNotEmpty() ||
             floorId in analysis.allDoorsUnlockedFloorIds ||
-            floorId in analysis.warpsEnabledFloorIds
+            floorId in analysis.warpsEnabledFloorIds ||
+            nodeId in mainWarpObjectiveIds
         ) {
             scriptProgressionObjectiveIds += nodeId
         }
     }
 
-    val entrance = objects.firstOrNull { obj ->
-        obj.type == ObjectType.PlayerSet &&
-            obj.entity.data.getFloat(40).roundToInt() == clientId &&
-            obj.entity.data.getInt(52) == 0
-    }
+    val clientPlayerSets = playerSetsForClient(objects.map { it.entity }, clientId)
+    val entrance = visit.arrival?.let { arrival -> objects.firstOrNull { it.entity === arrival } }
     if (entrance == null) {
         return WalkthroughRoute(
             emptyList(),
@@ -311,12 +364,10 @@ private suspend fun planFloor(
             continue
         }
         if (obj.type == ObjectType.QuestWarp && obj.entity.data.getInt(52) == floorId) {
-            val sourceType = obj.entity.data.getFloat(40).roundToInt()
-            val destinationPlayerSet = objects.firstOrNull { candidate ->
-                candidate.type == ObjectType.PlayerSet &&
-                    candidate.entity.data.getFloat(40).roundToInt() == clientId &&
-                    candidate.entity.data.getInt(52) == sourceType
-            }
+            val sourceType = obj.entity.questWarpPlayerSetId()
+            val destinationPlayerSet = clientPlayerSets
+                .firstOrNull { it.playerSetReturnFlag() == sourceType }
+                ?.let { set -> objects.first { it.entity === set } }
             if (destinationPlayerSet == null) {
                 diagnostics += "Floor $floorId: Quest Warp has no Player Set source type $sourceType for client $clientId."
             } else {
@@ -329,15 +380,18 @@ private suspend fun planFloor(
             continue
         }
 
-        val destinationFloor = when {
-            obj.entity.destinationFloorOffset >= 0 -> obj.entity.destinationFloor
-            obj.type == ObjectType.BossTeleporter ->
-                getNormalBossTeleporterDestinationFloor(quest.episode, floorId)
-            else -> null
+        val isExit = when (departure) {
+            is FloorTransition.Exit -> departure.exits.any { it === obj.entity }
+            is FloorTransition.MainWarp -> obj.type == ObjectType.MainRagolTeleporter
+            is FloorTransition.Script -> false
+            // Final and order-unknown visits end at any floor exit, as before journeys.
+            null -> obj.entity.exitDestinationFloor(quest.episode) != null
         }
-        if (destinationFloor != null && destinationFloor != floorId) {
-            addNode(obj.worldPoint(), NodeKind.Exit, EXIT_PRIORITY)
-        }
+        if (isExit) addNode(obj.worldPoint(), NodeKind.Exit, EXIT_PRIORITY)
+    }
+    for (point in goFloorTerminalPoints) addNode(point, NodeKind.Exit, EXIT_PRIORITY)
+    for ((sourceId, point) in relocations) {
+        warpEdges += sourceId to addNode(point, NodeKind.WarpDestination)
     }
 
     val unlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
@@ -493,12 +547,21 @@ private suspend fun planFloor(
         return WalkthroughRoute(emptyList(), diagnostics)
     }
     val routeEdges = mutableListOf<RouteEdge>()
-    val preferredExit = reachableGoals.asSequence()
-        .filter { it.kind == NodeKind.Exit }
-        .maxWithOrNull(compareBy<RouteNode>(
-            { entranceDistances.getValue(it.id) },
-            { -it.order },
-        ))
+    val reachableExits = reachableGoals.filter { it.kind == NodeKind.Exit }
+    // A Return flag 1 Player Set marks where the client appears when coming back to this floor,
+    // which quests place next to the exit that client takes forward.
+    val returnMarker = clientPlayerSets
+        .firstOrNull { it.playerSetReturnFlag() == 1 }
+        ?.let { set -> objects.first { it.entity === set }.worldPoint() }
+    val markedExit = returnMarker?.let { marker ->
+        reachableExits
+            .minByOrNull { listOf(it.point, marker).pathLength() }
+            ?.takeIf { listOf(it.point, marker).pathLength() <= RETURN_MARKER_RADIUS }
+    }
+    val preferredExit = markedExit ?: reachableExits.maxWithOrNull(compareBy<RouteNode>(
+        { entranceDistances.getValue(it.id) },
+        { -it.order },
+    ))
     val gatedObjectives = if (completionGated) {
         reachableGoals.filter { it.id in allGatedObjectiveIds }.toMutableList()
     } else {
@@ -538,6 +601,8 @@ private suspend fun planFloor(
     }
 
     val goal = if (completionGated && currentId != entranceId) {
+        preferredExit
+    } else if (preferredExit != null) {
         preferredExit
     } else {
         val highestPriority = reachableGoals.maxOf { it.goalPriority }
@@ -583,6 +648,7 @@ private suspend fun planFloor(
 private const val INTERACTION_PRIORITY = 1
 private const val EVENT_COLLISION_PRIORITY = 2
 private const val EXIT_PRIORITY = 3
+private const val RETURN_MARKER_RADIUS = 100.0
 private const val SHORTEST_PATH_YIELD_INTERVAL = 32
 private val DOOR_SIDE_SAMPLE_DISTANCES = listOf(4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0)
 

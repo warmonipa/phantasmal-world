@@ -248,8 +248,9 @@ fun planQuestJourney(
         walk(paths.getValue(next))
         current = next
     }
-    // The quest is reported at the Hunter's Guild counter on Pioneer 2.
-    if (current != 0) shortestPaths(current)[0]?.let(::walk)
+    // The quest is reported at the Hunter's Guild counter on Pioneer 2, when Pioneer 2 is part of
+    // this client's quest data.
+    if (current != 0 && 0 in requiredFloors) shortestPaths(current)[0]?.let(::walk)
 
     val visits = order.mapIndexed { index, floorId ->
         val arrival = if (index == 0) {
