@@ -166,6 +166,15 @@ class SymbolChatBillboardManager(
                 val oldGeom = mesh.geometry
                 mesh.asDynamic().geometry = planeGeometryFor(stages.size)
                 oldGeom.asDynamic().dispose()
+
+                // three.js r135+ can't resize a texture after its first upload, so the resized
+                // canvas needs a new texture.
+                val texture = Texture()
+                texture.asDynamic().image = offscreenCanvas
+                texture.needsUpdate = true
+                mesh.asDynamic().material.map = texture
+                billboardTexture?.dispose()
+                billboardTexture = texture
             }
         }
         SymbolChatStageRenderer.paintStages(offscreenCanvas, stages) {
