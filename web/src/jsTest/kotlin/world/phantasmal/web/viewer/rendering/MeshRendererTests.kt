@@ -1,14 +1,20 @@
 package world.phantasmal.web.viewer.rendering
 
 import kotlinx.coroutines.delay
+import world.phantasmal.web.core.rendering.DisposableThreeRenderer
+import world.phantasmal.web.externals.three.WebGLRenderer
+import world.phantasmal.web.test.NopRenderer
 import world.phantasmal.web.test.WebTestSuite
+import world.phantasmal.web.viewer.models.CharacterClass
 import world.phantasmal.web.viewer.models.ViewerModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.js.unsafeCast
 import kotlin.math.PI
 
 class MeshRendererTests : WebTestSuite {
@@ -179,6 +185,76 @@ class MeshRendererTests : WebTestSuite {
             assertEquals(expected.y, presentationObj.rotation.y, absoluteTolerance = 1e-12)
             assertEquals(expected.z, presentationObj.rotation.z, absoluteTolerance = 1e-12)
         }
+    }
+
+    @Test
+    fun rebuilding_the_mesh_keeps_a_paused_animation_paused() = testAsync {
+        val store = components.viewerStore
+        val renderer = disposer.add(MeshRenderer(store, components.createThreeRenderer))
+        store.setCurrentModel(ViewerModel.Character(CharacterClass.HUmar))
+        store.setCurrentAnimation(store.animations.value.first())
+        delay(100)
+        assertFalse(assertNotNull(renderer.animationAction).paused)
+
+        store.setAnimationPlaying(false)
+        store.setApplyTextures(!store.applyTextures.value)
+        delay(100)
+
+        // A new action is created for the rebuilt mesh.
+        assertTrue(assertNotNull(renderer.animationAction).paused)
+
+        store.setAnimationPlaying(true)
+        assertFalse(assertNotNull(renderer.animationAction).paused)
+    }
+
+    @Test
+    fun time_without_playback_or_rendering_does_not_advance_the_animation() = testAsync {
+        val store = components.viewerStore
+        val nopRenderer = NopRenderer()
+        val renderer = disposer.add(
+            MeshRenderer(store) {
+                object : DisposableThreeRenderer {
+                    override val renderer = nopRenderer.unsafeCast<WebGLRenderer>()
+                    override fun dispose() {}
+                }
+            }
+        )
+        renderer.startRendering()
+        fun renderFrame() = assertNotNull(nopRenderer.animationLoop)(0.0)
+        store.setCurrentModel(ViewerModel.Character(CharacterClass.HUmar))
+        store.setCurrentAnimation(store.animations.value[0])
+        delay(100)
+        renderFrame()
+
+        val gap = 600L
+        // The mixer's time accumulates every update; unlike the action's time it doesn't wrap
+        // around at the end of the clip.
+        fun mixerTime() = assertNotNull(renderer.animationMixer).time
+
+        // Paused, then resumed.
+        store.setAnimationPlaying(false)
+        renderFrame()
+        var time = mixerTime()
+        delay(gap)
+        store.setAnimationPlaying(true)
+        renderFrame()
+        assertTrue(mixerTime() - time < .25, "resume: ${mixerTime() - time}")
+
+        // Not rendered (e.g. textures tab shown), then rendered again.
+        renderer.stopRendering()
+        delay(gap)
+        renderer.startRendering()
+        time = mixerTime()
+        renderFrame()
+        assertTrue(mixerTime() - time < .25, "rendering restart: ${mixerTime() - time}")
+
+        // Another animation selected after a while without rendering a frame. Its new mixer
+        // starts at 0.
+        delay(gap)
+        store.setCurrentAnimation(store.animations.value[1])
+        delay(50)
+        renderFrame()
+        assertTrue(mixerTime() < .25, "animation change: ${mixerTime()}")
     }
 
     private fun assertProfile(

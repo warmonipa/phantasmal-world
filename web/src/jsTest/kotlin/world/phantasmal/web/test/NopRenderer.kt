@@ -35,6 +35,15 @@ class NopRenderer {
     @JsName("dispose")
     fun dispose() {
     }
+
+    var animationLoop: ((Double) -> Unit)? = null
+        private set
+
+    @Suppress("unused")
+    @JsName("setAnimationLoop")
+    fun setAnimationLoop(callback: ((Double) -> Unit)?) {
+        animationLoop = callback
+    }
 }
 
 // WebGLCapabilities implementation.

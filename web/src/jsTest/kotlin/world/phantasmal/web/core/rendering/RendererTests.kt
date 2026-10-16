@@ -9,6 +9,8 @@ import world.phantasmal.web.test.WebTestSuite
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.js.unsafeCast
 
@@ -78,6 +80,22 @@ class RendererTests : WebTestSuite {
         assertTrue(rendererResource.contextReleased)
     }
 
+    @Test
+    fun rendering_runs_in_the_renderers_animation_loop() = test {
+        val rendererResource = TestThreeRenderer()
+        val nopRenderer = rendererResource.renderer.unsafeCast<NopRenderer>()
+        val renderer = disposer.add(TestRenderer(rendererResource))
+
+        renderer.startRendering()
+        val loop = assertNotNull(nopRenderer.animationLoop)
+        loop(0.0)
+        loop(16.0)
+        assertEquals(2, renderer.renderCount)
+
+        renderer.stopRendering()
+        assertNull(nopRenderer.animationLoop)
+    }
+
     private class TestRenderer(
         override val disposableThreeRenderer: DisposableThreeRenderer,
     ) : Renderer() {
@@ -91,6 +109,13 @@ class RendererTests : WebTestSuite {
             override fun setSize(width: Int, height: Int) {}
             override fun resetCamera() {}
             override fun beforeRender() {}
+        }
+        var renderCount = 0
+            private set
+
+        override fun render() {
+            renderCount++
+            super.render()
         }
 
         init {

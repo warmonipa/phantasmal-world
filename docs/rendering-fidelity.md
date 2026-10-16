@@ -87,5 +87,10 @@ isolated texels. What keeps it that way:
 | Skinned mesh culling | Since r151 a `SkinnedMesh` is frustum-culled by a bounding sphere cached from its pose at first render (r128 used the geometry's bind-pose sphere), so animated models could be culled while visible; skinned meshes (viewer models and NPC previews) are no longer frustum-culled. |
 | Module resolution | `require("three")` resolves to `three.module.js` (webpack alias): the deprecated CommonJS entry calls `process.emitWarning`. Addon `@JsModule` paths end in `.js`. |
 
-Known console warning: `THREE.Clock` is deprecated (r183) and still used by the viewer's animation
-playback; replace it with `THREE.Timer` when touching that code.
+Deprecated APIs: none of the APIs three.js r186 marks deprecated for the WebGL renderer are used.
+Renderers draw from `WebGLRenderer.setAnimationLoop` (the documented replacement for a manual
+`requestAnimationFrame` loop), cleared when a renderer is hidden, before its WebGL context is
+released.
+The viewer times animation playback with `THREE.Timer` (`THREE.Clock` is deprecated since r183);
+the timer is connected to the document, so an animation doesn't jump ahead by the time its tab
+was hidden.

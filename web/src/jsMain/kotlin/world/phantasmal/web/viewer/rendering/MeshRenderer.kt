@@ -1,5 +1,6 @@
 package world.phantasmal.web.viewer.rendering
 
+import kotlinx.browser.document
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.core.disposable.TrackedDisposable
 import world.phantasmal.core.math.degToRad
@@ -23,7 +24,6 @@ import world.phantasmal.web.core.times
 import world.phantasmal.web.externals.three.AnimationAction
 import world.phantasmal.web.externals.three.AnimationClip
 import world.phantasmal.web.externals.three.AnimationMixer
-import world.phantasmal.web.externals.three.Clock
 import world.phantasmal.web.externals.three.Color
 import world.phantasmal.web.externals.three.DoubleSide
 import world.phantasmal.web.externals.three.Group
@@ -32,6 +32,7 @@ import world.phantasmal.web.externals.three.MeshLambertMaterial
 import world.phantasmal.web.externals.three.Object3D
 import world.phantasmal.web.externals.three.PerspectiveCamera
 import world.phantasmal.web.externals.three.SkeletonHelper
+import world.phantasmal.web.externals.three.Timer
 import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.shared.Throttle
 import world.phantasmal.web.viewer.models.ViewerModel
@@ -45,7 +46,10 @@ class MeshRenderer(
     private val viewerStore: ViewerStore,
     createThreeRenderer: (HTMLCanvasElement) -> DisposableThreeRenderer,
 ) : Renderer() {
-    private val clock = Clock()
+    // Connected to the document so a hidden tab doesn't advance the animation by the whole time
+    // it was hidden. Reset whenever playback (re)starts, so time spent paused or not rendering
+    // (e.g. while the textures tab is shown) doesn't advance it either.
+    private val timer = Timer().apply { connect(document) }
     private val throttleRebuildMesh = Throttle(wait = 10, leading = false, trailing = true)
 
     private var obj3d: Object3D? = null
@@ -56,6 +60,8 @@ class MeshRenderer(
     private var resetCamera = true
 
     internal val renderedObject: Object3D? get() = obj3d
+    internal val animationAction: AnimationAction? get() = animation?.action
+    internal val animationMixer: AnimationMixer? get() = animation?.mixer
 
     override val context = addDisposable(
         RenderContext(
@@ -95,11 +101,17 @@ class MeshRenderer(
 
     override fun dispose() {
         animation?.dispose()
+        timer.dispose()
         super.dispose()
     }
 
+    override fun renderingStarted() {
+        timer.reset()
+    }
+
     override fun render() {
-        animation?.mixer?.update(clock.getDelta())
+        timer.update()
+        animation?.mixer?.update(timer.getDelta())
 
         context.lightHolder.quaternion.copy(context.camera.quaternion)
 
@@ -245,6 +257,7 @@ class MeshRenderer(
                         animation = Animation(ninjaGeometry.obj, njMotion, obj3d).also {
                             it.mixer.timeScale = viewerStore.frameRate.value / PSO_FRAME_RATE_DOUBLE
                             it.action.time = animationTime ?: .0
+                            it.action.paused = !viewerStore.animationPlaying.value
                             it.action.play()
                         }
                     }
@@ -425,10 +438,11 @@ class MeshRenderer(
 
         animation = Animation(njObject, njMotion, mesh).also {
             it.mixer.timeScale = viewerStore.frameRate.value / PSO_FRAME_RATE_DOUBLE
+            it.action.paused = !viewerStore.animationPlaying.value
             it.action.play()
         }
 
-        clock.start()
+        timer.reset()
     }
 
     private fun animationPlayingChanged(playing: Boolean) {
@@ -436,9 +450,7 @@ class MeshRenderer(
             it.action.paused = !playing
 
             if (playing) {
-                clock.start()
-            } else {
-                clock.stop()
+                timer.reset()
             }
         }
     }

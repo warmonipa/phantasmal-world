@@ -1,7 +1,6 @@
 package world.phantasmal.web.core.rendering
 
 import kotlinx.browser.document
-import kotlinx.browser.window
 import mu.KotlinLogging
 import org.w3c.dom.HTMLCanvasElement
 import world.phantasmal.webui.DisposableContainer
@@ -17,7 +16,6 @@ abstract class Renderer : DisposableContainer() {
     val canvas: HTMLCanvasElement get() = context.canvas
 
     private var rendering = false
-    private var animationFrameHandle: Int = 0
 
     fun startRendering() {
         if (!rendering) {
@@ -25,16 +23,20 @@ abstract class Renderer : DisposableContainer() {
 
             disposableThreeRenderer.restoreContext()
             rendering = true
-            renderLoop()
+            renderingStarted()
+            threeRenderer.setAnimationLoop { render() }
         }
     }
+
+    /** Called when the render loop (re)starts, after any time without rendering. */
+    protected open fun renderingStarted() {}
 
     fun stopRendering() {
         if (rendering) {
             logger.trace { "${this::class.simpleName} - stop rendering." }
 
             rendering = false
-            window.cancelAnimationFrame(animationFrameHandle)
+            threeRenderer.setAnimationLoop(null)
         }
 
         // Three.js renderers retain a scarce browser WebGL context even after their animation
@@ -64,18 +66,6 @@ abstract class Renderer : DisposableContainer() {
         inputManager.beforeRender()
 
         threeRenderer.render(context.scene, context.camera)
-    }
-
-    private fun renderLoop() {
-        if (rendering) {
-            animationFrameHandle = window.requestAnimationFrame {
-                try {
-                    render()
-                } finally {
-                    renderLoop()
-                }
-            }
-        }
     }
 
     companion object {

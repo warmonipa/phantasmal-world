@@ -8,6 +8,7 @@ import org.khronos.webgl.Float32Array
 import org.khronos.webgl.Int32Array
 import org.khronos.webgl.Uint16Array
 import org.khronos.webgl.Uint8Array
+import org.w3c.dom.Document
 import org.w3c.dom.HTMLCanvasElement
 
 external interface Vector
@@ -254,6 +255,8 @@ open external class WebGLRenderer(
 
     fun setPixelRatio(value: Double)
 
+    fun setAnimationLoop(callback: ((time: Double) -> Unit)?)
+
     fun setClearColor(color: Color, alpha: Double = definedExternally)
 
     fun clearColor()
@@ -369,12 +372,10 @@ open external class Mesh(
 external class SkinnedMesh(
     geometry: BufferGeometry = definedExternally,
     material: Material = definedExternally,
-    useVertexTexture: Boolean = definedExternally,
 ) : Mesh {
     constructor(
         geometry: BufferGeometry,
         material: Array<Material>,
-        useVertexTexture: Boolean = definedExternally,
     )
 
     val isSkinnedMesh: Boolean
@@ -929,10 +930,12 @@ external interface Intersection {
     var instanceId: Int?
 }
 
-external class Clock(autoStart: Boolean = definedExternally) {
-    fun start()
-    fun stop()
+external class Timer {
+    fun connect(document: Document)
     fun getDelta(): Double
+    fun update(timestamp: Double = definedExternally): Timer
+    fun reset(): Timer
+    fun dispose()
 }
 
 external class AnimationClip(
