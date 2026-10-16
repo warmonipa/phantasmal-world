@@ -15,6 +15,15 @@ For review/fix/release requests, use this workflow:
 6. Monitor both the Deploy job and the resulting Pages publication to
    completion before reporting deployment success.
 
+## Stacked branches
+
+Feature branches are stacked: a new branch starts from the tip of the branch
+below it, not from `master`. Branches land bottom-up only. A branch can't be
+merged until every branch below it has been merged upstream, so never offer
+or plan to merge a higher branch into a lower one or into `master` out of
+order. Advancing a lower branch to the tip of a branch stacked on it is a
+fast-forward that folds the stack, not a merge; call it that.
+
 The `Tests` workflow is validation only. A successful Tests run is not a
 deployment. Do not create a PR merely to run tests; local validation is the
 primary pre-push check for this project.
