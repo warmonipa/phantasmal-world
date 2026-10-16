@@ -2110,10 +2110,25 @@ enum class ObjectType(
         typeId = 352,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Power", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Link", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Switch mode", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Fog index no.", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Poison power",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Scaled by difficulty: Normal x1, Hard x2, Very Hard x3, Ultimate x6.",
+            ),
+            EntityProp(
+                name = "Fog on with switch",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "1 or more: the fog is on while the switch flag is on. Otherwise it's on while the flag is off.",
+            ),
+            EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Transition type",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "0 = fade in, 1 = switch instantly.",
+            ),
             EntityProp(name = "Switch ID", offset = 60, type = EntityPropType.I32),
         ),
     ),
@@ -3503,7 +3518,26 @@ enum class ObjectType(
         typeId = 913,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Poison power",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Scaled by difficulty: Normal x1, Hard x2, Very Hard x3, Ultimate x6.",
+            ),
+            EntityProp(
+                name = "Fog on with switch",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "1 or more: the fog is on while the switch flag is on. Otherwise it's on while the flag is off.",
+            ),
             EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Transition type",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "0 = fade in, 1 = switch instantly.",
+            ),
+            EntityProp(name = "Switch ID", offset = 60, type = EntityPropType.I32),
         ),
     ),
     TopOfSaintMillionEgg(

@@ -442,6 +442,14 @@ external class Box3Helper(box: Box3, color: Color = definedExternally) : LineSeg
 
 external class Scene : Object3D {
     var background: dynamic /* null | Color | Texture | WebGLCubeRenderTarget */
+    var fog: dynamic /* null | Fog | FogExp2 */
+}
+
+/** Linear distance fog: no fog nearer than [near], full fog colour at [far] or beyond. */
+external class Fog(color: Int, near: Double = definedExternally, far: Double = definedExternally) {
+    var color: Color
+    var near: Double
+    var far: Double
 }
 
 open external class Camera : Object3D {

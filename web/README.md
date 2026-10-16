@@ -197,6 +197,31 @@ Quest-created particle previews use the native dimensions and per-frame scale cu
 game's particle effect data. Small effects are not enlarged solely to make them easier to inspect in
 the full-map editor view.
 
+## Quest Fog Boundaries
+
+View > Fog Boundaries draws the fog triggers of the current floor as defined in newserv's object
+table (`src/Map.cc`):
+
+- `0x0007` TObjFogCollision: param1 radius, param4 fog entry number, param5 transition (1 =
+  instant).
+- `0x0018` TObjFogCollisionSwitch: as `0x0007`, plus param3 (1 or more: fog is on while the switch
+  flag is on, otherwise while it is off) and param6 switch flag.
+- `0x0160` TObjFogCollisionPoison: as `0x0018`, plus param2 poison power. On the Episode I Vol Opt
+  floor `0x0160` is the TObjWarpBoss03 exit and is not drawn.
+- `0x0391` Heat: same parameters as `0x0160`.
+
+A fog entry number lower than the current fog number does nothing; a number of `0x1000` or more is
+compared as is and then has `0x1000` subtracted, so it can override a later fog. Labels show both
+forms. Boundaries and their labels use the entry's colour from `fogentry.dat` (the client's table,
+identical to newserv's JP BB resource) and are sized in world units, so they zoom with the map.
+Overlapping triggers with the same label are labelled once, and triggers stacked at one spot that
+differ only in their switch flag are drawn once with all their flags listed.
+
+Selecting a fog trigger previews its entry as scene fog: linear distance fog from the entry's start
+to its end distance with the clear colour set to the fog colour. The preview does not animate
+pulsing (type 2) entries or apply a floor's default fog, which newserv does not document. Three.js
+blends fog with a smoothstep curve rather than D3D's linear ramp.
+
 ## Quest Walkthrough Routes
 
 The Quest Editor 3D view draws the walkthrough of one selected player (Red, Green, Yellow and Blue

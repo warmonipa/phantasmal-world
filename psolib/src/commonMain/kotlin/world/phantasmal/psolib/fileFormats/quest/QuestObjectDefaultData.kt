@@ -931,7 +931,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         ObjectType.Poison -> {
             data.setShort(4, 1983)
             data.setShort(6, 13)
-            data.setInt(52, 8) // Switch mode
+            data.setInt(52, 8) // Fog index no.
             data.setInt(64, -1929757344)
         }
 
@@ -1403,11 +1403,11 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setShort(4, 1246)
             data.setShort(6, 6)
             data.setFloat(40, 251f) // Radius
-            data.setFloat(44, 3f) // Scale y
-            data.setFloat(48, 0f) // Scale z
+            data.setFloat(44, 3f) // Poison power
+            data.setFloat(48, 0f) // Fog on with switch
             data.setInt(52, 137) // Fog index no.
-            data.setInt(56, 1)
-            data.setInt(60, 5)
+            data.setInt(56, 1) // Transition type
+            data.setInt(60, 5) // Switch ID
             data.setInt(64, 26818944)
         }
 
