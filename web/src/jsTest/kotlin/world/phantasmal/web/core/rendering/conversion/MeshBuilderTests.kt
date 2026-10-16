@@ -2,6 +2,7 @@ package world.phantasmal.web.core.rendering.conversion
 
 import org.khronos.webgl.Uint8Array
 import world.phantasmal.core.unsafe.UnsafeMap
+import world.phantasmal.web.externals.three.Bone
 import world.phantasmal.web.externals.three.CustomBlending
 import world.phantasmal.web.externals.three.DataTexture
 import world.phantasmal.web.externals.three.DoubleSide
@@ -153,6 +154,26 @@ class MeshBuilderTests {
         for (material in materials) {
             assertTrue(material.asDynamic().forceSinglePass == true)
         }
+    }
+
+    @Test
+    fun skinned_meshes_are_not_frustum_culled() {
+        val (builder, _) = builderWithTexture()
+        builder.bone(Bone())
+        val group = builder.getGroupIndex(3, alpha = false)
+        for (position in listOf(Vector3(), Vector3(1.0, 0.0, 0.0), Vector3(0.0, 0.0, 1.0))) {
+            builder.vertex(
+                position,
+                Vector3(0.0, 1.0, 0.0),
+                Vector2(),
+                boneIndices = intArrayOf(0, 0, 0, 0),
+                boneWeights = floatArrayOf(1f, 0f, 0f, 0f),
+            )
+        }
+        for (index in 0..2) builder.index(group, index)
+
+        // three.js r151+ would cull by the pose of the first render instead of the current one.
+        assertFalse(builder.buildSkinnedMesh().frustumCulled)
     }
 
     @Test

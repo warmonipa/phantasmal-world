@@ -84,6 +84,7 @@ isolated texels. What keeps it that way:
 | Anisotropic filtering | r186 applies it only with trilinear (mipmapped) minification; the only affected textures are DXT textures whose stored mipmap chain is incomplete, which fall back to `LinearFilter`. Accepted. |
 | Opaque alpha | r186 writes alpha 1 for opaque (non-transparent, normal-blended) materials. r128 wrote the texel/vertex alpha, so on the transparent canvas the cut-out fringes of alpha-tested foliage let the page background show through slightly, and entity icons kept partly transparent fringes. Accepted: r186 is correct and the difference is limited to isolated fringe texels. |
 | Canvas textures | Since r135 a texture's size can't change after its first upload; the symbol chat billboard creates a new texture when its canvas is resized. |
+| Skinned mesh culling | Since r151 a `SkinnedMesh` is frustum-culled by a bounding sphere cached from its pose at first render (r128 used the geometry's bind-pose sphere), so animated models could be culled while visible; skinned meshes (viewer models and NPC previews) are no longer frustum-culled. |
 | Module resolution | `require("three")` resolves to `three.module.js` (webpack alias): the deprecated CommonJS entry calls `process.emitWarning`. Addon `@JsModule` paths end in `.js`. |
 
 Known console warning: `THREE.Clock` is deprecated (r183) and still used by the viewer's animation

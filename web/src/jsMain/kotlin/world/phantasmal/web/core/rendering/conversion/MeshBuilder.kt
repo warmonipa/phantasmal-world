@@ -164,6 +164,10 @@ class MeshBuilder(
             SkinnedMesh(geom, materials).apply {
                 add(bones[0])
                 bind(Skeleton(bones))
+                // three.js r151+ culls skinned meshes by a bounding sphere cached from the pose of
+                // their first render, so animations that move away from that pose get culled while
+                // visible. These meshes are a viewer's subject, so culling them saves nothing.
+                frustumCulled = false
             }
         }
 
