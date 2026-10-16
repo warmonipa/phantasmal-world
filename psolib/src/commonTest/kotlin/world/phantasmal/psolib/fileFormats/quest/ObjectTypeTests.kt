@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ObjectTypeTests : LibTestSuite {
     @Test
@@ -118,5 +119,65 @@ class ObjectTypeTests : LibTestSuite {
             listOf(40, 48, 52, 56, 60),
             ObjectType.FogCollisionSW.properties.map { it.offset },
         )
+    }
+
+    @Test
+    fun event_triggering_objects_expose_their_event_id() {
+        // Entering an Event Collision or opening an enemy box triggers a wave event (newserv's
+        // object notes: param4 = event number). The editor shows it as "Event ID", which offers
+        // "Go to event".
+        val types = listOf(
+            ObjectType.EventCollision,
+            ObjectType.EnemyBoxGrey,
+            ObjectType.EnemyBoxBrown,
+            ObjectType.EnemyTypeBoxYellow,
+            ObjectType.EnemyTypeBoxBlue,
+            ObjectType.ContainerJungEnemy,
+            ObjectType.DesertFixedTypeBoxBreakableCrystals,
+        )
+        for (type in types) {
+            val obj = QuestObject(type, floorId = 1)
+            obj.data.setInt(52, 77)
+            obj.data.setFloat(40, 3f) // Crystal box contents type: trigger an event.
+
+            assertEquals(77, obj.triggeredEventId, type.name)
+            val prop = type.properties.singleOrNull { it.name == "Event ID" }
+            assertEquals(52, assertNotNull(prop, type.name).offset, type.name)
+            assertEquals(EntityPropType.I32, prop.type, type.name)
+        }
+    }
+
+    @Test
+    fun boxes_with_item_contents_trigger_no_event() {
+        val crystalBox = QuestObject(ObjectType.DesertFixedTypeBoxBreakableCrystals, floorId = 1)
+        crystalBox.data.setInt(52, 77)
+        crystalBox.data.setFloat(40, 1f) // Random item.
+        assertNull(crystalBox.triggeredEventId)
+
+        for (type in listOf(ObjectType.FixedTypeBox, ObjectType.RandomTypeBox1)) {
+            val box = QuestObject(type, floorId = 1)
+            box.data.setInt(52, 77)
+            assertNull(box.triggeredEventId, type.name)
+        }
+    }
+
+    @Test
+    fun objects_without_parameters_expose_no_properties() {
+        // newserv: "Random item box. There are no parameters." The Easter egg's model index
+        // belongs to the Sonic object.
+        assertEquals(emptyList(), ObjectType.RandomTypeBox1.properties)
+        assertEquals(emptyList(), ObjectType.EasterEgg.properties)
+    }
+
+    @Test
+    fun property_names_are_short_labels() {
+        // Long explanations go in the description, shown as a tooltip.
+        val allowed = setOf("Script manager (<=0=quest, >0=free play)")
+        for (type in ObjectType.entries) {
+            for (prop in type.properties) {
+                if (prop.name in allowed) continue
+                assertTrue(prop.name.length <= 26, "${type.name}: \"${prop.name}\"")
+            }
+        }
     }
 }

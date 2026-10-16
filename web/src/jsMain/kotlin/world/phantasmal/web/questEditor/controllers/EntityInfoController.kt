@@ -33,6 +33,7 @@ sealed class EntityInfoPropModel(
     protected val prop: QuestEntityPropModel,
 ) {
     val label = prop.name + ":"
+    val description: String? = prop.description
     private val selectedEntity = store.selectedEntity.value
     val isScriptLabel: Boolean = when (val entity = selectedEntity) {
         is QuestNpcModel -> prop.name == "Script label"

@@ -1,6 +1,7 @@
 package world.phantasmal.web.questEditor.widgets
 
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import world.phantasmal.core.Success
 import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.assemble
@@ -66,6 +67,30 @@ class EntityInfoWidgetTests : WebTestSuite {
         assertEquals(1, activationCount)
         assertEquals(event, store.selectedEvent.value)
         assertEquals(1, scrollCount)
+    }
+
+    @Test
+    fun enemy_box_offers_go_to_event_and_explains_its_event_id() = testAsync {
+        val box = createQuestObjectModel(ObjectType.EnemyTypeBoxBlue)
+        val store = components.questEditorStore
+        store.setCurrentQuest(createQuestModel(objects = listOf(box)))
+        store.setSelectedEntity(box)
+        val entityController = disposer.add(EntityInfoController(
+            components.areaStore,
+            store,
+            components.questEditorUiStore,
+            components.asmStore,
+            onActivateEventsWidget = {},
+        ))
+        val entityWidget = disposer.add(EntityInfoWidget(entityController))
+
+        assertNotNull(entityWidget.element.querySelector("[title='Go to event']"))
+        val label = assertNotNull(
+            entityWidget.element.querySelectorAll("th").asList()
+                .map { it as HTMLElement }
+                .singleOrNull { it.textContent == "Event ID:" },
+        )
+        assertEquals("The wave event triggered when the box is opened.", label.title)
     }
 
     @Test

@@ -309,11 +309,12 @@ private suspend fun planFloor(
 
     for (obj in objects) {
         when {
-            obj.type == ObjectType.EventCollision -> {
+            obj.entity.triggeredEventId != null -> {
                 val node = addNode(
                     obj.worldPoint(), NodeKind.Objective, EVENT_COLLISION_PRIORITY,
                 )
-                eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf).add(node)
+                eventCollisionNodes.getOrPut(obj.entity.triggeredEventId!!, ::mutableSetOf)
+                    .add(node)
             }
             obj.entity.activeScriptLabel != null -> {
                 val node = addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)

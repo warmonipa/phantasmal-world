@@ -38,6 +38,25 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
             data.setShort(10, value)
         }
 
+    /**
+     * The wave event this object triggers: when a player enters an Event Collision, or when an
+     * enemy box is opened. Null for objects that don't trigger events.
+     */
+    val triggeredEventId: Int?
+        get() = when (type) {
+            ObjectType.EventCollision,
+            ObjectType.EnemyBoxGrey,
+            ObjectType.EnemyBoxBrown,
+            ObjectType.EnemyTypeBoxYellow,
+            ObjectType.EnemyTypeBoxBlue,
+            ObjectType.ContainerJungEnemy,
+            -> data.getInt(52)
+            // Contents type 3 makes the box trigger an event.
+            ObjectType.DesertFixedTypeBoxBreakableCrystals ->
+                if (data.getFloat(40) == 3f) data.getInt(52) else null
+            else -> null
+        }
+
     /** The single digit rendered on a Forest Door, derived from param4's second-lowest byte. */
     val forestDoorDigit: Int
         get() = ((data.getInt(52) ushr 8) and 0xFF) % 10

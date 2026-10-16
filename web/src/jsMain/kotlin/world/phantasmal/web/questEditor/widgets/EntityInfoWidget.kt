@@ -217,7 +217,10 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
 
         if (colorSelect != null) {
             val node = tr {
-                th { addWidget(disposer.add(colorSelect.label!!), addToDisposer = false) }
+                th {
+                    prop.description?.let { title = it }
+                    addWidget(disposer.add(colorSelect.label!!), addToDisposer = false)
+                }
                 td { addWidget(colorSelect, addToDisposer = false) }
             }
             return Pair(node, disposer)
@@ -262,6 +265,7 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
             }
 
             th {
+                prop.description?.let { title = it }
                 addWidget(disposer.add(input.label!!), addToDisposer = false)
             }
             td {

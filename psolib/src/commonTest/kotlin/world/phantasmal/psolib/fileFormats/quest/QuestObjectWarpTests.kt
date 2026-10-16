@@ -43,7 +43,7 @@ class QuestObjectWarpTests {
                 "Destination z",
                 "Dst. rotation y",
                 "Displayed floor number",
-                "Floor display (<=0=show, >0=hide)",
+                "Hide floor number",
             ),
             ObjectType.InstaWarp.properties.map { it.name },
         )

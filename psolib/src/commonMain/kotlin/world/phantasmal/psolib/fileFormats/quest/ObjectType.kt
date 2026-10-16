@@ -124,7 +124,12 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Transition (0=fade, 1=instant)", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Transition type",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "0 = fade in, 1 = switch instantly.",
+            ),
         ),
     ),
     EventCollision(
@@ -333,9 +338,19 @@ enum class ObjectType(
         typeId = 24,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Start off (0=fog on, 1=switch on)", offset = 48, type = EntityPropType.F32),
+            EntityProp(
+                name = "Fog on with switch",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "1 or more: the fog is on while the switch flag is on. Otherwise it's on while the flag is off.",
+            ),
             EntityProp(name = "Fog index no.", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Transition (0=fade, 1=instant)", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Transition type",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "0 = fade in, 1 = switch instantly.",
+            ),
             EntityProp(name = "Switch ID", offset = 60, type = EntityPropType.I32),
         ),
     ),
@@ -525,7 +540,12 @@ enum class ObjectType(
         typeId = 38,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Script label or switch flag number", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Label or switch flag",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The switch flag to set or the quest label to call; angle x selects which.",
+            ),
             EntityProp(name = "Trigger string", offset = 56, type = EntityPropType.I32),
         ),
     ),
@@ -602,7 +622,12 @@ enum class ObjectType(
         typeId = 66,
         properties = listOf(
             EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Which music to play", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Music",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "0 = shop, 1 = guild, 2 = medical center, 3 = government, 4 = city (or its holiday variant), 5 = lab. Other values wrap around modulo 6.",
+            ),
         ),
     ),
     MainRagolTeleporter(
@@ -691,9 +716,6 @@ enum class ObjectType(
         ),
         typeId = 75,
         lobbyEvent = LobbyEvent.Easter,
-        properties = listOf(
-            EntityProp(name = "Model index", offset = 52, type = EntityPropType.I32),
-        ),
     ),
     ValentinesHeart(
         uniqueName = "Valentines Heart",
@@ -812,9 +834,19 @@ enum class ObjectType(
         ),
         typeId = 86,
         properties = listOf(
-            EntityProp(name = "Switch flag number and activation mode", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch flag",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Negative: always unlocked. 0 to 0x100: unlocked by this switch flag. Above 0x100: always locked.",
+            ),
             EntityProp(name = "Model", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "If negative, all switches must be active simultaneously to unlock the door", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off.",
+            ),
         ),
     ),
     Pioneer2InvisibleTouchplate(
@@ -936,10 +968,6 @@ enum class ObjectType(
             Episode.IV to listOf(1, 2, 3, 4, 5, 6, 7, 8),
         ),
         typeId = 136,
-        properties = listOf(
-            EntityProp(name = "If positive, box is specialized to drop a specific item or type of item", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "If zero, then only data1[0-1]", offset = 48, type = EntityPropType.F32),
-        ),
     ),
     ForestWeatherStation(
         uniqueName = "Forest Weather Station",
@@ -1039,7 +1067,12 @@ enum class ObjectType(
             // 0x0093 in the offline map data, param1 only ever holds 1.0f, 1.0000002f or
             // 31.000023f, while param4 holds the event IDs that the matching map_*.evt
             // event tables actually define.
-            EntityProp(name = "Event ID", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The wave event triggered when the box is opened.",
+            ),
         ),
     ),
     FixedTypeBox(
@@ -1051,12 +1084,36 @@ enum class ObjectType(
         ),
         typeId = 146,
         properties = listOf(
-            EntityProp(name = "Full random", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Random item", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Fixed item", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Item parameter", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Item parameter 2", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Item parameter 3", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Random drop",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Greater than 0: drops any item (including this floor's box rares) or nothing, and the item fields are ignored. 0 or less: drops the item the item fields define.",
+            ),
+            EntityProp(
+                name = "Exact item",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "0: only the item kind from item data 1 is used and bonuses, grinds etc. are randomized as usual. Otherwise: drops exactly the item defined.",
+            ),
+            EntityProp(
+                name = "Item data 1",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Item definition, part 1: item class and kind, plus weapon flags (untekked, present) and special.",
+            ),
+            EntityProp(
+                name = "Item data 2",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Item definition, part 2: weapon grind and first attribute, armor or unit flags, or meseta amount (in tens).",
+            ),
+            EntityProp(
+                name = "Item data 3",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Item definition, part 3: weapon attributes.",
+            ),
         ),
     ),
     EnemyBoxBrown(
@@ -1069,7 +1126,12 @@ enum class ObjectType(
         typeId = 147,
         properties = listOf(
             // Same parameters as 0x0091; see the note there.
-            EntityProp(name = "Event ID", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The wave event triggered when the box is opened.",
+            ),
         ),
     ),
     EmptyTypeBox(
@@ -1209,7 +1271,12 @@ enum class ObjectType(
         ),
         typeId = 201,
         properties = listOf(
-            EntityProp(name = "Rotation speed in degrees per frame", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Rotation speed",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Degrees per frame.",
+            ),
         ),
     ),
     Rainbow(
@@ -1232,7 +1299,12 @@ enum class ObjectType(
         ),
         typeId = 204,
         properties = listOf(
-            EntityProp(name = "Visibility radius", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Retreat radius",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "The jellyfish retreats when any player comes within this distance.",
+            ),
             EntityProp(name = "Move radius", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Rebirth radius", offset = 48, type = EntityPropType.F32),
         ),
@@ -1246,7 +1318,12 @@ enum class ObjectType(
         ),
         typeId = 205,
         properties = listOf(
-            EntityProp(name = "Max distance from home?", offset = 48, type = EntityPropType.F32),
+            EntityProp(
+                name = "Step size",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "How far it moves per step, and how close it must get for a waypoint to count as reached.",
+            ),
         ),
     ),
     CavesSwitchDoor(
@@ -1470,7 +1547,12 @@ enum class ObjectType(
         ),
         typeId = 261,
         properties = listOf(
-            EntityProp(name = "Initial state?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Initial state",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "0 to 3.",
+            ),
         ),
     ),
     FloatingRobot(
@@ -1487,9 +1569,24 @@ enum class ObjectType(
         ),
         typeId = 263,
         properties = listOf(
-            EntityProp(name = "Float cycles per second", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Max float distance", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Rotation speed in angle units per frame", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Float frequency",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Cycles per second = value * 0.1 + 1.0.",
+            ),
+            EntityProp(
+                name = "Float distance",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Maximum float distance = value * 0.1 + 0.5.",
+            ),
+            EntityProp(
+                name = "Rotation speed",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Angle units per frame (0x10000 = one full turn).",
+            ),
         ),
     ),
     SelfDestructingObject1(
@@ -1535,7 +1632,12 @@ enum class ObjectType(
         ),
         typeId = 268,
         properties = listOf(
-            EntityProp(name = "If > 0, a gray box is present in the left half of the stall", offset = 44, type = EntityPropType.F32),
+            EntityProp(
+                name = "Gray box",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Greater than 0: a gray box sits in the left half of the stall.",
+            ),
         ),
     ),
     RuinsSeal(
@@ -1684,7 +1786,12 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Activation radius delta", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Switch flag number", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "If negative, sensor is always on", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Activation condition",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Negative: needs a nearby player and a local client ID check. Zero or more: needs a nearby player and game flag 0x00400000.",
+            ),
             EntityProp(name = "Texture index", offset = 60, type = EntityPropType.I32),
         ),
     ),
@@ -1754,10 +1861,30 @@ enum class ObjectType(
         ),
         typeId = 338,
         properties = listOf(
-            EntityProp(name = "Maximum phase 0 duration in frames", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Duration of phase 2 in frames", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Poison radius squared", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "How often to create more particles during spewing phase", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Idle duration",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Maximum idle time in frames = value + 299; ends early when a player comes within 80 units.",
+            ),
+            EntityProp(
+                name = "Spew duration",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Poison-spewing time in frames = value + 209.",
+            ),
+            EntityProp(
+                name = "Poison radius squared",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "Squared poison radius = value + 399.",
+            ),
+            EntityProp(
+                name = "Particle interval",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Frames between particle bursts while spewing = value + 4.",
+            ),
         ),
     ),
     RuinsPillarTrap(
@@ -1872,11 +1999,36 @@ enum class ObjectType(
         ),
         typeId = 353,
         properties = listOf(
-            EntityProp(name = "Full random", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Random item", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Fixed item", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Item parameter", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Item parameter 2", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Random drop",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Greater than 0: drops any item (including this floor's box rares) or nothing, and the item fields are ignored. 0 or less: drops the item the item fields define.",
+            ),
+            EntityProp(
+                name = "Exact item",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "0: only the item kind from item data 1 is used and bonuses, grinds etc. are randomized as usual. Otherwise: drops exactly the item defined.",
+            ),
+            EntityProp(
+                name = "Item data 1",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Item definition, part 1: item class and kind, plus weapon flags (untekked, present) and special.",
+            ),
+            EntityProp(
+                name = "Item data 2",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Item definition, part 2: weapon grind and first attribute, armor or unit flags, or meseta amount (in tens).",
+            ),
+            EntityProp(
+                name = "Item data 3",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Item definition, part 3: weapon attributes.",
+            ),
         ),
     ),
     RandomBoxTypeRuins(
@@ -1895,7 +2047,12 @@ enum class ObjectType(
         ),
         typeId = 355,
         properties = listOf(
-            EntityProp(name = "Event", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The wave event triggered when the box is opened.",
+            ),
         ),
     ),
     EnemyTypeBoxBlue(
@@ -1905,6 +2062,14 @@ enum class ObjectType(
             Episode.II to listOf(1, 2, 3, 4),
         ),
         typeId = 356,
+        properties = listOf(
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The wave event triggered when the box is opened.",
+            ),
+        ),
     ),
     EmptyTypeBoxBlue(
         uniqueName = "Empty Type Box (Blue)",
@@ -1946,7 +2111,12 @@ enum class ObjectType(
         ),
         typeId = 368,
         properties = listOf(
-            EntityProp(name = "Number of birds?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Bird count delta",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The flock has value + 3 birds, clamped to 1 to 6; -3 gives none.",
+            ),
         ),
     ),
     Tower(
@@ -1963,8 +2133,18 @@ enum class ObjectType(
         ),
         typeId = 370,
         properties = listOf(
-            EntityProp(name = "X/z range delta?", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Number of rocks?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Spawn range delta",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Horizontal spawn range = value + 50.",
+            ),
+            EntityProp(
+                name = "Number of rocks",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Clamped to 1 to 8.",
+            ),
         ),
     ),
     FloatingSoul(
@@ -2011,7 +2191,12 @@ enum class ObjectType(
         ),
         typeId = 386,
         properties = listOf(
-            EntityProp(name = "Default decorations when there is no event", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Default decoration",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The decoration shown when no lobby event is active.",
+            ),
         ),
     ),
     LobbyPigeon(
@@ -2021,7 +2206,12 @@ enum class ObjectType(
         ),
         typeId = 387,
         properties = listOf(
-            EntityProp(name = "Model number?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Path pattern",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Which movement path the pigeon follows (0 to 2).",
+            ),
         ),
     ),
     ButterflyLobby(
@@ -2093,10 +2283,36 @@ enum class ObjectType(
         ),
         typeId = 396,
         properties = listOf(
-            EntityProp(name = "Same as param3 from 0001", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Particle type", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Same as param4", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Same as param5", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Particle type",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Same as the Particle object's particle type.",
+            ),
+            EntityProp(
+                name = "Param 3",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "Same as the Particle object's param 3.",
+            ),
+            EntityProp(
+                name = "Season",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The lobby event during which the particles show: 1 = Christmas, 2 = Halloween, 3 = New Year, 4 = Valentine's Day, 5 = White Day, 6 = summer, 7 = Easter, 8 = wedding, 9 = fall. Other values: no event.",
+            ),
+            EntityProp(
+                name = "Long range (1=1500)",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Same as the Particle object's long range.",
+            ),
+            EntityProp(
+                name = "Param 5",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Same as the Particle object's param 5.",
+            ),
         ),
     ),
     Camera(
@@ -2213,7 +2429,12 @@ enum class ObjectType(
         ),
         typeId = 424,
         properties = listOf(
-            EntityProp(name = "If > 0, enable lens flare rendering", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Lens flare",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "When a player comes within 20 units: greater than 0 turns lens flares on, 0 or less turns them off.",
+            ),
         ),
     ),
     SmallBrownBrickRisingBridge(
@@ -2225,7 +2446,12 @@ enum class ObjectType(
         typeId = 425,
         properties = listOf(
             EntityProp(name = "Extra depth when lowered", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Rise speed in units per frame", offset = 44, type = EntityPropType.F32),
+            EntityProp(
+                name = "Rise speed",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Units per frame.",
+            ),
             EntityProp(name = "Switch flag number", offset = 52, type = EntityPropType.I32),
         ),
     ),
@@ -2307,12 +2533,36 @@ enum class ObjectType(
         ),
         typeId = 515,
         properties = listOf(
-            EntityProp(name = "Full random", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Random item", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Fixed item", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Item parameter", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Item parameter 2", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Item parameter 3", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Random drop",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Greater than 0: drops any item (including this floor's box rares) or nothing, and the item fields are ignored. 0 or less: drops the item the item fields define.",
+            ),
+            EntityProp(
+                name = "Exact item",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "0: only the item kind from item data 1 is used and bonuses, grinds etc. are randomized as usual. Otherwise: drops exactly the item defined.",
+            ),
+            EntityProp(
+                name = "Item data 1",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Item definition, part 1: item class and kind, plus weapon flags (untekked, present) and special.",
+            ),
+            EntityProp(
+                name = "Item data 2",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Item definition, part 2: weapon grind and first attribute, armor or unit flags, or meseta amount (in tens).",
+            ),
+            EntityProp(
+                name = "Item data 3",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Item definition, part 3: weapon attributes.",
+            ),
         ),
     ),
     BigCcaDoor(
@@ -2366,7 +2616,7 @@ enum class ObjectType(
         ),
         typeId = 521,
         properties = listOf(
-            EntityProp(name = "Model number?", offset = 52, type = EntityPropType.I32),
+            EntityProp(name = "Model number", offset = 52, type = EntityPropType.I32, description = "0 or 1."),
         ),
     ),
     CcaAreaTeleporter(
@@ -2376,7 +2626,12 @@ enum class ObjectType(
         ),
         typeId = 522,
         properties = listOf(
-            EntityProp(name = "Color", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Color",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "On GameCube, 0 = red and 1 = blue.",
+            ),
         ),
     ),
     LightningController(
@@ -2386,9 +2641,19 @@ enum class ObjectType(
         ),
         typeId = 523,
         properties = listOf(
-            EntityProp(name = "Lightning distance from player", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Strike distance",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "How far from the player lightning strikes.",
+            ),
             EntityProp(name = "Lightning height", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Minimum frames between strikes", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Min strike interval",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Minimum frames between strikes.",
+            ),
             EntityProp(name = "Interval randomness", offset = 56, type = EntityPropType.I32),
         ),
     ),
@@ -2400,7 +2665,12 @@ enum class ObjectType(
         ),
         typeId = 524,
         properties = listOf(
-            EntityProp(name = "Model number?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Path pattern",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Which movement path the bird follows (0 to 2).",
+            ),
         ),
     ),
     OrangeBird(
@@ -2417,7 +2687,12 @@ enum class ObjectType(
         ),
         typeId = 526,
         properties = listOf(
-            EntityProp(name = "Event number", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "The wave event triggered when the box is opened.",
+            ),
             EntityProp(name = "Model number", offset = 56, type = EntityPropType.I32),
         ),
     ),
@@ -2462,7 +2737,12 @@ enum class ObjectType(
         ),
         typeId = 530,
         properties = listOf(
-            EntityProp(name = "Model number?", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Path pattern",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Which movement path the seagull follows (0 to 2).",
+            ),
         ),
     ),
     JungleDesign(
@@ -2548,7 +2828,12 @@ enum class ObjectType(
         ),
         typeId = 551,
         properties = listOf(
-            EntityProp(name = "Model number", offset = 52, type = EntityPropType.I32),
+            EntityProp(
+                name = "Path pattern",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Which movement path the dolphin follows (0 to 4).",
+            ),
         ),
     ),
     CaptureTrap(
@@ -2618,6 +2903,32 @@ enum class ObjectType(
             Episode.IV to listOf(6, 7, 8),
         ),
         typeId = 688,
+        properties = listOf(
+            EntityProp(
+                name = "Idle duration",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Maximum idle time in frames = value + 299; ends early when a player comes within 80 units.",
+            ),
+            EntityProp(
+                name = "Spew duration",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Poison-spewing time in frames = value + 209.",
+            ),
+            EntityProp(
+                name = "Poison radius squared",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "Squared poison radius = value + 399.",
+            ),
+            EntityProp(
+                name = "Particle interval",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Frames between particle bursts while spewing = value + 4.",
+            ),
+        ),
     ),
     LabComputerConsole(
         uniqueName = "Lab Computer Console",
@@ -2697,7 +3008,12 @@ enum class ObjectType(
             EntityProp(name = "Destination z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Dst. rotation y", offset = 52, type = EntityPropType.Angle),
             EntityProp(name = "Displayed floor number", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Floor display (<=0=show, >0=hide)", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Hide floor number",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "0 or less: show the floor number after warping. Greater than 0: hide it.",
+            ),
         ),
     ),
     QuestCollision2(
@@ -2894,7 +3210,12 @@ enum class ObjectType(
         properties = listOf(
             EntityProp(name = "Game flags to set", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Game flags to clear", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Same as for 0x0388", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Hitbox type",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "0 = rectangular, otherwise cylindrical.",
+            ),
         ),
     ),
     UnknownItem906(
@@ -2903,7 +3224,12 @@ enum class ObjectType(
         typeId = 906,
         properties = listOf(
             EntityProp(name = "Interval", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Same as for 0x0388", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Hitbox type",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "0 = rectangular, otherwise cylindrical.",
+            ),
         ),
     ),
     FallingRock(
@@ -2931,7 +3257,36 @@ enum class ObjectType(
         ),
         typeId = 909,
         properties = listOf(
-            EntityProp(name = "Contents type", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Contents type",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "0 = empty, 1 = random item, 2 = the item the item fields define, 3 = triggers an event.",
+            ),
+            EntityProp(
+                name = "Exact item",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "Contents type 2: 0 = only the item kind from item data 1 is used and the rest is randomized; otherwise drops exactly the item defined.",
+            ),
+            EntityProp(
+                name = "Event ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Contents type 3: the wave event triggered when the box is opened. Contents type 2: item definition, part 1 (item class and kind, plus weapon flags and special).",
+            ),
+            EntityProp(
+                name = "Item data 2",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Contents type 2: item definition, part 2.",
+            ),
+            EntityProp(
+                name = "Item data 3",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Contents type 2: item definition, part 3.",
+            ),
         ),
     ),
     Ep4TestDoor(

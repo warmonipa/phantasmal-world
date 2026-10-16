@@ -29,6 +29,8 @@ import world.phantasmal.web.externals.three.Euler
 import world.phantasmal.web.questEditor.models.QuestEventActionModel
 import world.phantasmal.web.questEditor.models.QuestEventModel
 import world.phantasmal.web.questEditor.models.QuestModel
+import world.phantasmal.web.questEditor.models.QuestObjectModel
+import world.phantasmal.web.test.WebTestContext
 import world.phantasmal.web.test.WebTestSuite
 import world.phantasmal.web.test.createQuestModel
 import world.phantasmal.web.test.createQuestObjectModel
@@ -404,6 +406,79 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             route.segments.map { it.from.x to it.to.x },
         )
     }
+
+    @Test
+    fun enemy_boxes_trigger_the_event_that_unlocks_a_door() = testAsync {
+        // Opening an enemy box triggers its wave event, like entering an Event Collision.
+        val boxes = listOf<(Int, Double, Int) -> QuestObjectModel>(
+            { floorId, x, eventId -> eventBox(ObjectType.EnemyBoxGrey, floorId, x, eventId) },
+            { floorId, x, eventId -> eventBox(ObjectType.EnemyBoxBrown, floorId, x, eventId) },
+            { floorId, x, eventId -> eventBox(ObjectType.EnemyTypeBoxYellow, floorId, x, eventId) },
+            { floorId, x, eventId -> eventBox(ObjectType.EnemyTypeBoxBlue, floorId, x, eventId) },
+            { floorId, x, eventId -> eventBox(ObjectType.ContainerJungEnemy, floorId, x, eventId) },
+            { floorId, x, eventId -> crystalBox(floorId, x, eventId, contentsType = 3f) },
+        )
+        for (box in boxes) {
+            val route = planAcrossEventDoor(box)
+            assertEquals(
+                listOf(0.0 to 30.0, 30.0 to 38.0, 38.0 to 62.0, 62.0 to 100.0),
+                route.segments.map { it.from.x to it.to.x },
+            )
+        }
+
+        // A crystal box with item contents triggers no event, so nothing opens the door.
+        val itemBoxRoute = planAcrossEventDoor { floorId, x, eventId ->
+            crystalBox(floorId, x, eventId, contentsType = 1f)
+        }
+        assertTrue(itemBoxRoute.segments.none { it.to.x > 50.0 })
+    }
+
+    private suspend fun WebTestContext.planAcrossEventDoor(
+        trigger: (floorId: Int, x: Double, eventId: Int) -> QuestObjectModel,
+    ): WalkthroughRoute {
+        val door = createQuestObjectModel(ObjectType.MinesSwitchDoor, 1).apply {
+            entity.data.setInt(52, 7)
+            setWorldPosition(Vector3(50.0, 0.0, 0.0))
+            setWorldRotation(Euler(0.0, PI / 2, 0.0))
+        }
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(100.0, 0.0, 0.0))
+        }
+        val unlock = QuestEventModel(
+            id = 1,
+            floorId = 1,
+            sectionId = 1,
+            waveId = 1,
+            delay = 0,
+            unknown = 0,
+            actions = mutableListOf(QuestEventActionModel.Door.Unlock(7)),
+        )
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), door, trigger(1, 30.0, 1), exit),
+            events = listOf(unlock),
+            bytecodeIr = warpGatedBytecode(),
+        )
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            when {
+                from.x in 0.0..40.0 && to.x in 0.0..40.0 -> listOf(from, to)
+                from.x in 60.0..100.0 && to.x in 60.0..100.0 -> listOf(from, to)
+                else -> null
+            }
+        }
+        return plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+    }
+
+    private fun eventBox(type: ObjectType, floorId: Int, x: Double, eventId: Int) =
+        createQuestObjectModel(type, floorId).apply {
+            entity.data.setInt(52, eventId)
+            setWorldPosition(Vector3(x, 0.0, 0.0))
+        }
+
+    private fun crystalBox(floorId: Int, x: Double, eventId: Int, contentsType: Float) =
+        eventBox(ObjectType.DesertFixedTypeBoxBreakableCrystals, floorId, x, eventId).apply {
+            entity.data.setFloat(40, contentsType)
+        }
 
     @Test
     fun script_switch_extends_a_route_across_the_door_it_unlocks() = testAsync {

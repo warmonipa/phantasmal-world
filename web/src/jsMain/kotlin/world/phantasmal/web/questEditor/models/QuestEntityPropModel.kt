@@ -23,6 +23,7 @@ class QuestEntityPropModel(private val entity: QuestEntityModel<*, *>, prop: Ent
     private val affectsDestinationRotationY: Boolean
 
     val name: String = prop.name
+    val description: String? = prop.description
     val offset = prop.offset
     val type: EntityPropType = prop.type
     val value: Cell<Any> = _value

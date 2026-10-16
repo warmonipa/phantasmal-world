@@ -7,6 +7,8 @@ class EntityProp(
     val name: String,
     val offset: Int,
     val type: EntityPropType,
+    /** What the value means, for when the short [name] can't say it all. */
+    val description: String? = null,
 )
 
 enum class EntityPropType {
