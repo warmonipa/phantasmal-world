@@ -478,9 +478,19 @@ enum class ObjectType(
         ),
         typeId = 34,
         properties = listOf(
-            EntityProp(name = "Radius", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Radius",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Activation radius = value + 10.",
+            ),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Sticky",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Negative: the switch flag turns off when the player leaves. Zero or more: it stays on.",
+            ),
         ),
     ),
     TargetableObject(
@@ -513,7 +523,12 @@ enum class ObjectType(
             EntityProp(name = "Scale", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
             EntityProp(name = "Switch-Off ID", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Repeat damage",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Nonzero: the effect can cause damage again later.",
+            ),
         ),
     ),
     CountDownObject(
@@ -799,11 +814,30 @@ enum class ObjectType(
         typeId = 83,
         lobbyEvent = LobbyEvent.NewYear,
         properties = listOf(
-            EntityProp(name = "Mdl IDX", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Area width", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Rise height", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Area depth", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Freq", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Area half-width x",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Fireworks launch within this distance of the object along x.",
+            ),
+            EntityProp(
+                name = "Rise height",
+                offset = 44,
+                type = EntityPropType.F32,
+                description = "Each firework rises this high plus a random 0 to 50.",
+            ),
+            EntityProp(
+                name = "Area half-width z",
+                offset = 48,
+                type = EntityPropType.F32,
+                description = "Fireworks launch within this distance of the object along z.",
+            ),
+            EntityProp(
+                name = "Launch interval",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Wait between launches in frames: (value + 60) * 3 * a random fraction.",
+            ),
         ),
     ),
     LobbyScreenDoor(
@@ -1001,12 +1035,31 @@ enum class ObjectType(
         ),
         typeId = 140,
         properties = listOf(
-            EntityProp(name = "Distance", offset = 40, type = EntityPropType.F32),
+            EntityProp(
+                name = "Distance",
+                offset = 40,
+                type = EntityPropType.F32,
+                description = "Total distance, divided evenly among the switch flags.",
+            ),
             EntityProp(name = "Speed", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Switch ID", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Switch no.", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Disable effect", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Enable effect", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch flag",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door uses this flag and the ones after it.",
+            ),
+            EntityProp(
+                name = "Switch count",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Number of switch flags (1 to 4).",
+            ),
+            EntityProp(
+                name = "Movement effect",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "0 = sparks and thud, 1 = grinding sound.",
+            ),
         ),
     ),
     RicoMessagePod(
@@ -1188,7 +1241,12 @@ enum class ObjectType(
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Activation mode",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Negative: temporary, the switch flag turns off when the player steps off. Zero or more: permanent. Offline single player is always permanent.",
+            ),
         ),
     ),
     Caves4ButtonDoor(
@@ -1198,9 +1256,24 @@ enum class ObjectType(
         ),
         typeId = 193,
         properties = listOf(
-            EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Door ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Unused switches",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "4 minus the number of switch flags the door needs: 0 = 4 switches, 1 = 3 switches, and so on.",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     CavesNormalDoor(
@@ -1452,7 +1525,18 @@ enum class ObjectType(
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Model",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Low 16 bits, in VR Temple and VR Spaceship: 0 = Caves button, otherwise Mines button.",
+            ),
+            EntityProp(
+                name = "Sound",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Low 16 bits: the sound to play (0 = none). High 16 bits: 1 = only when the switch turns on, otherwise when it turns on and off.",
+            ),
         ),
     ),
     DestructableRockCaves1(
@@ -1486,9 +1570,18 @@ enum class ObjectType(
         ),
         typeId = 256,
         properties = listOf(
-            EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Door ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Unused switches",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "4 minus the number of switch flags the door needs: 0 = 4 switches, 1 = 3 switches, and so on.",
+            ),
         ),
     ),
     FloorPanel3(
@@ -1504,7 +1597,12 @@ enum class ObjectType(
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Activation mode",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Negative: temporary, the switch flag turns off when the player steps off. Zero or more: permanent. Offline single player is always permanent.",
+            ),
         ),
     ),
     MinesSwitchDoor(
@@ -1515,9 +1613,12 @@ enum class ObjectType(
         ),
         typeId = 258,
         properties = listOf(
-            EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Door ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Switch flag that unlocks the door. Negative: always unlocked. Above 0x100: always locked.",
+            ),
         ),
     ),
     LargeCryoTube(
@@ -1692,7 +1793,12 @@ enum class ObjectType(
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
             EntityProp(name = "Plate ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 56, type = EntityPropType.I32),
+            EntityProp(
+                name = "Activation mode",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Negative: temporary, the switch flag turns off when the player steps off. Zero or more: permanent. Offline single player is always permanent.",
+            ),
         ),
     ),
     Ruins1Door(
@@ -1762,8 +1868,18 @@ enum class ObjectType(
         ),
         typeId = 330,
         properties = listOf(
-            EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Door ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the 3 after it.",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     Ruins2ButtonDoor(
@@ -1773,8 +1889,18 @@ enum class ObjectType(
         ),
         typeId = 331,
         properties = listOf(
-            EntityProp(name = "Door ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Door ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the one after it.",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     RuinsSensor(
@@ -2474,9 +2600,24 @@ enum class ObjectType(
         ),
         typeId = 427,
         properties = listOf(
-            EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Switch count",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Number of switch flags the door needs (0 to 4).",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     FourButtonSpaceshipDoor(
@@ -2486,9 +2627,24 @@ enum class ObjectType(
         ),
         typeId = 448,
         properties = listOf(
-            EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch total", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Switch count",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Number of switch flags the door needs (0 to 4).",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     ItemBoxCca(
@@ -2520,9 +2676,18 @@ enum class ObjectType(
             EntityProp(name = "Scale x", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch amount", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Switch count",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Number of switch flags the door needs (0 to 4).",
+            ),
         ),
     ),
     SpecialBoxCca(
@@ -2774,9 +2939,24 @@ enum class ObjectType(
             EntityProp(name = "Scale x", offset = 40, type = EntityPropType.F32),
             EntityProp(name = "Scale y", offset = 44, type = EntityPropType.F32),
             EntityProp(name = "Scale z", offset = 48, type = EntityPropType.F32),
-            EntityProp(name = "Switch ID", offset = 52, type = EntityPropType.I32),
-            EntityProp(name = "Switch amount", offset = 56, type = EntityPropType.I32),
-            EntityProp(name = "Stay active", offset = 60, type = EntityPropType.I32),
+            EntityProp(
+                name = "Switch ID",
+                offset = 52,
+                type = EntityPropType.I32,
+                description = "Base switch flag: the door needs this flag and the ones after it. Negative: always unlocked.",
+            ),
+            EntityProp(
+                name = "Switch count",
+                offset = 56,
+                type = EntityPropType.I32,
+                description = "Number of switch flags the door needs (0 to 4).",
+            ),
+            EntityProp(
+                name = "Sync mode",
+                offset = 60,
+                type = EntityPropType.I32,
+                description = "Negative: once all switch flags are on, the door stays unlocked for good. Zero or more: it locks again when any switch flag turns off (offline single player always behaves as negative).",
+            ),
         ),
     ),
     SeabedDoorAlwaysOpenNonTriggerable(

@@ -306,6 +306,56 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
+    fun script_gated_warps_skip_enemy_boxes_whose_event_opens_nothing() = testAsync {
+        // Opening a box is optional; only an Event Collision is always on the player's way.
+        val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {
+            entity.data.setInt(52, 2)
+            setWorldPosition(Vector3(40.0, 0.0, 0.0))
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, 20.0),
+                eventBox(ObjectType.EnemyBoxGrey, 1, 80.0, eventId = 5),
+                exit,
+            ),
+            bytecodeIr = warpGatedBytecode(),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(
+            listOf(0.0 to 20.0, 20.0 to 40.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun multi_switch_doors_use_newservs_switch_count_encoding() = testAsync {
+        fun door(type: ObjectType, param5: Int) = createQuestObjectModel(type, 1).apply {
+            entity.data.setInt(52, 10)
+            entity.data.setInt(56, param5)
+        }
+        // Caves and Mines: param5 = 4 - number of switch flags.
+        assertEquals(10..13, door(ObjectType.Caves4ButtonDoor, 0).controlledDoorIds())
+        assertEquals(10..10, door(ObjectType.Caves4ButtonDoor, 3).controlledDoorIds())
+        assertEquals(10..13, door(ObjectType.MinesDoor, 0).controlledDoorIds())
+        assertEquals(10..12, door(ObjectType.MinesDoor, 1).controlledDoorIds())
+        // CCA, Seabed, Temple and Spaceship: param5 = number of switch flags.
+        for (type in listOf(
+            ObjectType.CcaDoor,
+            ObjectType.SeabedDoorWithBlueEdges,
+            ObjectType.FourSwitchTempleDoor,
+            ObjectType.FourButtonSpaceshipDoor,
+        )) {
+            assertEquals(10..12, door(type, 3).controlledDoorIds(), type.name)
+        }
+        // The Mines single-switch door has one switch flag, whatever param5 holds.
+        assertEquals(10..10, door(ObjectType.MinesSwitchDoor, 3).controlledDoorIds())
+    }
+
+    @Test
     fun script_gated_progression_can_cross_a_one_way_same_floor_warp() = testAsync {
         val warp = intraMapWarp(ObjectType.Warp, 1, sourceX = 5.0, destinationX = 100.0)
         val exit = createQuestObjectModel(ObjectType.Teleporter, 1).apply {

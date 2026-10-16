@@ -51,9 +51,10 @@ class QuestObject(override var floorId: Int, override val data: Buffer) : QuestE
             ObjectType.EnemyTypeBoxBlue,
             ObjectType.ContainerJungEnemy,
             -> data.getInt(52)
-            // Contents type 3 makes the box trigger an event.
+            // Contents type 3 makes the box trigger an event. Map data stores float params with
+            // rounding noise (e.g. 3.0000002), and the client truncates them.
             ObjectType.DesertFixedTypeBoxBreakableCrystals ->
-                if (data.getFloat(40) == 3f) data.getInt(52) else null
+                if (data.getFloat(40).toInt() == 3) data.getInt(52) else null
             else -> null
         }
 

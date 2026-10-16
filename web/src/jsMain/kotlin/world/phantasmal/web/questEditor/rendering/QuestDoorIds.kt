@@ -13,13 +13,13 @@ internal fun QuestObjectModel.controlledDoorIds(): IntRange? {
     val count = when {
         type == ObjectType.Ruins4ButtonDoor -> 4
         type == ObjectType.Ruins2ButtonDoor -> 2
-        type in configurableSwitchDoorTypes -> {
-            val configured = entity.data.getInt(56)
-            if (configured > 1) configured else configurableSwitchDefaults[type] ?: 1
-        }
+        // newserv: the Caves and Mines multi-switch doors store 4 minus the number of switch
+        // flags in param5; the CCA, Seabed, Temple and Spaceship ones store the number itself.
+        type in inverseSwitchCountDoorTypes -> 4 - entity.data.getInt(56).coerceIn(0, 4)
+        type in switchCountDoorTypes -> entity.data.getInt(56).coerceIn(0, 4)
         else -> 1
     }
-    return first until first + count
+    return first until first + count.coerceAtLeast(1)
 }
 
 internal fun QuestObjectModel.isFenceObject(): Boolean = type in fenceObjectTypes
@@ -68,16 +68,18 @@ private val doorObjectTypes: Set<ObjectType> = setOf(
     ObjectType.TempleNormalDoor,
     ObjectType.CcaDoor,
     ObjectType.SeabedDoorWithBlueEdges,
+    ObjectType.FourSwitchTempleDoor,
+    ObjectType.FourButtonSpaceshipDoor,
 )
 
-private val configurableSwitchDoorTypes: Set<ObjectType> = setOf(
+private val inverseSwitchCountDoorTypes: Set<ObjectType> = setOf(
     ObjectType.Caves4ButtonDoor,
     ObjectType.MinesDoor,
-    ObjectType.MinesSwitchDoor,
-    ObjectType.CcaDoor,
-    ObjectType.SeabedDoorWithBlueEdges,
 )
 
-private val configurableSwitchDefaults: Map<ObjectType, Int> = mapOf(
-    ObjectType.Caves4ButtonDoor to 4,
+private val switchCountDoorTypes: Set<ObjectType> = setOf(
+    ObjectType.CcaDoor,
+    ObjectType.SeabedDoorWithBlueEdges,
+    ObjectType.FourSwitchTempleDoor,
+    ObjectType.FourButtonSpaceshipDoor,
 )

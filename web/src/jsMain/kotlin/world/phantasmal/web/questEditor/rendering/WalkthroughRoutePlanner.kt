@@ -309,7 +309,15 @@ private suspend fun planFloor(
 
     for (obj in objects) {
         when {
-            obj.entity.triggeredEventId != null -> {
+            obj.type == ObjectType.EventCollision -> {
+                val node = addNode(
+                    obj.worldPoint(), NodeKind.Objective, EVENT_COLLISION_PRIORITY,
+                )
+                eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf).add(node)
+            }
+            // Opening an enemy box is optional, unlike walking through an Event Collision, so a
+            // box is only an objective when its event opens a door.
+            obj.entity.triggeredEventId?.let { unlockedDoorIds(it).isNotEmpty() } == true -> {
                 val node = addNode(
                     obj.worldPoint(), NodeKind.Objective, EVENT_COLLISION_PRIORITY,
                 )

@@ -154,6 +154,10 @@ class ObjectTypeTests : LibTestSuite {
         crystalBox.data.setFloat(40, 1f) // Random item.
         assertNull(crystalBox.triggeredEventId)
 
+        // Map data stores float params with rounding noise; the client truncates them.
+        crystalBox.data.setFloat(40, 3.0000002f)
+        assertEquals(77, crystalBox.triggeredEventId)
+
         for (type in listOf(ObjectType.FixedTypeBox, ObjectType.RandomTypeBox1)) {
             val box = QuestObject(type, floorId = 1)
             box.data.setInt(52, 77)

@@ -414,7 +414,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setShort(6, 1)
             data.setFloat(40, 30.000015258789062f) // Distance
             data.setFloat(44, 0.8999999761581421f) // Speed
-            data.setInt(52, 101) // Switch no.
+            data.setInt(52, 101) // Switch flag
             data.setInt(64, -1929721536)
         }
 
@@ -461,8 +461,8 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         }
 
         ObjectType.FixedTypeBox -> {
-            data.setFloat(40, 0f) // Full random
-            data.setFloat(48, 0f) // Fixed item
+            data.setFloat(40, 0f) // Random drop
+            data.setFloat(48, 0f) // Exact item
         }
 
         ObjectType.EmptyTypeBox -> {
@@ -690,7 +690,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setShort(4, 715)
             data.setShort(6, 6)
             data.setInt(52, -1) // Door ID
-            data.setInt(56, 3) // Switch total
+            data.setInt(56, 3) // Unused switches (1 switch)
             data.setInt(64, -1929747520)
         }
 
@@ -936,9 +936,9 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         }
 
         ObjectType.FixedBoxTypeRuins -> {
-            data.setFloat(40, 0f) // Full random
+            data.setFloat(40, 0f) // Random drop
             data.setFloat(44, 0f) // Random item
-            data.setFloat(48, 0f) // Fixed item
+            data.setFloat(48, 0f) // Exact item
         }
 
         ObjectType.RandomBoxTypeRuins -> {
@@ -1090,7 +1090,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
             data.setShort(2, 512)
             data.setShort(4, 21763)
             data.setShort(6, 5)
-            data.setInt(56, 1) // Switch amount
+            data.setInt(56, 1) // Switch count
             data.setInt(64, -2136345728)
         }
 
@@ -1192,7 +1192,7 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         ObjectType.SeabedDoorWithBlueEdges -> {
             data.setShort(4, 29959)
             data.setShort(6, 11)
-            data.setInt(56, 1) // Switch amount
+            data.setInt(56, 1) // Switch count
             data.setInt(64, 1611984768)
         }
 
