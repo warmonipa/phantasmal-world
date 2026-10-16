@@ -141,7 +141,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun scripted_relocation_is_a_non_rendered_warp() = testAsync {
+    fun scripted_relocation_is_drawn_as_a_jump() = testAsync {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
@@ -171,9 +171,10 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
         assertEquals(
-            listOf(0.0 to 20.0, 500.0 to 510.0),
+            listOf(0.0 to 20.0, 20.0 to 500.0, 500.0 to 510.0),
             route.segments.map { it.from.x to it.to.x },
         )
+        assertEquals(listOf(20.0 to 500.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -290,8 +291,8 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
-                eventCollision(1, 20.0),
-                eventCollision(1, 80.0),
+                eventCollision(1, 20.0, eventId = 1),
+                eventCollision(1, 80.0, eventId = 2),
                 exit,
             ),
             bytecodeIr = warpGatedBytecode(),
@@ -365,9 +366,9 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val quest = createQuestModel(
             objects = listOf(
                 playerSet(1, 0, 0.0),
-                eventCollision(1, 10.0),
+                eventCollision(1, 10.0, eventId = 1),
                 warp,
-                eventCollision(1, 110.0),
+                eventCollision(1, 110.0, eventId = 2),
                 exit,
             ),
             bytecodeIr = warpGatedBytecode(),
@@ -383,9 +384,10 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
         assertEquals(
-            listOf(0.0 to 10.0, 10.0 to 5.0, 100.0 to 110.0, 110.0 to 120.0),
+            listOf(0.0 to 10.0, 10.0 to 5.0, 5.0 to 100.0, 100.0 to 110.0, 110.0 to 120.0),
             route.segments.map { it.from.x to it.to.x },
         )
+        assertEquals(listOf(5.0 to 100.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -476,11 +478,13 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             )
         }
 
-        // A crystal box with item contents triggers no event, so nothing opens the door.
+        // A crystal box with item contents triggers no event, so it isn't on the way and nothing
+        // known opens the door; the route only passes it because the exit is behind it.
         val itemBoxRoute = planAcrossEventDoor { floorId, x, eventId ->
             crystalBox(floorId, x, eventId, contentsType = 1f)
         }
-        assertTrue(itemBoxRoute.segments.none { it.to.x > 50.0 })
+        assertTrue(itemBoxRoute.segments.none { it.to.x == 30.0 })
+        assertTrue(itemBoxRoute.diagnostics.any { "nothing known opens" in it })
     }
 
     private suspend fun WebTestContext.planAcrossEventDoor(
@@ -574,6 +578,266 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
+    fun locked_door_on_walkable_ground_waits_for_the_floor_button_that_opens_it() = testAsync {
+        val button = switchObject(ObjectType.FloorPanel3, 1, x = 20.0, z = 15.0, flag = 7)
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 7),
+                button, teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 20.0, 20.0 to 120.0), route.segments.map { it.from.x to it.to.x })
+        assertEquals(15.0, route.segments.first().to.z)
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun door_whose_switch_flag_nothing_sets_blocks_the_route_and_is_reported() = testAsync {
+        // Endless Nightmare #3, Mine 1: the door nothing opens is bypassed along another way.
+        val detour = eventCollision(1, x = 60.0).apply { setWorldPosition(Vector3(60.0, 0.0, 40.0)) }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 99),
+                detour, teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 60.0, 60.0 to 120.0), route.segments.map { it.from.x to it.to.x })
+        assertEquals(
+            listOf(
+                "Floor 1: Mines Switch Door at (50, 0) needs switch flag 99, which nothing on " +
+                    "this floor sets.",
+            ),
+            route.diagnostics,
+        )
+    }
+
+    @Test
+    fun door_nothing_opens_is_passed_when_it_is_the_only_way_to_the_exit() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 99),
+                teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 120.0), route.segments.map { it.from.x to it.to.x })
+        assertTrue(
+            route.diagnostics.any { "only reachable through doors or fences that nothing" in it },
+            route.diagnostics.toString(),
+        )
+    }
+
+    @Test
+    fun laser_fence_waits_for_its_fence_switch() = testAsync {
+        val fenceSwitch = switchObject(
+            ObjectType.ForestLaserFenceSwitch, 1, x = 20.0, z = 15.0, flag = 215,
+        )
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.LaserFence, 1, x = 50.0, flag = 215),
+                fenceSwitch, teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(15.0, route.segments.first().to.z)
+        assertEquals(120.0, route.segments.last().to.x)
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun multi_switch_door_waits_for_every_switch_flag() = testAsync {
+        val door = gate(ObjectType.CcaDoor, 1, x = 50.0, flag = 10).apply {
+            entity.data.setInt(56, 2)
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), door,
+                switchObject(ObjectType.FloorPanel3, 1, x = 20.0, z = 15.0, flag = 10),
+                switchObject(ObjectType.FloorPanel3, 1, x = 30.0, z = -15.0, flag = 11),
+                teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        val visited = route.segments.map { it.to.x to it.to.z }
+        assertTrue(20.0 to 15.0 in visited, visited.toString())
+        assertTrue(30.0 to -15.0 in visited, visited.toString())
+        assertEquals(120.0, route.segments.last().to.x)
+    }
+
+    @Test
+    fun switch_flag_set_by_the_floor_handler_leaves_its_door_open() = testAsync {
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 7),
+                teleporter(1, 2, 120.0),
+            ),
+            bytecodeIr = BytecodeIr(listOf(
+                instructionSegment(
+                    label = 0,
+                    Instruction(
+                        OP_SET_FLOOR_HANDLER_V3_V4,
+                        listOf(IntArg(1), IntArg(100)),
+                        valid = true,
+                        srcLoc = null,
+                    ),
+                ),
+                instructionSegment(label = 100, instruction(OP_UNLOCK_DOOR2, 1, 7)),
+            )),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 120.0), route.segments.map { it.from.x to it.to.x })
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun door_sides_skip_floor_islands_inside_the_door_frame() = testAsync {
+        val button = switchObject(ObjectType.FloorPanel3, 1, x = 10.0, z = 0.0, flag = 7)
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), button,
+                gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 7),
+                teleporter(1, 2, 120.0),
+            ),
+        )
+        // The door frame leaves an island of floor at x = 40..48 that leads nowhere.
+        fun island(x: Double) = when {
+            x <= 30.0 -> 0
+            x in 40.0..48.0 -> 1
+            x >= 60.0 -> 2
+            else -> null
+        }
+        val pathfinder = WalkthroughPathfinder { from, to ->
+            val island = island(from.x)
+            if (island != null && island == island(to.x)) listOf(from, to) else null
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(120.0, route.segments.last().to.x)
+        assertTrue(route.segments.any { it.from.x == 26.0 && it.to.x == 62.0 }, route.toString())
+    }
+
+    @Test
+    fun route_goes_around_a_closed_fence_through_another_doorway() = testAsync {
+        // The fence switch is behind the fence, but an open door next to it leads there too.
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                gate(ObjectType.LaserFence, 1, x = 50.0, flag = 5),
+                gate(ObjectType.MinesDoor, 1, x = 50.0, flag = -1).apply {
+                    setWorldPosition(Vector3(50.0, 0.0, 60.0))
+                },
+                switchObject(ObjectType.ForestLaserFenceSwitch, 1, x = 100.0, z = 10.0, flag = 5),
+                teleporter(1, 2, 120.0),
+            ),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        val points = route.segments.map { it.to.x to it.to.z }
+        assertTrue(34.0 to 60.0 in points || 66.0 to 60.0 in points, points.toString())
+        assertTrue(100.0 to 10.0 in points, points.toString())
+        assertEquals(120.0, route.segments.last().to.x)
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun one_of_several_event_collisions_for_the_same_event_is_enough() = testAsync {
+        // Ember in the Dust - Echoes, Spaceship Alpha: seven Event Collisions trigger one event.
+        val unlock = QuestEventModel(
+            id = 402, floorId = 1, sectionId = 1, waveId = 1, delay = 0, unknown = 0,
+            actions = mutableListOf(QuestEventActionModel.Door.Unlock(10)),
+        )
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0),
+                eventCollision(1, x = 20.0, eventId = 402),
+                eventCollision(1, x = 20.0, eventId = 402).apply {
+                    setWorldPosition(Vector3(20.0, 0.0, -300.0))
+                },
+                gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 10),
+                teleporter(1, 2, 120.0),
+            ),
+            events = listOf(unlock),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(listOf(0.0 to 20.0, 20.0 to 120.0), route.segments.map { it.from.x to it.to.x })
+        assertTrue(route.segments.none { it.to.z == -300.0 })
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun event_collision_behind_the_door_it_opens_fires_from_the_doorway() = testAsync {
+        // Ember in the Dust - Echoes, Seaside: the Event Collision's radius reaches through the
+        // door it unlocks, so players trigger it from the near side.
+        val unlock = QuestEventModel(
+            id = 7, floorId = 1, sectionId = 1, waveId = 1, delay = 0, unknown = 0,
+            actions = mutableListOf(QuestEventActionModel.Door.Unlock(7)),
+        )
+        val trigger = eventCollision(1, x = 65.0, eventId = 7).apply {
+            entity.data.setFloat(40, 30f)
+        }
+        val quest = createQuestModel(
+            objects = listOf(
+                playerSet(1, 0, 0.0), gate(ObjectType.MinesSwitchDoor, 1, x = 50.0, flag = 7),
+                trigger, teleporter(1, 2, 120.0),
+            ),
+            events = listOf(unlock),
+        )
+
+        val route = plan(quest, setOf(1), clientId = 0)
+
+        assertEquals(42.0, route.segments.first().to.x)
+        assertEquals(120.0, route.segments.last().to.x)
+        assertTrue(route.diagnostics.isEmpty(), route.diagnostics.toString())
+    }
+
+    @Test
+    fun objects_just_past_the_walkable_edge_snap_onto_it() = testAsync {
+        val warp = intraMapWarp(ObjectType.InstaWarp, 1, sourceX = 101.0, destinationX = 300.0)
+        val quest = createQuestModel(
+            objects = listOf(playerSet(1, 0, 0.0), warp, teleporter(1, 2, 320.0)),
+        )
+        // Walkable ground ends at x = 100; the warp pad stands 1 unit past it.
+        val pathfinder = object : WalkthroughPathfinder {
+            override fun findPath(
+                from: WalkthroughPoint,
+                to: WalkthroughPoint,
+            ): List<WalkthroughPoint>? = when {
+                from.x in 0.0..100.0 && to.x in 0.0..100.0 -> listOf(from, to)
+                from.x in 300.0..320.0 && to.x in 300.0..320.0 -> listOf(from, to)
+                else -> null
+            }
+
+            override fun nearestWalkable(point: WalkthroughPoint) =
+                if (point.x in 100.0..102.0) point.copy(x = 100.0) else point
+        }
+
+        val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
+
+        assertEquals(
+            listOf(0.0 to 100.0, 100.0 to 300.0, 300.0 to 320.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+    }
+
+    @Test
     fun warp_gating_is_scoped_to_the_floor_where_the_script_can_execute() = testAsync {
         val otherFloorSwitch = scriptInteraction(2, x = 10.0, label = 20)
         val quest = createQuestModel(
@@ -643,7 +907,7 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
     }
 
     @Test
-    fun required_same_floor_warp_is_a_non_rendered_transition() = testAsync {
+    fun required_same_floor_warp_is_drawn_as_a_jump() = testAsync {
         val warp = createQuestObjectModel(ObjectType.Warp, 1).apply {
             setWorldPosition(Vector3(10.0, 0.0, 0.0))
             setDestinationPosition(Vector3(80.0, 0.0, 0.0))
@@ -665,7 +929,11 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
 
         val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
-        assertEquals(listOf(0.0 to 10.0, 80.0 to 90.0), route.segments.map { it.from.x to it.to.x })
+        assertEquals(
+            listOf(0.0 to 10.0, 10.0 to 80.0, 80.0 to 90.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+        assertEquals(listOf(10.0 to 80.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
         assertTrue(route.segments.all { it.endsLeg })
     }
 
@@ -706,8 +974,9 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
 
         assertEquals(
             listOf(0.0 to 10.0, 100.0 to 110.0, 50.0 to 60.0, 200.0 to 210.0),
-            route.segments.map { it.from.x to it.to.x },
+            route.segments.filterNot { it.jump }.map { it.from.x to it.to.x },
         )
+        assertEquals(listOf(10.0 to 100.0, 110.0 to 50.0, 60.0 to 200.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
         assertTrue(route.segments.all { it.endsLeg })
     }
 
@@ -738,9 +1007,10 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
         val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
         assertEquals(
-            listOf(0.0 to 10.0, 100.0 to 110.0),
+            listOf(0.0 to 10.0, 10.0 to 100.0, 100.0 to 110.0),
             route.segments.map { it.from.x to it.to.x },
         )
+        assertEquals(listOf(10.0 to 100.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -788,7 +1058,11 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
 
         val route = plan(quest, setOf(1), clientId = 0, pathfinder = pathfinder)
 
-        assertEquals(listOf(0.0 to 10.0, 80.0 to 90.0), route.segments.map { it.from.x to it.to.x })
+        assertEquals(
+            listOf(0.0 to 10.0, 10.0 to 80.0, 80.0 to 90.0),
+            route.segments.map { it.from.x to it.to.x },
+        )
+        assertEquals(listOf(10.0 to 80.0), route.segments.filter { it.jump }.map { it.from.x to it.to.x })
     }
 
     @Test
@@ -944,6 +1218,24 @@ class WalkthroughRoutePlannerTests : WebTestSuite {
             planning.cancelAndJoin()
         }
     }
+
+    /**
+     * A door or fence at [x] that players cross by walking along the X axis: doors span their
+     * local X axis, laser fences their local Z axis.
+     */
+    private fun gate(type: ObjectType, floorId: Int, x: Double, flag: Int) =
+        createQuestObjectModel(type, floorId).apply {
+            entity.data.setInt(52, flag)
+            setWorldPosition(Vector3(x, 0.0, 0.0))
+            val laserFence = type == ObjectType.LaserFence || type == ObjectType.LaserFenceEx
+            setWorldRotation(Euler(0.0, if (laserFence) 0.0 else PI / 2, 0.0))
+        }
+
+    private fun switchObject(type: ObjectType, floorId: Int, x: Double, z: Double, flag: Int) =
+        createQuestObjectModel(type, floorId).apply {
+            entity.data.setInt(52, flag)
+            setWorldPosition(Vector3(x, 0.0, z))
+        }
 
     private fun playerSet(floorId: Int, clientId: Int, x: Double, returnFlag: Int = 0) =
         createQuestObjectModel(ObjectType.PlayerSet, floorId).apply {

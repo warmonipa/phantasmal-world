@@ -2,7 +2,9 @@ package world.phantasmal.web.questEditor.rendering
 
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.yield
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.coroutines.coroutineContext
@@ -34,6 +36,8 @@ internal data class WalkthroughSegment(
     val from: WalkthroughPoint,
     val to: WalkthroughPoint,
     val endsLeg: Boolean = true,
+    /** A warp, InstaWarp or scripted relocation: drawn as a jump instead of along the ground. */
+    val jump: Boolean = false,
 )
 
 internal data class WalkthroughRoute(
@@ -41,7 +45,12 @@ internal data class WalkthroughRoute(
     val diagnostics: List<String>,
 )
 
-private enum class NodeKind { Entrance, Objective, WarpSource, WarpDestination, DoorSide, Exit }
+private enum class NodeKind {
+    Entrance, Objective, WarpSource, WarpDestination, DoorSide,
+    /** Next to a doorway, so that routes can go around a closed door or fence. */
+    Waypoint,
+    Exit,
+}
 
 private data class RouteNode(
     val id: Int,
@@ -57,7 +66,19 @@ private data class RouteEdge(
     val points: List<WalkthroughPoint>,
     val length: Double,
     val render: Boolean,
-    val requiredObjectiveIds: Set<Int> = emptySet(),
+    /**
+     * Doors and fences this edge passes: one set of objectives per switch flag they need, of which
+     * at least one must have been visited. An empty set is a flag nothing sets.
+     */
+    val requirements: List<Set<Int>> = emptyList(),
+    val jump: Boolean = false,
+)
+
+private class Gate(
+    val obj: QuestObjectModel,
+    val requirements: List<Set<Int>>,
+    /** Blocking segments in the horizontal plane, empty for gates crossed only via door sides. */
+    val segments: List<Pair<WalkthroughPoint, WalkthroughPoint>>,
 )
 
 private data class InstructionFloor(val instruction: Instruction, val floorId: Int)
@@ -171,6 +192,7 @@ internal suspend fun planWalkthroughRoute(
                 visit,
                 clientId,
                 journey.mainWarpLandings,
+                analysis(0, 0),
                 scriptNpcSpawns,
                 scriptSpatialInteractions,
                 ::isReachable,
@@ -191,6 +213,8 @@ private suspend fun planFloor(
     visit: FloorVisit,
     clientId: Int,
     mainWarpLandings: Map<Int, Int>,
+    /** The quest's start script, including floor handlers and the threads it starts. */
+    startAnalysis: WalkthroughScriptAnalysis,
     scriptNpcSpawns: List<ScriptNpcSpawn>,
     scriptSpatialInteractions: List<ScriptSpatialInteraction>,
     isReachable: (instruction: Instruction?, floorId: Int) -> Boolean,
@@ -207,11 +231,10 @@ private suspend fun planFloor(
     val diagnostics = mutableListOf<String>()
     val nodes = mutableListOf<RouteNode>()
     val warpEdges = mutableListOf<Pair<Int, Int>>()
-    val doorEdges = mutableListOf<Triple<Int, Int, Set<Int>>>()
+    val doorEdges = mutableListOf<Triple<Int, Int, List<Set<Int>>>>()
     val eventCollisionNodes = mutableMapOf<Int, MutableSet<Int>>()
     val scriptProgressionObjectiveIds = mutableSetOf<Int>()
     val scriptUnlockingObjectivesByDoorId = mutableMapOf<Int, MutableSet<Int>>()
-    val allDoorUnlockingObjectiveIds = mutableSetOf<Int>()
     var nextId = 0
 
     val floorEventsById = quest.events.value.filter { it.floorId == floorId }.groupBy {
@@ -239,10 +262,16 @@ private suspend fun planFloor(
     }
 
     fun addNode(
-        point: WalkthroughPoint,
+        objectPoint: WalkthroughPoint,
         kind: NodeKind,
         goalPriority: Int = 0,
     ): Int {
+        // Door sides are sampled on walkable ground already; snapping could move one across.
+        val point = if (kind == NodeKind.DoorSide) {
+            objectPoint
+        } else {
+            pathfinder.nearestWalkable(objectPoint) ?: objectPoint
+        }
         if (kind == NodeKind.Objective) {
             nodes.firstOrNull { it.kind == kind && it.point == point }?.let { return it.id }
         }
@@ -285,11 +314,7 @@ private suspend fun planFloor(
         for (doorId in scriptUnlockedDoorIds) {
             scriptUnlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += nodeId
         }
-        if (floorId in analysis.allDoorsUnlockedFloorIds) {
-            allDoorUnlockingObjectiveIds += nodeId
-        }
         if (scriptUnlockedDoorIds.isNotEmpty() ||
-            floorId in analysis.allDoorsUnlockedFloorIds ||
             floorId in analysis.warpsEnabledFloorIds ||
             nodeId in mainWarpObjectiveIds
         ) {
@@ -307,13 +332,61 @@ private suspend fun planFloor(
     }
     val entranceId = addNode(entrance.worldPoint(), NodeKind.Entrance)
 
+    // A collision trigger fires as soon as a player is within its radius. When that radius reaches
+    // past a door or fence, the trigger can be fired from the other side, so that side gets a
+    // stand-in node too (often the trigger opens the very door it lies behind).
+    val triggerGroups = mutableListOf<Set<Int>>()
+    fun triggerNodes(obj: QuestObjectModel, priority: Int): List<Int> {
+        val center = obj.worldPoint()
+        val nodeIds = mutableListOf(addNode(center, NodeKind.Objective, priority))
+        val radius = obj.triggerRadius() ?: return nodeIds
+        // A trigger whose center isn't on walkable ground still fires anywhere within its radius.
+        if (pathfinder.nearestWalkable(center) == null) {
+            for (fraction in listOf(0.5, 0.9)) {
+                for (step in 0 until TRIGGER_RING_DIRECTIONS) {
+                    val angle = 2 * kotlin.math.PI * step / TRIGGER_RING_DIRECTIONS
+                    val point = pathfinder.nearestWalkable(
+                        WalkthroughPoint(
+                            center.x + cos(angle) * radius * fraction,
+                            center.y,
+                            center.z + sin(angle) * radius * fraction,
+                        ),
+                    ) ?: continue
+                    if (horizontalDistance(center, point) <= radius) {
+                        nodeIds += addNode(point, NodeKind.Objective, priority)
+                    }
+                }
+            }
+        }
+        for (door in objects) {
+            if (!door.isDoorObject()) continue
+            for ((a, b) in gateSegments(door)) {
+                val closest = closestPointOnSegment(center, a, b)
+                val distance = horizontalDistance(center, closest)
+                if (distance < 1e-6 || distance >= radius) continue
+                // Step past the gate, away from the trigger's center.
+                val dx = (closest.x - center.x) / distance
+                val dz = (closest.z - center.z) / distance
+                val outside = WalkthroughPoint(
+                    closest.x + dx * TRIGGER_STAND_IN_OFFSET,
+                    center.y,
+                    closest.z + dz * TRIGGER_STAND_IN_OFFSET,
+                )
+                if (horizontalDistance(center, outside) > radius) continue
+                val point = pathfinder.nearestWalkable(outside) ?: continue
+                if (horizontalDistance(center, point) > radius) continue
+                nodeIds += addNode(point, NodeKind.Objective, priority)
+            }
+        }
+        if (nodeIds.size > 1) triggerGroups += nodeIds.toSet()
+        return nodeIds
+    }
+
     for (obj in objects) {
         when {
             obj.type == ObjectType.EventCollision -> {
-                val node = addNode(
-                    obj.worldPoint(), NodeKind.Objective, EVENT_COLLISION_PRIORITY,
-                )
-                eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf).add(node)
+                val nodeIds = triggerNodes(obj, EVENT_COLLISION_PRIORITY)
+                eventCollisionNodes.getOrPut(obj.entity.data.getInt(52), ::mutableSetOf) += nodeIds
             }
             // Opening an enemy box is optional, unlike walking through an Event Collision, so a
             // box is only an objective when its event opens a door.
@@ -325,8 +398,9 @@ private suspend fun planFloor(
                     .add(node)
             }
             obj.entity.activeScriptLabel != null -> {
-                val node = addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
-                registerScriptProgression(node, obj.entity.activeScriptLabel!!, floorId)
+                for (node in triggerNodes(obj, INTERACTION_PRIORITY)) {
+                    registerScriptProgression(node, obj.entity.activeScriptLabel!!, floorId)
+                }
             }
         }
     }
@@ -372,6 +446,14 @@ private suspend fun planFloor(
         }
     }
 
+    // Switches, floor buttons and sensors turn on the switch flag that opens doors and fences.
+    val switchesByFlag = mutableMapOf<Int, MutableSet<Int>>()
+    for (obj in objects) {
+        val flag = obj.setSwitchFlag() ?: continue
+        val node = addNode(obj.worldPoint(), NodeKind.Objective, INTERACTION_PRIORITY)
+        switchesByFlag.getOrPut(flag, ::mutableSetOf) += node
+    }
+
     for (obj in objects) {
         if (obj.hasDestination) {
             val source = addNode(obj.worldPoint(), NodeKind.WarpSource)
@@ -401,7 +483,10 @@ private suspend fun planFloor(
             is FloorTransition.MainWarp -> obj.type == ObjectType.MainRagolTeleporter
             is FloorTransition.Script -> false
             // Final and order-unknown visits end at any floor exit, as before journeys.
-            null -> obj.entity.exitDestinationFloor(quest.episode) != null
+            null -> obj.entity.exitDestinationFloor(
+                quest.episode,
+                quest.floorMappings.firstOrNull { it.floorId == floorId }?.mapAreaId ?: floorId,
+            ) != null
         }
         if (isExit) addNode(obj.worldPoint(), NodeKind.Exit, EXIT_PRIORITY)
     }
@@ -421,36 +506,112 @@ private suspend fun planFloor(
     for ((doorId, objectiveIds) in scriptUnlockingObjectivesByDoorId) {
         unlockingObjectivesByDoorId.getOrPut(doorId, ::mutableSetOf) += objectiveIds
     }
-    val progressionObjectiveIds = datProgressionObjectiveIds + scriptProgressionObjectiveIds
-    val completionGated = warpsAreScriptGated || progressionObjectiveIds.isNotEmpty()
-    if (completionGated) {
-        for (door in objects) {
-            if (!door.isDoorObject()) continue
-            val controlledIds = door.controlledDoorIds()
-            val isAlwaysOpen = controlledIds == null && door.entity.data.getInt(52) == -1
-            val requiredObjectives = controlledIds?.toList().orEmpty().flatMapTo(mutableSetOf()) { doorId ->
-                unlockingObjectivesByDoorId[doorId].orEmpty()
+    for ((flag, objectiveIds) in switchesByFlag) {
+        unlockingObjectivesByDoorId.getOrPut(flag, ::mutableSetOf) += objectiveIds
+    }
+    // Flags the start script turns on, e.g. from a floor handler, need no objective.
+    val startFlags = startAnalysis.doorUnlocks.asSequence()
+        .filter { it.floorId == floorId }
+        .mapTo(mutableSetOf()) { it.doorId }
+    for (activation in startAnalysis.eventActivations) {
+        if (activation.floorId == floorId) startFlags += unlockedDoorIds(activation.eventId)
+    }
+
+    val gates = mutableListOf<Gate>()
+    for (obj in objects) {
+        val requirements = when (val state = obj.gateState() ?: continue) {
+            GateState.Open -> continue
+            GateState.Closed -> {
+                diagnostics += "Floor $floorId: ${obj.type.uniqueName} at ${obj.describePosition()} " +
+                    "is always locked."
+                listOf(emptySet())
             }
-            requiredObjectives += allDoorUnlockingObjectiveIds
-            if (!isAlwaysOpen && requiredObjectives.isEmpty()) continue
-            val (firstPoint, secondPoint) = doorPassagePoints(door, pathfinder) ?: continue
-            val first = addNode(firstPoint, NodeKind.DoorSide)
-            val second = addNode(secondPoint, NodeKind.DoorSide)
-            doorEdges += Triple(first, second, requiredObjectives)
+            is GateState.Needs -> state.flags.filter { it !in startFlags }.map { flag ->
+                val setters = unlockingObjectivesByDoorId[flag].orEmpty().toSet()
+                if (setters.isEmpty()) {
+                    diagnostics += "Floor $floorId: ${obj.type.uniqueName} at " +
+                        "${obj.describePosition()} needs switch flag $flag, which nothing on " +
+                        "this floor sets."
+                }
+                setters
+            }
         }
+        if (requirements.isEmpty()) continue
+        gates += Gate(obj, requirements, gateSegments(obj))
+    }
+    // Objectives that open a door or fence are on the way, like Event Collisions.
+    val gateProgressionObjectiveIds = gates.flatMapTo(mutableSetOf()) { gate ->
+        gate.requirements.flatten()
+    }
+    val progressionObjectiveIds =
+        datProgressionObjectiveIds + scriptProgressionObjectiveIds + gateProgressionObjectiveIds
+    val completionGated = warpsAreScriptGated || progressionObjectiveIds.isNotEmpty()
+
+    // Doors whose two sides the walkable geometry doesn't connect are crossed via door sides.
+    for (door in objects) {
+        if (!door.isDoorObject()) continue
+        val requirements = gates.firstOrNull { it.obj === door }?.requirements.orEmpty()
+        val (firstPoint, secondPoint) = doorPassagePoints(door, pathfinder) ?: continue
+        val first = addNode(firstPoint, NodeKind.DoorSide)
+        val second = addNode(secondPoint, NodeKind.DoorSide)
+        doorEdges += Triple(first, second, requirements)
+    }
+
+    // Each pair of nodes is joined by one shortest path, which may pass a closed door or fence
+    // that another way avoids. Waypoints on both sides of every doorway let the route go around.
+    for (obj in objects) {
+        if (!obj.isDoorObject() || obj.isSquareGate()) continue
+        val center = obj.worldPoint()
+        val (crossX, crossZ) = obj.gateCrossingDirection()
+        for (sign in listOf(-1.0, 1.0)) {
+            val side = WalkthroughPoint(
+                center.x + sign * crossX * WAYPOINT_OFFSET,
+                center.y,
+                center.z + sign * crossZ * WAYPOINT_OFFSET,
+            )
+            val point = pathfinder.nearestWalkable(side) ?: continue
+            nodes += RouteNode(nextId++, point, NodeKind.Waypoint, nodes.size)
+        }
+    }
+
+    fun crossedRequirements(points: List<WalkthroughPoint>): List<Set<Int>> {
+        val result = mutableListOf<Set<Int>>()
+        for (gate in gates) {
+            if (gate.segments.isEmpty()) continue
+            val crosses = points.windowed(2).any { (from, to) ->
+                gate.segments.any { (a, b) -> crossesGate(from, to, a, b) }
+            }
+            if (crosses) result += gate.requirements
+        }
+        return result
+    }
+
+    // Neighbouring collision pieces that touch without sharing vertices are joined at seams.
+    for ((a, b) in pathfinder.seams) {
+        val first = nextId++
+        nodes += RouteNode(first, a, NodeKind.Waypoint, nodes.size)
+        val second = nextId++
+        nodes += RouteNode(second, b, NodeKind.Waypoint, nodes.size)
+        doorEdges += Triple(first, second, crossedRequirements(listOf(a, b)))
     }
 
     val edgesBySource = nodes.associate { it.id to mutableListOf<RouteEdge>() }.toMutableMap()
     val pathOrigins = nodes.filter { node ->
         node.kind == NodeKind.Entrance || node.kind == NodeKind.Objective ||
-            node.kind == NodeKind.WarpDestination || node.kind == NodeKind.DoorSide
+            node.kind == NodeKind.WarpDestination || node.kind == NodeKind.DoorSide ||
+            node.kind == NodeKind.Waypoint
     }
     val pathTargets = nodes.filter { node ->
         node.kind == NodeKind.Objective || node.kind == NodeKind.WarpSource ||
-            node.kind == NodeKind.DoorSide || node.kind == NodeKind.Exit
+            node.kind == NodeKind.DoorSide || node.kind == NodeKind.Exit ||
+            node.kind == NodeKind.Waypoint
     }
     for (from in pathOrigins) {
         for (to in pathTargets) {
+            if (from.id == to.id) continue
+            val viaWaypoint = from.kind == NodeKind.Waypoint || to.kind == NodeKind.Waypoint
+            // Waypoints only join nearby doorways; going around a door never needs far jumps.
+            if (viaWaypoint && horizontalDistance(from.point, to.point) > WAYPOINT_REACH) continue
             val points = if (from.point == to.point) {
                 listOf(from.point, to.point)
             } else {
@@ -461,8 +622,10 @@ private suspend fun planFloor(
                 from.id,
                 to.id,
                 points,
-                points.pathLength(),
+                // A small detour cost keeps routes on direct paths unless those are closed.
+                points.pathLength() + if (viaWaypoint) WAYPOINT_COST else 0.0,
                 render = true,
+                requirements = crossedRequirements(points),
             )
         }
         // All-pairs navigation is the dominant cost. Yield after each origin so rendering and
@@ -478,22 +641,28 @@ private suspend fun planFloor(
             listOf(from.point, to.point),
             length = 0.0,
             render = false,
+            jump = true,
         )
     }
-    for ((firstId, secondId, requiredObjectives) in doorEdges) {
+    for ((firstId, secondId, requirements) in doorEdges) {
         val first = nodes.first { it.id == firstId }
         val second = nodes.first { it.id == secondId }
         val points = listOf(first.point, second.point)
         val length = points.pathLength()
         edgesBySource.getValue(firstId) += RouteEdge(
             firstId, secondId, points, length, render = true,
-            requiredObjectiveIds = requiredObjectives,
+            requirements = requirements,
         )
         edgesBySource.getValue(secondId) += RouteEdge(
             secondId, firstId, points.reversed(), length, render = true,
-            requiredObjectiveIds = requiredObjectives,
+            requirements = requirements,
         )
     }
+
+    // Doors and fences whose switch flag nothing known sets (or that are always locked) block
+    // the route, unless that leaves this floor's exit out of reach: then the quest must open them
+    // in a way this planner doesn't model, and they are passed.
+    var passUnopenedGates = false
 
     suspend fun shortestPathsFrom(
         sourceId: Int,
@@ -512,8 +681,13 @@ private suspend fun planFloor(
             if (!currentDistance.isFinite()) break
             unvisited.remove(currentId)
             for (edge in edgesBySource.getValue(currentId)) {
-                if (edge.requiredObjectiveIds.isNotEmpty() &&
-                    edge.requiredObjectiveIds.none { it in visitedObjectiveIds }
+                if (edge.requirements.any { flagSetters ->
+                        if (flagSetters.isEmpty()) {
+                            !passUnopenedGates
+                        } else {
+                            flagSetters.none { it in visitedObjectiveIds }
+                        }
+                    }
                 ) continue
                 if (edge.toId !in unvisited) continue
                 val newDistance = currentDistance + edge.length
@@ -547,14 +721,32 @@ private suspend fun planFloor(
         .filter { it.goalPriority == EVENT_COLLISION_PRIORITY }
         .mapTo(mutableSetOf()) { it.id }
     val allGatedObjectiveIds = if (warpsAreScriptGated) {
-        allEventObjectiveIds + scriptProgressionObjectiveIds
+        allEventObjectiveIds + scriptProgressionObjectiveIds + gateProgressionObjectiveIds
     } else {
         progressionObjectiveIds
     }
-    val (entranceDistances, entrancePrevious) = shortestPathsFrom(
+    var (entranceDistances, entrancePrevious) = shortestPathsFrom(
         entranceId,
         if (completionGated) allGatedObjectiveIds else emptySet(),
     )
+    val exitIds = nodes.filter { it.kind == NodeKind.Exit }.map { it.id }
+    if (exitIds.isNotEmpty() && exitIds.none { entranceDistances.getValue(it).isFinite() } &&
+        gates.any { gate -> gate.requirements.any { it.isEmpty() } }
+    ) {
+        passUnopenedGates = true
+        val relaxed = shortestPathsFrom(
+            entranceId,
+            if (completionGated) allGatedObjectiveIds else emptySet(),
+        )
+        if (exitIds.any { relaxed.first.getValue(it).isFinite() }) {
+            diagnostics += "Floor $floorId: the exit is only reachable through doors or fences " +
+                "that nothing known opens; the route passes them."
+            entranceDistances = relaxed.first
+            entrancePrevious = relaxed.second
+        } else {
+            passUnopenedGates = false
+        }
+    }
     val reachableGoals = nodes.filter { node ->
         node.goalPriority > 0 && entranceDistances.getValue(node.id).isFinite()
     }
@@ -583,6 +775,14 @@ private suspend fun planFloor(
     } else {
         mutableListOf()
     }
+    // Objectives with the same effect are alternatives: several Event Collisions of one event, or
+    // several switches of one flag. Reaching any of them does what the others would.
+    val alternatives = mutableMapOf<Int, Set<Int>>()
+    for (group in eventCollisionNodes.values + switchesByFlag.values + triggerGroups) {
+        for (id in group) alternatives[id] = alternatives[id].orEmpty() + group
+    }
+    fun alternativesOf(id: Int): Set<Int> = alternatives[id] ?: setOf(id)
+
     var currentId = entranceId
     val visitedObjectiveIds = mutableSetOf<Int>()
     while (gatedObjectives.isNotEmpty()) {
@@ -596,8 +796,11 @@ private suspend fun planFloor(
             }
         }
         val viableCandidates = candidates.filter { (candidate, candidateDistances) ->
+            val done = alternativesOf(candidate.id)
             reachable.all { other ->
-                other.id == candidate.id || candidateDistances.getValue(other.id).isFinite()
+                other.id in done || alternativesOf(other.id).any {
+                    candidateDistances.getValue(it).isFinite()
+                }
             } && (preferredExit == null ||
                 !distances.getValue(preferredExit.id).isFinite() ||
                 candidateDistances.getValue(preferredExit.id).isFinite())
@@ -609,11 +812,13 @@ private suspend fun planFloor(
             ?: break
         routeEdges += routeEdgesTo(currentId, next.id, previous)
         currentId = next.id
-        visitedObjectiveIds += next.id
-        gatedObjectives.remove(next)
+        val done = alternativesOf(next.id)
+        visitedObjectiveIds += done
+        gatedObjectives.removeAll { it.id in done }
     }
     if (gatedObjectives.isNotEmpty()) {
-        diagnostics += "Floor $floorId: ${gatedObjectives.size} gated route objectives are unreachable."
+        val groups = gatedObjectives.map { alternativesOf(it.id) }.toSet().size
+        diagnostics += "Floor $floorId: $groups gated route objectives are unreachable."
     }
 
     if (departure != null && preferredExit == null) {
@@ -650,6 +855,12 @@ private suspend fun planFloor(
 
     val segments = mutableListOf<WalkthroughSegment>()
     for ((edgeIndex, edge) in routeEdges.withIndex()) {
+        if (edge.jump) {
+            val from = edge.points.first()
+            val to = edge.points.last()
+            if (from != to) segments += WalkthroughSegment(floorId, from, to, jump = true)
+            continue
+        }
         if (!edge.render) continue
         val endsLeg = edgeIndex == routeEdges.lastIndex || !routeEdges[edgeIndex + 1].render
         for (pointIndex in 0 until edge.points.lastIndex) {
@@ -671,8 +882,15 @@ private const val INTERACTION_PRIORITY = 1
 private const val EVENT_COLLISION_PRIORITY = 2
 private const val EXIT_PRIORITY = 3
 private const val RETURN_MARKER_RADIUS = 100.0
+private const val GATE_HEIGHT_TOLERANCE = 20.0
+private const val GATE_END_MARGIN = 8.0
+private const val TRIGGER_STAND_IN_OFFSET = 8.0
+private const val TRIGGER_RING_DIRECTIONS = 8
+private const val WAYPOINT_OFFSET = 16.0
+private const val WAYPOINT_REACH = 500.0
+private const val WAYPOINT_COST = 1.0
 private const val SHORTEST_PATH_YIELD_INTERVAL = 32
-private val DOOR_SIDE_SAMPLE_DISTANCES = listOf(4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0)
+private val DOOR_SIDE_SAMPLE_DISTANCES = listOf(4.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0, 64.0)
 
 private fun QuestObjectModel.worldPoint(): WalkthroughPoint = worldPosition.value.toPoint()
 private fun QuestObjectModel.destinationPoint(): WalkthroughPoint = destinationPosition.value.toPoint()
@@ -680,27 +898,103 @@ private fun world.phantasmal.web.questEditor.models.QuestNpcModel.worldPoint(): 
     worldPosition.value.toPoint()
 private fun world.phantasmal.web.externals.three.Vector3.toPoint() = WalkthroughPoint(x, y, z)
 
+private fun QuestObjectModel.describePosition(): String {
+    val point = worldPoint()
+    return "(${point.x.roundToInt()}, ${point.z.roundToInt()})"
+}
+
+/** The segments a door or fence blocks: across its direction of travel, at its height. */
+private fun gateSegments(gate: QuestObjectModel): List<Pair<WalkthroughPoint, WalkthroughPoint>> {
+    val halfWidth = gate.gateHalfWidth() ?: return emptyList()
+    val center = gate.worldPoint()
+    // Across the gate (the direction of travel through it) and along it.
+    val (nx, nz) = gate.gateCrossingDirection()
+    val ux = nz
+    val uz = -nx
+    fun segment(cx: Double, cz: Double, dx: Double, dz: Double) = WalkthroughPoint(
+        cx - dx * halfWidth, center.y, cz - dz * halfWidth,
+    ) to WalkthroughPoint(cx + dx * halfWidth, center.y, cz + dz * halfWidth)
+    if (!gate.isSquareGate()) return listOf(segment(center.x, center.z, ux, uz))
+    return listOf(
+        segment(center.x + nx * halfWidth, center.z + nz * halfWidth, ux, uz),
+        segment(center.x - nx * halfWidth, center.z - nz * halfWidth, ux, uz),
+        segment(center.x + ux * halfWidth, center.z + uz * halfWidth, nx, nz),
+        segment(center.x - ux * halfWidth, center.z - uz * halfWidth, nx, nz),
+    )
+}
+
+/** Whether walking from [from] to [to] passes through the gate segment [a]–[b]. */
+private fun crossesGate(
+    from: WalkthroughPoint,
+    to: WalkthroughPoint,
+    a: WalkthroughPoint,
+    b: WalkthroughPoint,
+): Boolean {
+    if (abs((from.y + to.y) / 2 - a.y) > GATE_HEIGHT_TOLERANCE) return false
+    fun side(px: Double, pz: Double, qx: Double, qz: Double, rx: Double, rz: Double) =
+        (qx - px) * (rz - pz) - (qz - pz) * (rx - px)
+    val d1 = side(a.x, a.z, b.x, b.z, from.x, from.z)
+    val d2 = side(a.x, a.z, b.x, b.z, to.x, to.z)
+    val d3 = side(from.x, from.z, to.x, to.z, a.x, a.z)
+    val d4 = side(from.x, from.z, to.x, to.z, b.x, b.z)
+    if (d1 * d2 >= 0 || d3 * d4 >= 0) return false
+    // Paths hug corners: one that only clips the end of a fence (e.g. the corner of a square
+    // fence) walks around it, so only crossings away from the ends block.
+    val t = d3 / (d3 - d4)
+    val margin = GATE_END_MARGIN / horizontalDistance(a, b)
+    return t > margin && t < 1 - margin
+}
+
 private fun doorPassagePoints(
     door: QuestObjectModel,
     pathfinder: WalkthroughPathfinder,
 ): Pair<WalkthroughPoint, WalkthroughPoint>? {
     val center = door.worldPoint()
-    val yaw = door.worldRotation.value.y
-    val dx = sin(yaw)
-    val dz = cos(yaw)
-    for (distance in DOOR_SIDE_SAMPLE_DISTANCES) {
-        val first = WalkthroughPoint(
-            center.x - dx * distance, center.y, center.z - dz * distance,
-        )
-        val second = WalkthroughPoint(
-            center.x + dx * distance, center.y, center.z + dz * distance,
-        )
-        if (pathfinder.findPath(first, first) != null &&
-            pathfinder.findPath(second, second) != null &&
-            pathfinder.findPath(first, second) == null
-        ) return first to second
+    val (dx, dz) = door.gateCrossingDirection()
+    // A door's collision gap can be wide enough to leave small islands of floor inside the door
+    // frame, which don't lead anywhere. Each side uses the sample nearest the door that is
+    // connected to the outermost walkable sample on that side.
+    fun side(sign: Double): WalkthroughPoint? {
+        val walkable = DOOR_SIDE_SAMPLE_DISTANCES
+            .map { distance ->
+                WalkthroughPoint(
+                    center.x + sign * dx * distance, center.y, center.z + sign * dz * distance,
+                )
+            }
+            .filter { pathfinder.findPath(it, it) != null }
+        val outermost = walkable.lastOrNull() ?: return null
+        return walkable.first { it == outermost || pathfinder.findPath(it, outermost) != null }
     }
-    return null
+    val first = side(-1.0) ?: return null
+    val second = side(1.0) ?: return null
+    return (first to second).takeIf { pathfinder.findPath(first, second) == null }
+}
+
+/** The radius of a collision trigger (Event Collision, script collision), or null. */
+private fun QuestObjectModel.triggerRadius(): Double? = when (type.typeId?.toInt()) {
+    // newserv: param1 is the radius of TObjEvtCollision (0x0008), TObjQuestCol (0x0012) and
+    // TObjQuestColA (0x0015, same params as TObjQuestCol).
+    0x0008, 0x0012, 0x0015 -> entity.data.getFloat(40).toDouble()
+    else -> null
+}?.takeIf { it > 0.0 }
+
+private fun closestPointOnSegment(
+    point: WalkthroughPoint,
+    a: WalkthroughPoint,
+    b: WalkthroughPoint,
+): WalkthroughPoint {
+    val dx = b.x - a.x
+    val dz = b.z - a.z
+    val lengthSquared = dx * dx + dz * dz
+    val t = if (lengthSquared == 0.0) 0.0 else
+        (((point.x - a.x) * dx + (point.z - a.z) * dz) / lengthSquared).coerceIn(0.0, 1.0)
+    return WalkthroughPoint(a.x + dx * t, a.y, a.z + dz * t)
+}
+
+private fun horizontalDistance(from: WalkthroughPoint, to: WalkthroughPoint): Double {
+    val dx = from.x - to.x
+    val dz = from.z - to.z
+    return sqrt(dx * dx + dz * dz)
 }
 
 private fun List<WalkthroughPoint>.pathLength(): Double = windowed(2).sumOf { (from, to) ->

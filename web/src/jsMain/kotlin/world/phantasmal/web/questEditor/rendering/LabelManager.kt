@@ -228,7 +228,9 @@ class LabelManager(
                 )
             ) continue
 
-            val controlledIds = obj.controlledDoorIds() ?: continue
+            val controlledIds = obj.controlledDoorIds()
+                ?: obj.setSwitchFlag()?.let { it..it }
+                ?: continue
             val doorIdValue = controlledIds.first
             val switchAmount = controlledIds.count()
             val doorIds = controlledIds.toSet()
@@ -240,7 +242,11 @@ class LabelManager(
             val rangeStr =
                 if (switchAmount > 1) "$doorIdValue-${doorIdValue + switchAmount - 1}"
                 else "$doorIdValue"
-            val defaultLabel = if (isFence) "Fence $rangeStr" else "Door $rangeStr"
+            val defaultLabel = when {
+                obj.gateState() == null -> "Switch $rangeStr"
+                isFence -> "Fence $rangeStr"
+                else -> "Door $rangeStr"
+            }
 
             val (text, color) = when {
                 matchedUnlockIds.isNotEmpty() -> {

@@ -2302,12 +2302,12 @@ opcodes:
 
   - code: 0xc5
     mnemonic: masterkey_on
-    doc: "Locks (masterkey_on) or unlocks (masterkey_off) all doors"
+    doc: "Locks all doors (masterkey_on) or removes that override (masterkey_off)"
     params: []
 
   - code: 0xc6
     mnemonic: masterkey_off
-    doc: "Locks (masterkey_on) or unlocks (masterkey_off) all doors"
+    doc: "Locks all doors (masterkey_on) or removes that override (masterkey_off)"
     params: []
 
   - code: 0xc7

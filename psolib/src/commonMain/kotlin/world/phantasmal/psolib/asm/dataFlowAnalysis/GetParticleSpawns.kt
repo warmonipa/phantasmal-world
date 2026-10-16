@@ -712,8 +712,10 @@ internal fun computeExecutionFloors(
                         }
                     }
                     if (yielded) {
+                        // Only this path waits; sibling branches queued alongside it (e.g. the
+                        // live branch next to a guard that shows a message and yields) still run.
                         suspended = true
-                        break
+                        continue
                     }
 
                     // Walk the block (excluding terminator) to compute the post-block state
@@ -864,7 +866,9 @@ internal fun computeExecutionFloors(
                 }
 
                 inProgress.remove(key)
-                if (suspended) return null
+                // A thread that only ever yields resumes later; one that also returns on another
+                // path returns that path's state to its caller.
+                if (suspended && mergedExit == null) return null
                 val exit = mergedExit ?: ThreadExitState(
                     startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
                 )

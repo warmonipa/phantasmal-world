@@ -71,15 +71,23 @@ private val ONE_BASED_SLOTS = setOf(1, 2, 3, 4)
 /** The Player set ID a Quest Warp lands on (`float@40`). */
 fun QuestObject.questWarpPlayerSetId(): Int = data.getFloat(40).roundToInt()
 
-/** The floor this object leads to, or null if it is not a floor exit. */
-fun QuestObject.exitDestinationFloor(episode: Episode): Int? {
+/**
+ * The floor this object leads to, or null if it is not a floor exit. [areaId] is the map area the
+ * object's floor is designated with.
+ */
+fun QuestObject.exitDestinationFloor(episode: Episode, areaId: Int = floorId): Int? {
     val destination = when (type) {
         ObjectType.BossTeleporter -> getNormalBossTeleporterDestinationFloor(episode, floorId)
         in FLOOR_EXIT_TYPES -> destinationFloor
+        // newserv: in Vol Opt's arena 0x0160 is TObjWarpBoss03, the invisible warp behind the door
+        // to Ruins (param4 = destination floor); everywhere else it is a poison fog collision.
+        ObjectType.Poison -> data.getInt(52).takeIf { episode == Episode.I && areaId == VOL_OPT_AREA }
         else -> null
     }
     return destination?.takeIf { it != floorId }
 }
+
+private const val VOL_OPT_AREA = 13
 
 private val FLOOR_EXIT_TYPES = setOf(
     ObjectType.Teleporter,
@@ -151,7 +159,11 @@ fun planQuestJourney(
         playerSets.firstOrNull { it.floorId == floorId && it.playerSetReturnFlag() == returnFlag }
 
     val exitsByFloor: Map<Int, List<Pair<QuestObject, Int>>> = objects
-        .mapNotNull { obj -> obj.exitDestinationFloor(episode)?.let { obj to it } }
+        .mapNotNull { obj ->
+            val areaId = floorMappings.firstOrNull { it.floorId == obj.floorId }?.mapAreaId
+                ?: obj.floorId
+            obj.exitDestinationFloor(episode, areaId)?.let { obj to it }
+        }
         .groupBy { it.first.floorId }
 
     fun arrival(floorId: Int, returnFlag: Int, fromFloorId: Int?): QuestObject? {
@@ -358,8 +370,14 @@ fun planQuestJourney(
                 // Nothing else is reachable from there: a dead end.
                 ?: DEAD_END_COST
         }
+        // Equally near floors are ordered by the complete journey they start, e.g. the tower
+        // whose top sends players on to the other tower is played first.
+        val tourCost = remainingTourCost(unvisited, ::shortestPaths, returnFloor = 0.takeIf {
+            it in requiredFloors
+        })
         val next = unvisited.minWithOrNull(compareBy(
             { paths.getValue(it).size + lookahead(it) },
+            { tourCost(current, it) },
             { paths.getValue(it).size },
             { it },
         ))
@@ -426,6 +444,57 @@ fun planQuestJourney(
 
     return QuestJourney(visits, diagnostics, mainWarpLandings)
 }
+
+/**
+ * Returns the number of floor transitions of the shortest journey that goes from a floor to
+ * `first`, then visits the rest of [floors] and ends on [returnFloor] (when given). Floors passed on
+ * the way count as visited. A floor that cannot be reached any more costs [DEAD_END_COST].
+ */
+private fun remainingTourCost(
+    floors: List<Int>,
+    shortestPaths: (from: Int) -> Map<Int, List<Int>>,
+    returnFloor: Int?,
+): (from: Int, first: Int) -> Int {
+    val index = floors.withIndex().associate { (i, floor) -> floor to i }
+    val pathsFrom = mutableMapOf<Int, Map<Int, List<Int>>>()
+    fun paths(from: Int) = pathsFrom.getOrPut(from) { shortestPaths(from) }
+    fun maskOf(path: List<Int>): Long =
+        path.fold(0L) { mask, floor -> index[floor]?.let { mask or (1L shl it) } ?: mask }
+
+    val exact = floors.size <= MAX_EXACT_TOUR_FLOORS
+    val memo = mutableMapOf<Pair<Int, Long>, Int>()
+    fun cost(from: Int, remaining: Long): Int {
+        if (remaining == 0L) {
+            if (returnFloor == null || from == returnFloor) return 0
+            return paths(from)[returnFloor]?.let { it.size - 1 } ?: 0
+        }
+        memo[from to remaining]?.let { return it }
+        val reachable = paths(from)
+        var best = Int.MAX_VALUE
+        for ((i, floor) in floors.withIndex()) {
+            if (remaining and (1L shl i) == 0L) continue
+            val path = reachable[floor] ?: continue
+            val rest = remaining and maskOf(path).inv()
+            // Beyond the exact limit, only the nearest floor is followed (greedy).
+            val onward = if (exact) cost(floor, rest) else 0
+            best = minOf(best, path.size - 1 + onward)
+        }
+        if (best == Int.MAX_VALUE) {
+            // Nothing else is reachable from here: a dead end.
+            best = DEAD_END_COST * remaining.countOneBits()
+        }
+        memo[from to remaining] = best
+        return best
+    }
+
+    val all = (1L shl floors.size) - 1
+    return { from, first ->
+        val path = paths(from).getValue(first)
+        path.size - 1 + cost(first, all and maskOf(path).inv())
+    }
+}
+
+private const val MAX_EXACT_TOUR_FLOORS = 12
 
 /**
  * Maps a raw `set_mainwarp` operand to the logical floor it lands on.

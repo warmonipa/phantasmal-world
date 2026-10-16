@@ -206,7 +206,9 @@ without any Player Set are played by everyone. Floors connect through floor exit
 `set_mainwarp` (matched to the client map a floor is designated with, otherwise converted to an
 episode area), and client-scoped `go_floor`. The journey starts on the script's `initial_floor`
 (or Pioneer 2), moves to the nearest unvisited floor by hops while leaving dead ends for last, and
-returns to Pioneer 2 when Pioneer 2 is part of the client's data. A Ragol warp to the end of a
+returns to Pioneer 2 when Pioneer 2 is part of the client's data. Equally near floors are ordered
+by the complete journey they start (fewest floor transitions, including the return to Pioneer 2),
+so in Penumbral Surge #6 the tower whose top sends players on to the other tower is played first. A Ragol warp to the end of a
 chain lands on the chain's head only when that head is the target's single otherwise-unreachable
 predecessor.
 
@@ -235,20 +237,49 @@ unreachable from the arrival), the route stops after the required objectives and
 reachable exit" instead of guessing an endpoint; only final and order-unknown visits fall back to
 the farthest objective.
 
-When reachable quest bytecode explicitly disables and later enables map warps on a floor, or a
-reachable DAT/script interaction unlocks a controlled door, the exit is completion-gated. On that
-floor, the interactions which enable warps or unlock doors are visited before the exit; warp-gated
-floors also visit their reachable DAT event collisions. Candidate order keeps all remaining
-objectives and the terminal exit reachable, so one-way same-floor warps are not taken too early.
-Door objects provide physical navigation portals only when their native door ID is uncontrolled
-(`-1`) or after the DAT event chain or object/NPC/spatial interaction script that unlocks that door
-has been visited; the unlock action itself is not rendered as a route branch.
+Doors and laser fences block the route until their switch flags are on, following newserv's
+`Map.cc`: a negative flag (or 0x100) is always open, a flag above 0x100 is always locked, and
+multi-switch doors need every flag of their range (Caves/Mines doors store 4 minus the count,
+CCA/Seabed/Temple/Spaceship doors the count). A flag is turned on by a DAT event chain that unlocks
+it (from an Event Collision or an enemy box), by a script reachable from an interaction
+(`unlock_door2`, `switch_on`, `sw_send`, or a `setevt` whose event unlocks it), or by a switch
+object a player uses: Forest switches, laser fence switches, generic switches, Caves/Mines/Ruins
+floor buttons, Ruins switches, invisible touch plates, item-detecting switches, sensors and
+attackable collisions. Flags the start script turns on (floor handlers and the threads they start)
+need nothing. `masterkey_on`/`masterkey_off` never open doors: the first locks every door and the
+second only removes that override. A path is blocked when it crosses a closed door or fence across
+its width, at its height (paths that only clip a fence's end, such as a square fence's corner, walk
+around it); doors whose collision splits the walkable ground are crossed between their two sides.
+Waypoints on both sides of every doorway let a route go around a closed door or fence through
+another doorway. Laser fences string their lasers along their local Z axis and are crossed along local X;
+doors are the other way round.
+
+Several Event Collisions of one event, or switches of one flag, are alternatives: reaching one of
+them is enough. A collision trigger (Event Collision, script collision) fires anywhere within its
+radius, so a trigger whose radius reaches past a door or fence also gets a stand-in node on the
+far side, and one whose center isn't on walkable ground gets stand-ins inside its radius.
+
+The objectives that open a door or fence are visited before the exit, like interactions which
+enable the Ragol warp; warp-gated floors (reachable bytecode disables and later enables map warps)
+also visit their reachable DAT event collisions. Candidate order keeps all remaining objectives and
+the terminal exit reachable, so one-way same-floor warps are not taken too early. A door or fence
+whose flag nothing known turns on is reported ("needs switch flag N, which nothing on this floor
+sets") and stays closed, unless it is the only way to the floor's exit: then the quest must open it
+in a way the planner doesn't model, and the route passes it with a diagnostic.
 
 Paths are computed on walkable collision triangles; walls and steep collision faces are excluded
 before navigation connectivity is built. Every object that exposes an intra-map destination,
 including ordinary, site-to-site, forced, Insta-Warp and Lab/city map warps, provides a directed,
 non-rendered transition between otherwise disconnected walkable regions; so does an interaction
-whose script moves the client with `p_setpos`/`p_move` to resolvable coordinates. No section IDs,
+whose script moves the client with `p_setpos`/`p_move` to resolvable coordinates. These jumps are
+drawn as dashed arcs from the warp to where it lands. Objects that stand just past the edge of the
+walkable ground (e.g. Insta-Warp pads at the end of each Control Tower floor) snap to the nearest
+walkable point within 8 units. A point counts as walkable only when a navigation polygon contains it:
+three-pathfinding's group lookup falls back to the nearest polygon within 50 units, and its path
+search excludes points on a polygon's far edges. Where neighbouring collision pieces meet without
+sharing vertices (T-junctions, or vertices a hair apart on either side of the vertex-merge
+rounding), seams join them; where two surfaces are stacked a little apart (a switch's base on the
+floor), paths try each surface within 2 units of the nearest one. No section IDs,
 event anchors, door counts, or straight-line guesses manufacture connectivity. Rendered route
 ribbons follow navigation corners and repeatedly sample the local collision surface, keeping a
 small clearance above uneven or vertically stacked ground.

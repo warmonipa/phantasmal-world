@@ -372,6 +372,41 @@ class QuestJourneyTests {
     }
 
     @Test
+    fun tower_whose_top_leads_to_the_other_tower_is_played_first() {
+        // Penumbral Surge #6: Pioneer 2 offers both towers, the top of tower 17 sends players to
+        // tower 16, whose top leads to the final floor 15, which returns to Pioneer 2. Both towers
+        // also have a teleporter back to Pioneer 2 at their entrance.
+        val objects = listOf(
+            playerSet(0, 0, 0), playerSet(0, 0, 1), playerSet(15, 0, 0), playerSet(16, 0, 0),
+            playerSet(17, 0, 0), teleporter(16, 0), teleporter(17, 0),
+        )
+
+        val journey = plan(
+            objects,
+            episode = Episode.II,
+            goFloors = setOf(
+                WalkthroughGoFloor(0, 16), WalkthroughGoFloor(0, 17),
+                WalkthroughGoFloor(17, 16), WalkthroughGoFloor(16, 15), WalkthroughGoFloor(15, 0),
+            ),
+        )
+
+        assertEquals(listOf(0, 17, 16, 15, 0), journey.visits.map { it.floorId })
+        assertEquals(FloorTransition.Script(16), journey.visits[1].departure)
+    }
+
+    @Test
+    fun object_0x160_is_the_exit_behind_vol_opt_and_poison_elsewhere() {
+        // Ember in the Dust - Keepsakes: the warp behind Vol Opt's door returns to Pioneer 2.
+        val volOptWarp = QuestObject(ObjectType.Poison, 13).apply { data.setInt(52, 0) }
+        val poisonFog = QuestObject(ObjectType.Poison, 8).apply { data.setInt(52, 0) }
+
+        assertEquals(0, volOptWarp.exitDestinationFloor(Episode.I))
+        assertEquals(null, poisonFog.exitDestinationFloor(Episode.I))
+        assertEquals(null, volOptWarp.exitDestinationFloor(Episode.I, areaId = 8))
+        assertEquals(null, volOptWarp.exitDestinationFloor(Episode.II))
+    }
+
+    @Test
     fun fallback_diagnostics_name_only_floors_entered_through_fallbacks() {
         val objects = listOf(
             playerSet(0, 0, 0), playerSet(8, 0, 0), playerSet(9, 0, 0), teleporter(8, 9),
@@ -444,7 +479,7 @@ class QuestJourneyTests {
         floorMappings,
         listOf(
             WalkthroughScriptAnalysis(
-                emptySet(), emptySet(), emptySet(), emptySet(), emptyMap(),
+                emptySet(), emptySet(), emptySet(), emptyMap(),
                 mainWarpAreas = mainWarpAreas,
                 goFloors = goFloors,
             ),

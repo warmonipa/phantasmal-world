@@ -21,8 +21,29 @@ class GetWalkthroughEventActivationsTests {
         val analysis = analyzeWalkthroughScript(bytecode, 0, 5, 0)
 
         assertEquals(setOf(WalkthroughDoorUnlock(3, 7)), analysis.doorUnlocks)
-        assertEquals(setOf(5), analysis.allDoorsUnlockedFloorIds)
         assertEquals(setOf(5), analysis.warpsEnabledFloorIds)
+    }
+
+    @Test
+    fun switch_flags_turned_on_by_script_open_doors_like_unlock_door2() {
+        val bytecode = bytecode("""
+            0:
+                switch_on 12
+                leti r20, 40
+                leti r21, 3
+                leti r22, 1
+                sw_send r20
+                masterkey_on
+                masterkey_off
+                ret
+        """)
+
+        val analysis = analyzeWalkthroughScript(bytecode, 0, 5, 0)
+
+        assertEquals(
+            setOf(WalkthroughDoorUnlock(5, 12), WalkthroughDoorUnlock(3, 40)),
+            analysis.doorUnlocks,
+        )
     }
 
     @Test

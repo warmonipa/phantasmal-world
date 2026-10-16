@@ -63,6 +63,10 @@ internal class WalkthroughRouteRenderer(
     }
 
     private fun addSegment(segment: WalkthroughSegment) {
+        if (segment.jump) {
+            addJump(segment)
+            return
+        }
         val points = sampleWalkthroughSegment(segment, SAMPLE_LENGTH, ::groundHeightAt)
             .map { it.vector() }
         for (index in 0 until points.lastIndex) {
@@ -71,6 +75,15 @@ internal class WalkthroughRouteRenderer(
         if (segment.endsLeg && points.size >= 2) {
             addHead(points[points.lastIndex - 1], points.last())
         }
+    }
+
+    /** A dashed arc from a warp to where it lands, with a head at the landing. */
+    private fun addJump(segment: WalkthroughSegment) {
+        val points = sampleWalkthroughJump(segment).map { it.vector() }
+        for (index in 0 until points.lastIndex step 2) {
+            addShaft(points[index], points[index + 1])
+        }
+        if (points.size >= 2) addHead(points[points.lastIndex - 1], points.last())
     }
 
     private fun addShaft(from: Vector3, to: Vector3) {
@@ -149,6 +162,35 @@ internal class WalkthroughRouteRenderer(
         private const val MIN_LENGTH = 0.01
     }
 }
+
+/**
+ * Samples a jump as a raised arc, with an even number of pieces so that alternate pieces form
+ * dashes that start at the warp and end at the landing.
+ */
+internal fun sampleWalkthroughJump(segment: WalkthroughSegment): List<WalkthroughPoint> {
+    val dx = segment.to.x - segment.from.x
+    val dy = segment.to.y - segment.from.y
+    val dz = segment.to.z - segment.from.z
+    val length = sqrt(dx * dx + dy * dy + dz * dz)
+    val height = (length * JUMP_ARC_RATIO).coerceIn(JUMP_MIN_HEIGHT, JUMP_MAX_HEIGHT)
+    val pieces = (ceil(length / JUMP_DASH_LENGTH).toInt() / 2 * 2)
+        .coerceIn(JUMP_MIN_PIECES, JUMP_MAX_PIECES)
+    return (0..pieces).map { piece ->
+        val t = piece.toDouble() / pieces
+        WalkthroughPoint(
+            segment.from.x + dx * t,
+            segment.from.y + dy * t + ROUTE_CLEARANCE + 4 * height * t * (1 - t),
+            segment.from.z + dz * t,
+        )
+    }
+}
+
+private const val JUMP_ARC_RATIO = 0.25
+private const val JUMP_MIN_HEIGHT = 8.0
+private const val JUMP_MAX_HEIGHT = 80.0
+private const val JUMP_DASH_LENGTH = 6.0
+private const val JUMP_MIN_PIECES = 8
+private const val JUMP_MAX_PIECES = 120
 
 internal fun sampleWalkthroughSegment(
     segment: WalkthroughSegment,

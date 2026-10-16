@@ -35,7 +35,6 @@ data class WalkthroughRelocation(
 data class WalkthroughScriptAnalysis(
     val eventActivations: Set<WalkthroughEventActivation>,
     val doorUnlocks: Set<WalkthroughDoorUnlock>,
-    val allDoorsUnlockedFloorIds: Set<Int>,
     val warpsEnabledFloorIds: Set<Int>,
     val reachableInstructionFloors: Map<Instruction, Set<Int>>,
     /** Raw `set_mainwarp` operands (episode-absolute map areas). */
@@ -89,7 +88,7 @@ fun analyzeWalkthroughScript(
     }
     val entry = labelToBlock[entryLabel]
         ?: return WalkthroughScriptAnalysis(
-            emptySet(), emptySet(), emptySet(), emptySet(), emptyMap(),
+            emptySet(), emptySet(), emptySet(), emptyMap(),
         )
 
     val sequentialNext = mutableMapOf<BasicBlock, BasicBlock>()
@@ -112,7 +111,6 @@ fun analyzeWalkthroughScript(
 
     val activations = linkedSetOf<WalkthroughEventActivation>()
     val doorUnlocks = linkedSetOf<WalkthroughDoorUnlock>()
-    val allDoorsUnlockedFloorIds = linkedSetOf<Int>()
     val warpsEnabledFloorIds = linkedSetOf<Int>()
     val mainWarpAreas = linkedSetOf<Int>()
     val goFloors = linkedSetOf<WalkthroughGoFloor>()
@@ -181,7 +179,21 @@ fun analyzeWalkthroughScript(
                         }
                     }
                 }
-                "masterkey_off" -> allDoorsUnlockedFloorIds.add(state.floorId)
+                // Doors and fences open on switch flags, which these also turn on.
+                "switch_on" -> {
+                    for (flag in resolveInstructionInts(cfg, instruction, 0, knownRegs)) {
+                        doorUnlocks.add(WalkthroughDoorUnlock(state.floorId, flag))
+                    }
+                }
+                "sw_send" -> {
+                    val flags = resolveRegister(cfg, instruction, 0, knownRegs, 0)
+                    val floors = resolveRegister(cfg, instruction, 0, knownRegs, 1)
+                    for (floorId in floors) {
+                        for (flag in flags) doorUnlocks.add(WalkthroughDoorUnlock(floorId, flag))
+                    }
+                }
+                // masterkey_on locks every door and masterkey_off only removes that override
+                // (newserv QuestScript.cc), so neither opens a door.
                 "warp_on" -> warpsEnabledFloorIds.add(state.floorId)
                 "set_mainwarp" -> {
                     mainWarpAreas += resolveInstructionInts(cfg, instruction, 0, knownRegs)
@@ -376,7 +388,6 @@ fun analyzeWalkthroughScript(
     return WalkthroughScriptAnalysis(
         activations,
         doorUnlocks,
-        allDoorsUnlockedFloorIds,
         warpsEnabledFloorIds,
         reachableInstructionFloors.mapValues { it.value.toSet() },
         mainWarpAreas,

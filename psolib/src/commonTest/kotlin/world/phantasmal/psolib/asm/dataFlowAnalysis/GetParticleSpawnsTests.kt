@@ -151,6 +151,68 @@ class GetParticleSpawnsTests : LibTestSuite {
     }
 
     @Test
+    fun a_yielding_guard_branch_does_not_hide_its_sibling_registrations() {
+        // Ember in the Dust - Keepsakes, Cave 2: the floor handler shows a rejection message (which
+        // yields) on one branch and registers the switch triggers on the other.
+        val segments = toInstructions("""
+            0:
+                set_floor_handler 3, 27
+                set_floor_handler 4, 29
+                ret
+            27:
+                jmpi_< r180, 1, 26
+                call 120
+                call 153
+                ret
+            29:
+                jmpi_< r180, 1, 26
+                call 120
+                call 154
+                ret
+            120:
+                thread_stg 124
+                ret
+            124:
+                sync
+                jmp 124
+            153:
+                leti r0, 100
+                leti r1, 0
+                leti r2, 100
+                leti r3, 30
+                leti r4, 600
+                at_coords_call r0
+                ret
+            154:
+                leti r0, 272
+                leti r1, 0
+                leti r2, -2349
+                leti r3, 30
+                leti r4, 660
+                at_coords_call r0
+                ret
+            26:
+                window_msg "This area is not open yet."
+                winend
+                ret
+            600:
+                ret
+            660:
+                ret
+        """.trimIndent())
+        val cfg = ControlFlowGraph.create(segments)
+
+        val interactions = getScriptSpatialInteractions(
+            cfg, segments, computeExecutionFloors(cfg, segments, emptyMap()),
+        )
+
+        assertEquals(
+            listOf(600 to setOf(3), 660 to setOf(4)),
+            interactions.map { it.event.label to it.executionFloorIds }.sortedBy { it.first },
+        )
+    }
+
+    @Test
     fun particle_inside_at_coords_talk_callback_is_attributed_to_registration_floor() {
         // Same expectation as at_coords_call: at_coords_talk's trigger is per-floor.
         val segments = toInstructions("""
