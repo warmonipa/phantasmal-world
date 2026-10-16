@@ -165,6 +165,11 @@ the original Gold and Beat textures, while the Ultimate bank contains the origin
 textures. The rare textures are remapped to the slots referenced by the shared model without color
 conversion or texture re-encoding. All four variants use the retracted-blade bind pose by default.
 
+Dubchic and Gilchic share the `me2` model. `bm_ene_dubchik.bml` entry 0 carries Dubchic's texture
+and entry 1 a rusted variant; Gilchic's texture is the standalone `me2_y_me2_z.xvm`. The Ultimate
+files follow the same layout: Dubchich (yellow) is `bm_ene_dubchik_a.bml` entry 0, and Gilchich
+(white and pink) is that model with the standalone `me2_y_me2_z_a.xvm`.
+
 ## Model Viewer Assets
 
 The viewer weapon catalog is generated from ItemPMT and Unitxt. Separate items can share a geometry

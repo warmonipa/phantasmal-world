@@ -26,6 +26,11 @@ private data class BmlModelMapping(
     val outputName: String,
     /** File extension for the geometry file. */
     val geomExtension: String = "nj",
+    /**
+     * Standalone uncompressed `.xvm` GSL entry to use instead of the BML entry's own texture, for
+     * enemies that reuse another enemy's model with a separate texture bank.
+     */
+    val textureGslEntryName: String? = null,
 )
 
 /**
@@ -118,10 +123,17 @@ private val ULTIMATE_MODEL_MAPPINGS = listOf(
     BmlModelMapping("bm_ene_df3_dimedian_a.bml", 1, "LaDimenian.ult"),
     BmlModelMapping("bm_ene_df3_dimedian_a.bml", 2, "Dimenian.ult"),
 
-    // Dubchic / Gilchic share the `me2` body — bm_ene_dubchik_a.bml. Same geometry, two recolours:
-    // entry [0] is the lighter skin (Gilchich) and entry [1] the darker skin (Dubchich).
-    BmlModelMapping("bm_ene_dubchik_a.bml", 1, "Dubchic.ult"),
-    BmlModelMapping("bm_ene_dubchik_a.bml", 0, "Gilchic.ult"),
+    // Dubchic / Gilchic share the `me2` body. bm_ene_dubchik.bml entry [0] carries Dubchic's
+    // texture (byte-identical to Dubchic.xvm) and entry [1] a rusted variant; Gilchic's texture is
+    // the standalone me2_y_me2_z.xvm (byte-identical to Gilchic.xvm). The `_a` archive and
+    // me2_y_me2_z_a.xvm follow the same layout: Dubchich is yellow, Gilchich white and pink.
+    BmlModelMapping("bm_ene_dubchik_a.bml", 0, "Dubchic.ult"),
+    BmlModelMapping(
+        "bm_ene_dubchik_a.bml",
+        0,
+        "Gilchic.ult",
+        textureGslEntryName = "me2_y_me2_z_a.xvm",
+    ),
 
     // Garanz — bm_ene_gyaranzo_a.bml (entry 3 is the body; others are fragments/projectiles)
     BmlModelMapping("bm_ene_gyaranzo_a.bml", 3, "Garanz.ult"),
@@ -259,7 +271,15 @@ fun main(args: Array<String>) {
                 logger.info { "    Wrote ${geomFile.name} (${modelBytes.size} bytes)" }
 
                 // Decompress and write texture data (.xvm) if present.
-                if (bmlEntry.textureData.size > 0) {
+                if (mapping.textureGslEntryName != null) {
+                    val textureEntry = requireNotNull(gslEntryByName[mapping.textureGslEntryName]) {
+                        "GSL entry '${mapping.textureGslEntryName}' not found in data.gsl"
+                    }
+                    val textureBytes = textureEntry.data.byteArray.copyOf(textureEntry.data.size)
+                    val xvmFile = File(outputDir, "${mapping.outputName}.xvm")
+                    xvmFile.writeBytes(textureBytes)
+                    logger.info { "    Wrote ${xvmFile.name} from ${textureEntry.name} (${textureBytes.size} bytes)" }
+                } else if (bmlEntry.textureData.size > 0) {
                     val textureBytes = tryDecompress(bmlEntry.textureData)
                     val xvmFile = File(outputDir, "${mapping.outputName}.xvm")
                     xvmFile.writeBytes(textureBytes)
