@@ -279,6 +279,40 @@ class EntityMeshManagerTests : WebTestSuite {
         assertEquals(0, loader.meshFor(1)?.count ?: 0)
     }
 
+    @Test
+    fun editing_a_warp_color_moves_it_to_the_matching_texture_variant() = testAsync {
+        val context = disposer.add(
+            QuestRenderContext(
+                document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                PerspectiveCamera(),
+            )
+        )
+        val loader = VariantMeshLoader()
+        val manager = disposer.add(
+            EntityMeshManager(
+                components.questEditorStore,
+                components.questEditorUiStore,
+                context,
+                loader,
+            )
+        )
+        val warp = createQuestObjectModel(ObjectType.Teleporter)
+        val color = warp.properties.value.single { it.offset == 60 }
+        color.setValue(1)
+
+        manager.add(warp)
+        awaitCondition { loader.meshFor(1)?.count == 1 }
+
+        color.setValue(0)
+        awaitCondition { loader.meshFor(0)?.count == 1 }
+        assertEquals(0, loader.meshFor(1)?.count)
+
+        // Any nonzero param6 renders red, so it shares the red mesh.
+        color.setValue(5)
+        awaitCondition { loader.meshFor(1)?.count == 1 }
+        assertEquals(0, loader.meshFor(0)?.count)
+    }
+
     private suspend fun awaitVisibleSelectionMarker(context: QuestRenderContext) {
         withTimeout(5_000) {
             while (selectionMarkers(context).none { it.visible }) yield()
@@ -319,6 +353,23 @@ class EntityMeshManagerTests : WebTestSuite {
                 InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
             }
         }
+    }
+
+    /** Gives every render variant its own mesh. */
+    private class VariantMeshLoader : EntityMeshLoader {
+        private val meshes = mutableMapOf<Int?, InstancedMesh>()
+
+        fun meshFor(variant: Int?): InstancedMesh? = meshes[variant]
+
+        override suspend fun loadInstancedMesh(
+            type: EntityType,
+            model: Int?,
+            ultimate: Boolean,
+            renderVariant: Int?,
+        ): InstancedMesh =
+            meshes.getOrPut(renderVariant) {
+                InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
+            }
     }
 
     /** Gives every model its own mesh with room for exactly one instance. */

@@ -8,11 +8,11 @@ import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.core.disposable.Disposer
 import world.phantasmal.psolib.fileFormats.quest.EntityType
-import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.core.loading.LoadingCache
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
 import world.phantasmal.web.questEditor.loading.EntityMeshLoader
+import world.phantasmal.web.questEditor.loading.entityTextureVariant
 import world.phantasmal.web.questEditor.models.*
 import world.phantasmal.web.questEditor.stores.QuestEntitySelectionState
 import world.phantasmal.web.questEditor.stores.QuestEditorUiStore
@@ -338,8 +338,8 @@ class EntityMeshManager(
     )
 
     private fun entityRenderVariant(entity: QuestEntityModel<*, *>): Int? =
-        if (entity is QuestObjectModel && entity.type == ObjectType.ForestDoor) {
-            entity.entity.forestDoorDigit
+        if (entity is QuestObjectModel) {
+            entityTextureVariant(entity.type)?.variantOf(entity.entity)
         } else {
             null
         }

@@ -84,6 +84,65 @@ class EntityInfoControllerTests : WebTestSuite {
     }
 
     @Test
+    fun warp_and_fence_colors_are_selected_from_newserv_color_names() = testAsync {
+        val ctrl = disposer.add(EntityInfoController(
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        // Nonzero warp param6 renders red; fence param1 >= 3 renders magenta.
+        val warp = QuestObjectModel(
+            QuestObject(ObjectType.Teleporter, floorId = 1).apply { data.setInt(60, 5) },
+        )
+        val fence = QuestObjectModel(
+            QuestObject(ObjectType.LaserFence, floorId = 1).apply { data.setFloat(40, 4f) },
+        )
+        val ruinsWarp = QuestObjectModel(
+            QuestObject(ObjectType.RuinsTeleporter, floorId = 9).apply { data.setInt(60, -3) },
+        )
+        // Door key param6 is clamped to [0, 9], so it keeps a numeric field.
+        val doorKey = QuestObjectModel(
+            QuestObject(ObjectType.ForestSwitch, floorId = 1).apply { data.setInt(60, 5) },
+        )
+        components.questEditorStore.setCurrentQuest(
+            createQuestModel(objects = listOf(warp, fence, ruinsWarp, doorKey)),
+        )
+
+        components.questEditorStore.setSelectedEntity(warp)
+        val warpColor = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label.startsWith("Color") },
+        )
+        assertEquals(listOf("Blue", "Red"), warpColor.colorOptions?.map { it.name })
+        assertEquals("Red", warpColor.selectedColor.value?.name)
+        warpColor.setValue(warpColor.colorOptions!!.first { it.name == "Blue" }.value)
+        assertEquals(0, warp.entity.data.getInt(60))
+        assertEquals("Blue", warpColor.selectedColor.value?.name)
+
+        components.questEditorStore.setSelectedEntity(fence)
+        val fenceColor = assertIs<EntityInfoPropModel.F32>(
+            ctrl.props.value.single { it.label == "Color:" },
+        )
+        assertEquals(
+            listOf("Red", "Cyan", "Green", "Magenta"),
+            fenceColor.colorOptions?.map { it.name },
+        )
+        assertEquals("Magenta", fenceColor.selectedColor.value?.name)
+
+        components.questEditorStore.setSelectedEntity(ruinsWarp)
+        val ruinsColor = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label.startsWith("Color") },
+        )
+        assertEquals("Red", ruinsColor.selectedColor.value?.name)
+
+        components.questEditorStore.setSelectedEntity(doorKey)
+        val doorKeyColor = assertIs<EntityInfoPropModel.I32>(
+            ctrl.props.value.single { it.label == "Color:" },
+        )
+        assertNull(doorKeyColor.colorOptions)
+    }
+
+    @Test
     fun test_unavailable_and_enabled() = testAsync {
         val ctrl =
             disposer.add(EntityInfoController(

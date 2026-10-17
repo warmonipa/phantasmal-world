@@ -12,7 +12,6 @@ import world.phantasmal.cell.nullCell
 import world.phantasmal.cell.trueCell
 import world.phantasmal.webui.dom.disposableListener
 import world.phantasmal.webui.dom.div
-import world.phantasmal.webui.obj
 
 class Menu<T : Any>(
     visible: Cell<Boolean> = trueCell(),
@@ -189,7 +188,23 @@ class Menu<T : Any>(
         highlightedElement?.let {
             highlightedIndex = index
             it.classList.add("pw-menu-highlighted")
-            it.scrollIntoView(obj { block = "nearest" })
+            scrollIntoInnerView(it)
+        }
+    }
+
+    /**
+     * Scrolls only the item list. Element.scrollIntoView would also scroll the menu's scrollable
+     * ancestors, which moves an item under the pointer while the button that opened the menu is
+     * still pressed, so the mouseup selects that item and closes the menu.
+     */
+    private fun scrollIntoInnerView(item: Element) {
+        val list = innerElement.getBoundingClientRect()
+        val rect = item.getBoundingClientRect()
+
+        if (rect.top < list.top) {
+            innerElement.scrollTop -= list.top - rect.top
+        } else if (rect.bottom > list.bottom) {
+            innerElement.scrollTop += rect.bottom - list.bottom
         }
     }
 

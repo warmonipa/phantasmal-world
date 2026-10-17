@@ -60,11 +60,8 @@ class EntityAssetLoader internal constructor(
         ultimate: Boolean,
         renderVariant: Int?,
     ): InstancedMesh {
-        val normalizedVariant = if (type == ObjectType.ForestDoor) {
-            forestDoorDigitTextureIndex(renderVariant ?: 0)
-        } else {
-            null
-        }
+        // Types without a texture variant share one cache entry regardless of renderVariant.
+        val normalizedVariant = entityTextureVariant(type)?.let { renderVariant }
         return cloneInstancedMeshWithOwnedResources(instancedMeshCache.get(
             EntityMeshKey(type, model, ultimate, normalizedVariant)
         ))
@@ -100,11 +97,9 @@ class EntityAssetLoader internal constructor(
             }),
             boundingVolumes = true,
             anisotropy = DEFAULT_TEXTURE_ANISOTROPY,
-            textureIndexOverrides = if (type == ObjectType.ForestDoor) {
-                mapOf(FOREST_DOOR_DEFAULT_DIGIT_TEXTURE to (renderVariant ?: 0))
-            } else {
-                emptyMap()
-            },
+            textureIndexOverrides = renderVariant
+                ?.let { entityTextureVariant(type)?.textureIndexOverrides(it) }
+                ?: emptyMap(),
         ).apply {
             name = type.uniqueName
             // Apply entity-specific scaling
@@ -202,7 +197,6 @@ class EntityAssetLoader internal constructor(
     companion object {
         private val DEFAULT_NPC_COLOR = Color(0xFF0000)
         private val DEFAULT_OBJECT_COLOR = Color(0xFFFF00)
-        private const val FOREST_DOOR_DEFAULT_DIGIT_TEXTURE = 0
 
         private val DEFAULT_NPC_MESH = createCylinder(DEFAULT_NPC_COLOR)
         private val DEFAULT_OBJECT_MESH = createCylinder(DEFAULT_OBJECT_COLOR)
@@ -282,11 +276,6 @@ private fun InstancedMesh.applyEntityTypeScale(type: EntityType) {
         computeBoundingSphere()
     }
 }
-
-/**
- * The first ten textures in 128.xvm match the PSO world-font digit order 0-9.
- */
-internal fun forestDoorDigitTextureIndex(digit: Int): Int = digit.mod(10)
 
 private data class EntityMeshKey(
     val type: EntityType,

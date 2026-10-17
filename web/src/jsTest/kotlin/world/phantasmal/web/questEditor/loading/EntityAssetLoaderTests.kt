@@ -55,6 +55,80 @@ class EntityAssetLoaderTests : WebTestSuite {
     }
 
     @Test
+    fun warp_color_param_selects_the_blue_or_red_line_texture() {
+        // newserv: param6 0 = blue, 1 = red. The line models reference the red texture.
+        for ((type, red, blue) in listOf(
+            Triple(ObjectType.Teleporter, 2, 3),
+            Triple(ObjectType.QuestWarp, 2, 3),
+            Triple(ObjectType.Epilogue, 2, 3),
+            Triple(ObjectType.TeleporterEp2, 8, 9),
+        )) {
+            val variant = entityTextureVariant(type)!!
+            val warp = QuestObject(type, floorId = 1)
+
+            warp.data.setInt(60, 0)
+            assertEquals(mapOf(red to blue), variant.textureIndexOverrides(variant.variantOf(warp)))
+            warp.data.setInt(60, 1)
+            assertEquals(emptyMap(), variant.textureIndexOverrides(variant.variantOf(warp)))
+        }
+    }
+
+    @Test
+    fun laser_fence_color_params_select_the_matching_laser_texture() {
+        // newserv: <=0 = red, 1 = cyan, 2 = green, >=3 = magenta; float params are truncated.
+        val fence = QuestObject(ObjectType.LaserFence, floorId = 1)
+        val fenceVariant = entityTextureVariant(ObjectType.LaserFence)!!
+        for ((param1, texture) in listOf(-1f to 0, 0f to 0, 1.0000002f to 1, 2f to 2, 4f to 3)) {
+            fence.data.setFloat(40, param1)
+            assertEquals(
+                mapOf(0 to texture),
+                fenceVariant.textureIndexOverrides(fenceVariant.variantOf(fence)),
+            )
+        }
+
+        val fenceSwitch = QuestObject(ObjectType.ForestLaserFenceSwitch, floorId = 1)
+        val switchVariant = entityTextureVariant(ObjectType.ForestLaserFenceSwitch)!!
+        fenceSwitch.data.setInt(60, 2)
+        assertEquals(
+            mapOf(0 to 2),
+            switchVariant.textureIndexOverrides(switchVariant.variantOf(fenceSwitch)),
+        )
+
+        val ruinsFence = QuestObject(ObjectType.RuinsLaserFence4x2, floorId = 9)
+        val ruinsFenceVariant = entityTextureVariant(ObjectType.RuinsLaserFence4x2)!!
+        val ruinsSwitch = QuestObject(ObjectType.RuinsFenceSwitch, floorId = 9)
+        val ruinsSwitchVariant = entityTextureVariant(ObjectType.RuinsFenceSwitch)!!
+        for ((param5, fenceTexture, switchTexture) in listOf(
+            Triple(0, 0, 1), Triple(1, 4, 7), Triple(2, 5, 8), Triple(3, 6, 9), Triple(7, 6, 9),
+        )) {
+            ruinsFence.data.setInt(56, param5)
+            ruinsSwitch.data.setInt(56, param5)
+            assertEquals(
+                mapOf(0 to fenceTexture),
+                ruinsFenceVariant.textureIndexOverrides(ruinsFenceVariant.variantOf(ruinsFence)),
+            )
+            assertEquals(
+                mapOf(1 to switchTexture),
+                ruinsSwitchVariant.textureIndexOverrides(ruinsSwitchVariant.variantOf(ruinsSwitch)),
+            )
+        }
+    }
+
+    @Test
+    fun blue_and_red_warps_load_distinct_line_textures() = testAsync {
+        val loader = EntityAssetLoader(AssetLoader(basePath = "/assets"))
+        val red = loader.loadInstancedMesh(ObjectType.Teleporter, model = null, renderVariant = 1)
+        val blue = loader.loadInstancedMesh(ObjectType.Teleporter, model = null, renderVariant = 0)
+
+        assertTrue(textureImages(red).isNotEmpty())
+        assertTrue(textureImages(red) != textureImages(blue))
+
+        disposeObject3DResources(red)
+        disposeObject3DResources(blue)
+        loader.dispose()
+    }
+
+    @Test
     fun cloned_mesh_owns_its_disposable_resources() {
         val texture = DataTexture(Uint8Array(4), 1, 1).apply { needsUpdate = true }
         val firstSourceMaterial = MeshBasicMaterial(obj { map = texture })
@@ -102,6 +176,16 @@ class EntityAssetLoaderTests : WebTestSuite {
         disposeObject3DResources(mesh)
         loader.dispose()
     }
+
+    /** Fingerprints of the texture data each material samples. */
+    private fun textureImages(mesh: InstancedMesh): List<String> =
+        materials(mesh).mapNotNull { material ->
+            val map = material.map?.asDynamic() ?: return@mapNotNull null
+            // DataTextures keep texels on the image; compressed textures keep them per mipmap.
+            val bytes = (map.image?.data ?: map.mipmaps?.get(0)?.data)?.unsafeCast<Uint8Array>()
+                ?: return@mapNotNull null
+            (0 until minOf(bytes.length, 64)).joinToString(",") { bytes.asDynamic()[it].toString() }
+        }
 
     private fun materials(mesh: InstancedMesh): Array<MeshBasicMaterial> =
         mesh.material.unsafeCast<Array<MeshBasicMaterial>>()

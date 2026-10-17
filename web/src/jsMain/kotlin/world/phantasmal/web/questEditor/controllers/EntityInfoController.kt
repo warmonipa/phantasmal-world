@@ -99,9 +99,10 @@ sealed class EntityInfoPropModel(
     ) :
         EntityInfoPropModel(store, prop) {
 
+        private val colorChoices: ColorChoices? = colorChoices(store, prop)
+
         /** Non-null when this property should render as a color select box. */
-        val colorOptions: List<ColorOption>? =
-            if (prop.name == "Color" && isFenceColorProp(store)) COLOR_OPTIONS else null
+        val colorOptions: List<ColorOption>? = colorChoices?.options
 
         @Suppress("UNCHECKED_CAST")
         val value: Cell<Int> = if (isForestDoor(store)) {
@@ -119,11 +120,7 @@ sealed class EntityInfoPropModel(
         }
 
         val selectedColor: Cell<ColorOption?> =
-            if (colorOptions != null) {
-                value.map { v -> colorOptions.find { it.value == v } }
-            } else {
-                cell(null)
-            }
+            colorChoices?.let { choices -> value.map(choices::optionFor) } ?: cell(null)
 
         val showGoToEvent: Boolean = prop.name == "Event ID"
 
@@ -167,9 +164,10 @@ sealed class EntityInfoPropModel(
     class F32(store: QuestEditorStore, prop: QuestEntityPropModel) :
         EntityInfoPropModel(store, prop) {
 
+        private val colorChoices: ColorChoices? = colorChoices(store, prop)
+
         /** Non-null when this property should render as a color select box. */
-        val colorOptions: List<ColorOption>? =
-            if (prop.name == "Color" && isFenceColorProp(store)) COLOR_OPTIONS else null
+        val colorOptions: List<ColorOption>? = colorChoices?.options
 
         val value: Cell<Double> =
             if (isScriptLabel &&
@@ -181,11 +179,8 @@ sealed class EntityInfoPropModel(
             }
 
         val selectedColor: Cell<ColorOption?> =
-            if (colorOptions != null) {
-                value.map { v -> colorOptions.find { it.value == v.toInt() } }
-            } else {
-                cell(null)
-            }
+            colorChoices?.let { choices -> value.map { choices.optionFor(it.toInt()) } }
+                ?: cell(null)
 
         fun setValue(value: Double) {
             setPropValue(prop, value.toFloat())
@@ -206,20 +201,52 @@ sealed class EntityInfoPropModel(
         override fun toString(): String = name
     }
 
+    /**
+     * The colors a color parameter can select. [normalize] maps any raw value to the value of the
+     * option the client renders, so out-of-range values still show a selection.
+     */
+    class ColorChoices(val options: List<ColorOption>, private val normalize: (Int) -> Int) {
+        fun optionFor(value: Int): ColorOption? = normalize(value).let { v ->
+            options.find { it.value == v }
+        }
+    }
+
     companion object {
+        /** Laser fence colors as newserv's Map.cc names them; they match the laser textures. */
         val COLOR_OPTIONS = listOf(
-            ColorOption(0, "Orange"),
-            ColorOption(1, "Blue"),
+            ColorOption(0, "Red"),
+            ColorOption(1, "Cyan"),
             ColorOption(2, "Green"),
-            ColorOption(3, "Purple"),
+            ColorOption(3, "Magenta"),
         )
 
+        // Fence colors are clamped to [0, 3].
+        private val FENCE_COLORS = ColorChoices(COLOR_OPTIONS) { it.coerceIn(0, 3) }
+
+        // Warp param6: 0 = blue, 1 = red.
+        private val WARP_COLORS = ColorChoices(
+            listOf(ColorOption(0, "Blue"), ColorOption(1, "Red")),
+        ) { if (it == 0) 0 else 1 }
+
+        // Ruins goal warp param6 is reversed: negative = red, zero or positive = blue.
+        private val RUINS_WARP_COLORS = ColorChoices(
+            listOf(ColorOption(0, "Blue"), ColorOption(-1, "Red")),
+        ) { if (it < 0) -1 else 0 }
+
+        private val WARP_COLOR_TYPES: Set<ObjectType> = setOf(
+            ObjectType.Teleporter,
+            ObjectType.QuestWarp,
+            ObjectType.Epilogue,
+            ObjectType.TeleporterEp2,
+            ObjectType.WarpInBarbaRayRoom,
+        )
+
+        // ForestSwitch (TObjDoorKey) is left out: its param6 has ten unnamed colors.
         private val FENCE_COLOR_TYPES: Set<ObjectType> = setOf(
             ObjectType.LaserFence,
             ObjectType.LaserSquareFence,
             ObjectType.LaserFenceEx,
             ObjectType.LaserSquareFenceEx,
-            ObjectType.ForestSwitch,
             ObjectType.ForestLaserFenceSwitch,
             ObjectType.RuinsFenceSwitch,
             ObjectType.RuinsLaserFence4x2,
@@ -228,9 +255,15 @@ sealed class EntityInfoPropModel(
             ObjectType.RuinsLaserFence6x4,
         )
 
-        private fun isFenceColorProp(store: QuestEditorStore): Boolean {
-            val entity = store.selectedEntity.value
-            return entity is QuestObjectModel && entity.type in FENCE_COLOR_TYPES
+        private fun colorChoices(store: QuestEditorStore, prop: QuestEntityPropModel): ColorChoices? {
+            val type = (store.selectedEntity.value as? QuestObjectModel)?.type ?: return null
+
+            return when {
+                prop.name == "Color" && type in FENCE_COLOR_TYPES -> FENCE_COLORS
+                prop.offset == 60 && type in WARP_COLOR_TYPES -> WARP_COLORS
+                prop.offset == 60 && type == ObjectType.RuinsTeleporter -> RUINS_WARP_COLORS
+                else -> null
+            }
         }
     }
 }

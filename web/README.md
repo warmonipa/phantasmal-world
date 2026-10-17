@@ -82,10 +82,18 @@ list as object meshes, and NPC grounding is invalidated whenever collision geome
 manager removes its owned scene nodes and disposes their resources when its lifecycle ends.
 
 `EntityMeshManager` places each entity in the instanced mesh for its render key: entity type, object
-model, Ultimate skin, and Forest Door digit. The key is re-read after the asynchronous mesh load, so
-a model change during the load cannot leave the entity in a stale mesh. Instanced meshes have a fixed
-capacity; an entity that doesn't fit is logged and skipped, and is added again once a render-key
-change selects another mesh. Disposing an instance container also disposes its instances.
+model, Ultimate skin, and texture variant. A texture variant is an object parameter that selects one
+of the textures bundled in the object's XVM, following newserv's Map.cc: the Forest Door digit, the
+blue or red warp lines (param6 of floor, quest, ending and EP2 warps), and the laser fence colors
+(param1 of laser fences, param6 of their switch, param5 of the Ruins 4x2 fence and fence switch).
+Editing the parameter moves the entity to the matching mesh. The Entity panel edits warp and fence
+colors with a select box using newserv's color names; an out-of-range value shows the color the
+client renders (any nonzero warp param6 is red, fence colors clamp to red..magenta). The Forest
+door key switch keeps a numeric field because its param6 selects one of ten unnamed colors. The key
+is re-read after the asynchronous mesh load, so a model change during the load cannot leave the
+entity in a stale mesh. Instanced meshes have a fixed capacity; an entity that doesn't fit is logged
+and skipped, and is added again once a render-key change selects another mesh. Disposing an instance
+container also disposes its instances.
 
 Challenge seed previews use each DAT room table's declared location count. The original client's
 32-location implementation limit is not a file-format limit: patched Ephinea quests such as the AO
