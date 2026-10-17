@@ -27,6 +27,8 @@ fun WebTestContext.createQuestModel(
     bytecodeIr: BytecodeIr = BytecodeIr(emptyList()),
     version: Version = Version.BB_V4,
     npcPlacementPolicy: NpcPlacementPolicy = components.npcPlacementPolicy,
+    // Hand-written mappings need false, or analysing the empty script replaces them.
+    floorMappingsFromScript: Boolean = true,
 ): QuestModel =
     QuestModel(
         id,
@@ -48,6 +50,7 @@ fun WebTestContext.createQuestModel(
         floorMappings,
         components.areaStore::getVariant,
         version = version,
+        floorMappingsFromScript = floorMappingsFromScript,
     )
 
 fun WebTestContext.createQuestNpcModel(

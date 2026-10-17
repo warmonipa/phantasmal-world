@@ -429,6 +429,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // EP2 area 0 = Lab (mapId=0x12), area 17 = Tower (mapId=0x23)
         val quest = createQuestModel(
             episode = Episode.II,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
                 FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
@@ -489,6 +490,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
 
         val quest = createQuestModel(
             episode = Episode.IV,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(
                     floorId = 0,
@@ -521,6 +523,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
 
         val quest = createQuestModel(
             episode = Episode.IV,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(
                     floorId = 5,
@@ -553,6 +556,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         ))
         val quest = createQuestModel(
             episode = Episode.II,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(
                     floorId = 0,
@@ -654,6 +658,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         // Put 2 NPCs on floor 17 (Tower v0) and 1 object on floor 16 (Tower v1)
         val quest = createQuestModel(
             episode = Episode.II,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
                 FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
@@ -702,6 +707,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
 
         val quest = createQuestModel(
             episode = Episode.II,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
                 FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
@@ -753,6 +759,7 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         )
         val quest = createQuestModel(
             episode = Episode.II,
+            floorMappingsFromScript = false,
             floorMappings = listOf(
                 FloorMapping(floorId = 0, mapId = 0x12, mapAreaId = 0, mapVariation = 0),
                 FloorMapping(floorId = 17, mapId = 0x23, mapAreaId = 17, mapVariation = 0),
