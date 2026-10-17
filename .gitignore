@@ -22,3 +22,6 @@ karma.config.generated.js
 
 # Local-only docs (plans, specs, format notes) — kept on disk, not tracked
 /docs/
+
+# Playwright MCP browser session output (screenshots, logs)
+/.playwright-mcp/
