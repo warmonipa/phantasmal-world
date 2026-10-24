@@ -21,6 +21,26 @@ import kotlin.test.assertTrue
 
 class EntityAssetLoaderTests : WebTestSuite {
     @Test
+    fun tower_terminal_variant_loads_its_textured_model() = testAsync {
+        // PW4 places type 0x223, param4=3, in Tower section 30.
+        val terminal = QuestObject(ObjectType.LittleCryotube, floorId = 17)
+        terminal.data.setInt(52, 3)
+        val loader = EntityAssetLoader(AssetLoader(basePath = "/assets"))
+        try {
+            val mesh = loader.loadInstancedMesh(terminal.type, model = terminal.model)
+            try {
+                assertEquals(terminal.type.uniqueName, mesh.name)
+                assertTrue((mesh.geometry.asDynamic().attributes.position.count as Int) > 100)
+                assertTrue(textureImages(mesh).isNotEmpty())
+            } finally {
+                disposeObject3DResources(mesh)
+            }
+        } finally {
+            loader.dispose()
+        }
+    }
+
+    @Test
     fun forest_door_digits_align_with_the_pso_world_font_texture_order() {
         assertEquals((0..9).toList(), (0..9).map(::forestDoorDigitTextureIndex))
         assertEquals(1, forestDoorDigitTextureIndex(11))
@@ -182,7 +202,8 @@ class EntityAssetLoaderTests : WebTestSuite {
         materials(mesh).mapNotNull { material ->
             val map = material.map?.asDynamic() ?: return@mapNotNull null
             // DataTextures keep texels on the image; compressed textures keep them per mipmap.
-            val bytes = (map.image?.data ?: map.mipmaps?.get(0)?.data)?.unsafeCast<Uint8Array>()
+            val mipmaps = map.mipmaps?.unsafeCast<Array<dynamic>>()
+            val bytes = (map.image?.data ?: mipmaps?.get(0)?.data)?.unsafeCast<Uint8Array>()
                 ?: return@mapNotNull null
             (0 until minOf(bytes.length, 64)).joinToString(",") { bytes.asDynamic()[it].toString() }
         }

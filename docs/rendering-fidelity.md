@@ -36,6 +36,20 @@ as is back-face culling for NJ models.
 
 ### Verification
 
+The Tower terminal in PW4 is DAT object `0x223` (`LittleCryotube`), model parameter 3
+at offset 52. Both towers use this variant in section 30: local position `(145, 0, 0)`
+on floor 17, between the cryotubes, and `(138, 0, -138)` on floor 16.
+The editor requests `objects/547-3.xj` and the shared `objects/547.xvm`; a missing variant
+rejects the mesh load even though the other cryotube variants render correctly.
+
+`547-3.xj` is the unmodified `obj_o_orga.xj` entry from the local BB client's
+`data.gsl` → `bm_obj_seabed_suiso.bml` (29,056 bytes, SHA-256
+`63e5e8c2b0af366a27c0f5d04c3de09852161a7f703362ee9c53df251059de03`).
+The existing `547.xvm` is byte-identical to `data.gsl` → `obj_seabed_suiso.xvm`.
+`EntityAssetLoaderTests.tower_terminal_variant_loads_its_textured_model` exercises
+the quest parameter and real asset loading/conversion. This is a static model preview;
+the client's switch-controlled display effects are not simulated.
+
 - Unit tests: `XjTests`, `NjModelTests` (psolib); `MeshBuilderTests`, `XvrTextureConversionTests`
   (web). They cover vertex color and strip table parsing, NJ colors, diffuse and texture flags, the
   RGBA color attribute, blend factor mapping, culling and diffuse materials, DXT decoding and
@@ -60,6 +74,9 @@ as is back-face culling for NJ models.
 | Brightness calibration | Without in-game reference captures there is nothing to calibrate against. Revisit with screenshots. |
 
 ## Open
+
+The separate [asset completeness audit TODO](asset-completeness-todo.md) tracks missing
+models, variants, textures, and other resources across Quest Editor and Viewer.
 
 | Item | Notes |
 | --- | --- |
