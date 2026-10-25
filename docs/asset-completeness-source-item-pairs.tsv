@@ -1,0 +1,144 @@
+model	current_texture	source_texture	category	examples	model_texture_names	current_texture_count	source_texture_count
+271	271	295	mag	Mag | Mag* | ????	mxt0_egg00,mxt0_egg00b	1	2
+272	272	296	mag	Varuna | Varuna*	mxt1_fan00	2	1
+273	273	297	mag	Mitra	mxt2_fan01	2	1
+274	274	298	mag	Surya	mxt2_fan02	1	1
+275	275	299	mag	Vayu	mxt3_fan01	2	1
+276	276	300	mag	Varaha	mxt3_fan02_1,mxt3_fan02_2	1	2
+277	277	301	mag	Kama	mxt3_fan03_1,mxt3_fan03_2	1	2
+278	278	302	mag	Ushasu	mxt3_fan04	1	1
+279	279	303	mag	Apsaras	mxt3_fan05_1,mxt3_fan05_2,mxt3_fan05_3	1	3
+280	280	304	mag	Kumara	mxt3_fan06	1	1
+281	281	305	mag	Kaitabha	mxt3_fan07	1	1
+282	282	306	mag	Tapas	mxt3_fan08	1	1
+283	283	307	mag	Bhirava	mxt3_fan09	1	1
+284	284	308	mag	Kalki | Kalki*	mxt1_mon00	1	1
+285	285	309	mag	Rudra	mxt2_mon01	1	1
+286	286	310	mag	Marutah	mxt2_mon02	1	1
+287	287	311	mag	Yaksa	mxt3_mon01_1,mxt3_mon01_2	1	2
+288	288	312	mag	Sita	mxt3_mon02_1,mxt3_mon02_2,mxt3_mon02_3,mxt3_mon02_4	1	4
+289	289	313	mag	Garuda	mxt3_mon03	1	1
+290	290	314	mag	Nandin	mxt3_mon04	1	1
+291	291	315	mag	Ashvinau	mxt3_mon05,mxt3_mon05_moyou	1	2
+292	292	316	mag	Ribhava	mxt3_mon06	2	1
+293	293	317	mag	Soma	mxt3_mon07	1	1
+294	294	318	mag	Ila	mxt3_mon08	2	1
+295	295	319	mag	Durga	mxt3_mon09	2	1
+296	296	320	mag	Vritra | Vritra*	mxt1_ser00	1	1
+297	297	321	mag	Namuci	mxt2_ser01	1	1
+298	298	322	mag	Sumba	mxt2_ser02	1	1
+299	299	323	mag	Naga	mxt3_ser01,mxt3_ser01_3	1	2
+300	300	324	mag	Pitri	mxt3_ser02	2	1
+301	301	325	mag	Kabanda	mxt3_ser03	2	1
+302	302	326	mag	Ravana	mxt3_ser04_1,mxt3_ser04_2,mxt3_ser04_3,mxt3_ser04_4	1	4
+303	303	327	mag	Marica	mxt3_ser05_1,mxt3_ser05_2	3	2
+304	304	328	mag	Soniti	mxt3_ser06	1	1
+305	305	329	mag	Preta	mxt3_ser07	1	1
+306	306	330	mag	Andhaka	mxt3_ser08	1	1
+307	307	331	mag	Bana	mxt3_ser09	1	1
+308	308	332	mag	Naraka	mxt3_ser10,mxt3_ser10b	1	2
+309	309	333	mag	Madhu	mxt3_ser11	1	1
+310	310	334	mag	Churel	mxt3_ser12,mxt3_ser12b	1	2
+311	311	335	mag	Robochao	mxt_3ser17,mxt_3ser17_a,sikake_41_32	2	3
+312	312	336	mag	Opa-Opa	mxt_3ser18	4	1
+313	313	337	mag	Pian	mxt_3ser19	1	1
+314	314	338	mag	Chao	mxt_3ser20	1	1
+315	315	339	mag	Chu Chu	c_mouse01,c_mouse02,c_mouse03	2	3
+316	316	340	mag	Kapu Kapu	c_cat01,c_cat02,c_cat03,c_cat04	1	4
+317	317	341	mag	Angel's Wing	mxt_3ser23_t_tensi	1	1
+318	318	342	mag	Devil's Wing	mxt_3ser24_t_akama	1	1
+319	319	343	mag	Elenor	mxtfan309_w_ele01	1	1
+320	320	344	mag	Mark III	mxt3_mon10_e	1	1
+321	321	345	mag	Master System	mxt3_mon11_e	1	1
+322	322	346	mag	Genesis	mxt3_mon12_e	1	1
+323	323	347	mag	Sega Saturn	mxt3_mon13_e	2	1
+324	324	348	mag	Dreamcast	mxt3_mon14_e	1	1
+325	325	349	mag	Hamburger	mxt3_z_m_fan11	1	1
+326	326	350	mag	Panzer's Tail	mxt_3ser25_t_teil	4	1
+327	327	351	mag	Devil's Tail	mxt_3ser26_t_teil,mxt_3ser26_t_teilkk	2	2
+329	329	353	mag	Deva	mxt3_fan12	1	1
+330	330	354	mag	Rati	mxt3_fan13	1	1
+331	331	355	mag	Savitri	mxt3_fan14	1	1
+332	332	356	mag	Rukmin	mxt3_mon15a	2	1
+333	333	357	mag	Pushan	mxt3_mon16a	1	1
+334	334	358	mag	Diwari	mxt3_mon17a	2	1
+335	335	359	mag	Sato	mxt3_ser27	3	1
+336	336	360	mag	Bhima	mxt3_ser28a,mxt3_ser28b	1	2
+337	337	361	mag	Nidra	mxt3_ser29,mxt3_ser29kk	1	2
+338	338	362	mag	Geung-si	t128_60_kyoncy	1	1
+339	339	363	mag	Sonic	mxt0_egg00,mxt0_egg00b	3	2
+340	340	364	mag	Tellusis	t128_62_tellusis,t64_62_tellusis	4	2
+341	341	365	mag	Striker Unit	t128_63_striker_unit	1	1
+342	342	366	mag	Pioneer	t128_64_pioneer	1	1
+343	343	367	mag	Puyo	t64_65_puyobody,t64_65_puyoeye	1	2
+344	344	368	mag	Moro	t64_66_moro	1	1
+345	345	369	mag	Rappy	t256_67_lappy_mag	1	1
+346	346	370	mag	Yahoo!	mxt3_mag00	1	1
+347	347	371	mag	Gael Giel	t128_091_df_mag,t32_091_df_mag	1	2
+348	348	372	mag	Agastya	t128_092_machine_wing1,t128_092_machine_wing2	1	2
+354	354	378	shield	Red Ring	wxtZ01_e_t_ricoring,wxtZ01_e_t_ricoringkk	1	2
+355	355	379	shield	Tripolic Shield	wxtZ01f_z_w_rs01	1	1
+356	356	380	shield	Standstill Shield | Red Ring*	wxtZ01g_z_w_heavy01	1	1
+357	357	381	shield	Safety Heart | Red Ring*	wxtZ01h_z_w_hs01	1	1
+358	358	382	shield	Kasami Bracer	wxtZ01j_z_m_shield	1	1
+359	359	383	shield	"Gods Shield ""Suzaku"""	y_z01ktex	1	1
+360	360	384	shield	"Gods Shield ""Genbu"""	y_z01ltex	2	1
+361	361	385	shield	"Gods Shield ""Byakko"""	y_z01mtex	2	1
+361	361	432	shield	"Gods Shield ""Kouryu"""	y_z01mtex	2	1
+362	362	386	shield	"Gods Shield ""Seiryu"""	y_z01ntex	1	1
+363	363	387	shield	Hunter's Shell	wxtZ01o_z_w_kata01	2	1
+364	364	388	shield	Rico's Glasses	wxtZ01_p_t_megane	2	1
+365	365	389	shield	Rico's Earring	wxtZ01_q_t_earring	1	1
+366	366	390	shield	Blue Ring | Red Ring* | Blue Ring	wxtZ01_r_t_bluering,wxtZ01_r_t_blueringkk	1	2
+367	367	391	shield	Red Ring* | Yellow Ring | Yellow Ring	wxtZ01_s_t_yellowring,wxtZ01_s_t_yellowringkk	2	2
+368	368	392	shield	Secure Feet	wxtZ01t_w_sune	1	1
+369	369	393	shield	Red Ring* | Purple Ring | Purple Ring	wxtZ01_u_t_ring,wxtZ01_u_t_ringkk	1	2
+370	370	394	shield	Red Ring* | Green Ring | Green Ring	wxtZ01_v_t_ring,wxtZ01_v_t_ringkk	1	2
+371	371	395	shield	Anti-Light Ring | Red Ring* | Black Ring	wxtZ01_w_t_ring,wxtZ01_w_t_ringkk	2	2
+372	372	396	shield	Anti-Dark Ring | Red Ring* | White Ring	wxtZ01_x_t_ring,wxtZ01_x_t_ringkk	2	2
+373	373	397	shield	Weapons Gold Shield	wxtZ02_h_m_gol,wxtZ02_h_m_kankyo	1	2
+374	374	398	shield	Black Gear | Red Ring*	wxtZ02_i_m_bb	1	1
+375	375	399	shield	Works Guard	wxtZ02j_z_w_works	1	1
+377	377	401	shield	Flowen's Shield	wxtZ02n_z_w_flow01	1	1
+378	378	402	shield	DB's Shield	wxtZ02o_z_w_db01	2	1
+379	379	403	shield	Shield of Delsaber | Red Ring*	wxtZ02p_z_w_del	1	1
+380	380	404	shield	Custom Barrier ver.OO	wxtZ02q_z_w_cus	1	1
+381	381	405	shield	Ragol Ring | Red Ring*	wxtZ02_r_t_lring	1	1
+382	382	406	shield	Weapons Silver Shield	wxtZ02_s_m_kankyo,wxtZ02_s_m_sil	1	2
+383	383	407	shield	Weapons Copper Shield	wxtZ02_t_m_bro,wxtZ02_t_m_kankyo	1	2
+384	384	408	shield	Resta Merge	wxtZ02m_z_w_tech	1	1
+385	385	409	shield	Anti Merge	wxtZ02m_z_w_tech	1	1
+386	386	410	shield	Foie Merge | Gifoie Merge | Rafoie Merge	wxtZ02m_z_w_tech	1	1
+387	387	411	shield	Zonde Merge | Gizonde Merge | Razonde Merge	wxtZ02m_z_w_tech	1	1
+388	388	412	shield	Barta Merge | Gibarta Merge | Rabarta Merge	wxtZ02m_z_w_tech	1	1
+389	389	413	shield	Shifta Merge	wxtZ02m_z_w_tech	1	1
+390	390	414	shield	Deband Merge	wxtZ02m_z_w_tech	2	1
+391	391	415	shield	Gratia	t128_52_gracia,t64_52_gracia	2	2
+392	392	416	shield	Tripolic Reflector	t128_53_toripolic	1	1
+393	393	417	shield	Striker Plus	t128_54_striker_plus	2	1
+394	394	418	shield	Regenerate Gear B.P.	t128_55_regenerate_gear,t64_55_regenerate_mark	2	2
+395	395	419	shield	Rupika	t128_56_rupika,t64_56_rupika	2	2
+396	396	420	shield	Yata Mirror	t128_57_yata01,t128_57_yata02	2	2
+397	397	421	shield	Bunny Ears | Red Ring*	t128_58_usamimi	2	1
+398	398	422	shield	Cat Ears | Red Ring*	t128_59_nekomimi	1	1
+399	399	423	shield	Three Seals	t128_084_three_seals,t64_084_three_seals	1	2
+400	400	424	shield	Genpei	t128_085_genpei_00	1	1
+400	400	436	shield	Genpei	t128_085_genpei_00	1	1
+400	400	437	shield	Genpei	t128_085_genpei_00	1	1
+400	400	438	shield	Genpei	t128_085_genpei_00	1	1
+400	400	439	shield	Genpei	t128_085_genpei_00	1	1
+400	400	440	shield	Genpei	t128_085_genpei_00	1	1
+400	400	441	shield	Genpei	t128_085_genpei_00	1	1
+400	400	442	shield	Genpei	t128_085_genpei_00	1	1
+400	400	443	shield	Genpei	t128_085_genpei_00	1	1
+400	400	444	shield	Genpei	t128_085_genpei_00	1	1
+401	401	425	shield	DF Shield	t128_086_suberu_akash,t32_086_suberu_akash	1	2
+402	402	426	shield	From the Depths | Red Ring*	t128_087_hutiyorikurumono1,t128_087_hutiyorikurumono2,t32_087_hutiyorikurumono	1	3
+403	403	427	shield	De Rol Le Shield	t128_088_derorure_sheild01,t64_088_derorure_sheild02	1	2
+404	404	428	shield	Honeycomb Reflector | Red Ring*	t128_089_honeycomb_sheild01,t64_089_honeycomb_sheild02	1	2
+405	405	429	shield	Epsiguard | Red Ring*	t128_090_epsi_guard,t64_090_epsi_guard_0,t64_090_epsi_guard_1,t64_090_epsi_guard_2,t64_090_epsi_guard_3	1	5
+406	406	430	shield	Angel Ring | Red Ring*	t128_096_angel_circle	2	1
+407	407	431	shield	Union Guard	t128_097_team_sheild_0,t32_097_team_sheild_0,t32_097_team_sheild_0a,t64_097_team_sheild_0	2	4
+407	407	433	shield	Union Guard	t128_097_team_sheild_0,t32_097_team_sheild_0,t32_097_team_sheild_0a,t64_097_team_sheild_0	2	4
+407	407	434	shield	Union Guard	t128_097_team_sheild_0,t32_097_team_sheild_0,t32_097_team_sheild_0a,t64_097_team_sheild_0	2	4
+407	407	435	shield	Union Guard	t128_097_team_sheild_0,t32_097_team_sheild_0,t32_097_team_sheild_0a,t64_097_team_sheild_0	2	4

@@ -1,0 +1,201 @@
+[
+  {
+    "archive": "bm7_s_paa_body.bml",
+    "sha256": "90240091f99f5151d01729dc0697585972061bf4206329c4d93a28c6cdcfe65a",
+    "count": 34,
+    "old_start": 2240,
+    "aligned_start": 4096,
+    "raw_matches": []
+  },
+  {
+    "archive": "bm_boss3_volopt.bml",
+    "sha256": "3ea1a1ddd9ec02bf6eb0c608b29f0bbc8d4c52d3cc9ed8d9aa47b6f53ec4e60c",
+    "count": 42,
+    "old_start": 2752,
+    "aligned_start": 4096,
+    "raw_matches": [
+      {
+        "entry": "fe_obj_vo_mo_dai_aka.xj",
+        "kind": "model",
+        "offset": 3232,
+        "bytes": 592,
+        "assets": [
+          "npcs/VolOptMonitor.xj"
+        ]
+      },
+      {
+        "entry": "fe_obj_vo_mo_dai_aka.xj",
+        "kind": "texture",
+        "offset": 3840,
+        "bytes": 3028,
+        "assets": [
+          "npcs/VolOptMonitor.xvm"
+        ]
+      },
+      {
+        "entry": "fs_obj_hiraishin_a.nj",
+        "kind": "model",
+        "offset": 111360,
+        "bytes": 3807,
+        "assets": [
+          "npcs/VolOptHiraisin.nj"
+        ]
+      },
+      {
+        "entry": "fs_obj_hiraishin_a.nj",
+        "kind": "texture",
+        "offset": 115168,
+        "bytes": 137514,
+        "assets": [
+          "npcs/VolOptHiraisin.xvm"
+        ]
+      },
+      {
+        "entry": "me5p01_y_all.nj",
+        "kind": "model",
+        "offset": 252704,
+        "bytes": 6917,
+        "assets": [
+          "npcs/VolOptPart1.nj"
+        ]
+      },
+      {
+        "entry": "me5p01_y_all.nj",
+        "kind": "texture",
+        "offset": 259648,
+        "bytes": 121934,
+        "assets": [
+          "npcs/VolOptPart1.xvm"
+        ]
+      },
+      {
+        "entry": "me5p02_y_all.nj",
+        "kind": "model",
+        "offset": 408320,
+        "bytes": 51217,
+        "assets": [
+          "npcs/VolOptCore.nj"
+        ]
+      },
+      {
+        "entry": "me5p02_y_all.nj",
+        "kind": "texture",
+        "offset": 459552,
+        "bytes": 223899,
+        "assets": [
+          "npcs/VolOptCore.xvm"
+        ]
+      },
+      {
+        "entry": "me5p02_y_all_parts.nj",
+        "kind": "model",
+        "offset": 683456,
+        "bytes": 29390,
+        "assets": [
+          "npcs/VolOptPart1Sub.nj"
+        ]
+      }
+    ]
+  },
+  {
+    "archive": "bm_boss3_volopt_ap.bml",
+    "sha256": "fee113c7e6c8c395ac87e93fd046bea5dc6ff86e5e449a42ad2501e54d5889c4",
+    "count": 42,
+    "old_start": 2752,
+    "aligned_start": 4096,
+    "raw_matches": [
+      {
+        "entry": "fe_obj_vo_mo_dai_aka.xj",
+        "kind": "model",
+        "offset": 3232,
+        "bytes": 592,
+        "assets": [
+          "npcs/VolOptMonitor.xj"
+        ]
+      },
+      {
+        "entry": "fe_obj_vo_mo_dai_aka.xj",
+        "kind": "texture",
+        "offset": 3840,
+        "bytes": 3028,
+        "assets": [
+          "npcs/VolOptMonitor.xvm"
+        ]
+      },
+      {
+        "entry": "fs_obj_hiraishin_a.nj",
+        "kind": "model",
+        "offset": 111360,
+        "bytes": 3807,
+        "assets": [
+          "npcs/VolOptHiraisin.nj"
+        ]
+      },
+      {
+        "entry": "fs_obj_hiraishin_a.nj",
+        "kind": "texture",
+        "offset": 115168,
+        "bytes": 137514,
+        "assets": [
+          "npcs/VolOptHiraisin.xvm"
+        ]
+      }
+    ]
+  },
+  {
+    "archive": "bm_obj_city_common.bml",
+    "sha256": "c1d3781ed0ffb380e5df792a27a12692cf96936dd18a33ce5ec59e9bcb01181c",
+    "count": 35,
+    "old_start": 2304,
+    "aligned_start": 4096,
+    "raw_matches": []
+  },
+  {
+    "archive": "bm_obj_seabed_suiso.bml",
+    "sha256": "c07b93a87fa9271658aa718d9bdd2892482429f59f88be7afbe53a405ce6d9ac",
+    "count": 52,
+    "old_start": 3392,
+    "aligned_start": 4096,
+    "raw_matches": []
+  },
+  {
+    "archive": "bm_obj_seabed_suiso_2.bml",
+    "sha256": "851398d94b6aa8308650480ab30d18973fecb66326c4a226fc7c94e2cc62e153",
+    "count": 52,
+    "old_start": 3392,
+    "aligned_start": 4096,
+    "raw_matches": []
+  },
+  {
+    "archive": "boss06_plotfalz_dat.bml",
+    "sha256": "cfe84cb4133f56efb5027ebd1cd6712c1b497ea595bdec92b4cb3d090ac0900a",
+    "count": 81,
+    "old_start": 5248,
+    "aligned_start": 6144,
+    "raw_matches": []
+  },
+  {
+    "archive": "charamakingmot.bml",
+    "sha256": "0782934de47ff40c09b715c546e87e34ad768b186723ad89348f472ce0b26394",
+    "count": 49,
+    "old_start": 3200,
+    "aligned_start": 4096,
+    "raw_matches": []
+  },
+  {
+    "archive": "darkfalz_dat.bml",
+    "sha256": "5d2cb7e3137dfb6a2b18644ac2ed56f1475bc7314963133cd6ffebbd15c38468",
+    "count": 109,
+    "old_start": 7040,
+    "aligned_start": 8192,
+    "raw_matches": []
+  },
+  {
+    "archive": "npcapcmot.bml",
+    "sha256": "c2d82bec316c74728e2fb41f8fe1ce0d41d641a5ca1a2bd294e4a142d7c04b1b",
+    "count": 93,
+    "old_start": 6016,
+    "aligned_start": 6144,
+    "raw_matches": []
+  }
+]

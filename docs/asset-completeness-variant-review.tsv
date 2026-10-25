@@ -1,0 +1,21 @@
+type_id	type	client_class	newserv_Map_cc_line	parameter_evidence	raw_client_values	status
+86	LabTeleporterDoor	TODoorLabo	1423	param5 = model (green or red; clamped to [0, 1])	"{""0"": 2, ""1"": 2}"	REQUIRES_BINDING_REVIEW
+387	LobbyPigeon	__LOBBY_PIGEON__	2016	param6 = model (<=0 = model 0, >0 = model 1; if positive and param5 >= 1, show only during Halloween)	"{""0"": 90, ""1"": 55}"	REQUIRES_BINDING_REVIEW
+388	ButterflyLobby	TObjButterflyLobby	2021	param4 = model number (clamped to [0, 1])	"{""0"": 8, ""1"": 9}"	REQUIRES_BINDING_REVIEW
+521	SpiderPlant	TOGrassJungle	2187	param4 = model number (clamped to [0, 1])	"{""0"": 576, ""1"": 408}"	REQUIRES_BINDING_REVIEW
+526	ContainerJungEnemy	TObjContainerJungEnemy	2213	param5 = model number (clamped to [0, 1])	{}	REQUIRES_BINDING_REVIEW
+527	Saw	TOTrapChainSawDamage	2223	param3 = model number (<= 0 for small saw, > 0 for large saw)	{}	REQUIRES_BINDING_REVIEW
+528	LaserDetect	TOTrapChainSawKey	2229	param3 = model number (<= 0 for small laser, > 0 for large laser)	"{""0.0"": 30, ""1.0"": 119}"	REQUIRES_BINDING_REVIEW
+531	JungleDesign	TOJungleDesign	2242	param4 = model number: (<1 = long branch, 1 = shorter curved branch, >1 = small log)	"{""0"": 6, ""1"": 4, ""2"": 12}"	REQUIRES_BINDING_REVIEW
+544	Fish	TObjFish	2250	param4 = number of fish using model 0	"{""0"": 2, ""1"": 4, ""2"": 2, ""4"": 6}"	REQUIRES_BINDING_REVIEW
+544	Fish	TObjFish	2250	param5 = number of fish using model 1	"{""1"": 4, ""2"": 7, ""3"": 3}"	REQUIRES_BINDING_REVIEW
+544	Fish	TObjFish	2250	param6 = number of fish using model 2	"{""2"": 5, ""3"": 5, ""4"": 4}"	REQUIRES_BINDING_REVIEW
+547	LittleCryotube	TObjSeabedSuiso_CH	2265	param4 = model number (clamped to [0, 3])	"{""1"": 28, ""3"": 4}"	REQUIRES_BINDING_REVIEW
+548	WideGlassWallBreakable	TObjSeabedSuisoBrakable	2270	param5 = model number (clamped to [0, 2])	{}	REQUIRES_BINDING_REVIEW
+701	LabMapWarp	TObjLaboMapWarp	2368	param5 = model type (0 = render normally; nonzero = render warp lines only)	"{""0"": 2}"	REQUIRES_BINDING_REVIEW
+769	Cactus	__WILDS_CRATER_CACTUS__	2482	param4 = model number (0-2, not bounds-checked)	"{""0"": 46, ""1"": 18, ""2"": 42}"	REQUIRES_BINDING_REVIEW
+770	BigBrownRock	__WILDS_CRATER_BROWN_ROCK__	2487	param4 = model number (0-2, not bounds-checked)	"{""0"": 28, ""1"": 2, ""2"": 3}"	REQUIRES_BINDING_REVIEW
+897	UnknownItem897	__UNKNOWN_0381__	2509	param4 = model number (clamped to [0, 1])	{}	REQUIRES_BINDING_REVIEW
+899	OozingDesertPlant	__DESERT_OOZE_PLANT__	2518	param4 = model number (clamped to [0, 1])	{}	REQUIRES_BINDING_REVIEW
+902	BigBlackRocks	__WILDS_CRATER_BLACK_ROCKS__	2527	param4 = model number (0-2, not bounds-checked)	"{""0"": 616, ""1"": 42, ""2"": 32}"	REQUIRES_BINDING_REVIEW
+911	BeeHive	__BEEHIVE__	2591	param4 = model number (clamped to [0, 1])	"{""0"": 40}"	REQUIRES_BINDING_REVIEW

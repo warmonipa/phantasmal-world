@@ -1,12 +1,14 @@
 package world.phantasmal.web.assetsGeneration
 
 import mu.KotlinLogging
-import world.phantasmal.core.Failure
+import world.phantasmal.core.PwResult
+import world.phantasmal.core.Severity
 import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.compression.prs.prsDecompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.parseBml
 import world.phantasmal.psolib.fileFormats.parseGsl
+import world.phantasmal.psolib.fileFormats.ninja.*
 import java.io.File
 
 private val logger = KotlinLogging.logger {}
@@ -31,6 +33,8 @@ private data class BmlModelMapping(
      * enemies that reuse another enemy's model with a separate texture bank.
      */
     val textureGslEntryName: String? = null,
+    /** Explicit texture owner for parts sharing another entry's NJTL texture names. */
+    val textureBmlEntryIndex: Int? = null,
 )
 
 /**
@@ -82,7 +86,8 @@ private val MODEL_MAPPINGS = listOf(
     // [16] fs_obj_hiraishin_a.nj = Lightning rod (避雷針)
     // Monitor entries [1-12] are XJ format display/screen objects
     BmlModelMapping("bm_boss3_volopt.bml", 17, "VolOptPart1"),
-    BmlModelMapping("bm_boss3_volopt.bml", 20, "VolOptPart1Sub"),
+    // Entries 19 and 20 declare the same ordered NJTL names: y512_vol2_01, y512_vol2_02.
+    BmlModelMapping("bm_boss3_volopt.bml", 20, "VolOptPart1Sub", textureBmlEntryIndex = 19),
     BmlModelMapping("bm_boss3_volopt.bml", 19, "VolOptCore"),
     BmlModelMapping("bm_boss3_volopt.bml", 1, "VolOptMonitor", geomExtension = "xj"),
     BmlModelMapping("bm_boss3_volopt.bml", 16, "VolOptHiraisin"),
@@ -180,20 +185,37 @@ private val ANIM_MAPPINGS = listOf(
     BmlAnimMapping("bm4_ps_ma_body.bml", 17, "PanArms_wait.njm"),
 )
 
-/**
- * Try to PRS-decompress a buffer. If decompression fails, return the raw data as-is
- * (some BML entries store uncompressed data).
- */
-private fun tryDecompress(data: Buffer): ByteArray {
-    val result = prsDecompress(data.cursor())
-
-    return if (result is Failure) {
-        logger.info { "    PRS decompression failed, using raw data" }
-        data.byteArray.copyOf(data.size)
-    } else {
-        val cursor = result.unwrap()
-        cursor.buffer().let { buf -> buf.byteArray.copyOf(buf.size) }
+/** BML streams are PRS; failed or incorrectly sized output must never be exported. */
+internal fun decompressBmlStream(data: Buffer, expectedSize: Int): ByteArray {
+    val output = prsDecompress(data.cursor()).unwrap().buffer()
+    check(output.size == expectedSize) {
+        "BML decoded size ${output.size} does not match declared size $expectedSize"
     }
+    return output.byteArray.copyOf(output.size)
+}
+
+/** Parsers may return partial data with warnings; such data must not become exported assets. */
+private fun <T> requireComplete(result: PwResult<T>): T {
+    check(result.problems.none { it.severity >= Severity.Warning }) {
+        result.problems.joinToString("\n") { it.message ?: it.uiMessage }
+    }
+    return result.unwrap()
+}
+
+private fun validateModel(bytes: ByteArray, extension: String) {
+    val cursor = Buffer.fromByteArray(bytes).cursor()
+    val roots: List<NinjaObject<*, *>> = when (extension) {
+        "nj" -> requireComplete(parseNj(cursor))
+        "xj" -> requireComplete(parseXj(cursor))
+        else -> error("Unsupported model format: $extension")
+    }
+    fun hasGeometry(node: NinjaObject<*, *>): Boolean =
+        when (val model = node.model) {
+            is NjModel -> model.vertices.any { it != null } && model.meshes.any { it.vertices.isNotEmpty() }
+            is XjModel -> model.vertices.isNotEmpty() && model.meshes.any { it.indices.isNotEmpty() }
+            null -> false
+        } || node.children.any(::hasGeometry)
+    check(roots.any(::hasGeometry)) { "Model has no geometry." }
 }
 
 /**
@@ -264,29 +286,26 @@ fun main(args: Array<String>) {
             logger.info { "  Extracting ${mapping.outputName} from BML entry [${mapping.bmlEntryIndex}] '${bmlEntry.name}'..." }
 
             try {
-                // Decompress and write model data.
-                val modelBytes = tryDecompress(bmlEntry.data)
-                val geomFile = File(outputDir, "${mapping.outputName}.${mapping.geomExtension}")
-                geomFile.writeBytes(modelBytes)
-                logger.info { "    Wrote ${geomFile.name} (${modelBytes.size} bytes)" }
-
-                // Decompress and write texture data (.xvm) if present.
-                if (mapping.textureGslEntryName != null) {
+                // Decode the complete pair before writing either file.
+                val modelBytes = decompressBmlStream(bmlEntry.data, bmlEntry.decompressedSize)
+                validateModel(modelBytes, mapping.geomExtension)
+                val textureOwner = bmlEntries[mapping.textureBmlEntryIndex ?: mapping.bmlEntryIndex]
+                val textureBytes = if (mapping.textureGslEntryName != null) {
                     val textureEntry = requireNotNull(gslEntryByName[mapping.textureGslEntryName]) {
                         "GSL entry '${mapping.textureGslEntryName}' not found in data.gsl"
                     }
-                    val textureBytes = textureEntry.data.byteArray.copyOf(textureEntry.data.size)
-                    val xvmFile = File(outputDir, "${mapping.outputName}.xvm")
-                    xvmFile.writeBytes(textureBytes)
-                    logger.info { "    Wrote ${xvmFile.name} from ${textureEntry.name} (${textureBytes.size} bytes)" }
-                } else if (bmlEntry.textureData.size > 0) {
-                    val textureBytes = tryDecompress(bmlEntry.textureData)
-                    val xvmFile = File(outputDir, "${mapping.outputName}.xvm")
-                    xvmFile.writeBytes(textureBytes)
-                    logger.info { "    Wrote ${xvmFile.name} (${textureBytes.size} bytes)" }
-                } else {
-                    logger.info { "    No texture data for ${mapping.outputName}" }
+                    textureEntry.data.byteArray.copyOf(textureEntry.data.size)
+                } else if (textureOwner.textureData.size > 0) {
+                    decompressBmlStream(textureOwner.textureData, textureOwner.decompressedTextureSize)
+                } else null
+                if (textureBytes != null) {
+                    val textures = requireComplete(parseXvm(
+                        Buffer.fromByteArray(textureBytes).cursor()
+                    )).textures
+                    check(textures.isNotEmpty()) { "Texture archive is empty." }
                 }
+                File(outputDir, "${mapping.outputName}.${mapping.geomExtension}").writeBytes(modelBytes)
+                if (textureBytes != null) File(outputDir, "${mapping.outputName}.xvm").writeBytes(textureBytes)
 
                 extracted++
             } catch (e: Exception) {
@@ -322,7 +341,9 @@ fun main(args: Array<String>) {
             logger.info { "  Extracting ${mapping.outputFilename} from BML entry [${mapping.bmlEntryIndex}] '${bmlEntry.name}'..." }
 
             try {
-                val animBytes = tryDecompress(bmlEntry.data)
+                val animBytes = decompressBmlStream(bmlEntry.data, bmlEntry.decompressedSize)
+                val motion = parseNjm(Buffer.fromByteArray(animBytes).cursor())
+                check(motion.frameCount > 0 && motion.motionData.isNotEmpty()) { "Motion is empty." }
                 val animFile = File(outputDir, mapping.outputFilename)
                 animFile.writeBytes(animBytes)
                 logger.info { "    Wrote ${animFile.name} (${animBytes.size} bytes)" }
@@ -334,6 +355,7 @@ fun main(args: Array<String>) {
         }
     }
 
+    check(failed == 0) { "NPC extraction failed for $failed mapping(s); output must not be installed." }
     prepareSinowVariants(outputDir)
 
     logger.info {

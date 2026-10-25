@@ -1,0 +1,37 @@
+[
+  {
+    "asset": "392.xj",
+    "archive": "bm_obj_lobby_curtain.bml",
+    "entry": "lobby_kouhaku_hashira.xj",
+    "sha256": "c91ef0952bfeb00115d1da3d1ed52efa18b056d4da587911a9166978a6d06baa",
+    "embedded_texture_bytes": 0
+  },
+  {
+    "asset": "388.xj",
+    "archive": "bm_obj_lobby_main.bml",
+    "entry": "lobby_chou_nobana.xj",
+    "sha256": "7db74a189f3d6e1a35380ce0ca99d3697a349f9eb34447fe16482ca444cec601",
+    "embedded_texture_bytes": 0
+  },
+  {
+    "asset": "393.xj",
+    "archive": "bm_obj_lobby_main.bml",
+    "entry": "lobby_obj_wday_main.xj",
+    "sha256": "089d687d052857d42a89b9a13f0f83836ea7cf8037a58c9d126e7613fc39411e",
+    "embedded_texture_bytes": 0
+  },
+  {
+    "asset": "387.nj",
+    "archive": "bm_obj_lobby_pigeon.bml",
+    "entry": "lobby_obj_hato.nj",
+    "sha256": "1a2b8233cabb0e488240afc9cab531c5e01314e6355bfe9a62332d2b66a0b745",
+    "embedded_texture_bytes": 0
+  },
+  {
+    "asset": "394.xj",
+    "archive": "bm_obj_lobby_tree.bml",
+    "entry": "lobby_yukieda_hachi.xj",
+    "sha256": "815375cd7b26d40ac53ca67dac5d7f01f205ac8921437af899c37261e2ec278d",
+    "embedded_texture_bytes": 0
+  }
+]

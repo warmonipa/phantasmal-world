@@ -2,6 +2,7 @@ package world.phantasmal.web.questEditor.loading
 
 import org.khronos.webgl.Uint8Array
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
+import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
 import world.phantasmal.web.core.loading.AssetLoader
 import world.phantasmal.web.core.rendering.disposeObject3DResources
@@ -20,6 +21,24 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class EntityAssetLoaderTests : WebTestSuite {
+    @Test
+    fun vol_opt_parts_load_real_textured_geometry() = testAsync {
+        val loader = EntityAssetLoader(AssetLoader(basePath = "/assets"))
+        try {
+            for (type in listOf(NpcType.VolOptPart1, NpcType.VolOptPart1Sub,
+                NpcType.VolOptCore, NpcType.VolOptMonitor, NpcType.VolOptHiraisin)) {
+                for (ultimate in listOf(false, true)) {
+                    val mesh = loader.loadInstancedMesh(type, model = null, ultimate = ultimate)
+                    try {
+                        assertEquals(type.uniqueName, mesh.name, "No placeholder for $type")
+                        assertTrue((mesh.geometry.asDynamic().attributes.position.count as Int) > 0)
+                        assertTrue(textureImages(mesh).isNotEmpty(), "No textures for $type")
+                    } finally { disposeObject3DResources(mesh) }
+                }
+            }
+        } finally { loader.dispose() }
+    }
+
     @Test
     fun tower_terminal_variant_loads_its_textured_model() = testAsync {
         // PW4 places type 0x223, param4=3, in Tower section 30.

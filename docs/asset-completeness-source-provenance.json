@@ -1,0 +1,464 @@
+{
+  "inputs": {
+    "/Users/wangzhen/study/phantasmal-world/web/src/jsMain/resources/assets/items/ItemModelEp4.afs": {
+      "bytes": 2394112,
+      "sha256": "37a7e1804c6f5b815b7fa6191597b1b3e653e19ac8b781f213fc049bc6106ce8"
+    },
+    "/Users/wangzhen/study/phantasmal-world/web/src/jsMain/resources/assets/items/ItemTextureEp4.afs": {
+      "bytes": 3303424,
+      "sha256": "505efc631a2cd7ec2a3caed38d317d8c280465caf6bb115e31ca45095d31a417"
+    },
+    "/Users/wangzhen/study/bb-psov4/ref/custom_item_assets/reference/ephinea-item-model-texture.tsv": {
+      "bytes": 63945,
+      "sha256": "aaab41183e6e05c21aeec215172404c329abd72c170d810397aa6b5b5679d389"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/data.gsl": {
+      "bytes": 71782400,
+      "sha256": "043a6e96a04756ea9a373f2c9758d5ce7d1f90c6158b23b198e8f9942e74c229"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_00_00o.dat": {
+      "bytes": 15912,
+      "sha256": "316fce844db2bace5fdb93a3e46563914292b7b146bd73badf7e80f61ee67d96"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_00_01o.dat": {
+      "bytes": 15980,
+      "sha256": "3f703f35e964518e7edf0208fa10d5432e9c7149f23b3df91dd664c0eb2b3deb"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_01_00o.dat": {
+      "bytes": 14824,
+      "sha256": "3327ecbfad2b171099fb63fa73e1b763d21f7ef5998d05793ce8e9a743e8c48c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_01_01o.dat": {
+      "bytes": 15164,
+      "sha256": "35c81f96bb0acde2dfa32737eff285fdcc78b0cda5a43481b8b52c20fd2b1fe1"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_02_00o.dat": {
+      "bytes": 14416,
+      "sha256": "3310c32ab479d59d32d65f37b18b4fb951da3941a0129b9690020471ae02560f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient01_02_01o.dat": {
+      "bytes": 16728,
+      "sha256": "50f5a86daaf7309ac87403c2958628c9bcc1b4c2a2c132f5786ed4bf9155fb44"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_00_00o.dat": {
+      "bytes": 16388,
+      "sha256": "13bd4c7738e8c7d9054dea5c20fb361ba6ea1647a33ff65fc5dfb80dfbc1678e"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_00_01o.dat": {
+      "bytes": 16932,
+      "sha256": "5aa5fc47f0f7ea80fa38bef2135fe849f2ab15a47c91d041546e8d649a297e3f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_01_00o.dat": {
+      "bytes": 16796,
+      "sha256": "4f305205d07bee161a8eff957b65ea92d02deb6dea2a5d6b55c10795634342e8"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_01_01o.dat": {
+      "bytes": 16592,
+      "sha256": "1a43873fed9f287ab857e26fba1827ceb4bd6bfca090cf7d73ab06429e73c16f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_02_00o.dat": {
+      "bytes": 17068,
+      "sha256": "3855f957ada4818964b4ad6e40cc1c8fda043dd6e994090fe47b094aa9bbcc0c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient02_02_01o.dat": {
+      "bytes": 16864,
+      "sha256": "7014625d72de87c55e09a520e2fefbcb9a36dac56e1e139e39914f768d72115d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_00_00o.dat": {
+      "bytes": 13124,
+      "sha256": "65ad3ddd733627f7adc15c816bc06959bb7746fb4d84d71cc8f51ab87837e1d2"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_00_01o.dat": {
+      "bytes": 15368,
+      "sha256": "b07ab9d550fd727368c74a690ccf9c2b3e88eaec1e793a3465633268703335ef"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_01_00o.dat": {
+      "bytes": 15028,
+      "sha256": "9d643341e3a436914bd092913c95deb11324aad3cf0ded0fdaa69247b29cb9c8"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_01_01o.dat": {
+      "bytes": 14824,
+      "sha256": "8bd8d46ff5de6736c4e1ef1b2c72ea2c2aebc3a5051a0f7ea121800564115002"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_02_00o.dat": {
+      "bytes": 14144,
+      "sha256": "88ba3a4b59587113b99b2cf469d2cf906b9cf6bfa4ebb1cc976af17b4998fdab"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ancient03_02_01o.dat": {
+      "bytes": 15028,
+      "sha256": "174dc4a0a93f60c54533f9916de0a1daf7d3bafaf4e00d35e8c0945e8ff6fa6a"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_boss04_offo.dat": {
+      "bytes": 2176,
+      "sha256": "9136c506d7c18100abb32f9050904feca7a67fa681369cabc0a6bd4ca318b139"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_boss06_offo.dat": {
+      "bytes": 1564,
+      "sha256": "eb96eefa0fdd609fe6d20dc443c8499740f9609d9c006e8f77e13c604ccdb356"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_boss09_00_00o.dat": {
+      "bytes": 1836,
+      "sha256": "e274e87bb2cc100586fb6b1b1684b038f8f120aa3253c40697e48310b8f5dabc"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_00_00o.dat": {
+      "bytes": 10608,
+      "sha256": "25e085905961c39d577804f2b9cdfbda128d9d82cd2cb92a24cc46f8c92177a6"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_00_01o.dat": {
+      "bytes": 10948,
+      "sha256": "8aef82b5d68e10b6e8f91f342f85a00450c7728bc9b67f1cd91dc4f283e51f6d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_01_00o.dat": {
+      "bytes": 10812,
+      "sha256": "a348b5da6d9e900bae8a9876147f999f74fec720f1f78cf60c71c739c3cf4ba2"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_01_01o.dat": {
+      "bytes": 10540,
+      "sha256": "8debe20fe6dd4b57ea2e3b64bec56a69da9f1b31f722e2c7a92de42bb95518d7"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_02_00o.dat": {
+      "bytes": 12784,
+      "sha256": "7bd5cbd44b02007ea953fa6a906328856be6445975868dbcd9333c8f41e8c222"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave01_02_01o.dat": {
+      "bytes": 11764,
+      "sha256": "e23b4eb172b27484f1ba0cc68cc0542183f6758fb7eba0618facd603f5536473"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_00_00o.dat": {
+      "bytes": 12308,
+      "sha256": "8c8ecd1546db5b534ab9fa21496f56191df3350e762ccfa3b95f3b29f20f681f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_00_01o.dat": {
+      "bytes": 13396,
+      "sha256": "3609fb9ff6cf9acd641da6ff9636ba9c210d48649eb8f3fcef8c347412608a3c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_01_00o.dat": {
+      "bytes": 11832,
+      "sha256": "850be9c393ec8717f4694455aef34b127a90feec0a3349e2906b3aed2ee3506f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_01_01o.dat": {
+      "bytes": 12580,
+      "sha256": "f22617867a94fc31417abd91a8440690d7d494732f065722e2685e105bef4487"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_02_00o.dat": {
+      "bytes": 12580,
+      "sha256": "9fb9f4be11076151efbba6a7d502c60bd0067d20ebcc375990657bd99c1b4288"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave02_02_01o.dat": {
+      "bytes": 12852,
+      "sha256": "fe386c1678a72362cacc0b0a82dcb46908b0d876331621c6ad3a56e8a5f6a390"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_00_00o.dat": {
+      "bytes": 13056,
+      "sha256": "473a862270164b966737c68c85a41350a85dfe93820d972233d12994f7b58f4d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_00_01o.dat": {
+      "bytes": 13532,
+      "sha256": "6df66542e67e95b7da6926dec55b484aab25c3c85f07e035ea6313ed36af579a"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_01_00o.dat": {
+      "bytes": 12716,
+      "sha256": "fecca8088940335a38beba82539a419b50bd3f8601216701037180375e774a96"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_01_01o.dat": {
+      "bytes": 13396,
+      "sha256": "35462327b527e36c7151b4ef948bc83f762957047acea7c7bd6e784d559924d6"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_02_00o.dat": {
+      "bytes": 13328,
+      "sha256": "da30488980e34a0f8a0d9cc24e80483e42eb6724eebb6486e7bce702fa905d1f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_cave03_02_01o.dat": {
+      "bytes": 14552,
+      "sha256": "8dc6f43c62a5750848e50c362db09b45fae1b5b58a4b1876fb8916bba7f7aa6d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_city00_00o.dat": {
+      "bytes": 2040,
+      "sha256": "1a92e48e144c48620cb27b437bcc9585046d9d05fb15d05ad9142a49061ad1ff"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_city02_00_00o.dat": {
+      "bytes": 2040,
+      "sha256": "1a92e48e144c48620cb27b437bcc9585046d9d05fb15d05ad9142a49061ad1ff"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_crater01_00_00o.dat": {
+      "bytes": 1972,
+      "sha256": "287bf6d3cdc6b17ef6d4d19b022376778aba032cbfd8686950758907cc4e9f7e"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_crater01_00_01o.dat": {
+      "bytes": 2312,
+      "sha256": "fa2b6ca803ed493d9525eef66604646fef77d2e4f2f5b7a1cce8eab494eee50c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_crater01_00_02o.dat": {
+      "bytes": 2516,
+      "sha256": "4b226230b1f0b763e286c1bb4163fe5e21fd9ba3f958dccde0e670edd0016c4f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert01_00_00o.dat": {
+      "bytes": 12920,
+      "sha256": "144f4823612953a94034b8b48b62803e0f2da0d104b2964f79fbec9fe6184d72"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert01_01_00o.dat": {
+      "bytes": 12920,
+      "sha256": "aac44215bc7ed4e1baf0faff13224c369ccecec5eb13c31a5538a2e1d352af2b"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert01_02_00o.dat": {
+      "bytes": 12512,
+      "sha256": "3769ee2d8f169e9b114fa9cb41e1fc96c8b7760f1430f73be928d4a563ecdb91"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert02_00_00o.dat": {
+      "bytes": 12852,
+      "sha256": "915319845c3942db743abaa9536bd4429e5ffac6b0f42e5ec97d5f887fc7300d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert02_00_01o.dat": {
+      "bytes": 12784,
+      "sha256": "b8074887819ee279f5c63c8cae853cb32988c92a87fda64c70750064d62e2504"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert02_00_02o.dat": {
+      "bytes": 12716,
+      "sha256": "42c1a72cba7b519f75e1c8060a65cb9b4f1f00af7e6bc6273e92db87f77e405c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert03_00_00o.dat": {
+      "bytes": 12376,
+      "sha256": "6df7396b218e35bc9b771dbcd64920c864c86596a4f7bd1413de9f9fe5bdcce7"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert03_01_00o.dat": {
+      "bytes": 11288,
+      "sha256": "b57f0df5f749b445780582948b0e98d49dd7e8d780c8c4d6f5e17cbf13102ba1"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_desert03_02_00o.dat": {
+      "bytes": 10540,
+      "sha256": "159234020a9df24aa353e65ef075eb090df2679495eec5db0fbcff49d086bdd9"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_labo00_00_offo.dat": {
+      "bytes": 3536,
+      "sha256": "ebe5504c44316062c578ac39f6fc533d14c97cf0bdf2a011dd184623c342a15a"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_labo00_00o.dat": {
+      "bytes": 3672,
+      "sha256": "5ecd2b1ee8789677b06f49d7e26494cfb5bc283a117474011b3ee4469dad40d2"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_01o.dat": {
+      "bytes": 3536,
+      "sha256": "31c918481ff7d3e3905bd84f0f083c2d476f9e3316e0be5f66a6aec40edbd213"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_02o.dat": {
+      "bytes": 4964,
+      "sha256": "8c1216d78084a2ebba4f44897a55f1e1d29a7b4e4bff60339a88bf1c74bc8b06"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_03o.dat": {
+      "bytes": 3536,
+      "sha256": "dff10cff9c431de626226bb0b3d3f6390d7ee4831af2c2f3bfbc3b1fbe63e3b9"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_04o.dat": {
+      "bytes": 3536,
+      "sha256": "7586f066525dabe8a1166c196636ca9339b7239a7bd3710a80fca5be489314c1"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_05o.dat": {
+      "bytes": 4624,
+      "sha256": "f434c04abc06acf072e5daea31fce6772e826d83b698efc32f9bc7cedd2f7b5d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_06o.dat": {
+      "bytes": 4148,
+      "sha256": "68f193d08ea9cf333d3da56b0aabe4c52252539482e8c33faa82fb4e7ab3111e"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_07o.dat": {
+      "bytes": 3536,
+      "sha256": "211f58d948b16de68c2beb319a915b3fa9b42264663cab435de536cdabfe5dc6"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_08o.dat": {
+      "bytes": 3672,
+      "sha256": "e7ff186f39cf59c9288267891f676a40cbc6d0d9e5ba8f570ce4b0c532803f8b"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_09o.dat": {
+      "bytes": 3740,
+      "sha256": "8c3afcb3c9b30f917648582ae5e9c5dfee8780a4c931ab4e3e68c38223ecc6e8"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_10o.dat": {
+      "bytes": 4760,
+      "sha256": "715c3b837c255651c73441b5b0f7bfc73d5eb1cd6815fe588f7b2ccfc866e549"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_green_be00o.dat": {
+      "bytes": 4488,
+      "sha256": "076cedd8336cda49d622b6cbe0e9e10004a839d1789c051f491bdbce84b03ca0"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_red_be00o.dat": {
+      "bytes": 1564,
+      "sha256": "b70e2dc71c81c2f096b35cdec0f646a5737032a3b525c22d1cc2dd8e1bf0b06c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_lobby_yellow_be00o.dat": {
+      "bytes": 1564,
+      "sha256": "b70e2dc71c81c2f096b35cdec0f646a5737032a3b525c22d1cc2dd8e1bf0b06c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_00_00o.dat": {
+      "bytes": 14416,
+      "sha256": "8842035d3db7896e16e32b12a99e223871862da8f3c333f7f549da48b7e2c87e"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_00_01o.dat": {
+      "bytes": 12648,
+      "sha256": "ac41e2394a90f665c0a9bdb7d7161a7bfb91186d3aa3c85e37d4df733d37b0ed"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_01_00o.dat": {
+      "bytes": 12104,
+      "sha256": "a31a02504b18ba3449600f56e1e062ff2d030fd5246e7435954ae570dc7007f9"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_01_01o.dat": {
+      "bytes": 11764,
+      "sha256": "755ee3ae6c96c44e6af451791e86a41ec9121274d3b29be6dbaad3f8578a828c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_02_00o.dat": {
+      "bytes": 12308,
+      "sha256": "af269cb162471fec182da1a84fc589a20dacb305758f87285687fde1bc6b91a6"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine01_02_01o.dat": {
+      "bytes": 13192,
+      "sha256": "96d091d362d4a2221881b37086ec636911e0592436b8b9ce64aeae84fa47a88c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_00_00o.dat": {
+      "bytes": 10812,
+      "sha256": "a7ac5305ac05c46ab4add13701f40b3d85c08882cc8aa2f5d6bf540833df28c0"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_00_01o.dat": {
+      "bytes": 10268,
+      "sha256": "fe1b4473696fa3e7e2107a781fc536cecb5813227f378514820cc39ea859e1e3"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_01_00o.dat": {
+      "bytes": 11764,
+      "sha256": "b1ae5bd3ae42321f48ed5f5bbb0290e6e85f251f6b688fd03d394fd8bf3c1bff"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_01_01o.dat": {
+      "bytes": 12172,
+      "sha256": "827e58c6963f67463b57e32d6881dabd44297d212ff29d982e19bdee8ad8812b"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_02_00o.dat": {
+      "bytes": 11764,
+      "sha256": "bf80d385d2be0b9f77ebbc30c3f1f4648e7b74ae35d3ca65286f9e9be34c805d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_machine02_02_01o.dat": {
+      "bytes": 11220,
+      "sha256": "a92ddb023ccd929ca08048f2110fcbc12e1c5a432835111820e8e5f6587188e1"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ruins01_00_00o.dat": {
+      "bytes": 14076,
+      "sha256": "cb17c6b35beb79019f014afd6c51316a3087aec2813e8d220a90661dbe218d53"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ruins01_01_00o.dat": {
+      "bytes": 12716,
+      "sha256": "0c56f08249ff583fc0ad445bfe2939150d0b59d969526a23605f620ba36d9173"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ruins02_00_00o.dat": {
+      "bytes": 15300,
+      "sha256": "a6fd601f33d33c0dc3b7cc63814093b1ebfcfb466887a06b535c54fafbced338"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_ruins02_01_00o.dat": {
+      "bytes": 13124,
+      "sha256": "7d07a5743b1f7c5a2f58e7b59158f3eaa0af596d5f8795a66451759d63fcb4d9"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed01_00_00o.dat": {
+      "bytes": 16320,
+      "sha256": "2641fd44d01b07d30fb2a97931f9949d7a3cb0558924e00acf3a1f39c341c491"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed01_00_01o.dat": {
+      "bytes": 17136,
+      "sha256": "a450d5d140b11834a5ed882e94fa6d79d8f9a2f32440c8cadfd62eef22ee4728"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed01_01_00o.dat": {
+      "bytes": 16320,
+      "sha256": "f246a2f1fa9478dadec55a895dbd206b0b916212b5d926adcacae1c04b4ec5de"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed01_01_01o.dat": {
+      "bytes": 15096,
+      "sha256": "1d59b68e689e1cb330bc2b57a706bbcedd99699868dcbf622262ac745ac03b9f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed02_00_00o.dat": {
+      "bytes": 16456,
+      "sha256": "8bfc5cc0a572faa93449bf9a049ec11be893520db4806211e60f888ca79c535d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed02_00_01o.dat": {
+      "bytes": 16048,
+      "sha256": "13d8489eafea05d8da3c21e1d055766c2b0018e5f52af56993a5a89f7b4f159c"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed02_01_00o.dat": {
+      "bytes": 16796,
+      "sha256": "bb3292f80dad97abe0d846ecc07ae497524798de9e76ac27413b1a22ab236241"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_seabed02_01_01o.dat": {
+      "bytes": 17000,
+      "sha256": "cccb2e2b26d4508f636280e8b26ee137d346d13a1845e55a63c1278a3daab358"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_space01_00_00o.dat": {
+      "bytes": 13056,
+      "sha256": "5905ff9973ad9854cf88beac3b0044fc38d4e660e8da2f5be3c9d0ee1aa0f7b0"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_space01_01_00o.dat": {
+      "bytes": 12512,
+      "sha256": "e864d1fa1a6935fbb6fe276a8b778ebb50ca17fc2b62124a192afb35bfbc3302"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_space02_00_00o.dat": {
+      "bytes": 11900,
+      "sha256": "00d7985e8e8cbf2b688996c587f744a2ed8beed1c4903df93c563ab78288843e"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_space02_01_00o.dat": {
+      "bytes": 13328,
+      "sha256": "6cdb68c7f2cd3bd8534277019b89e4f1816aaa2e301514857b505fbd0f011e15"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_00_00o.dat": {
+      "bytes": 14552,
+      "sha256": "5df5f4296b5659e21f3aee1b086d2766a939d89f3b1ff2bfd23585d257afe218"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_00_01o.dat": {
+      "bytes": 18632,
+      "sha256": "1adffc32304f46b42c951276e0e3bcb49fe9b296c81dc248640a5b0c8eadecd0"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_00_02o.dat": {
+      "bytes": 13872,
+      "sha256": "a17b1ce5ee96d4f12e39994c83f87e3ac3da0c6255efccda56cb5b257fcdb734"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_01_00o.dat": {
+      "bytes": 16388,
+      "sha256": "4321146d9142d4386e57b358767dfc03c361eab8cd64e1f258224338b323586d"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_01_01o.dat": {
+      "bytes": 17000,
+      "sha256": "72d9f38f5c80cf6f4b515cf064bd60ffe8e156333d1e75a952d93091aa18050a"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_01_02o.dat": {
+      "bytes": 12716,
+      "sha256": "efbcdedf1390686313e53dd66b8c5767705454234360d53a5e2b0b7b5a6bd15b"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_02_00o.dat": {
+      "bytes": 10540,
+      "sha256": "9bb92cb503fec25844bc6c96ef853a027eb016e3e68f34482080cc8777589a76"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_02_01o.dat": {
+      "bytes": 6528,
+      "sha256": "2374a1d16c5d5c8738c969374771e59bf8460fc011df245df6b7efe94e297c8f"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_02_02o.dat": {
+      "bytes": 9520,
+      "sha256": "b4f9f8948893d7be668b1e08e8b372ddf89e55b3160512cdba1485827d5ad696"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_03_00o.dat": {
+      "bytes": 15164,
+      "sha256": "ef075d0e00f8466b233eec0aa275e31257fe0e234ac914e2d107f982f9ec0ce6"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_03_01o.dat": {
+      "bytes": 14008,
+      "sha256": "ff6a3e78811ede4bd9d8af48c664ce223117f51b1850f6537f3daaba55715ad5"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/map_wilds01_03_02o.dat": {
+      "bytes": 23052,
+      "sha256": "061b5ead95075093919e5f6da19ded2678eed2c04955432212a68825e6380941"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/SetDataTableOff.rel": {
+      "bytes": 10624,
+      "sha256": "69f793d36eeba9c2cb5e57f67a08c15918b258d8e516f0c6367a557b8082027b"
+    },
+    "/Applications/EphineaPSO.app/Contents/SharedSupport/prefix/drive_c/EphineaPSO/data/SetDataTableOn.rel": {
+      "bytes": 10816,
+      "sha256": "cac9205b85979232e17cfcbd2727dc4bc3b98e688c4d782b01aa46142d49693d"
+    }
+  },
+  "raw_object_sets": 179,
+  "setdata_tables": 6,
+  "mapped_item_pairs": 143,
+  "oversized_bmls": 10
+}

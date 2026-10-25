@@ -14,6 +14,13 @@ dependencies {
     implementation("org.jsoup:jsoup:1.13.1")
 }
 
+tasks.register<JavaExec>("auditQuestObjectVariants") {
+    description = "Inventory object model parameters in bundled QST and free-roam DAT files"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.AuditQuestObjectVariantsKt")
+    args = listOf(rootProject.projectDir.absolutePath)
+}
+
 tasks.register<JavaExec>("generateAssets") {
     val outputFile = layout.buildDirectory.get().asFile.resolve("generatedAssets")
     outputs.dir(outputFile)

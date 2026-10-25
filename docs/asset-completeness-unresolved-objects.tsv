@@ -1,0 +1,25 @@
+type	type_id	classification	bundled_placements	raw_client_placements	disposition
+MainRagolTeleporterBattleInNextArea	85	UnavailableModel	0	0	UNRESOLVED: client model/material binding not established
+PopupTrapNoTech	340	UnavailableModel	2	0	UNRESOLVED: client model/material binding not established
+EnemyTypeBoxYellow	355	UnavailableModel	3	0	UNRESOLVED: client model/material binding not established
+EnemyTypeBoxBlue	356	UnavailableModel	1	0	UNRESOLVED: client model/material binding not established
+EmptyTypeBoxBlue	357	UnavailableModel	7	0	UNRESOLVED: client model/material binding not established
+BreakableBrownRock	771	UnavailableModel	17	3	UNRESOLVED: client model/material binding not established
+OozingDesertPlant	899	UnavailableModel	16	0	UNRESOLVED: client model/material binding not established
+DesertPlantHasCollision	908	UnavailableModel	7	0	UNRESOLVED: client model/material binding not established
+Ep4TestDoor	910	UnavailableModel	9	0	UNRESOLVED: client model/material binding not established
+TopOfSaintMillionEgg	960	UnavailableModel	0	0	UNRESOLVED: client model/material binding not established
+GBAStation	695	UnavailableModel	1	0	UNRESOLVED: client model/material binding not established
+JungleDesign	531	UnavailableModel	55	22	UNRESOLVED: client model/material binding not established
+Unknown		Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem16	16	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem832	832	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem833	833	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem897	897	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem898	898	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem901	901	Unverified	3	0	UNRESOLVED: client model/material binding not established
+UnknownItem903	903	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem904	904	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem905	905	Unverified	0	0	UNRESOLVED: client model/material binding not established
+UnknownItem906	906	Unverified	0	0	UNRESOLVED: client model/material binding not established
+Battery	138	Unverified	0	0	UNRESOLVED: client model/material binding not established

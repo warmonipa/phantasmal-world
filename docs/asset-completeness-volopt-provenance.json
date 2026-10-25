@@ -1,0 +1,49 @@
+{
+  "archive_sha256": "3ea1a1ddd9ec02bf6eb0c608b29f0bbc8d4c52d3cc9ed8d9aa47b6f53ec4e60c",
+  "count": 42,
+  "header_flags": "50010000",
+  "wrong_start": 2752,
+  "correct_start": 4096,
+  "models": [
+    {
+      "asset": "VolOptMonitor.xj",
+      "wrong_offset": 3232,
+      "equals_wrong_raw_slice": true,
+      "entry": "fe_obj_vo_mo_dai_aka.xj",
+      "correct_size": 1504,
+      "correct_sha256": "18a30e9c4b9a73c58d2a4fe2165877396d0b6b0d0305c7ec3eb1126ff5cf7b8c"
+    },
+    {
+      "asset": "VolOptHiraisin.nj",
+      "wrong_offset": 111360,
+      "equals_wrong_raw_slice": true,
+      "entry": "fs_obj_hiraishin_a.nj",
+      "correct_size": 6188,
+      "correct_sha256": "5b28880e64730a1c65b1384cbe8938ed7f23b398baed66da37b7f7209898d49b"
+    },
+    {
+      "asset": "VolOptPart1.nj",
+      "wrong_offset": 252704,
+      "equals_wrong_raw_slice": true,
+      "entry": "me5p01_y_all.nj",
+      "correct_size": 10016,
+      "correct_sha256": "b8c21b511ad11f1b3863475aa050db5e536a68f8601dd90b8bba2217295197eb"
+    },
+    {
+      "asset": "VolOptCore.nj",
+      "wrong_offset": 408320,
+      "equals_wrong_raw_slice": true,
+      "entry": "me5p02_y_all.nj",
+      "correct_size": 65208,
+      "correct_sha256": "2a3a6210b2ba222446cf97f330413bdc2c60abba75368fbec74e1ed301c665b4"
+    },
+    {
+      "asset": "VolOptPart1Sub.nj",
+      "wrong_offset": 683456,
+      "equals_wrong_raw_slice": true,
+      "entry": "me5p02_y_all_parts.nj",
+      "correct_size": 40872,
+      "correct_sha256": "8908a50ceae2c6d4fde01e2ea627db4b796e7089eb2f778e6f524e8a1dd1d493"
+    }
+  ]
+}

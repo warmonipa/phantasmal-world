@@ -1,0 +1,72 @@
+[
+  {
+    "path": "npcs/VolOptMonitor.xj",
+    "entry": "fe_obj_vo_mo_dai_aka.xj",
+    "kind": "model",
+    "bytes": 1504,
+    "sha256": "18a30e9c4b9a73c58d2a4fe2165877396d0b6b0d0305c7ec3eb1126ff5cf7b8c"
+  },
+  {
+    "path": "npcs/VolOptMonitor.xvm",
+    "entry": "fe_obj_vo_mo_dai_aka.xj",
+    "kind": "texture",
+    "bytes": 32896,
+    "sha256": "3d4ba9788a0df132bfd71f4a4369197d71c20f7774b663c4b389bdd65e99992e"
+  },
+  {
+    "path": "npcs/VolOptHiraisin.nj",
+    "entry": "fs_obj_hiraishin_a.nj",
+    "kind": "model",
+    "bytes": 6188,
+    "sha256": "5b28880e64730a1c65b1384cbe8938ed7f23b398baed66da37b7f7209898d49b"
+  },
+  {
+    "path": "npcs/VolOptHiraisin.xvm",
+    "entry": "fs_obj_hiraishin_a.nj",
+    "kind": "texture",
+    "bytes": 147712,
+    "sha256": "caa55c839be61227aca702592e47d952a60e445d606a3ea31ad67829117f3f8f"
+  },
+  {
+    "path": "npcs/VolOptPart1.nj",
+    "entry": "me5p01_y_all.nj",
+    "kind": "model",
+    "bytes": 10016,
+    "sha256": "b8c21b511ad11f1b3863475aa050db5e536a68f8601dd90b8bba2217295197eb"
+  },
+  {
+    "path": "npcs/VolOptPart1.xvm",
+    "entry": "me5p01_y_all.nj",
+    "kind": "texture",
+    "bytes": 131200,
+    "sha256": "7a66b68e090bf3323bf4f90487d3f2e31c630fe78368d9219eeaf28ef5b99545"
+  },
+  {
+    "path": "npcs/VolOptCore.nj",
+    "entry": "me5p02_y_all.nj",
+    "kind": "model",
+    "bytes": 65208,
+    "sha256": "2a3a6210b2ba222446cf97f330413bdc2c60abba75368fbec74e1ed301c665b4"
+  },
+  {
+    "path": "npcs/VolOptCore.xvm",
+    "entry": "me5p02_y_all.nj",
+    "kind": "texture",
+    "bytes": 262336,
+    "sha256": "c79545a616b6c763308a5c4d6f8626cf7ac1c2e472180a4b8a53e25c4ed7f427"
+  },
+  {
+    "path": "npcs/VolOptPart1Sub.nj",
+    "entry": "me5p02_y_all_parts.nj",
+    "kind": "model",
+    "bytes": 40872,
+    "sha256": "8908a50ceae2c6d4fde01e2ea627db4b796e7089eb2f778e6f524e8a1dd1d493"
+  },
+  {
+    "path": "npcs/VolOptPart1Sub.xvm",
+    "entry": "me5p02_y_all.nj",
+    "kind": "shared texture; NJTL names/order identical to me5p02_y_all_parts.nj",
+    "bytes": 262336,
+    "sha256": "c79545a616b6c763308a5c4d6f8626cf7ac1c2e472180a4b8a53e25c4ed7f427"
+  }
+]
