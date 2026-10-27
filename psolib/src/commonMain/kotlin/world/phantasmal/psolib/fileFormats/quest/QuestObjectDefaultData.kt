@@ -98,10 +98,10 @@ internal fun setObjectDefaultData(type: ObjectType, data: Buffer) {
         ObjectType.ObjRoomID -> {
             data.setShort(4, 1545)
             data.setShort(6, 1)
-            data.setFloat(40, 3.9999988079071045f) // SCL_TAMA
-            data.setFloat(44, 5f) // Next section
-            data.setFloat(48, 10f) // Previous section
-            data.setInt(56, 16384)
+            data.setFloat(40, 3.9999988079071045f) // Radius / 10
+            data.setFloat(44, 5f) // Positive-side room ID
+            data.setFloat(48, 10f) // Nonpositive-side room ID
+            data.setInt(56, 16384) // Direction angle (90 degrees)
             data.setInt(64, -1929753600)
         }
 

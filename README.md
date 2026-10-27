@@ -61,6 +61,7 @@ is a build-time tool.
 Reverse-engineering reference documentation:
 
 - [Quest VM NPC opcodes (V2, V3, and V4)](psolib/QUEST_VM_NPC_OPCODES.md)
+- [Obj Room ID parameters and authoring](psolib/QUEST_OBJECT_ROOM_ID.md)
 
 #### core
 

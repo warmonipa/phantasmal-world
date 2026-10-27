@@ -226,9 +226,26 @@ enum class ObjectType(
         ),
         typeId = 14,
         properties = listOf(
-            EntityProp(name = "SCL_TAMA", offset = 40, type = EntityPropType.F32),
-            EntityProp(name = "Next Room", offset = 44, type = EntityPropType.F32),
-            EntityProp(name = "Previous Room", offset = 48, type = EntityPropType.F32),
+            EntityProp(
+                name = "Radius / 10", offset = 40, type = EntityPropType.F32,
+                description = "Formerly SCL_TAMA. Effective radius = value * 10. Updates the player's current room ID when their XZ distance from this object is strictly less than that radius.",
+            ),
+            EntityProp(
+                name = "Positive-side room ID", offset = 44, type = EntityPropType.F32,
+                description = "Player's current room ID when the XZ vector from this object to the player has a positive dot product with the direction vector. Does not mean the next room in a sequence.",
+            ),
+            EntityProp(
+                name = "Nonpositive-side room ID", offset = 48, type = EntityPropType.F32,
+                description = "Player's current room ID when the XZ vector from this object to the player has a zero or negative dot product with the direction vector. Includes the dividing line; does not record the previously visited room.",
+            ),
+            EntityProp(
+                name = "Direction angle", offset = 56, type = EntityPropType.Angle,
+                description = "Rotates (0, 0, -1) around Y to choose the room ID from the player's position, not facing direction. Independent of the object's Rotation Y.",
+            ),
+            EntityProp(
+                name = "Room update mode", offset = 60, type = EntityPropType.I32,
+                description = "Ignored in v2 and earlier. In v3 and later, 65536 (0x00010000) writes only the first player room field and sets flag 0x02000000. In BB, this skips one automatic section update, then clears. Other values use the normal setter, also updating the second room field on special maps such as Forest and the CCA family.",
+            ),
         ),
     ),
     Sensor(

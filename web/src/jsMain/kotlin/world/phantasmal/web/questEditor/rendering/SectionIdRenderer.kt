@@ -336,18 +336,18 @@ class SectionIdRenderer {
     }
 
     /**
-     * Creates SCL_TAMA visualization with circle, one radius line and value display.
-     * Only shown when ObjSectionID object is selected.
-     * Positioned close to ground level like EventCollision range circles.
+     * Shows the ObjRoomID param1 range in the XZ plane, with a radius line and
+     * the effective radius (stored value * 10). This is a range aid, not a
+     * simulation of room selection or player update order.
      */
-    fun createSclTamaVisualization(
+    fun createRoomIdRangeVisualization(
         centerX: Float,
         centerY: Float,
         centerZ: Float,
-        sclTamaValue: Float
+        radiusDividedByTen: Float
     ): Group {
         val group = Group()
-        val calculatedRadius = sclTamaValue * 10.0f
+        val calculatedRadius = radiusDividedByTen * 10.0f
 
         // Create transparent circle outline at ground level
         val circle = createGroundLevelCircle(calculatedRadius, CIRCLE_COLOR, CIRCLE_OPACITY)
@@ -365,7 +365,7 @@ class SectionIdRenderer {
         // Position the entire group at entity position with fixed height offset like sectionId labels
         val elevatedY = centerY + 15.0f // Same offset as range circles for consistency
         group.position.set(centerX.toDouble(), elevatedY.toDouble(), centerZ.toDouble())
-        group.name = "SclTamaVisualization_${sclTamaValue.hashCode()}"
+        group.name = "RoomIdRangeVisualization_${radiusDividedByTen.hashCode()}"
 
         // Rendering settings
         group.renderOrder = 9999
@@ -380,7 +380,7 @@ class SectionIdRenderer {
     private fun createSimpleValueText(radiusValue: Float): Mesh {
         val valueText = "${(radiusValue * 10).toInt() / 10.0f}" // Just the number, no "R:" prefix
         return createTextPlane(valueText, 0xFFFF00, (TEXT_SIZE * 0.8f).toDouble()).apply {
-            name = "SclTamaSimpleText"
+            name = "RoomIdRangeSimpleText"
             frustumCulled = false
         }
     }
@@ -410,7 +410,7 @@ class SectionIdRenderer {
         material.asDynamic().depthWrite = false
 
         return Mesh(geometry, material).apply {
-            name = "SclTamaGroundCircle"
+            name = "RoomIdRangeGroundCircle"
             renderOrder = 1000 // Same as EventCollision range circles
             frustumCulled = false
         }
@@ -439,7 +439,7 @@ class SectionIdRenderer {
         })
 
         return LineSegments(geometry, material).apply {
-            name = "SclTamaGroundRadiusLine"
+            name = "RoomIdRangeGroundRadiusLine"
             renderOrder = 1000 // Same as EventCollision range circles
             frustumCulled = false
         }

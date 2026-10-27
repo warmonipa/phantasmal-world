@@ -15,7 +15,7 @@ import world.phantasmal.webui.DisposableContainer
 private val logger = KotlinLogging.logger {}
 
 /**
- * Manages range circle, collision rectangle, and SCL_TAMA visualizations
+ * Manages range circle, collision rectangle, and room ID range visualizations
  * for the currently selected entity.
  */
 class SelectionVisualizationManager(
@@ -47,7 +47,7 @@ class SelectionVisualizationManager(
         }
 
         if (entity.type == ObjectType.ObjRoomID) {
-            createSclTamaCircleForSelectedEntity(entity)
+            createRoomIdRangeForSelectedEntity(entity)
         }
 
         if (entity.type == ObjectType.LaserFenceEx ||
@@ -228,20 +228,20 @@ class SelectionVisualizationManager(
         }
     }
 
-    // ---- SCL_TAMA (ObjRoomID) ----
+    // ---- Room ID range (ObjRoomID, param1) ----
 
-    private fun createSclTamaCircleForSelectedEntity(entity: QuestObjectModel) {
+    private fun createRoomIdRangeForSelectedEntity(entity: QuestObjectModel) {
         try {
-            val sclTamaValue = entity.entity.data.getFloat(40)
+            val radiusDividedByTen = entity.entity.data.getFloat(40)
 
-            if (sclTamaValue > 0.0f) {
+            if (radiusDividedByTen > 0.0f) {
                 val position = entity.worldPosition.value
 
-                val visualization = sectionIdRenderer.createSclTamaVisualization(
+                val visualization = sectionIdRenderer.createRoomIdRangeVisualization(
                     position.x.toFloat(),
                     position.y.toFloat(),
                     position.z.toFloat(),
-                    sclTamaValue
+                    radiusDividedByTen
                 )
 
                 renderContext.helpers.add(visualization)
@@ -257,10 +257,10 @@ class SelectionVisualizationManager(
                     }
                 })
 
-                logger.debug { "Created SCL_TAMA visualization for selected ObjRoomID at (${position.x}, ${position.y}, ${position.z}) with radius ${sclTamaValue * 10.0f}" }
+                logger.debug { "Created room ID range visualization for selected ObjRoomID at (${position.x}, ${position.y}, ${position.z}) with radius ${radiusDividedByTen * 10.0f}" }
             }
         } catch (e: Exception) {
-            logger.error(e) { "Failed to create SCL_TAMA visualization for selected ObjRoomID entity" }
+            logger.error(e) { "Failed to create room ID range visualization for selected ObjRoomID entity" }
         }
     }
 }
