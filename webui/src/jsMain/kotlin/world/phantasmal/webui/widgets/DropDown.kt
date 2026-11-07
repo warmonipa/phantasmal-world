@@ -56,6 +56,7 @@ class Dropdown<T : Any>(
         e.stopPropagation()
         justOpened = !menuVisible.value
         menuVisible.value = true
+        menu.positionAt(element)
     }
 
     private fun onButtonMouseUp() {
@@ -76,6 +77,7 @@ class Dropdown<T : Any>(
 
                 justOpened = !menuVisible.value
                 menuVisible.value = true
+                menu.positionAt(element)
                 items.value.firstOrNull()?.let(menu::highlightItem)
                 menu.focus()
             }

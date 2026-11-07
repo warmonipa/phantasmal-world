@@ -58,6 +58,7 @@ class Select<T : Any>(
         e.stopPropagation()
         justOpened = !menuVisible.value
         menuVisible.value = true
+        menu.positionAt(element)
         selected.value?.let(menu::highlightItem)
     }
 
@@ -111,6 +112,7 @@ class Select<T : Any>(
 
                 justOpened = !menuVisible.value
                 menuVisible.value = true
+                menu.positionAt(element)
                 selected.value?.let(menu::highlightItem)
                 menu.focus()
             }

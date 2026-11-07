@@ -5,6 +5,7 @@ import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.list.flatMapToList
 import world.phantasmal.cell.list.listMap
+import world.phantasmal.cell.list.filteredCell
 import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcInteractionKind
 import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.core.math.degToRad
@@ -404,9 +405,24 @@ class EntityInfoController(
     val rotY: Cell<Double> = rot.map { radToDeg(it.y) }
     val rotZ: Cell<Double> = rot.map { radToDeg(it.z) }
 
+    val boxItemEditor: Cell<BoxItemEditorModel?> = questEditorStore.selectedEntity.map { entity ->
+        if (entity is QuestObjectModel && BoxItemEditorModel.supports(entity.type)) {
+            BoxItemEditorModel(questEditorStore, entity)
+        } else null
+    }
+
     val props: ListCell<EntityInfoPropModel> =
         questEditorStore.selectedEntity.flatMapToList { entity ->
-            entity?.properties?.listMap(::toInfoPropModel) ?: emptyListCell()
+            entity?.properties?.filteredCell { prop ->
+                val ordinary = entity !is QuestObjectModel || !BoxItemEditorModel.supports(entity.type) ||
+                    prop.offset !in 52..60 ||
+                    (entity.type == ObjectType.DesertFixedTypeBoxBreakableCrystals && prop.offset == 52)
+                if (ordinary && entity is QuestObjectModel &&
+                    entity.type == ObjectType.DesertFixedTypeBoxBreakableCrystals && prop.offset == 52
+                ) {
+                    entity.properties.value.single { it.offset == 40 }.value.map { !BoxItemEditorModel.isDesertItemMode(it as Float) }
+                } else cell(ordinary)
+            }?.listMap(::toInfoPropModel) ?: emptyListCell()
         }
 
     private fun toInfoPropModel(prop: QuestEntityPropModel): EntityInfoPropModel =

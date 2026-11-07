@@ -154,3 +154,6 @@ Other branches rely on local validation unless the workflow configuration is cha
 
 Create a native production build with `./gradlew :psoserv:nativeBuild`. Cross-compilation is not
 possible, this command has to be run on each platform.
+
+Box drop directive encoding and the quest editor controls are documented in
+[Box item definitions](psolib/QUEST_BOX_ITEM_DEFINITIONS.md).

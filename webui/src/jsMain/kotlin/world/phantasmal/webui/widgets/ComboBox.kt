@@ -81,6 +81,7 @@ class ComboBox<T : Any>(
     private fun onInputMouseDown(e: MouseEvent) {
         e.stopPropagation()
         menuVisible.value = true
+        menu.positionAt(element)
         selected.value?.let(menu::highlightItem)
     }
 
@@ -88,11 +89,13 @@ class ComboBox<T : Any>(
         when (e.key) {
             "ArrowDown" -> {
                 menuVisible.value = true
+                menu.positionAt(element)
                 menu.highlightNext()
             }
 
             "ArrowUp" -> {
                 menuVisible.value = true
+                menu.positionAt(element)
                 menu.highlightPrev()
             }
 
@@ -110,6 +113,7 @@ class ComboBox<T : Any>(
 
             if (menuVisible.value || inputValue.isNotEmpty()) {
                 menuVisible.value = true
+                menu.positionAt(element)
                 menu.highlightNext()
             }
 
@@ -130,6 +134,7 @@ class ComboBox<T : Any>(
         // Focus the input if it wasn't already focused.
         input.focus()
         menuVisible.value = !menuVisible.value
+        if (menuVisible.value) menu.positionAt(element)
     }
 
     private fun select(item: T) {

@@ -379,6 +379,13 @@ marker. Consequently, a yellow cylinder means "no usable static model was render
 itself mean that the game object is invisible. The number and placement of yellow cylinders in a
 scene depend on the object instances in the loaded quest and floor.
 
+## Quest Editor Box Items
+
+Specializable item boxes have a decoded item editor with named BB items and category-specific fields.
+Raw parameter words and redundant exact-item summaries are omitted. Random-category mode describes a generated category rather
+than claiming a fixed item. Client evidence, format constraints, and regeneration instructions
+are in [Box item definitions](../psolib/QUEST_BOX_ITEM_DEFINITIONS.md).
+
 ## Quest Editor Entity Directions
 
 The quest editor can display cyan facing-direction arrows for every object and NPC in the current

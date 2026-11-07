@@ -1,11 +1,15 @@
 package world.phantasmal.webui.widgets
 
 import kotlinx.browser.document
+import kotlinx.browser.window
+import kotlin.math.min
+import kotlin.math.max
 import org.w3c.dom.*
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.MouseEvent
 import world.phantasmal.core.disposable.Disposable
+import world.phantasmal.core.disposable.disposable
 import world.phantasmal.cell.Cell
 import world.phantasmal.cell.list.emptyListCell
 import world.phantasmal.cell.nullCell
@@ -61,7 +65,7 @@ class Menu<T : Any>(
                     onDocumentMouseDownListener = null
                     clearHighlightItem()
 
-                    (previouslyFocusedElement as HTMLElement?)?.focus()
+                    (previouslyFocusedElement as HTMLElement?)?.asDynamic()?.focus(js("({preventScroll: true})"))
                 }
             }
 
@@ -76,6 +80,14 @@ class Menu<T : Any>(
             }
 
             addDisposable(document.disposableListener("keydown", ::onDocumentKeyDown))
+            // Scrolling the list is allowed; moving its anchor or resizing dismisses the popup.
+            val dismiss: (Event) -> Unit = { event ->
+                val target = event.target
+                if (this@Menu.visible.value && (target !is Node || !this.contains(target))) onCancel()
+            }
+            document.addEventListener("scroll", dismiss, true)
+            addDisposable(disposable { document.removeEventListener("scroll", dismiss, true) })
+            addDisposable(window.disposableListener("resize", dismiss))
         }
 
     override fun dispose() {
@@ -85,7 +97,29 @@ class Menu<T : Any>(
 
     override fun focus() {
         previouslyFocusedElement = document.activeElement
-        super.focus()
+        element.asDynamic().focus(js("({preventScroll: true})"))
+    }
+
+    /** Keep the popup out of the panel's scroll layout and inside the viewport. */
+    fun positionAt(anchor: HTMLElement) {
+        val bounds = anchor.getBoundingClientRect()
+        val margin = 4.0
+        val availableWidth = max(0.0, window.innerWidth - 2 * margin)
+        element.style.apply {
+            position = "fixed"
+            left = "${margin}px"
+            top = "${margin}px"
+            minWidth = "${min(bounds.width, availableWidth)}px"
+            maxWidth = "${availableWidth}px"
+            width = "max-content"
+        }
+        val below = max(0.0, window.innerHeight - bounds.bottom - margin)
+        val above = max(0.0, bounds.top - margin)
+        val openAbove = below < min(500.0, innerElement.scrollHeight.toDouble()) && above > below
+        innerElement.style.maxHeight = "${min(500.0, if (openAbove) above - 4 else below - 4).coerceAtLeast(0.0)}px"
+        val popup = element.getBoundingClientRect()
+        element.style.left = "${bounds.left.coerceIn(margin, max(margin, window.innerWidth - popup.width - margin))}px"
+        element.style.top = "${if (openAbove) max(margin, bounds.top - popup.height) else bounds.bottom}px"
     }
 
     fun highlightItem(item: T) {
@@ -238,7 +272,8 @@ class Menu<T : Any>(
 
                 .pw-menu > .pw-menu-inner > * {
                     padding: 3px 6px;
-                    white-space: nowrap;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
                 }
 
                 .pw-menu > .pw-menu-inner > .pw-menu-highlighted {

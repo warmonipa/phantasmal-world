@@ -2,6 +2,15 @@ plugins {
     id("world.phantasmal.jvm")
 }
 
+tasks.register<JavaExec>("generateBoxItemCatalog") {
+    description = "Generate the quest editor's named BB box-item codes from ItemPMT and Unitxt"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.GenerateBoxItemCatalogKt")
+    args = listOf(rootProject.file(
+        "web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/BoxItemCatalog.kt"
+    ).absolutePath)
+}
+
 kotlin {
     sourceSets.configureEach {
         languageSettings.optIn("kotlinx.serialization.ExperimentalSerializationApi")
@@ -100,8 +109,27 @@ val verifyViewerWeaponCatalog by tasks.registering(JavaExec::class) {
     }
 }
 
+val verifyBoxItemCatalog by tasks.registering(JavaExec::class) {
+    description = "Verify the quest editor box-item catalog matches ItemPMT and Unitxt"
+    val catalog = rootProject.file(
+        "web/src/jsMain/kotlin/world/phantasmal/web/questEditor/models/BoxItemCatalog.kt"
+    )
+    val generated = layout.buildDirectory.file("generatedBoxItemCatalog/BoxItemCatalog.kt")
+    inputs.file(catalog)
+    outputs.file(generated)
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("world.phantasmal.web.assetsGeneration.GenerateBoxItemCatalogKt")
+    args = listOf(generated.get().asFile.absolutePath)
+    doLast {
+        check(generated.get().asFile.readText() == catalog.readText()) {
+            "BoxItemCatalog.kt is stale. Run ./gradlew :web:assets-generation:generateBoxItemCatalog."
+        }
+    }
+}
+
 tasks.named("check") {
     dependsOn(verifyViewerWeaponCatalog)
+    dependsOn(verifyBoxItemCatalog)
     dependsOn(verifySideStoryNpcGolden)
 }
 

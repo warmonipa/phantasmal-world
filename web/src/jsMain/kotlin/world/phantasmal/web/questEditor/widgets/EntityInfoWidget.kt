@@ -139,6 +139,12 @@ class EntityInfoWidget(private val ctrl: EntityInfoController) : Widget(enabled 
 
                 bindDisposableChildrenTo(ctrl.props) { prop, _ -> createPropRow(prop) }
             }
+            div {
+                bindDisposableChildrenTo(ctrl.boxItemEditor.map { listOfNotNull(it) }) { model, _ ->
+                    val widget = BoxItemEditorWidget(model, ctrl.editingEnabled)
+                    Pair(widget.element, widget)
+                }
+            }
             addChild(
                 UnavailableWidget(
                     visible = ctrl.unavailable,
