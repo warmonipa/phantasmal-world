@@ -549,8 +549,7 @@ internal fun computeExecutionFloors(
 
     while (pendingEntries.isNotEmpty()) {
         val (entryBlock, entryInstruction, currentFloor, entryFloorBound) = pendingEntries.removeFirst()
-        val visited = mutableSetOf<TraversalState>()
-        val exitStateCache = mutableMapOf<TraversalState, ThreadExitState>()
+        val exitStateCache = mutableMapOf<TraversalState, ThreadExitState?>()
         val inProgress = mutableSetOf<TraversalState>()
 
         // Recursive BFS that returns the merged register state at all Return blocks
@@ -573,7 +572,8 @@ internal fun computeExecutionFloors(
                     startFloorHandlerWrites,
                     startCallbackHandlerWrites,
                 )
-                exitStateCache[key]?.let { return it }
+                // A cached null is a fully suspended call, not a cache miss.
+                if (key in exitStateCache) return exitStateCache[key]
                 if (key in inProgress || depth >= 64) {
                     return ThreadExitState(
                         startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
@@ -581,6 +581,9 @@ internal fun computeExecutionFloors(
                 }
                 inProgress.add(key)
 
+                // Different callee entries can converge on the same block. Each traversal
+                // must collect its own exit outcomes rather than skipping another call's work.
+                val visited = mutableSetOf<TraversalState>()
                 val queue = ArrayDeque<TraversalState>()
                 queue.add(key)
                 var mergedExit: ThreadExitState? = null
@@ -873,7 +876,10 @@ internal fun computeExecutionFloors(
                 inProgress.remove(key)
                 // A thread that only ever yields resumes later; one that also returns on another
                 // path returns that path's state to its caller.
-                if (suspended && mergedExit == null) return null
+                if (suspended && mergedExit == null) {
+                    exitStateCache[key] = null
+                    return null
+                }
                 val exit = (mergedExit ?: ThreadExitState(
                     startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
                 )).copy(maySuspend = suspended)

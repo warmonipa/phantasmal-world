@@ -19,6 +19,73 @@ import kotlin.test.assertTrue
 
 class GetScriptNpcSpawnsTests : LibTestSuite {
     @Test
+    fun repeated_and_overlapping_callees_preserve_each_call_sites_exit_outcomes() {
+        for (floorBound in listOf(false, true)) {
+            for (nested in listOf(false, true)) {
+                for (mayReturn in listOf(false, true)) {
+                    for (sharedEntry in listOf(false, true)) {
+                        val entry = if (floorBound) "thread_stg 100" else "set_floor_handler 9, 100"
+                        val firstCall = if (nested) 150 else 200
+                        val secondCall = if (sharedEntry) firstCall else if (nested) 160 else 210
+                        val guard = if (mayReturn) "jmpi_= r181, 1, 301" else ""
+                        val segments = toInstructions("""
+                            0:
+                                $entry
+                                ret
+                            100:
+                                jmpi_= r180, 1, 110
+                                call $firstCall
+                                leti r0, 10
+                                leti r1, 20
+                                leti r2, 30
+                                leti r3, 90
+                                leti r4, 0
+                                leti r5, 16
+                                npc_crp_v3 r0
+                                ret
+                            110:
+                                call $secondCall
+                                leti r0, 20
+                                leti r1, 20
+                                leti r2, 30
+                                leti r3, 90
+                                leti r4, 0
+                                leti r5, 16
+                                npc_crp_v3 r0
+                                ret
+                            150:
+                                call 200
+                                ret
+                            160:
+                                call 210
+                                ret
+                            200:
+                                jmp 300
+                            210:
+                                jmp 300
+                            300:
+                                $guard
+                                sync
+                                ret
+                            301:
+                                ret
+                        """.trimIndent())
+                        val spawns = getScriptNpcSpawns(Version.BB_V4, Episode.I, segments) { ControlFlowGraph.create(segments) }
+                        assertEquals(setOf(10, 20), spawns.map { it.x }.toSet())
+                        for (spawn in spawns) {
+                            assertEquals(
+                                if (floorBound) setOf(0) else (0 until 0x12).toSet(),
+                                spawn.executionFloorIds,
+                                "floorBound=$floorBound nested=$nested mayReturn=$mayReturn sharedEntry=$sharedEntry",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun caller_continuations_preserve_both_returning_and_suspending_paths() {
         for (floorBound in listOf(false, true)) {
             for (nested in listOf(false, true)) {

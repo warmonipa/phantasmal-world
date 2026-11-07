@@ -511,6 +511,11 @@ A callee can both return immediately on one branch and suspend on another. The a
 propagate both outcomes through each caller: an immediate return does not cancel the possible
 later resumption. This also applies through wrapper functions and cached callee results.
 Floor-bound callbacks retain their entry floor for both outcomes.
+A fully suspended result is cached explicitly, separately from a cache miss. Each callee
+traversal also collects its own visited blocks: two entries can converge on the same code,
+and one caller's completed walk must not suppress another caller's exit outcomes. Repeated
+and overlapping callees are covered for both positioned NPCs and particle emitters.
+
 
 The creation opcodes do not contain a dialogue label. The editor derives interaction navigation
 separately from reachable spatial trigger opcodes: `set_obj_param` / `set_obj_param_ex` contribute
