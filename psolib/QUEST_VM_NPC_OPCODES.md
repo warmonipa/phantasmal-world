@@ -507,6 +507,11 @@ transitions, unless the script re-checks the current floor:
 An NPC previewed on all 18 floors is therefore an expected conservative result, not a
 floor-mapping error.
 
+A callee can both return immediately on one branch and suspend on another. The analysis must
+propagate both outcomes through each caller: an immediate return does not cancel the possible
+later resumption. This also applies through wrapper functions and cached callee results.
+Floor-bound callbacks retain their entry floor for both outcomes.
+
 The creation opcodes do not contain a dialogue label. The editor derives interaction navigation
 separately from reachable spatial trigger opcodes: `set_obj_param` / `set_obj_param_ex` contribute
 a **Target** label, and `at_coords_talk` / `at_coords_talk_ex` contribute a **Talk** label. A label
@@ -576,6 +581,15 @@ creations whose position/angle/template is runtime-dependent. Separate creation 
 are preserved even when their resolved preview values are identical. Runtime owner, NPC-slot,
 state, radius, and controller-token values may remain unresolved without suppressing a preview
 because they are not required to place and select its model.
+
+The floor oracle includes independent checks for NADJA, GIZEL and DACCI in *From the Depths*,
+ALICIA in *Central Dome Fire Swirl*, and HOPKINS in *Seat of the Heart*. The first four retain
+all 18 possible floors because their persistent call paths can resume after yielding. HOPKINS
+also has all 18 possible floors in the static preview: the BB/QEdit disassembly of `quest27_e.qst` places `sync` at script
+offset `0x2242C` and `npc_crp_id_v3` at `0x22457` in label `0x07EC`. These are script-section
+offsets, not QST file offsets. The prior floor-2-only expectation omitted that resumable path.
+`SideStoryNpcFloorTests` pins the three QST SHA-256 values and asserts these creation sites
+without deriving expectations from the golden generator.
 
 Run `:web:assets-generation:verifySideStoryNpcGolden` to verify the corpus. To intentionally update
 the oracle, run `:web:assets-generation:generateSideStoryNpcGolden` with a temporary output path,

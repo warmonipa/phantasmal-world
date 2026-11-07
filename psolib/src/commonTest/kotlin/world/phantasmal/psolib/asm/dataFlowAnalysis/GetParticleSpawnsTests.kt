@@ -11,6 +11,48 @@ private val ParticleSpawn.worldPosition: ParticleSpawnOrigin.WorldPosition
 
 class GetParticleSpawnsTests : LibTestSuite {
     @Test
+    fun caller_continuations_preserve_both_returning_and_suspending_paths() {
+        for (floorBound in listOf(false, true)) {
+            for (nested in listOf(false, true)) {
+                for (mayReturn in listOf(false, true)) {
+                    val entry = if (floorBound) "thread_stg 100" else "set_floor_handler 9, 100"
+                    val callTarget = if (nested) 150 else 200
+                    val guard = if (mayReturn) "jmpi_= r180, 1, 201" else ""
+                    val segments = toInstructions("""
+                        0:
+                            $entry
+                            ret
+                        100:
+                            call $callTarget
+                            leti r0, 10
+                            leti r1, 20
+                            leti r2, 30
+                            leti r3, 1
+                            leti r4, 30
+                            particle_v3 r0
+                            ret
+                        150:
+                            call 200
+                            ret
+                        200:
+                            $guard
+                            sync
+                            ret
+                        201:
+                            ret
+                    """.trimIndent())
+                    val spawns = getParticleSpawns(segments) { ControlFlowGraph.create(segments) }
+                    assertEquals(
+                        if (floorBound) setOf(0) else (0 until 0x12).toSet(),
+                        spawns.single().executionFloorIds,
+                        "floorBound=$floorBound nested=$nested mayReturn=$mayReturn",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun particle_inside_floor_handler_is_attributed_to_that_floor() {
         val segments = toInstructions("""
             0:

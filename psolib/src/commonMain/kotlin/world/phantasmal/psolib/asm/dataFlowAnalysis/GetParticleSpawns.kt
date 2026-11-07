@@ -375,6 +375,7 @@ private data class ThreadExitState(
     val floorRegisters: Set<Int>,
     val floorHandlerWrites: Map<Int, Set<Int>>,
     val callbackHandlerWrites: Map<CallbackHandlerSlot, Set<Int>>,
+    val maySuspend: Boolean = false,
 )
 
 private enum class CallbackHandlerKind {
@@ -769,6 +770,7 @@ internal fun computeExecutionFloors(
                                 if (calleeExit == null) {
                                     suspendedCallee = true
                                 } else {
+                                    suspendedCallee = suspendedCallee || calleeExit.maySuspend
                                     fixedCalleeReturned = true
                                     mergedCalleeExit = if (mergedCalleeExit == null) {
                                         calleeExit
@@ -787,6 +789,9 @@ internal fun computeExecutionFloors(
                                     }
                                 }
                             }
+                            // A returning branch does not cancel another branch's suspension.
+                            // Carry that fact through every caller, including wrapper functions.
+                            suspended = suspended || suspendedCallee
                             sequentialNext[b]?.let {
                                 if (suspendedCallee && !floorBound) enqueueResume(it, it.start)
                                 if (!anyCallee || fixedCalleeReturned) {
@@ -869,9 +874,9 @@ internal fun computeExecutionFloors(
                 // A thread that only ever yields resumes later; one that also returns on another
                 // path returns that path's state to its caller.
                 if (suspended && mergedExit == null) return null
-                val exit = mergedExit ?: ThreadExitState(
+                val exit = (mergedExit ?: ThreadExitState(
                     startRegs, startFloorHandlerWrites, startCallbackHandlerWrites,
-                )
+                )).copy(maySuspend = suspended)
                 exitStateCache[key] = exit
                 return exit
             }
