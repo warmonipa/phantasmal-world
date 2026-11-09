@@ -237,6 +237,36 @@ Olga Flow Form 2 has the same outcome through a different special flag. Delbiter
 and Dorphon may look and behave like minibosses, but do not have this defining
 weapon-attribute behavior.
 
+## Spawn appearance parameters
+
+Some enemies read their entrance style from the DAT enemy record rather than
+from the quest script. The semantics below come from the comments on
+`dat_enemy_definitions` in newserv `src/Map.cc` (reverse-engineered from the
+client) and have not been checked one by one on GC hardware.
+
+| Enemy | Field | Values |
+|---|---|---|
+| Hildebear / Hildeblue | `Param 1` | `< 1` spawns on the ground; `>= 1` jumps in (`Param 3` is the in-combat leap chance, not the entrance) |
+| Rappy | wave | Any wave above 0 makes it fall from the sky, then idle in place |
+| Sinow Berill / Spigell, Sinow Zoa / Zele | `Param 1` | `0` invisible on ground, `1` invisible on ceiling, `2` visible on ground, `3` visible on ceiling |
+| Ul Gibbon / Zol Gibbon | `Jump appear` | `< 1` appears in place; `>= 1` jumps in |
+| Gi Gue | `Param 1` | `< 1` fades in on the ground; `>= 1` descends from above |
+| Gee | `Param 2`, `Param 3` | Appear height (`0` low, `1` high); appear speed (`Param 3 + 1`, minimum 1) |
+| Delbiter | `Type` | `<= 0` stands; `> 0` runs in |
+| Recobox | `Param 6` | `<= 0` floor, `1` ceiling, `>= 2` wall (sets the Recon exit direction) |
+| Merillia / Meriltas | `Param 2` | Idle: positive wanders around the spawn point; `<= 0` burrows |
+
+Ceiling Sinows in the stock GC maps (`map_jungle01/04/05`, `map_seabed01/02`)
+are placed at the ceiling height, roughly 50 to 480 units above the lowest
+ground enemy in the same room, so the position's Y must be the ceiling point.
+
+The client stores param6 as an `i16` at offset `0x40` and param7 as an `i16` at
+`0x42`. The editor shows offset `0x40` as one `I32`, so a nonzero param7 appears
+in the upper 16 bits of `Subtype`/`Param 6`.
+
+The pso-quest-master knowledge base keeps the quest-authoring version with the
+measured coordinates: `knowledge/31-enemy-spawn-appearance.md`.
+
 ## Conclusions
 
 - Delsaber and Gibbles are the only enemies for which the Wiki documents a
