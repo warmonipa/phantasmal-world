@@ -135,7 +135,7 @@ fun ninjaObjectToMesh(
 
 fun ninjaObjectToInstancedMesh(
     ninjaObject: NinjaObject<*, *>,
-    textures: List<XvrTexture>,
+    textures: List<XvrTexture?>,
     maxInstances: Int,
     defaultMaterial: Material? = null,
     boundingVolumes: Boolean = false,

@@ -103,11 +103,32 @@ enum class ScriptNpcClass {
     FOnewearl,
 }
 
+/**
+ * Visual configuration of a stock NPC template, read from the `PlayerVisualConfig` part of a
+ * 112-byte `npcplayerchar.dat` record. Style indices are 0-based, exactly as stored in the file.
+ *
+ * The client builds the NPC from the player-character models of [ScriptNpcTemplate.characterClass]
+ * using these values; they are not the Pioneer 2 "NpcHUmar"-style static NPC models.
+ */
+data class ScriptNpcAppearance(
+    /** Section ID (0-9) that selects the section ID texture. */
+    val sectionId: Int,
+    val costume: Int,
+    val skin: Int,
+    val face: Int,
+    val head: Int,
+    val hair: Int,
+    val hairRed: Int,
+    val hairGreen: Int,
+    val hairBlue: Int,
+)
+
 /** Stock entry from the 64-record NPC player-template table shared by V2, V3, and V4. */
 data class ScriptNpcTemplate(
     val index: Int,
     val name: String,
     val characterClass: ScriptNpcClass,
+    val appearance: ScriptNpcAppearance,
 )
 
 private val SCRIPT_NPC_TEMPLATE_NAMES = listOf(
@@ -128,9 +149,89 @@ private val SCRIPT_NPC_TEMPLATE_CLASSES = listOf(
     1, 3, 5, 5, 5, 0, 3, 8, 6, 7, 4, 0, 0, 3, 7, 0,
 )
 
+/**
+ * Per template, in `npcplayerchar.dat` field order: section ID, costume, skin, face, head, hair,
+ * hair red, hair green, hair blue (record offsets 0x30 and 0x38..0x47).
+ */
+private val SCRIPT_NPC_TEMPLATE_APPEARANCES = intArrayOf(
+    3, 1, 1, 1, 0, 8, 231, 202, 146,  // 0
+    6, 6, 0, 0, 0, 7, 159, 154, 103,  // 1
+    6, 6, 0, 0, 0, 4, 136, 138, 87,  // 2
+    1, 2, 2, 0, 0, 6, 208, 79, 41,  // 3
+    0, 0, 1, 3, 0, 3, 146, 75, 24,  // 4
+    5, 0, 5, 0, 1, 0, 0, 0, 0,  // 5
+    6, 4, 1, 2, 0, 0, 239, 238, 236,  // 6
+    2, 6, 0, 3, 0, 5, 239, 249, 246,  // 7
+    9, 2, 0, 0, 0, 0, 0, 90, 255,  // 8
+    0, 0, 1, 0, 0, 0, 133, 73, 41,  // 9
+    0, 0, 1, 0, 0, 0, 133, 73, 41,  // 10
+    7, 5, 3, 0, 0, 0, 255, 90, 178,  // 11
+    3, 0, 4, 0, 0, 0, 0, 0, 0,  // 12
+    7, 1, 1, 0, 0, 0, 255, 188, 66,  // 13
+    1, 0, 3, 0, 0, 0, 0, 0, 0,  // 14
+    3, 0, 0, 0, 0, 0, 0, 0, 0,  // 15
+    9, 2, 0, 0, 0, 0, 0, 90, 255,  // 16
+    8, 0, 1, 0, 0, 0, 44, 28, 89,  // 17
+    0, 4, 1, 0, 0, 0, 96, 154, 253,  // 18
+    3, 0, 0, 3, 0, 9, 255, 195, 255,  // 19
+    6, 6, 0, 2, 0, 2, 205, 255, 149,  // 20
+    4, 8, 3, 3, 0, 3, 248, 64, 72,  // 21
+    7, 8, 1, 4, 0, 5, 18, 58, 179,  // 22
+    1, 8, 3, 3, 0, 3, 255, 205, 41,  // 23
+    9, 0, 7, 0, 4, 0, 0, 0, 0,  // 24
+    7, 0, 8, 0, 4, 0, 0, 0, 0,  // 25
+    9, 7, 1, 3, 0, 1, 72, 121, 80,  // 26
+    0, 7, 2, 2, 0, 2, 255, 152, 143,  // 27
+    0, 6, 1, 2, 0, 6, 255, 255, 255,  // 28
+    1, 7, 1, 2, 0, 1, 255, 213, 198,  // 29
+    5, 6, 0, 2, 0, 5, 204, 255, 170,  // 30
+    5, 4, 1, 2, 0, 5, 44, 28, 89,  // 31
+    5, 7, 1, 3, 0, 5, 85, 73, 41,  // 32
+    1, 0, 2, 0, 2, 0, 0, 0, 0,  // 33
+    3, 5, 1, 1, 0, 1, 225, 240, 215,  // 34
+    7, 5, 3, 0, 0, 0, 255, 90, 178,  // 35
+    0, 0, 0, 3, 0, 4, 196, 190, 168,  // 36
+    3, 0, 0, 0, 0, 0, 0, 0, 0,  // 37
+    3, 0, 4, 0, 0, 0, 0, 0, 0,  // 38
+    7, 1, 1, 0, 0, 0, 255, 188, 66,  // 39
+    7, 1, 1, 1, 0, 2, 113, 209, 222,  // 40
+    7, 0, 0, 0, 0, 5, 124, 255, 234,  // 41
+    9, 0, 1, 0, 0, 1, 239, 215, 131,  // 42
+    7, 5, 1, 1, 0, 1, 255, 188, 66,  // 43
+    3, 1, 1, 3, 0, 3, 42, 65, 213,  // 44
+    4, 3, 1, 4, 0, 0, 56, 76, 21,  // 45
+    2, 0, 7, 0, 0, 0, 0, 0, 0,  // 46
+    4, 7, 2, 4, 0, 4, 115, 65, 35,  // 47
+    5, 7, 0, 3, 0, 6, 203, 189, 178,  // 48
+    0, 2, 1, 1, 0, 0, 153, 137, 117,  // 49
+    5, 0, 7, 0, 2, 0, 0, 0, 0,  // 50
+    3, 0, 8, 0, 0, 0, 0, 0, 0,  // 51
+    6, 0, 8, 0, 3, 0, 0, 0, 0,  // 52
+    5, 8, 0, 2, 0, 4, 9, 177, 210,  // 53
+    2, 8, 3, 1, 0, 2, 255, 61, 0,  // 54
+    2, 8, 0, 4, 0, 4, 201, 255, 22,  // 55
+    6, 5, 0, 4, 0, 7, 251, 9, 16,  // 56
+    6, 2, 2, 3, 0, 1, 227, 28, 89,  // 57
+    2, 0, 8, 0, 0, 0, 0, 0, 0,  // 58
+    3, 7, 1, 1, 0, 2, 205, 169, 136,  // 59
+    4, 7, 2, 3, 0, 3, 247, 52, 31,  // 60
+    7, 7, 2, 0, 0, 4, 21, 102, 212,  // 61
+    6, 7, 0, 0, 0, 5, 0, 0, 0,  // 62
+    9, 6, 1, 0, 0, 1, 128, 94, 78,  // 63
+)
+
+private const val APPEARANCE_FIELDS = 9
+
 val SCRIPT_NPC_TEMPLATES: List<ScriptNpcTemplate> =
     SCRIPT_NPC_TEMPLATE_NAMES.mapIndexed { index, name ->
-        ScriptNpcTemplate(index, name, ScriptNpcClass.entries[SCRIPT_NPC_TEMPLATE_CLASSES[index]])
+        val a = index * APPEARANCE_FIELDS
+        val v = SCRIPT_NPC_TEMPLATE_APPEARANCES
+        ScriptNpcTemplate(
+            index,
+            name,
+            ScriptNpcClass.entries[SCRIPT_NPC_TEMPLATE_CLASSES[index]],
+            ScriptNpcAppearance(v[a], v[a + 1], v[a + 2], v[a + 3], v[a + 4], v[a + 5], v[a + 6], v[a + 7], v[a + 8]),
+        )
     }
 
 fun scriptNpcTemplate(index: Int): ScriptNpcTemplate? = SCRIPT_NPC_TEMPLATES.getOrNull(index)

@@ -7,7 +7,10 @@ import world.phantasmal.cell.observeNow
 import world.phantasmal.core.disposable.Disposable
 import world.phantasmal.core.disposable.DisposableSupervisedScope
 import world.phantasmal.core.disposable.Disposer
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcTemplate
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.psolib.fileFormats.quest.EntityType
+import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.web.core.loading.LoadingCache
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
@@ -40,13 +43,17 @@ class EntityMeshManager(
      */
     private val entityMeshCache = addDisposable(
         LoadingCache<TypeAndModel, EntityInstanceContainer>(
-            { (type, model, ultimate, renderVariant) ->
-                val mesh = entityMeshLoader.loadInstancedMesh(
-                    type,
-                    model,
-                    ultimate,
-                    renderVariant,
-                )
+            { (type, model, ultimate, renderVariant, scriptNpcTemplate) ->
+                val mesh = if (scriptNpcTemplate != null && type is NpcType) {
+                    entityMeshLoader.loadScriptNpcMesh(scriptNpcTemplate, type, ultimate)
+                } else {
+                    entityMeshLoader.loadInstancedMesh(
+                        type,
+                        model,
+                        ultimate,
+                        renderVariant,
+                    )
+                }
                 renderContext.entities.add(mesh)
                 EntityInstanceContainer(mesh, modelChanged = { entity ->
                     // When an entity's model changes, add it again. At this point it has already
@@ -328,6 +335,8 @@ class EntityMeshManager(
             model = (entity as? QuestObjectModel)?.model?.value,
             ultimate = questEditorUiStore.ultimate.value,
             renderVariant = entityRenderVariant(entity),
+            scriptNpcTemplate = (entity as? QuestNpcModel)?.scriptSpawn
+                ?.let { scriptNpcTemplate(it.templateIndex) },
         )
 
     private data class TypeAndModel(
@@ -335,6 +344,8 @@ class EntityMeshManager(
         val model: Int?,
         val ultimate: Boolean,
         val renderVariant: Int?,
+        /** Set for script-created NPCs, which render as player characters. */
+        val scriptNpcTemplate: ScriptNpcTemplate?,
     )
 
     private fun entityRenderVariant(entity: QuestEntityModel<*, *>): Int? =

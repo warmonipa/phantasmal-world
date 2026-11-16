@@ -5,10 +5,12 @@ import org.khronos.webgl.ArrayBuffer
 import world.phantasmal.core.PwResult
 import world.phantasmal.core.Success
 import world.phantasmal.core.unsafe.UnsafeMap
+import kotlinx.coroutines.CancellationException
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.cursor.Cursor
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.ninja.*
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcTemplate
 import world.phantasmal.psolib.fileFormats.quest.EntityType
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
@@ -21,6 +23,9 @@ import world.phantasmal.web.core.rendering.conversion.DEFAULT_TEXTURE_ANISOTROPY
 import world.phantasmal.web.core.rendering.conversion.ninjaObjectToInstancedMesh
 import world.phantasmal.web.core.rendering.disposeObject3DResources
 import world.phantasmal.web.externals.three.*
+import world.phantasmal.web.shared.dto.SectionId
+import world.phantasmal.web.viewer.loading.CharacterClassAssetLoader
+import world.phantasmal.web.viewer.models.CharacterClass
 import world.phantasmal.webui.DisposableContainer
 import world.phantasmal.webui.obj
 import kotlin.js.unsafeCast
@@ -35,6 +40,17 @@ interface EntityMeshLoader {
         ultimate: Boolean = false,
         renderVariant: Int? = null,
     ): InstancedMesh
+
+    /**
+     * Loads the mesh of a script-created NPC, which the client builds as a player character from
+     * the template's `npcplayerchar.dat` visual configuration. Loaders that cannot do that fall
+     * back to the stock model of [fallbackType].
+     */
+    suspend fun loadScriptNpcMesh(
+        template: ScriptNpcTemplate,
+        fallbackType: NpcType,
+        ultimate: Boolean = false,
+    ): InstancedMesh = loadInstancedMesh(fallbackType, null, ultimate)
 }
 
 class EntityAssetLoader internal constructor(
@@ -43,6 +59,16 @@ class EntityAssetLoader internal constructor(
     DisposableContainer(),
     EntityMeshLoader {
     constructor(assetLoader: AssetLoader) : this(assetLoader::loadArrayBuffer)
+
+    private val characterClassAssetLoader =
+        addDisposable(CharacterClassAssetLoader(loadArrayBuffer))
+
+    private val scriptNpcMeshCache = addDisposable(
+        LoadingCache<ScriptNpcTemplate, InstancedMesh?>(
+            { template -> loadScriptNpcPlayerMesh(template) },
+            { mesh -> mesh?.let(::disposeObject3DResources) },
+        )
+    )
 
     private val instancedMeshCache = addDisposable(
         LoadingCache<EntityMeshKey, InstancedMesh>(
@@ -65,6 +91,78 @@ class EntityAssetLoader internal constructor(
         return cloneInstancedMeshWithOwnedResources(instancedMeshCache.get(
             EntityMeshKey(type, model, ultimate, normalizedVariant)
         ))
+    }
+
+    override suspend fun loadScriptNpcMesh(
+        template: ScriptNpcTemplate,
+        fallbackType: NpcType,
+        ultimate: Boolean,
+    ): InstancedMesh {
+        val mesh = try {
+            scriptNpcMeshCache.get(template)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logger.warn(e) { "Couldn't build the player model of NPC template ${template.index}." }
+            null
+        }
+
+        return if (mesh == null) {
+            loadInstancedMesh(fallbackType, null, ultimate, null)
+        } else {
+            cloneInstancedMeshWithOwnedResources(mesh)
+        }
+    }
+
+    /**
+     * Builds the player-character model described by an `npcplayerchar.dat` template: class,
+     * section ID, costume, skin, face, head, hair style and hair color.
+     */
+    private suspend fun loadScriptNpcPlayerMesh(template: ScriptNpcTemplate): InstancedMesh {
+        val appearance = template.appearance
+        val charClass = CharacterClass.valueOf(template.characterClass.name)
+        val hasHair = charClass.hairStyleCount > 0
+        val headStyle = appearance.head.coerceIn(0, charClass.headStyleCount - 1)
+        val hairStyle = appearance.hair.coerceIn(0, (charClass.hairStyleCount - 1).coerceAtLeast(0))
+        val sectionId = SectionId.VALUES.getOrNull(appearance.sectionId) ?: SectionId.Viridia
+        // Cast bodies are selected by skin, other classes by costume.
+        val body = if (hasHair) appearance.costume else appearance.skin
+
+        val ninjaObject = characterClassAssetLoader.loadNinjaObject(
+            charClass,
+            headStyle,
+            hairStyle,
+            hairColor = if (hasHair) {
+                CharacterClassAssetLoader.HairColor(
+                    appearance.hairRed,
+                    appearance.hairGreen,
+                    appearance.hairBlue,
+                )
+            } else {
+                null
+            },
+        )
+        val textures = characterClassAssetLoader.loadXvrTextures(
+            charClass,
+            sectionId,
+            body,
+            appearance.skin,
+            appearance.face,
+            headStyle,
+        )
+
+        return ninjaObjectToInstancedMesh(
+            ninjaObject,
+            textures,
+            maxInstances = 300,
+            defaultMaterial = MeshLambertMaterial(obj {
+                color = DEFAULT_NPC_COLOR
+                side = DoubleSide
+            }),
+            boundingVolumes = true,
+            anisotropy = DEFAULT_TEXTURE_ANISOTROPY,
+        ).apply {
+            name = "ScriptNpc${template.index}"
+        }
     }
 
     private suspend fun loadMesh(

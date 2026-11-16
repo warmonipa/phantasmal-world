@@ -899,4 +899,23 @@ class GetScriptNpcSpawnsTests : LibTestSuite {
         assertEquals(null, scriptNpcTemplate(-1))
         assertEquals(null, scriptNpcTemplate(64))
     }
+
+    @Test
+    fun templates_expose_the_npcplayerchar_visual_config() {
+        // Record 32 (RACTON) of the stock npcplayerchar.dat.
+        val racton = scriptNpcTemplate(32)!!
+        assertEquals("RACTON", racton.name)
+        assertEquals(ScriptNpcClass.HUmar, racton.characterClass)
+        assertEquals(ScriptNpcAppearance(5, 7, 1, 3, 0, 5, 85, 73, 41), racton.appearance)
+        // Record 27 (DACCI) is a differently styled template.
+        assertEquals(
+            ScriptNpcAppearance(0, 7, 2, 2, 0, 2, 255, 152, 143),
+            scriptNpcTemplate(27)!!.appearance,
+        )
+        assertEquals(
+            ScriptNpcAppearance(3, 0, 0, 0, 0, 0, 0, 0, 0),
+            scriptNpcTemplate(15)!!.appearance,
+        )
+        assertTrue(SCRIPT_NPC_TEMPLATES.all { it.appearance.sectionId in 0..9 })
+    }
 }

@@ -487,10 +487,14 @@ Phantasmal World now discovers positioned V2, V3, and V4 script NPCs with the sa
 floor-sensitive analysis used for script particle emitters. The editor resolves constant register
 arguments for `npc_crp_V3`, `npc_crppk_V3`, `npc_crptalk_V3`, `npc_crp_id_v3`,
 `npc_crptalk_id_V3`, and `npc_talk_pl_V3`, maps the stock `npcplayerchar.dat` template index to its
-player class, and renders a read-only NPC preview on each reachable floor. Script positions are
-already map/world coordinates and therefore do not receive DAT section transforms. All supported
-episodes use the client's same 18 logical floor slots (`0` through `17`); episode map IDs are not
-logical floor IDs.
+player class and visual configuration, and renders a read-only NPC preview on each reachable floor.
+The preview is assembled from the player character model (`/player/<Class>Body.nj`, head, hair, and
+`<Class>Tex.afs`) using the template's costume, skin, face, head, hair, hair color, and section ID,
+not from the Pioneer 2 static NPC models (`NpcHUmar` and similar) that DAT NPCs use. Hair color is
+applied as the hair material's diffuse tint; the template's body proportions are not yet applied.
+Script positions are already map/world coordinates and therefore do not receive DAT section
+transforms. All supported episodes use the client's same 18 logical floor slots (`0` through
+`17`); episode map IDs are not logical floor IDs.
 
 Floor attribution follows the client's thread lifetimes. Code reached after a resumable yield
 (`sync`, message windows, and similar opcodes), including the fall-through after a call whose
@@ -536,7 +540,7 @@ angle supplied to its creation opcode:
 - Slot lifetime and movement opcodes such as `npc_stop`, `npc_play`, `npc_kill`, and `p_move_V3`
   do not follow, move, stop, or remove a preview.
 - One-shot custom character data from `get_npc_data` / `load_npc_data` is not applied. Such NPCs
-  currently use the stock class model for their template index.
+  currently use the stock `npcplayerchar.dat` appearance for their template index.
 - Behavior parameters, talk state, and attacker/follower AI are documented but not simulated.
 
 The preview is selectable for inspection and script navigation, but every edit boundary remains

@@ -1,6 +1,8 @@
 package world.phantasmal.web.questEditor.loading
 
 import org.khronos.webgl.Uint8Array
+import world.phantasmal.psolib.asm.dataFlowAnalysis.SCRIPT_NPC_TEMPLATES
+import world.phantasmal.psolib.asm.dataFlowAnalysis.scriptNpcTemplate
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.QuestObject
@@ -16,6 +18,8 @@ import kotlin.js.unsafeCast
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -215,6 +219,78 @@ class EntityAssetLoaderTests : WebTestSuite {
         disposeObject3DResources(mesh)
         loader.dispose()
     }
+
+    @Test
+    fun script_npc_templates_render_as_player_characters_with_their_visual_config() = testAsync {
+        val delegate = AssetLoader(basePath = "/assets")
+        val requested = mutableListOf<String>()
+        val loader = EntityAssetLoader { path ->
+            requested.add(path)
+            delegate.loadArrayBuffer(path)
+        }
+        // RACTON (32): HUmar, costume 7, skin 1, face 3, head 0, hair 5, hair color (85, 73, 41).
+        val racton = scriptNpcTemplate(32)!!
+        val recostumed = racton.copy(appearance = racton.appearance.copy(costume = 0))
+        val recolored = racton.copy(appearance = racton.appearance.copy(hairRed = 200))
+
+        try {
+            val mesh = loader.loadScriptNpcMesh(racton, NpcType.NpcHUmar)
+            val stock = loader.loadInstancedMesh(NpcType.NpcHUmar, model = null)
+            val other = loader.loadScriptNpcMesh(recostumed, NpcType.NpcHUmar)
+            val tinted = loader.loadScriptNpcMesh(recolored, NpcType.NpcHUmar)
+
+            try {
+                assertEquals("ScriptNpc32", mesh.name)
+                assertTrue((mesh.geometry.asDynamic().attributes.position.count as Int) > 0)
+                assertTrue("/player/HUmarBody.nj" in requested, requested.toString())
+                assertTrue("/player/HUmarHead0.nj" in requested, requested.toString())
+                assertTrue("/player/HUmarHair5.nj" in requested, requested.toString())
+                assertTrue("/player/HUmarTex.afs" in requested, requested.toString())
+                // The stock Pioneer 2 NPC model is not what the template describes.
+                assertNotEquals(textureImages(stock), textureImages(mesh))
+                assertNotEquals(textureImages(other), textureImages(mesh))
+                // The hair color tints the hair material.
+                assertTrue(hairColors(mesh).contains(0x554929))
+                assertTrue(hairColors(tinted).contains(0xC84929))
+                assertFalse(hairColors(other).contains(0xC84929))
+            } finally {
+                disposeObject3DResources(mesh)
+                disposeObject3DResources(stock)
+                disposeObject3DResources(other)
+                disposeObject3DResources(tinted)
+            }
+        } finally {
+            loader.dispose()
+        }
+    }
+
+    @Test
+    fun every_stock_script_npc_template_builds_its_player_model_without_falling_back() = testAsync {
+        val loader = EntityAssetLoader(AssetLoader(basePath = "/assets"))
+
+        try {
+            for (template in SCRIPT_NPC_TEMPLATES) {
+                val mesh = loader.loadScriptNpcMesh(template, NpcType.NpcHUmar)
+
+                try {
+                    // The fallback is the stock NPC model, which carries the NPC type's name.
+                    assertEquals("ScriptNpc${template.index}", mesh.name, template.toString())
+                } finally {
+                    disposeObject3DResources(mesh)
+                }
+            }
+        } finally {
+            loader.dispose()
+        }
+    }
+
+    private fun hairColors(mesh: InstancedMesh): List<Int> =
+        // The renderer feeds diffuse channels to Three.js unconverted, so compare raw channels.
+        materials(mesh).map {
+            val color = it.asDynamic().color
+            fun channel(value: dynamic) = kotlin.math.round((value as Double) * 255).toInt()
+            (channel(color.r) shl 16) or (channel(color.g) shl 8) or channel(color.b)
+        }
 
     /** Fingerprints of the texture data each material samples. */
     private fun textureImages(mesh: InstancedMesh): List<String> =

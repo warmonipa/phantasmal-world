@@ -1,5 +1,6 @@
 package world.phantasmal.web.viewer.loading
 
+import org.khronos.webgl.ArrayBuffer
 import world.phantasmal.core.Success
 import world.phantasmal.psolib.Endianness
 import world.phantasmal.psolib.cursor.cursor
@@ -12,7 +13,11 @@ import world.phantasmal.web.viewer.models.CharacterClass
 import world.phantasmal.web.viewer.models.CharacterClass.*
 import world.phantasmal.webui.DisposableContainer
 
-class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : DisposableContainer() {
+class CharacterClassAssetLoader internal constructor(
+    private val loadArrayBuffer: suspend (String) -> ArrayBuffer,
+) : DisposableContainer() {
+    constructor(assetLoader: AssetLoader) : this(assetLoader::loadArrayBuffer)
+
     private val ninjaObjectCache: LoadingCache<CharacterClass, NjObject> =
         addDisposable(LoadingCache(::loadBodyParts) { /* Nothing to dispose. */ })
 
@@ -26,7 +31,12 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
      * Loads body parts with specific head and hair style numbers.
      * Unlike [loadNinjaObject], this does NOT use the cache since combinations vary.
      */
-    suspend fun loadNinjaObject(char: CharacterClass, headStyle: Int, hairStyle: Int): NjObject {
+    suspend fun loadNinjaObject(
+        char: CharacterClass,
+        headStyle: Int,
+        hairStyle: Int,
+        hairColor: HairColor? = null,
+    ): NjObject {
         val texIds = textureIds(char, SectionId.Viridia, 0)
 
         val body = loadBodyPart(char, "Body")
@@ -40,6 +50,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
         }
 
         val hair = loadBodyPart(char, "Hair", no = hairStyle)
+        hairColor?.let { tintMeshes(hair, it) }
         shift += texIds.head.size
         shiftTextureIds(hair, shift)
         addToBone(head, hair, parentBoneId = 0)
@@ -86,7 +97,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
      */
     suspend fun loadNpcXvrTextures(extraModel: Int): List<XvrTexture?> {
         val slug = npcSlugOrThrow(extraModel)
-        val buffer = assetLoader.loadArrayBuffer("/player/${slug}Tex.afs")
+        val buffer = loadArrayBuffer("/player/${slug}Tex.afs")
         val afsResult = parseAfs(buffer.cursor(Endianness.Little))
 
         if (afsResult !is Success) {
@@ -100,7 +111,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
     }
 
     private suspend fun loadNpcBodyPart(slug: String, bodyPart: String): NjObject {
-        val buffer = assetLoader.loadArrayBuffer("/player/${slug}${bodyPart}.nj")
+        val buffer = loadArrayBuffer("/player/${slug}${bodyPart}.nj")
         return parseNj(buffer.cursor(Endianness.Little)).unwrap().first()
     }
 
@@ -174,7 +185,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
         bodyPart: String,
         no: Int? = null,
     ): NjObject {
-        val buffer = assetLoader.loadArrayBuffer("/player/${char.slug}${bodyPart}${no ?: ""}.nj")
+        val buffer = loadArrayBuffer("/player/${char.slug}${bodyPart}${no ?: ""}.nj")
         return parseNj(buffer.cursor(Endianness.Little)).unwrap().first()
     }
 
@@ -193,6 +204,27 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
         }
     }
 
+    /**
+     * Replaces the material diffuse color of every mesh in [njObject] so that the hair texture is
+     * tinted with the character's hair color.
+     */
+    private fun tintMeshes(njObject: NjObject, color: HairColor) {
+        njObject.model?.let { model ->
+            for (mesh in model.meshes) {
+                mesh.diffuse = NjArgb(
+                    mesh.diffuse?.a ?: 1f,
+                    color.red / 255f,
+                    color.green / 255f,
+                    color.blue / 255f,
+                )
+            }
+        }
+
+        for (child in njObject.children) {
+            tintMeshes(child, color)
+        }
+    }
+
     private fun addToBone(
         obj: NjObject,
         child: NjObject,
@@ -206,7 +238,7 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
     }
 
     private suspend fun loadTextures(char: CharacterClass): List<XvrTexture?> {
-        val buffer = assetLoader.loadArrayBuffer("/player/${char.slug}Tex.afs")
+        val buffer = loadArrayBuffer("/player/${char.slug}Tex.afs")
         val afsResult = parseAfs(buffer.cursor(Endianness.Little))
 
         if (afsResult !is Success) {
@@ -384,6 +416,9 @@ class CharacterClassAssetLoader(private val assetLoader: AssetLoader) : Disposab
                 )
             }
         }
+
+    /** Hair color with channels in the range [0, 255]. */
+    class HairColor(val red: Int, val green: Int, val blue: Int)
 
     companion object {
         /** File name prefixes for NPC models, indexed by extra_model (0=GM .. 6=Elly). */

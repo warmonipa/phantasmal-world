@@ -5,7 +5,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.w3c.dom.HTMLCanvasElement
+import world.phantasmal.psolib.Episode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcCreationOpcode
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcSpawn
+import world.phantasmal.psolib.asm.dataFlowAnalysis.ScriptNpcTemplate
 import world.phantasmal.psolib.fileFormats.quest.EntityType
+import world.phantasmal.psolib.fileFormats.quest.NpcType
 import world.phantasmal.psolib.fileFormats.quest.ObjectType
 import world.phantasmal.web.externals.three.BoxHelper
 import world.phantasmal.web.externals.three.InstancedMesh
@@ -16,6 +21,8 @@ import world.phantasmal.web.externals.three.Vector3
 import world.phantasmal.web.questEditor.loading.EntityAssetLoader
 import world.phantasmal.web.questEditor.loading.EntityMeshLoader
 import world.phantasmal.web.test.WebTestSuite
+import world.phantasmal.web.test.createQuestModel
+import world.phantasmal.web.test.createQuestNpcModel
 import world.phantasmal.web.test.createQuestObjectModel
 import kotlin.js.unsafeCast
 import kotlin.test.Test
@@ -58,6 +65,43 @@ class EntityMeshManagerTests : WebTestSuite {
         assertEquals(0, loader.mesh.count)
         assertFalse(selectionMarkers(context).any { it.visible })
     }
+
+    @Test
+    fun script_created_npcs_load_their_template_player_model_while_dat_npcs_keep_the_stock_model() =
+        testAsync {
+            val context = disposer.add(
+                QuestRenderContext(
+                    document.createElement("canvas").unsafeCast<HTMLCanvasElement>(),
+                    PerspectiveCamera(),
+                )
+            )
+            val loader = TemplateRecordingMeshLoader()
+            val manager = disposer.add(
+                EntityMeshManager(
+                    components.questEditorStore,
+                    components.questEditorUiStore,
+                    context,
+                    loader,
+                )
+            )
+            val spawn = ScriptNpcSpawn(
+                ScriptNpcCreationOpcode.NpcCrptalk,
+                x = 282, y = 0, z = 326, angle = 64,
+                templateIndex = 32,
+                npcSlot = 3,
+                state = 0,
+                executionFloorIds = setOf(0),
+            )
+            val scriptNpc = scriptNpcPreviewModels(listOf(spawn), setOf(0), createQuestModel()).single()
+            val datNpc = createQuestNpcModel(NpcType.NpcHUmar, Episode.I)
+
+            manager.add(scriptNpc)
+            manager.add(datNpc)
+            withTimeout(5_000) { while (loader.stockLoads == 0 || loader.templates.isEmpty()) yield() }
+
+            assertEquals(listOf(32), loader.templates)
+            assertEquals(1, loader.stockLoads)
+        }
 
     @Test
     fun removing_all_entities_detaches_markers_and_disposal_removes_owned_scene_nodes() =
@@ -352,6 +396,30 @@ class EntityMeshManagerTests : WebTestSuite {
             return meshes.getOrPut(model) {
                 InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
             }
+        }
+    }
+
+    private class TemplateRecordingMeshLoader : EntityMeshLoader {
+        val templates = mutableListOf<Int>()
+        var stockLoads = 0
+
+        override suspend fun loadInstancedMesh(
+            type: EntityType,
+            model: Int?,
+            ultimate: Boolean,
+            renderVariant: Int?,
+        ): InstancedMesh {
+            stockLoads++
+            return InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
+        }
+
+        override suspend fun loadScriptNpcMesh(
+            template: ScriptNpcTemplate,
+            fallbackType: NpcType,
+            ultimate: Boolean,
+        ): InstancedMesh {
+            templates.add(template.index)
+            return InstancedMesh(PlaneGeometry(), MeshBasicMaterial(), 10).apply { count = 0 }
         }
     }
 
