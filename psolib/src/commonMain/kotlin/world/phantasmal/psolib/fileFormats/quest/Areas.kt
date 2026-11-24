@@ -55,8 +55,8 @@ private val AREAS by lazy {
         createArea(3, 0x15, "VR Spaceship Alpha", order++, 3),
         createArea(4, 0x16, "VR Spaceship Beta", order++, 3),
         createArea(5, 0x17, "Central Control Area", order++, 1),
-        createArea(6, 0x18, "Jungle Area East", order++, 1),
-        createArea(7, 0x19, "Jungle Area North", order++, 1),
+        createArea(6, 0x18, "Jungle Area North", order++, 1),
+        createArea(7, 0x19, "Jungle Area East", order++, 1),
         createArea(8, 0x1A, "Mountain Area", order++, 3),
         createArea(9, 0x1B, "Seaside Area", order++, 1),
         createArea(10, 0x1C, "Seabed Upper Levels", order++, 3),
@@ -65,7 +65,7 @@ private val AREAS by lazy {
         createArea(13, 0x1F, "Test Subject Disposal Area", order++, bossArea = true),
         createArea(14, 0x20, "VR Temple Final", order++, bossArea = true),
         createArea(15, 0x21, "VR Spaceship Final", order++, bossArea = true),
-        createArea(16, 0x22, "Seaside Area at Night", order++, 2),
+        createArea(16, 0x22, "Seaside Area at Night", order++, 1),
         createArea(17, 0x23, "Tower", order++, 5),
     )
 

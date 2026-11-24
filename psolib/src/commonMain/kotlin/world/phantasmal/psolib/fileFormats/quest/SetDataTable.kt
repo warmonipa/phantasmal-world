@@ -30,7 +30,10 @@ enum class DatFilenameStyle {
 
 /**
  * Describes the dat file naming for a single floor in BB free roam mode.
- * Data sourced from newserv Map.cc `map_file_info` (BB online/non-solo).
+ * Data sourced from newserv Map.cc `map_file_info` (BB online/non-solo), except Episode II
+ * floors 16-17 (Seaside Area at Night, Control Tower), which newserv's Ep2 table has no rows
+ * for; those come from the GC client's stock SetDataTableOn/Off.rel (`jungle06` x1 layout,
+ * `jungle07` x5 layouts, 1 entity set each).
  *
  * @param token Name token used in the dat filename (e.g., "forest01", "cave01")
  * @param v1Values Available layout variation values (empty = no v1 dimension in filename)
@@ -47,6 +50,7 @@ class FloorFileInfo(
  *
  * Naming patterns (from newserv SetDataTable):
  * - v1 present, v2 present: `map_{token}_{v1:02d}_{v2:02d}{type}.dat`
+ * - v1 present, v2 absent:  `map_{token}_{v1:02d}{type}.dat`
  * - v1 absent, v2 present:  `map_{token}_{v2:02d}{type}.dat`
  * - both absent:             `map_{token}{type}.dat`
  *
@@ -110,7 +114,7 @@ fun getAllFloorFileInfo(episode: Episode): List<FloorFileInfo?> =
         Episode.IV -> EP4_FLOORS
     }
 
-// ---- BB online (non-solo) data from newserv Map.cc map_file_info ----
+// ---- BB online (non-solo) data from newserv Map.cc map_file_info (Ep2 floors 16-17: GC SetDataTable.rel) ----
 
 private fun f(token: String, v1: List<Int> = emptyList(), v2: List<Int> = emptyList()) =
     FloorFileInfo(token, v1, v2)
@@ -141,8 +145,8 @@ private val EP2_FLOORS: List<FloorFileInfo?> = listOf(
     f("space01", listOf(0, 1), listOf(0)),                 // 3:  VR Spaceship Alpha
     f("space02", listOf(0, 1), listOf(0)),                 // 4:  VR Spaceship Beta
     f("jungle01", v2 = listOf(0, 1, 2)),                  // 5:  CCA
-    f("jungle02", v2 = listOf(0, 1, 2)),                  // 6:  Jungle East
-    f("jungle03", v2 = listOf(0, 1, 2)),                  // 7:  Jungle North
+    f("jungle02", v2 = listOf(0, 1, 2)),                  // 6:  Jungle North
+    f("jungle03", v2 = listOf(0, 1, 2)),                  // 7:  Jungle East
     f("jungle04", listOf(0, 1), listOf(0, 1)),             // 8:  Mountain
     f("jungle05", v2 = listOf(0, 1, 2)),                  // 9:  Seaside
     f("seabed01", listOf(0, 1), listOf(0, 1)),             // 10: Seabed Upper
@@ -151,8 +155,8 @@ private val EP2_FLOORS: List<FloorFileInfo?> = listOf(
     null,                                                  // 13: Test Subject Disposal (boss)
     null,                                                  // 14: VR Temple Final (boss)
     null,                                                  // 15: VR Spaceship Final (boss)
-    f("jungle06", v2 = listOf(0, 1, 2)),                  // 16: Seaside Area at Night
-    f("tower", listOf(0, 1), listOf(0)),                  // 17: Tower
+    f("jungle06", v2 = listOf(0)),                        // 16: Seaside Area at Night
+    f("jungle07", listOf(0, 1, 2, 3, 4)),                // 17: Control Tower
 )
 
 private val EP4_FLOORS: List<FloorFileInfo?> = listOf(

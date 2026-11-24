@@ -182,4 +182,25 @@ class SetDataTableTests {
             resolveDatFilename(info, 0, 0, DatFileType.OBJECTS, DatFilenameStyle.BB),
         )
     }
+
+    @Test
+    fun ep2_seaside_night_has_single_layout_and_entity_set() {
+        val info = getFloorFileInfo(Episode.II, 16)
+        assertNotNull(info)
+        assertEquals("jungle06", info.token)
+        assertEquals(emptyList(), info.v1Values)
+        assertEquals(listOf(0), info.v2Values)
+        assertEquals("map_jungle06_00o.dat", resolveDatFilename(info, 0, 0, DatFileType.OBJECTS))
+    }
+
+    @Test
+    fun ep2_control_tower_uses_jungle07_with_five_layouts() {
+        val info = getFloorFileInfo(Episode.II, 17)
+        assertNotNull(info)
+        assertEquals("jungle07", info.token)
+        assertEquals(listOf(0, 1, 2, 3, 4), info.v1Values)
+        assertEquals(emptyList(), info.v2Values)
+        assertEquals("map_jungle07_00o.dat", resolveDatFilename(info, 0, 0, DatFileType.OBJECTS))
+        assertEquals("map_jungle07_04e.dat", resolveDatFilename(info, 4, 0, DatFileType.ENEMIES))
+    }
 }

@@ -67,7 +67,7 @@ normal/Ultimate cases share causes.
 | P1 | LobbyEventObjectRedAndWhiteCurtain / 392 | `objects/392.xvm` | 44 placements; e.g. `map_cardlobby01o.dat`, object 35. Slots 1, 12. |
 | P1 | WeddingLobby / 393 | `objects/393.xvm` | 8 placements; e.g. `map_cardlobby01o.dat`, object 34. Slots 1, 3, 14, 23. |
 | P1 | TreeLobby / 394 | `objects/394.xvm` | 12 placements; e.g. `map_lobby_10o.dat`, object 41. Slots 4, 10, 12, 15, 33. |
-| P2 | Episode II area 16 / variant 1 | `areas/map_jungle06_01n.rel` | Declared Seaside Area at Night variant fails in `AreaAssetLoader`. First request fails, so later dependencies are not validated. Whether the variant declaration/path is wrong or a map is missing remains open. |
+| P2 (resolved) | Episode II area 16 / variant 1 | `areas/map_jungle06_01n.rel` | Excess declaration, removed. The GC client SetDataTable has exactly one layout x one entity set for Seaside Area at Night (`map_jungle06_00`), so `Areas.kt` now declares 1 variant for area 16 and `SetDataTable.kt` lists `jungle06` with `v2 = [0]` only. Evidence TSV/JSON files were not regenerated and still list the old request. |
 
 Indices above are zero-based. The 547 model range 0–3 is corroborated by newserv
 `src/Map.cc`, entry `0x0223` (`TObjSeabedSuiso_CH`, param4 clamped to 0–3).
@@ -199,7 +199,7 @@ Six SetData artifacts were read (including differently cased loose/archive names
 not six distinct game modes. All scanned map-ID 34 rows use layout 0, with
 `map_jungle06_00` or its offline object set. This supports an excess declaration in
 the project's night-seaside variants; it does not prove every client version lacks
-a second layout. Resolve that baseline before deleting a declaration or adding files.
+a second layout. The GC client SetDataTable (stock `SetDataTableOn/Off.rel`) also has only layout 0 for this floor, so the second variant was removed as an excess declaration. The same table gives Episode II floor 17 (Control Tower, map base `jungle07`) five layouts `_00`..`_04`, now reflected in `SetDataTable.kt`.
 
 All **24 UnavailableModel/Unverified types** now have a
 [per-type register](asset-completeness-unresolved-objects.tsv) with bundled and

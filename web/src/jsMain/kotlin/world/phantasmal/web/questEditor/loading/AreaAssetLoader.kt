@@ -844,7 +844,7 @@ class AreaAssetLoader(private val assetLoader: AssetLoader) : DisposableContaine
                     *((0..59).toSet() + setOf(69, 77)).toTypedArray(),
                 ),
             ),
-            // Jungle Area East
+            // Jungle Area North
             Pair(Episode.II, 6) to Fix(
                 renderOnTopTextures = unsafeSetOf(0, 1, 2, 18, 21, 24),
                 hiddenObjects = unsafeSetOf(

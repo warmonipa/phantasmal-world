@@ -105,7 +105,7 @@ class StageNpcTypeResolutionTests {
 
     @Test
     fun stageNpc_with_wrong_mapAreaId_resolves_incorrectly() {
-        // StageNPC subtype 9 in Tower = Epsilon, but mapAreaId=6 selects Jungle East.
+        // StageNPC subtype 9 in Tower = Epsilon, but mapAreaId=6 selects Jungle North.
         val npc = createStageNpc(Episode.II, floorId = 17, mapAreaId = 6, subtype = 9)
         assertNotEquals(NpcType.Epsilon, npc.type,
             "StageNPC with wrong mapAreaId should NOT resolve to the expected type")

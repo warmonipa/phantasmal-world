@@ -331,9 +331,9 @@ private val NPC51_TABLE: Map<Int, Array<NpcType?>> by lazy {
         ),
         // EP2 CCA
         23 to ep2Outdoor,
-        // EP2 Jungle East
-        24 to ep2Outdoor,
         // EP2 Jungle North
+        24 to ep2Outdoor,
+        // EP2 Jungle East
         25 to ep2Outdoor,
         // EP2 Mountain
         26 to ep2Outdoor,
