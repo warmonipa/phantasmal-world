@@ -17,7 +17,7 @@ fun getRegisterValue(cfg: ControlFlowGraph, instruction: Instruction, register: 
 
     val block = cfg.getBlockForInstruction(instruction)
 
-    return RegisterValueFinder().find(
+    return RegisterValueFinder(cfg).find(
         mutableSetOf(),
         block,
         block.indexOfInstruction(instruction),
@@ -25,8 +25,21 @@ fun getRegisterValue(cfg: ControlFlowGraph, instruction: Instruction, register: 
     )
 }
 
-private class RegisterValueFinder {
+private class RegisterValueFinder(private val cfg: ControlFlowGraph) {
     private var iterations = 0
+    private val switchCallFallthroughFrom: Map<BasicBlock, BasicBlock> by lazy {
+        buildMap {
+            for (i in 0 until cfg.blocks.lastIndex) {
+                val b = cfg.blocks[i]
+                if (b.branchType == BranchType.Call && b.end > b.start) {
+                    val term = b.segment.instructions[b.end - 1]
+                    if (term.opcode.code == OP_SWITCH_CALL.code) {
+                        put(cfg.blocks[i + 1], b)
+                    }
+                }
+            }
+        }
+    }
 
     // TODO: Deal with incorrect argument types.
     fun find(
@@ -214,7 +227,16 @@ private class RegisterValueFinder {
         val values = ValueSet.empty()
         path.add(block)
 
-        for (from in block.from) {
+        val predecessors = buildList(block.from.size + 1) {
+            addAll(block.from)
+            switchCallFallthroughFrom[block]?.let { fallthroughFrom ->
+                if (fallthroughFrom !in block.from && canSkipSwitchCall(path, fallthroughFrom)) {
+                    add(fallthroughFrom)
+                }
+            }
+        }
+
+        for (from in predecessors) {
             // Bail out from loops.
             if (from in path) {
                 return ValueSet.all()
@@ -231,6 +253,77 @@ private class RegisterValueFinder {
         }
 
         return values
+    }
+
+    /**
+     * Returns `true` when [block]'s `switch_call` terminator may select an out-of-range index
+     * and therefore skip all callees and fall straight through to the next block.
+     *
+     * Only rules out fallthrough when the selector register is provably assigned an in-range
+     * constant earlier in the same basic block (avoiding interprocedural CFG return-edge
+     * approximations such as a nested skipped `switch_call`).
+     */
+    private fun canSkipSwitchCall(path: MutableSet<BasicBlock>, block: BasicBlock): Boolean {
+        if (block in path || block.end <= block.start) return true
+        val term = block.segment.instructions[block.end - 1]
+        if (term.opcode.code != OP_SWITCH_CALL.code) return false
+        val tableSize = term.args.size - 1
+        if (tableSize <= 0) return true
+        val selReg = (term.args.getOrNull(0) as? IntArg)?.value ?: return true
+        if (selReg !in 0..255) return true
+        val localIdx = findLocalConstantInBlock(block, selReg) ?: return true
+        return localIdx !in 0 until tableSize || term.args.getOrNull(localIdx + 1) !is IntArg
+    }
+
+    private fun findLocalConstantInBlock(block: BasicBlock, reg: Int): Int? {
+        for (i in (block.end - 2) downTo block.start) {
+            val prev = block.segment.instructions[i]
+            val args = prev.args
+            when (prev.opcode) {
+                OP_SYNC -> return null
+                OP_LETI,
+                OP_LETB_V3_V4,
+                OP_LETW -> {
+                    if (args.size >= 2 && (args[0] as? IntArg)?.value == reg) {
+                        return (args[1] as? IntArg)?.value
+                    }
+                }
+                OP_CLEAR -> if ((args.getOrNull(0) as? IntArg)?.value == reg) return 0
+                OP_SET -> if ((args.getOrNull(0) as? IntArg)?.value == reg) return 1
+                OP_SYNC_REGISTER_V1_V2,
+                OP_SYNC_REGISTER_V3_V4 -> {
+                    if (args.size < 2) return null
+                    if ((args[0] as? IntArg)?.value == reg) {
+                        val valArg = args[1] as? IntArg
+                        return if (valArg != null && !valArg.isRegRef) valArg.value else null
+                    }
+                }
+                OP_STACK_POPM_V3_V4 -> {
+                    val base = (args.getOrNull(0) as? IntArg)?.value ?: return null
+                    val count = (args.getOrNull(1) as? IntArg)?.value ?: return null
+                    if (reg in base until (base + count)) return null
+                }
+                else -> {
+                    val params = prev.opcode.params
+                    val argLen = min(args.size, params.size)
+                    for (j in 0 until argLen) {
+                        val paramType = params[j].type
+                        if (paramType is RegType) {
+                            val regRef = (args[j] as? IntArg)?.value ?: continue
+                            val regParams = paramType.registers
+                            if (regParams != null) {
+                                for ((k, rp) in regParams.withIndex()) {
+                                    if (rp.write && regRef + k == reg) return null
+                                }
+                            } else if (params[j].write && regRef == reg) {
+                                return null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null
     }
 
     /**

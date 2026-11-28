@@ -848,4 +848,135 @@ class QuestEditorToolbarControllerTests : WebTestSuite {
         ctrl.setSaveFormat(SaveFormat.QST)
         assertEquals(SaveFormat.QST, ctrl.saveFormat.value)
     }
+
+    // ---- Floor variant submenu & script bidirectional sync tests ----
+
+    @Test
+    fun set_floor_variant_edits_script_and_supports_unmounted_undo_redo_with_savepoint() = testAsync {
+        var activatedAsm = false
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+            onActivateAsmEditor = { activatedAsm = true },
+        ))
+        val bytecode = assemble(
+            listOf("0:", "    set_episode 0", "    ret"),
+            Version.BB_V4,
+        ).unwrap()
+        val quest = createQuestModel(episode = Episode.I, bytecodeIr = bytecode)
+        components.questEditorStore.setCurrentQuest(quest)
+
+        // Wait for textModel creation via mutateDeferred.
+        kotlinx.coroutines.yield()
+        assertFalse(components.questEditorStore.canSaveChanges.value)
+
+        // Boss and Lobby areas must NOT expose variant badges; Cave 1 (6 variants) MUST.
+        val bossEntry = ctrl.areas.value.first { it.area.bossArea }
+        val lobbyEntry = ctrl.areas.value.first { it.area.name == "Lobby" }
+        val cave1Entry = ctrl.areas.value.first { it.floorId == 3 }
+        assertNull(ctrl.getFloorVariantBadge(bossEntry))
+        assertNull(ctrl.getFloorVariantBadge(lobbyEntry))
+        val initialBadge = assertIs<FloorVariantBadge.Editable>(ctrl.getFloorVariantBadge(cave1Entry))
+        assertEquals("Map 1", initialBadge.badgeText)
+        assertEquals(6, initialBadge.options.size)
+
+        // Selecting Map 3 inserts bb_map_designate 3, 3, 0, 2, 0 and switches viewport to Floor 3 Map 3.
+        assertTrue(ctrl.setFloorVariant(cave1Entry, 2))
+        assertEquals(setOf(3), components.questEditorStore.currentFloorIds.value)
+        assertEquals(2, components.questEditorStore.currentAreaVariant.value?.id)
+        assertTrue(components.asmStore.textModel.value!!.getValue().contains("bb_map_designate 3, 3, 0, 2, 0"))
+        kotlinx.coroutines.yield()
+        assertTrue(components.questEditorStore.canSaveChanges.value)
+
+        // Undo works even when Script tab (AsmEditorWidget) was never mounted, restoring savePoint!
+        ctrl.undo()
+        kotlinx.coroutines.yield()
+        assertFalse(components.asmStore.textModel.value!!.getValue().contains("bb_map_designate"))
+        assertFalse(components.questEditorStore.canSaveChanges.value)
+
+        // Redo restores the inserted bb_map_designate.
+        ctrl.redo()
+        kotlinx.coroutines.yield()
+        assertTrue(components.asmStore.textModel.value!!.getValue().contains("bb_map_designate 3, 3, 0, 2, 0"))
+
+        // Lock jump activates Script dock tab first.
+        ctrl.jumpToFloorDesignation(2)
+        assertTrue(activatedAsm)
+    }
+
+    @Test
+    fun out_of_catalog_variant_row_is_preserved_and_flagged_unsupported_in_3d() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val quest = createQuestModel(
+            episode = Episode.I,
+            floorMappingsFromScript = false,
+            floorMappings = listOf(
+                FloorMapping(floorId = 3, mapId = 3, mapAreaId = 3, mapVariation = 6, mapEpisode = Episode.I),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+
+        val row = ctrl.areas.value.single { it.floorId == 3 }
+        assertTrue(row.outOfCatalogVariant)
+        assertNull(row.variant)
+        assertTrue(row.label.contains("unsupported"))
+
+        ctrl.setCurrentArea(row)
+        assertTrue(components.questEditorStore.currentFloorHasUnsupportedVariant.value)
+    }
+
+    @Test
+    fun cross_floor_variant_edit_on_shared_area_model_updates_toolbar_and_clears_stale_event() = testAsync {
+        val ctrl = disposer.add(QuestEditorToolbarController(
+            components.uiStore,
+            components.areaStore,
+            components.questEditorStore,
+            components.questEditorUiStore,
+            components.asmStore,
+        ))
+        val bytecode = assemble(
+            listOf(
+                "0:",
+                "    set_episode 0",
+                "    bb_map_designate 3, 3, 0, 0, 0",
+                "    bb_map_designate 4, 3, 0, 0, 0",
+                "    ret",
+            ),
+            Version.BB_V4,
+        ).unwrap()
+        val floor3Event = QuestEventModel(1, 3, 0, 0, 0, 0, mutableListOf())
+        val quest = createQuestModel(
+            episode = Episode.I,
+            bytecodeIr = bytecode,
+            events = listOf(floor3Event),
+            floorMappings = listOf(
+                FloorMapping(floorId = 3, mapId = 3, mapAreaId = 3, mapVariation = 0, mapEpisode = Episode.I),
+                FloorMapping(floorId = 4, mapId = 3, mapAreaId = 3, mapVariation = 0, mapEpisode = Episode.I),
+            ),
+        )
+        components.questEditorStore.setCurrentQuest(quest)
+        kotlinx.coroutines.yield()
+
+        // Select Floor 3 and an event on Floor 3.
+        ctrl.setCurrentArea(ctrl.areas.value.single { it.floorId == 3 })
+        components.questEditorStore.setSelectedEvent(floor3Event)
+        assertSame(floor3Event, components.questEditorStore.selectedEvent.value)
+
+        // Edit Floor 4 (same AreaModel Cave 1) -> toolbar must switch to Floor 4 and clear Floor 3 event!
+        val floor4Entry = ctrl.areas.value.single { it.floorId == 4 }
+        assertTrue(ctrl.setFloorVariant(floor4Entry, 2))
+        assertEquals(setOf(4), components.questEditorStore.currentFloorIds.value)
+        assertEquals(4, ctrl.currentArea.value?.floorId)
+        assertEquals(2, ctrl.currentArea.value?.variant?.id)
+        assertNull(components.questEditorStore.selectedEvent.value)
+    }
 }

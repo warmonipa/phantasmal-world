@@ -1,6 +1,7 @@
 package world.phantasmal.web.questEditor.stores
 
 import world.phantasmal.cell.Cell
+import world.phantasmal.cell.falseCell
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.psolib.fileFormats.quest.ChallengeModeSeedSimulation
 import world.phantasmal.web.questEditor.models.AreaModel
@@ -20,6 +21,7 @@ interface QuestMapState {
     val currentArea: Cell<AreaModel?>
     val currentAreaVariant: Cell<AreaVariantModel?>
     val currentFloorIds: Cell<Set<Int>?>
+    val currentFloorHasUnsupportedVariant: Cell<Boolean> get() = falseCell()
     val currentAreaObjects: ListCell<QuestObjectModel>
     val selectedSection: Cell<SectionModel?>
 }

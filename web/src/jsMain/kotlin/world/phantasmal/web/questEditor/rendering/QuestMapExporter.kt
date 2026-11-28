@@ -115,8 +115,9 @@ class QuestMapExporter(
         zip: JSZip,
         index: Int,
     ): Boolean {
-        val variant = al.variant ?: areaStore.getVariant(quest.episode, al.area.id, 0) ?: return false
-        val floorIds = al.floorIds ?: setOf(al.area.id)
+        if (al.outOfCatalogVariant) return false
+        val variant = al.variant ?: areaStore.getVariant(al.area.episode, al.area.id, 0) ?: return false
+        val floorIds = al.floorIds ?: setOf(al.floorId)
 
         // Only export areas that carry data (entities), i.e. the floors the quest actually uses.
         // Pioneer 2 / Lab (the hub, area id 0) is always kept even when it has no entities.
@@ -128,8 +129,8 @@ class QuestMapExporter(
         // Await all async data BEFORE touching the (shared, possibly live) geometry. The export
         // always uses the flat "Simple View" collision geometry (cleaner top-down, no roofs),
         // regardless of the editor's current Simple View toggle.
-        val geom = areaAssetLoader.loadCollisionGeometry(quest.episode, variant, ultimate)
-        val sections = areaStore.getSections(quest.episode, variant)
+        val geom = areaAssetLoader.loadCollisionGeometry(variant.episode, variant, ultimate)
+        val sections = areaStore.getSections(variant.episode, variant)
 
         // Collect markers as (category, worldX, worldZ). Only registry-known objects/bosses.
         val markers = ArrayList<Marker>()

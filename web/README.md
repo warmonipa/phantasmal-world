@@ -141,17 +141,50 @@ require separate integration checks.
 
 Does analysis of the script assembly code and runs in a worker thread.
 
-The worker batches client messages and reports analysis results as notifications. `SetAsm` and
-`UpdateUsedFloorIds` carry an incrementing generation that the worker echoes in every notification;
-the client drops notifications that do not match its current script or DAT-context generation.
-Text and context changes are processed in the same queue. A new generation republishes current
-outputs even when their values are unchanged, because the client may have discarded the previous
-generation's notification.
+The worker batches client messages and reports analysis results as notifications. `SetAsm`,
+`UpdateAsm`, and `UpdateUsedFloorIds` carry an incrementing generation that the worker echoes in
+every notification; the client drops notifications that do not match its current script or
+DAT-context generation. Text and context changes are processed in the same queue. A new generation
+republishes current outputs even when their values are unchanged, because the client may have
+discarded the previous generation's notification.
 
-Floor-map derivation uses the loaded quest version and floors used by DAT entities/events; the
-assembly editor continues to use the BB_V4 dialect. Entity/event collection changes update the
-floor context without replacing script text or undo history. Only script-owned map layouts accept
-worker mapping updates; Lobby and Free Roam retain the layout explicitly selected by their loader.
+Script assembly/disassembly and floor-map derivation use the loaded quest's `version` dialect,
+used DAT floors, and active DAT script entry floors (`datEntryFloorIds`). Floor-mapping updates
+are emitted only when assembly has no errors and include the resolved `scriptEpisode`. Entity/event
+collection changes update the floor context without replacing script text or undo history. Only
+script-owned map layouts accept worker mapping updates; Lobby and Free Roam retain the layout
+explicitly selected by their loader.
+
+## Quest Editor Floor Map Variation Editing
+
+For script-backed quests (`floorMappingsFromScript = true`), the toolbar Floor dropdown
+(`FloorSelectWidget`) renders each multi-variant non-boss, non-lobby floor as a split row:
+
+- Clicking the row navigates to that floor without modifying the script.
+- Hovering, clicking, or pressing `ArrowRight` on the trailing `[ Map N ▸ ]` badge opens a
+  cascading `Map 1..N` submenu that edits the script through `FloorDesignationEditor` as the single
+  source of truth and synchronizes the 3D viewport, sections, entities, and toolbar immediately.
+- Floors that cannot be safely auto-edited (Hide NOPs active, assembly errors, conditional branch
+  ambiguity, dynamic/unreachable designations, `type` 1 or 3, aliased `0:`, or no free scratch
+  registers) display a `[ 🔒 ↗ ]` button with a tooltip that activates the Script tab and jumps to
+  the relevant line.
+
+`FloorDesignationEditor` supports all quest versions:
+
+- **Blue Burst (V4)**: edits `bb_map_designate` in place (supporting both 4-arg legacy and 5-arg
+  forms, preserving hex/decimal formatting) or inserts `bb_map_designate` into `0:`.
+- **DC V2 / PC V2 / GC V3** and **DC NTE / DC V1**: edits existing `map_designate_ex` /
+  `map_designate` designations in place (`leti`/`letb`/`letw` or `clear`/`set` -> `leti`) when the
+  variation register is dead after the call, wraps with `leti` before/after when shared with later
+  instructions, and allocates unused scratch registers in `0:` for unmapped default floors.
+
+Every programmatic script edit is pre-validated (full reassembly, reachability, target mapping,
+and invariance of all other floors) before mutating the Monaco model. Undo/redo stays single-owner
+on Monaco's `TextModelUndo` (with a model-level `undo()`/`redo()` fallback when the Script tab is
+unmounted) and tracks lossy NOP-stripped revisions per document version. Out-of-catalog variants
+are preserved in the dropdown with `(unsupported)` and omitted from 3D geometry and 2D map export
+instead of substituting Map 1. Regression coverage lives in `FloorDesignationEditorTests` and
+`QuestEditorToolbarControllerTests`.
 
 ### web:assets-generation
 

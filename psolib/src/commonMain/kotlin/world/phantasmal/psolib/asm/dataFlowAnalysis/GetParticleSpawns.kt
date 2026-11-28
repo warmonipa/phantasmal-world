@@ -11,6 +11,7 @@ import world.phantasmal.psolib.asm.OP_AT_COORDS_TALK_EX
 import world.phantasmal.psolib.asm.OP_COL_NPCIN
 import world.phantasmal.psolib.asm.OP_COL_NPCINR
 import world.phantasmal.psolib.asm.OP_COL_PLINAW
+import world.phantasmal.psolib.asm.OP_CLEAR
 import world.phantasmal.psolib.asm.OP_CLR_FLOOR_HANDLER
 import world.phantasmal.psolib.asm.OP_CLR_QT_CANCEL
 import world.phantasmal.psolib.asm.OP_CLR_QT_EXIT
@@ -21,7 +22,9 @@ import world.phantasmal.psolib.asm.OP_GET_FLOOR_NUMBER
 import world.phantasmal.psolib.asm.OP_JMPI_E
 import world.phantasmal.psolib.asm.OP_JMPI_NE
 import world.phantasmal.psolib.asm.OP_LET
+import world.phantasmal.psolib.asm.OP_LETB_V3_V4
 import world.phantasmal.psolib.asm.OP_LETI
+import world.phantasmal.psolib.asm.OP_LETW
 import world.phantasmal.psolib.asm.OP_NPC_CHECK_STRAGGLE_EX
 import world.phantasmal.psolib.asm.OP_NPC_COORDS_CALL_EX
 import world.phantasmal.psolib.asm.OP_PARTICLE2
@@ -30,9 +33,14 @@ import world.phantasmal.psolib.asm.OP_PARTICLE_ID_V3_V3_V4
 import world.phantasmal.psolib.asm.OP_PARTICLE_V3_V3_V4
 import world.phantasmal.psolib.asm.OP_PLAYER_EFFECT_NC
 import world.phantasmal.psolib.asm.OP_PARTY_COORDS_CALL_EX
+import world.phantasmal.psolib.asm.OP_SET
 import world.phantasmal.psolib.asm.OP_SET_CHAT_CALLBACK
 import world.phantasmal.psolib.asm.OP_SET_CHAT_CALLBACK_NO_FILTER
 import world.phantasmal.psolib.asm.OP_SET_FLOOR_HANDLER_V3_V4
+import world.phantasmal.psolib.asm.OP_STACK_POPM_V3_V4
+import world.phantasmal.psolib.asm.OP_SYNC
+import world.phantasmal.psolib.asm.OP_SYNC_REGISTER_V1_V2
+import world.phantasmal.psolib.asm.OP_SYNC_REGISTER_V3_V4
 import world.phantasmal.psolib.asm.OP_SET_OBJ_PARAM
 import world.phantasmal.psolib.asm.OP_SET_OBJ_PARAM_EX
 import world.phantasmal.psolib.asm.OP_SET_QT_CANCEL_V3_V4
@@ -391,6 +399,18 @@ private data class CallbackHandlerSlot(
     val index: Int = 0,
 )
 
+/**
+ * Returns all statically reachable instructions mapped to the logical floor(s) on which they can
+ * execute, using floor-sensitive, context-sensitive interprocedural reachability from label 0,
+ * active DAT script entry points, and effective registered callbacks.
+ */
+fun getReachableScriptInstructions(
+    cfg: ControlFlowGraph,
+    instructionSegments: List<InstructionSegment>,
+    entityEntryPointFloorIds: Map<Int, Set<Int>> = emptyMap(),
+): Map<Instruction, Set<Int>> =
+    computeExecutionFloors(cfg, instructionSegments, entityEntryPointFloorIds).floorsByInstruction
+
 internal fun computeExecutionFloors(
     cfg: ControlFlowGraph,
     instructionSegments: List<InstructionSegment>,
@@ -722,18 +742,21 @@ internal fun computeExecutionFloors(
                         continue
                     }
 
-                    // Walk the block (excluding terminator) to compute the post-block state
-                    // even for Return blocks — pre-`ret` instructions like `let`/`leti` still
-                    // contribute to the exit state propagated to the caller.
-                    val outgoing = walkBlockTrackingFloorRegs(b, regs)
+                    // Walk the block (excluding terminator) from `begin` to compute the post-block
+                    // state even for Return blocks — pre-`ret` instructions like `let`/`leti`
+                    // still contribute to the exit state propagated to the caller, while starting
+                    // at `begin` avoids re-scanning pre-`sync` instructions after a yield resume.
+                    val outgoing = walkBlockTrackingFloorRegs(b, begin, regs)
                     val terminator = if (b.end > b.start) b.segment.instructions[b.end - 1] else null
 
                     if (b.branchType == BranchType.Return) {
                         mergedExit = if (mergedExit == null) {
                             ThreadExitState(outgoing, floorHandlerWrites, callbackHandlerWrites)
                         } else {
+                            // Floor-register facts are used for must-hold switch pruning, so
+                            // multiple return paths must intersect rather than union them.
                             ThreadExitState(
-                                mergedExit.floorRegisters + outgoing,
+                                mergedExit.floorRegisters intersect outgoing,
                                 mergeHandlerWrites(
                                     mergedExit.floorHandlerWrites,
                                     floorHandlerWrites,
@@ -750,7 +773,7 @@ internal fun computeExecutionFloors(
                     when (b.branchType) {
                         BranchType.Call -> {
                             val pruned = tryPruneSwitch(
-                                terminator, outgoing, currentFloor, labelToEntryBlock,
+                                cfg, b, begin, terminator, outgoing, currentFloor, labelToEntryBlock, sequentialNext,
                             )
                             val callees = pruned ?: b.to
                             // Recurse into each candidate callee, union their exit states.
@@ -779,7 +802,7 @@ internal fun computeExecutionFloors(
                                         calleeExit
                                     } else {
                                         ThreadExitState(
-                                            mergedCalleeExit.floorRegisters + calleeExit.floorRegisters,
+                                            mergedCalleeExit.floorRegisters intersect calleeExit.floorRegisters,
                                             mergeHandlerWrites(
                                                 mergedCalleeExit.floorHandlerWrites,
                                                 calleeExit.floorHandlerWrites,
@@ -795,15 +818,31 @@ internal fun computeExecutionFloors(
                             // A returning branch does not cancel another branch's suspension.
                             // Carry that fact through every caller, including wrapper functions.
                             suspended = suspended || suspendedCallee
+                            val maySkipAllCallees =
+                                pruned == null && terminator?.opcode?.code == OP_SWITCH_CALL.code
                             sequentialNext[b]?.let {
                                 if (suspendedCallee && !floorBound) enqueueResume(it, it.start)
-                                if (!anyCallee || fixedCalleeReturned) {
-                                    val afterCallState = if (anyCallee) {
-                                        checkNotNull(mergedCalleeExit)
-                                    } else {
-                                        ThreadExitState(
-                                            outgoing, floorHandlerWrites, callbackHandlerWrites,
-                                        )
+                                if (!anyCallee || fixedCalleeReturned || maySkipAllCallees) {
+                                    val preCallState = ThreadExitState(
+                                        outgoing, floorHandlerWrites, callbackHandlerWrites,
+                                    )
+                                    val afterCallState = when {
+                                        !anyCallee || !fixedCalleeReturned -> preCallState
+                                        maySkipAllCallees -> {
+                                            val calleeState = checkNotNull(mergedCalleeExit)
+                                            ThreadExitState(
+                                                calleeState.floorRegisters intersect preCallState.floorRegisters,
+                                                mergeHandlerWrites(
+                                                    calleeState.floorHandlerWrites,
+                                                    preCallState.floorHandlerWrites,
+                                                ),
+                                                mergeHandlerWrites(
+                                                    calleeState.callbackHandlerWrites,
+                                                    preCallState.callbackHandlerWrites,
+                                                ),
+                                            )
+                                        }
+                                        else -> checkNotNull(mergedCalleeExit)
                                     }
                                     queue.add(
                                         TraversalState(
@@ -820,7 +859,7 @@ internal fun computeExecutionFloors(
                         }
                         BranchType.Jump -> {
                             val pruned = tryPruneSwitch(
-                                terminator, outgoing, currentFloor, labelToEntryBlock,
+                                cfg, b, begin, terminator, outgoing, currentFloor, labelToEntryBlock, sequentialNext,
                             )
                             val succs = pruned ?: b.to
                             for (s in succs) {
@@ -838,7 +877,7 @@ internal fun computeExecutionFloors(
                         }
                         BranchType.ConditionalJump -> {
                             val pruned = tryPruneConditional(
-                                b, terminator, outgoing, currentFloor,
+                                cfg, b, begin, terminator, outgoing, currentFloor,
                                 labelToEntryBlock, sequentialNext,
                             )
                             val succs = pruned ?: b.to
@@ -965,11 +1004,12 @@ private fun spatialCallbackLabelRegisterOffset(opcodeCode: Int): Int? = when (op
  */
 private fun walkBlockTrackingFloorRegs(
     block: BasicBlock,
+    begin: Int,
     incoming: Set<Int>,
 ): Set<Int> {
     var regs = incoming
     val end = if (block.branchType != BranchType.None) block.end - 1 else block.end
-    for (i in block.start until end) {
+    for (i in begin until end) {
         regs = updateFloorRegsForInstruction(block.segment.instructions[i], regs)
     }
     return regs
@@ -982,8 +1022,21 @@ private fun updateFloorRegsForInstruction(
     when (inst.opcode.code) {
         OP_GET_FLOOR_NUMBER.code -> {
             // get_floor_number slot, baseReg writes floor at +0 and room at +1.
+            // Only slot 0 is known to query the executing player; other slots may be empty (-1)
+            // or on a different floor, so they invalidate both output registers instead.
+            val slotArg = inst.args.getOrNull(0) as? IntArg
             val baseReg = (inst.args.getOrNull(1) as? IntArg)?.value ?: return regs
-            return (regs + baseReg) - (baseReg + 1)
+            val cleared = regs - baseReg - (baseReg + 1)
+            return if (slotArg != null && !slotArg.isRegRef && slotArg.value == 0) {
+                cleared + baseReg
+            } else {
+                cleared
+            }
+        }
+        OP_STACK_POPM_V3_V4.code -> {
+            val base = (inst.args.getOrNull(0) as? IntArg)?.value ?: return emptySet()
+            val count = (inst.args.getOrNull(1) as? IntArg)?.value ?: return emptySet()
+            return regs.filterTo(mutableSetOf()) { it !in base until (base + count) }
         }
         OP_LET.code -> {
             // let dest, src copies src's value into dest.
@@ -1026,24 +1079,94 @@ private fun updateFloorRegsForInstruction(
  * (an empty list if the floor is out of range). Returns `null` when no pruning is possible.
  */
 private fun tryPruneSwitch(
+    cfg: ControlFlowGraph,
+    b: BasicBlock,
+    begin: Int,
     inst: Instruction?,
     floorRegs: Set<Int>,
     currentFloor: Int,
     labelToEntryBlock: Map<Int, BasicBlock>,
+    sequentialNext: Map<BasicBlock, BasicBlock>,
 ): List<BasicBlock>? {
     if (inst == null) return null
     if (inst.opcode.code != OP_SWITCH_JMP.code && inst.opcode.code != OP_SWITCH_CALL.code) {
         return null
     }
     val reg = (inst.args.getOrNull(0) as? IntArg)?.value ?: return null
-    if (reg !in floorRegs) return null
-    // switch_jmp/switch_call args: args[0]=reg, args[1+i]=label_i.
-    // If currentFloor is out of range of the label table, the switch is a no-op at runtime
-    // and execution falls through. Return null so the caller follows the default edges
-    // (b.to + sequential next-in-segment) rather than dropping all successors.
-    val labelArg = inst.args.getOrNull(currentFloor + 1) as? IntArg ?: return null
-    val target = labelToEntryBlock[labelArg.value] ?: return null
+    val isSwitchCall = inst.opcode.code == OP_SWITCH_CALL.code
+
+    if (reg in floorRegs) {
+        val labelArg = if (currentFloor >= 0) inst.args.getOrNull(currentFloor + 1) as? IntArg else null
+        val target = labelArg?.let { labelToEntryBlock[it.value] }
+            ?: return if (isSwitchCall) emptyList() else listOfNotNull(sequentialNext[b])
+        return listOf(target)
+    }
+
+    val localConst = findLocalBlockConstant(b, begin, reg) ?: return null
+    val labelArg = if (localConst >= 0) inst.args.getOrNull(localConst + 1) as? IntArg else null
+    val target = labelArg?.let { labelToEntryBlock[it.value] }
+        ?: return if (isSwitchCall) emptyList() else listOfNotNull(sequentialNext[b])
     return listOf(target)
+}
+
+/**
+ * Returns the constant integer value of [reg] if it is unconditionally assigned by an immediate
+ * instruction earlier in the same basic block [b] (at or after [begin]) without an intervening
+ * write or `sync`. Staying intra-block avoids unsound pruning from interprocedural CFG
+ * return-edge approximations (e.g. a nested `switch_call` inside a wrapper function).
+ */
+private fun findLocalBlockConstant(b: BasicBlock, begin: Int, reg: Int): Int? {
+    for (i in (b.end - 2) downTo begin) {
+        val prev = b.segment.instructions[i]
+        when (prev.opcode) {
+            OP_SYNC -> return null
+            OP_LETI,
+            OP_LETB_V3_V4,
+            OP_LETW -> {
+                if (prev.args.size >= 2 && (prev.args[0] as? IntArg)?.value == reg) {
+                    return (prev.args[1] as? IntArg)?.value
+                }
+            }
+            OP_CLEAR -> {
+                if ((prev.args.getOrNull(0) as? IntArg)?.value == reg) return 0
+            }
+            OP_SET -> {
+                if ((prev.args.getOrNull(0) as? IntArg)?.value == reg) return 1
+            }
+            OP_SYNC_REGISTER_V1_V2,
+            OP_SYNC_REGISTER_V3_V4 -> {
+                if (prev.args.size < 2) return null
+                if ((prev.args[0] as? IntArg)?.value == reg) {
+                    val valArg = prev.args[1] as? IntArg
+                    return if (valArg != null && !valArg.isRegRef) valArg.value else null
+                }
+            }
+            OP_STACK_POPM_V3_V4 -> {
+                val base = (prev.args.getOrNull(0) as? IntArg)?.value ?: return null
+                val count = (prev.args.getOrNull(1) as? IntArg)?.value ?: return null
+                if (reg in base until (base + count)) return null
+            }
+            else -> {
+                val params = prev.opcode.params
+                val argLen = minOf(prev.args.size, params.size)
+                for (j in 0 until argLen) {
+                    val paramType = params[j].type
+                    if (paramType is RegType) {
+                        val regRef = (prev.args[j] as? IntArg)?.value ?: continue
+                        val regParams = paramType.registers
+                        if (regParams != null) {
+                            for ((k, rp) in regParams.withIndex()) {
+                                if (rp.write && regRef + k == reg) return null
+                            }
+                        } else if (params[j].write && regRef == reg) {
+                            return null
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null
 }
 
 /**
@@ -1052,7 +1175,9 @@ private fun tryPruneSwitch(
  * Returns `null` when no pruning is possible.
  */
 private fun tryPruneConditional(
+    cfg: ControlFlowGraph,
     b: BasicBlock,
+    begin: Int,
     inst: Instruction?,
     floorRegs: Set<Int>,
     currentFloor: Int,
@@ -1062,7 +1187,7 @@ private fun tryPruneConditional(
     if (inst == null) return null
 
     if (inst.opcode.code == OP_SWITCH_JMP.code) {
-        return tryPruneSwitch(inst, floorRegs, currentFloor, labelToEntryBlock)
+        return tryPruneSwitch(cfg, b, begin, inst, floorRegs, currentFloor, labelToEntryBlock, sequentialNext)
     }
 
     if (inst.opcode.code == OP_JMPI_E.code || inst.opcode.code == OP_JMPI_NE.code) {

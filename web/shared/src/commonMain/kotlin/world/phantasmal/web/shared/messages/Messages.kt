@@ -2,6 +2,7 @@ package world.phantasmal.web.shared.messages
 
 import kotlinx.serialization.Serializable
 import world.phantasmal.core.Severity
+import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.Version
 
@@ -38,11 +39,13 @@ sealed class ClientNotification : ClientMessage() {
         /** DAT floors and client semantics are inputs to the script's effective map table. */
         val usedFloorIds: Set<Int>,
         val version: Version,
+        val datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
     ) : ClientNotification()
 
     @Serializable
     class UpdateAsm(
         val changes: List<AsmChange>,
+        val generation: Int = 0,
     ) : ClientNotification()
 
     /** Changes the DAT context without replacing the script or its edit history. */
@@ -50,6 +53,7 @@ sealed class ClientNotification : ClientMessage() {
     class UpdateUsedFloorIds(
         val usedFloorIds: Set<Int>,
         val generation: Int,
+        val datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
     ) : ClientNotification()
 }
 
@@ -95,6 +99,7 @@ sealed class ServerNotification : ServerMessage() {
     class FloorMappings(
         override val generation: Int,
         val floorMappings: List<FloorMapping>,
+        val scriptEpisode: Episode = Episode.I,
     ) : ServerNotification()
 
     @Serializable

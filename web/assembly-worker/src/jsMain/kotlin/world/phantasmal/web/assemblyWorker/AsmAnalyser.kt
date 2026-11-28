@@ -30,6 +30,7 @@ class AsmAnalyser {
 
     private var generation = 0
     private var usedFloorIds: Set<Int> = emptySet()
+    private var datEntryFloorIds: Map<Int, Set<Int>> = emptyMap()
     private var version = Version.BB_V4
 
     fun setAsm(
@@ -37,17 +38,24 @@ class AsmAnalyser {
         generation: Int,
         usedFloorIds: Set<Int> = emptySet(),
         version: Version = Version.BB_V4,
+        datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
     ) {
         this.asm.splice(0, this.asm.length, *asm.toTypedArray())
         this.generation = generation
         this.usedFloorIds = usedFloorIds
+        this.datEntryFloorIds = datEntryFloorIds
         this.version = version
         problems = null
         floorMappings = null
     }
 
-    fun updateUsedFloorIds(usedFloorIds: Set<Int>, generation: Int) {
+    fun updateUsedFloorIds(
+        usedFloorIds: Set<Int>,
+        generation: Int,
+        datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
+    ) {
         this.usedFloorIds = usedFloorIds
+        this.datEntryFloorIds = datEntryFloorIds
         this.generation = generation
         // Earlier-generation notifications can be discarded before reaching the client. Publish
         // the complete current result even when changing DAT context leaves some outputs equal.
@@ -55,7 +63,12 @@ class AsmAnalyser {
         floorMappings = null
     }
 
-    fun updateAsm(changes: List<AsmChange>) {
+    fun updateAsm(changes: List<AsmChange>, generation: Int = this.generation) {
+        this.generation = generation
+        // Every generation must emit complete Problems and FloorMappings notifications so an
+        // earlier dropped generation cannot cause value-dedup to suppress the latest result.
+        problems = null
+        floorMappings = null
         for (change in changes) {
             val (startLineNo, startCol, endLineNo, endCol) = change.range
             val linesChanged = endLineNo - startLineNo + 1
@@ -155,7 +168,7 @@ class AsmAnalyser {
         _cfg = null
 
         val notifications = mutableListOf<ServerNotification>()
-        val assemblyResult = assemble(asm.asArray().toList(), Version.BB_V4)
+        val assemblyResult = assemble(asm.asArray().toList(), version)
 
         @Suppress("UNCHECKED_CAST")
         val problems =
@@ -171,14 +184,22 @@ class AsmAnalyser {
         if (assemblyResult is Success) {
             bytecodeIr = assemblyResult.value
 
-            val instructionSegments = bytecodeIr.instructionSegments()
-            val newFloorMappings = getFloorMappings(instructionSegments, usedFloorIds, version) { cfg }
+            if (problems.none { it.severity == Severity.Error }) {
+                val instructionSegments = bytecodeIr.instructionSegments()
+                val scriptEpisode = getScriptEpisode(instructionSegments)
+                val newFloorMappings = getFloorMappings(
+                    instructionSegments = instructionSegments,
+                    usedFloorIds = usedFloorIds,
+                    version = version,
+                    datEntryFloorIds = datEntryFloorIds,
+                ) { cfg }
 
-            if (newFloorMappings != floorMappings) {
-                floorMappings = newFloorMappings
-                notifications.add(
-                    ServerNotification.FloorMappings(generation, newFloorMappings)
-                )
+                if (newFloorMappings != floorMappings) {
+                    floorMappings = newFloorMappings
+                    notifications.add(
+                        ServerNotification.FloorMappings(generation, newFloorMappings, scriptEpisode)
+                    )
+                }
             }
 
             // Only push labels, registers, and segments when assembly succeeds.

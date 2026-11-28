@@ -115,8 +115,7 @@ class LabelManager(
         }
 
         val currentAreaVariant = questEditorStore.currentAreaVariant.value ?: return
-        val currentQuest = questEditorStore.currentQuest.value
-        val episode = currentQuest?.episode ?: Episode.I
+        val episode = currentAreaVariant.episode
 
         val sections = currentAreaVariant.sections.value
         if (sections.isNotEmpty()) {

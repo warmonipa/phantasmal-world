@@ -211,13 +211,15 @@ class QuestEditorToolbarWidget(
                         tooltip = ctrl.redoTooltip,
                         onClick = { ctrl.redo() },
                     ),
-                    // Area selector
-                    Select(
+                    // Area / Floor selector (with hover Map N variant submenu)
+                    FloorSelectWidget(
                         enabled = ctrl.areaSelectEnabled,
                         items = ctrl.areas,
-                        itemToString = { it.label },
                         selected = ctrl.currentArea,
+                        getBadge = ctrl::getFloorVariantBadge,
                         onSelect = ctrl::setCurrentArea,
+                        onSelectVariant = { entry, variantId -> ctrl.setFloorVariant(entry, variantId) },
+                        onJumpToScript = ctrl::jumpToFloorDesignation,
                     ),
                     Select(
                         label = "Route:",

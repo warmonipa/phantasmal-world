@@ -47,12 +47,14 @@ class QuestEditorStore(
     private val _currentArea = mutableCell<AreaModel?>(null)
     private val _currentAreaVariant = mutableCell<AreaVariantModel?>(null)
     private val _currentFloorIds = mutableCell<Set<Int>?>(null)
+    private val _effectiveScriptEpisode = mutableCell<Episode>(Episode.I)
     private val _focusedEvent = mutableCell<QuestEventModel?>(null)
     private val _selectedEvents = mutableCell<Set<QuestEventModel>>(emptySet())
     private val _highlightedEntity = mutableCell<QuestEntityModel<*, *>?>(null)
     private val _selectedEntity = mutableCell<QuestEntityModel<*, *>?>(null)
     private val mainUndo = UndoStack(undoManager)
     private val _sectionsUpdated = mutableCell(0) // Trigger to update sections
+    private var sectionLoadToken = 0
     private val _selectedSection = mutableCell<SectionModel?>(null)
     private val _challengeSeedSimulationEnabled = mutableCell(false)
     private val _challengeSeed = mutableCell(0)
@@ -63,13 +65,37 @@ class QuestEditorStore(
     override val currentQuest: Cell<QuestModel?> = _currentQuest
     override val currentArea: Cell<AreaModel?> = _currentArea
     override val currentAreaVariant: Cell<AreaVariantModel?> = _currentAreaVariant
+    val effectiveScriptEpisode: Cell<Episode> = _effectiveScriptEpisode
     /** Episode that owns the currently displayed map, which can differ from the quest episode. */
     val currentMapEpisode: Cell<Episode?> =
-        map(currentQuest, currentAreaVariant) { quest, variant ->
-            variant?.episode ?: quest?.episode
+        map(currentQuest, currentAreaVariant, _effectiveScriptEpisode) { quest, variant, scriptEp ->
+            variant?.episode ?: if (quest?.floorMappingsFromScript == true) scriptEp else quest?.episode
         }
     /** When set, entity filtering uses these specific floor IDs instead of area+variant lookup. */
     override val currentFloorIds: Cell<Set<Int>?> = _currentFloorIds
+    private val currentFloorMappingRevision: Cell<Int> =
+        currentQuest.flatMap { quest -> quest?.floorMappingRevision ?: cell(0) }
+    /**
+     * True when the currently selected logical floor has an explicit script mapping whose
+     * map variation does not exist in [areaStore]'s catalog. Renderers must omit map geometry
+     * instead of silently substituting Map 1.
+     */
+    override val currentFloorHasUnsupportedVariant: Cell<Boolean> =
+        map(currentQuest, currentFloorIds, currentAreaVariant, currentFloorMappingRevision) {
+                quest, floorIds, variant, _ ->
+            if (quest == null || variant != null || floorIds == null || floorIds.size != 1) {
+                false
+            } else {
+                val floorId = floorIds.single()
+                val mapping = quest.floorMappings.find { it.floorId == floorId }
+                if (mapping == null) {
+                    false
+                } else {
+                    val mapEpisode = mapping.mapEpisode ?: quest.effectiveEpisode
+                    areaStore.getVariant(mapEpisode, mapping.mapAreaId, mapping.mapVariation) == null
+                }
+            }
+        }
 
     val currentAreaNpcs: ListCell<QuestNpcModel> =
         flatMapToList(currentQuest, currentArea, currentFloorIds) { quest, area, floorIds ->
@@ -147,8 +173,6 @@ class QuestEditorStore(
     override val selectedSection: Cell<SectionModel?> = _selectedSection
     val challengeSeedSimulationEnabled: Cell<Boolean> = _challengeSeedSimulationEnabled
     val challengeSeed: Cell<Int> = _challengeSeed
-    private val currentFloorMappingRevision: Cell<Int> =
-        currentQuest.flatMap { quest -> quest?.floorMappingRevision ?: cell(0) }
     val challengeLogicalFloors: Cell<List<Int>> =
         map(currentQuest, currentArea, currentAreaVariant, currentFloorMappingRevision) {
                 quest, area, areaVariant, _ ->
@@ -268,10 +292,12 @@ class QuestEditorStore(
     }
 
     fun undo() {
+        if (!questEditingEnabled.value) return
         undoManager.undo()
     }
 
     fun redo() {
+        if (!questEditingEnabled.value) return
         undoManager.redo()
     }
 
@@ -292,25 +318,33 @@ class QuestEditorStore(
                 _currentArea.value = null
                 _currentAreaVariant.value = null
                 _currentFloorIds.value = null
+                _effectiveScriptEpisode.value = Episode.I
                 _currentQuest.value = null
             }
         } else {
             // Resolve before mutating so all cells update atomically.
             val (initialArea, initialVariant, initialFloorId) = resolveInitialAreaAndVariant(quest)
+            val initialFloorIds = initialFloorId?.let { setOf(it) }
+            val initialRevision = quest.floorMappingRevision.value
 
             mutate {
                 _highlightedEntity.value = null
                 _selectedEntity.value = null
                 updateEventSelection(emptySet(), null)
                 _selectedSection.value = null
+                _effectiveScriptEpisode.value = quest.effectiveEpisode
                 _currentQuest.value = quest
                 _currentArea.value = initialArea
                 _currentAreaVariant.value = initialVariant
-                _currentFloorIds.value = initialFloorId?.let { setOf(it) }
+                _currentFloorIds.value = initialFloorIds
             }
 
             // Load section data (suspend, must be outside mutate).
-            updateQuestEntitySections(quest)
+            updateQuestEntitySections(quest, initialRevision)
+
+            if (disposed || currentQuest.value !== quest || quest.floorMappingRevision.value != initialRevision) {
+                return
+            }
 
             // Ensure all entities have their section initialized.
             quest.npcs.value.forEach(QuestNpcModel::setSectionInitialized)
@@ -319,8 +353,8 @@ class QuestEditorStore(
             // Trigger section loading for dropdown immediately after quest is loaded
             _sectionsUpdated.value += 1
 
-            // Auto-select the section closest to the origin for the initial area.
-            autoSelectClosestSection(initialVariant)
+            // Auto-select the section closest to the origin only if user hasn't navigated away.
+            autoSelectClosestSection(quest, initialFloorIds, initialVariant)
         }
     }
 
@@ -373,15 +407,27 @@ class QuestEditorStore(
     }
 
     /**
-     * Auto-selects the section closest to the origin for the given area variant.
+     * Auto-selects the section closest to the origin for the given area variant if the user
+     * is still viewing that exact quest, floor, and variant with no section selected.
      */
-    private fun autoSelectClosestSection(variant: AreaVariantModel?) {
-        if (variant != null) {
-            val sections = areaStore.getLoadedSections(variant.episode, variant)
-            if (sections != null && sections.isNotEmpty()) {
-                _selectedSection.value =
-                    sections.minByOrNull { it.position.distanceTo(Vector3(0.0, 0.0, 0.0)) }
-            }
+    private fun autoSelectClosestSection(
+        quest: QuestModel,
+        expectedFloorIds: Set<Int>?,
+        variant: AreaVariantModel?,
+    ) {
+        if (variant == null) return
+        if (disposed ||
+            currentQuest.value !== quest ||
+            _currentFloorIds.value != expectedFloorIds ||
+            _currentAreaVariant.value !== variant ||
+            _selectedSection.value != null
+        ) {
+            return
+        }
+        val sections = areaStore.getLoadedSections(variant.episode, variant)
+        if (sections != null && sections.isNotEmpty()) {
+            _selectedSection.value =
+                sections.minByOrNull { it.position.distanceTo(Vector3(0.0, 0.0, 0.0)) }
         }
     }
 
@@ -460,10 +506,21 @@ class QuestEditorStore(
             _currentAreaVariant.value = resolved.second
             _currentFloorIds.value = setOf(floorId)
         } else {
-            val area = areaStore.getArea(quest.episode, floorId)
+            val ep = if (quest.floorMappingsFromScript) quest.effectiveEpisode else quest.episode
+            val area = areaStore.getArea(ep, floorId)
             _currentArea.value = area
             _currentAreaVariant.value = area?.areaVariants?.getOrNull(0)
             _currentFloorIds.value = if (area != null) setOf(floorId) else null
+        }
+    }
+
+    private fun clearSelectionForCrossFloorSwitch(targetFloorId: Int) {
+        _selectedSection.value = null
+        _highlightedEntity.value = null
+        _selectedEntity.value = null
+        val selected = _selectedEvents.value
+        if (selected.any { it.floorId != targetFloorId }) {
+            updateEventSelection(emptySet(), null)
         }
     }
 
@@ -718,25 +775,119 @@ class QuestEditorStore(
         }
     }
 
-    suspend fun setFloorMappings(quest: QuestModel, floorMappings: List<FloorMapping>) {
-        if (disposed || currentQuest.value !== quest || !quest.floorMappingsFromScript) return
+    /**
+     * Synchronously commits updated script-derived floor mappings and effective episode,
+     * resolves the final active floor (falling back to Floor 0 when the previous floor does not
+     * exist in the new episode, honoring any explicit mapping on Floor 0), cleans up stale
+     * cross-floor selections and detached entity sections, and triggers section loading for the
+     * active variant.
+     *
+     * Returns the new `floorMappingRevision` when an async entity-section reload is needed, or
+     * `null` when mappings and effective episode were unchanged.
+     */
+    fun commitFloorMappings(
+        quest: QuestModel,
+        floorMappings: List<FloorMapping>,
+        targetFloorId: Int? = null,
+        effectiveEpisode: Episode? = null,
+    ): Int? {
+        if (disposed || currentQuest.value !== quest || !quest.floorMappingsFromScript) return null
 
-        val currentLogicalFloor =
-            _currentFloorIds.value?.singleOrNull() ?: _currentArea.value?.id
+        val nextEpisode = effectiveEpisode ?: quest.effectiveEpisode
+        val previousFloorId = _currentFloorIds.value?.singleOrNull() ?: _currentArea.value?.id
+        val previousVariant = _currentAreaVariant.value
+        val requestedFloorId = targetFloorId ?: previousFloorId
+        val resolvedFloorId = when {
+            requestedFloorId == null -> null
+            floorMappings.any { it.floorId == requestedFloorId } -> requestedFloorId
+            areaStore.getArea(nextEpisode, requestedFloorId) != null -> requestedFloorId
+            else -> 0
+        }
+        val floorActuallyChanged = resolvedFloorId != null && resolvedFloorId != previousFloorId
+        val unchanged = quest.floorMappings == floorMappings && quest.effectiveEpisode == nextEpisode
 
-        mutate {
-            quest.setFloorMappings(floorMappings)
-            if (floorMappings.isEmpty()) {
-                val area = currentLogicalFloor?.let { areaStore.getArea(quest.episode, it) }
-                _currentArea.value = area
-                _currentAreaVariant.value = area?.areaVariants?.firstOrNull()
-                _currentFloorIds.value = null
-            } else if (currentLogicalFloor != null) {
-                switchToFloor(quest, currentLogicalFloor)
+        if (unchanged) {
+            if (floorActuallyChanged) {
+                mutate {
+                    clearSelectionForCrossFloorSwitch(resolvedFloorId)
+                    switchToFloor(quest, resolvedFloorId)
+                }
+                val newVariant = _currentAreaVariant.value
+                if (newVariant != null && newVariant !== previousVariant) {
+                    requestSectionLoading(newVariant.episode, newVariant)
+                }
+            }
+            return null
+        }
+
+        val previousVariantsByFloor = buildMap {
+            if (quest.floorMappings.isNotEmpty()) {
+                putAll(quest.floorToVariantMap)
+            } else {
+                for (v in quest.areaVariants.value) {
+                    put(v.area.id, v)
+                }
             }
         }
 
-        updateQuestEntitySections(quest)
+        var revision = 0
+        mutate {
+            _effectiveScriptEpisode.value = nextEpisode
+            quest.setFloorMappings(floorMappings, nextEpisode)
+            revision = quest.floorMappingRevision.value
+            _selectedSection.value = null
+            if (floorActuallyChanged) {
+                clearSelectionForCrossFloorSwitch(resolvedFloorId)
+            }
+            if (resolvedFloorId != null) {
+                switchToFloor(quest, resolvedFloorId)
+            }
+            detachStaleEntitySections(quest, previousVariantsByFloor)
+        }
+
+        val newVariant = _currentAreaVariant.value
+        if (newVariant != null) {
+            requestSectionLoading(newVariant.episode, newVariant)
+        }
+        return revision
+    }
+
+    suspend fun reloadEntitySections(quest: QuestModel, expectedRevision: Int) {
+        updateQuestEntitySections(quest, expectedRevision)
+    }
+
+    suspend fun setFloorMappings(
+        quest: QuestModel,
+        floorMappings: List<FloorMapping>,
+        targetFloorId: Int? = null,
+        effectiveEpisode: Episode? = null,
+    ) {
+        val revision = commitFloorMappings(quest, floorMappings, targetFloorId, effectiveEpisode) ?: return
+        reloadEntitySections(quest, revision)
+    }
+
+    private fun detachStaleEntitySections(
+        quest: QuestModel,
+        previousVariantsByFloor: Map<Int, AreaVariantModel>,
+    ) {
+        val currentVariantsByFloor = buildMap {
+            if (quest.floorMappings.isNotEmpty()) {
+                putAll(quest.floorToVariantMap)
+            } else {
+                for (v in quest.areaVariants.value) {
+                    put(v.area.id, v)
+                }
+            }
+        }
+        fun detachIfChanged(entity: QuestEntityModel<*, *>) {
+            val prev = previousVariantsByFloor[entity.floorId]
+            val next = currentVariantsByFloor[entity.floorId]
+            if (next == null || prev !== next) {
+                entity.detachSectionKeepingRelativeTransform()
+            }
+        }
+        quest.npcs.value.forEach(::detachIfChanged)
+        quest.objects.value.forEach(::detachIfChanged)
     }
 
     fun setEntitySectionId(entity: QuestEntityModel<*, *>, sectionId: Int) {
@@ -832,9 +983,20 @@ class QuestEditorStore(
      * Request async loading of sections for a specific area variant
      */
     fun requestSectionLoading(episode: Episode, areaVariant: AreaVariantModel) {
+        val quest = currentQuest.value ?: return
+        val expectedFloorIds = _currentFloorIds.value
+        val token = ++sectionLoadToken
         scope.launch {
             try {
                 val sections = areaStore.getSections(episode, areaVariant)
+                if (disposed ||
+                    currentQuest.value !== quest ||
+                    _currentAreaVariant.value !== areaVariant ||
+                    _currentFloorIds.value != expectedFloorIds ||
+                    sectionLoadToken != token
+                ) {
+                    return@launch
+                }
                 // Batch both cell updates atomically so observers see a consistent state.
                 mutate {
                     _sectionsUpdated.value += 1
@@ -919,9 +1081,19 @@ class QuestEditorStore(
         return Pair(entity.sectionId.value, waveId) in sectionWaves
     }
 
-    private suspend fun updateQuestEntitySections(quest: QuestModel) {
-        quest.areaVariants.value.forEach { variant ->
+    private suspend fun updateQuestEntitySections(
+        quest: QuestModel,
+        expectedRevision: Int = quest.floorMappingRevision.value,
+    ) {
+        val variantsSnapshot = quest.areaVariants.value.toList()
+        for (variant in variantsSnapshot) {
             val sections = areaStore.getSections(variant.episode, variant)
+            if (disposed ||
+                currentQuest.value !== quest ||
+                quest.floorMappingRevision.value != expectedRevision
+            ) {
+                return
+            }
             variant.setSections(sections)
             setSectionOnQuestEntities(quest, quest.npcs.value, variant, sections)
             setSectionOnQuestEntities(quest, quest.objects.value, variant, sections)
@@ -947,7 +1119,7 @@ class QuestEditorStore(
 
                 if (section == null) {
                     logger.warn { "Section ${entity.sectionId.value} not found." }
-                    entity.setSectionInitialized()
+                    entity.detachSectionKeepingRelativeTransform()
                 } else {
                     entity.setSection(section, keepRelativeTransform = true)
                 }

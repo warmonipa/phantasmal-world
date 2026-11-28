@@ -86,6 +86,19 @@ abstract class QuestEntityModel<Type : EntityType, Entity : QuestEntity<Type>>(
     }
 
     /**
+     * Detaches any previously bound [SectionModel] while preserving the entity's DAT [sectionId]
+     * and relative [position]/[rotation], recomputing world transform as unparented.
+     */
+    fun detachSectionKeepingRelativeTransform() {
+        mutate {
+            _section.value = null
+            setPosition(position.value)
+            setRotation(rotation.value)
+            setSectionInitialized()
+        }
+    }
+
+    /**
      * @param keepRelativeTransform If true, keep the entity's relative transform and update its
      * world transform. Otherwise, keep its world transform and update its relative transform.
      */

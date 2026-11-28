@@ -121,14 +121,12 @@ fun getFloorMappings(
     instructionSegments: List<InstructionSegment>,
     usedFloorIds: Set<Int> = emptySet(),
     version: Version = Version.BB_V4,
+    datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
     createControlFlowGraph: () -> ControlFlowGraph,
 ): List<FloorMapping> {
     if (instructionSegments.isEmpty() && usedFloorIds.isEmpty()) return emptyList()
 
-    val episode = instructionSegments
-        .find { 0 in it.labels }
-        ?.let(::getEpisode)
-        ?: Episode.I
+    val episode = getScriptEpisode(instructionSegments)
 
     val inferredUsedFloors = usedFloorIds
         .filterTo(mutableSetOf(), ::validFloor)
@@ -145,7 +143,8 @@ fun getFloorMappings(
                 OP_MAP_DESIGNATE_EX -> {
                     // The first register always contains the logical floor.
                     val baseRegister =
-                        (instruction.args.firstOrNull() as? IntArg)?.value ?: continue
+                        (instruction.args.firstOrNull() as? IntArg)?.value
+                            ?.takeIf { it in 0..255 } ?: continue
                     // A CFG is needed only for register-based designation opcodes.
                     val floorValues = getRegisterValue(controlFlowGraph(), instruction, baseRegister)
                     if (floorValues.size == 1L) {
@@ -204,12 +203,21 @@ fun getFloorMappings(
         }
     }
 
+    var cachedExecutionFloors: ExecutionFloors? = null
+    fun executionFloors(): ExecutionFloors =
+        cachedExecutionFloors ?: computeExecutionFloors(
+            controlFlowGraph(),
+            instructionSegments,
+            datEntryFloorIds,
+        ).also { cachedExecutionFloors = it }
+
     val runtimeAmbiguousFloors = designationHistory
         .filter { (floorId, history) ->
             hasRuntimeAmbiguity(
                 history = history,
                 initialMapping = initialFloorMappings[floorId],
                 controlFlowGraph = controlFlowGraph(),
+                executionFloors = ::executionFloors,
             )
         }
         .keys
@@ -229,6 +237,7 @@ private fun hasRuntimeAmbiguity(
     history: List<ResolvedFloorDesignation>,
     initialMapping: FloorMapping?,
     controlFlowGraph: ControlFlowGraph,
+    executionFloors: () -> ExecutionFloors,
 ): Boolean {
     if (history.isEmpty()) return false
 
@@ -238,11 +247,19 @@ private fun hasRuntimeAmbiguity(
         designations.sortedBy { block.indexOfInstruction(it.instruction) }
     }
 
-    val nextInSegment = mutableMapOf<BasicBlock, BasicBlock>()
+    // Use physical bytecode block order so call continuations cross label boundaries cleanly
+    // (e.g. `0: call 10` followed immediately by `1: bb_map_designate ...`).
+    val nextBlock = mutableMapOf<BasicBlock, BasicBlock>()
+    val labelToEntryBlock = mutableMapOf<Int, BasicBlock>()
     for (i in controlFlowGraph.blocks.indices) {
         val block = controlFlowGraph.blocks[i]
+        if (block.start == 0) {
+            for (label in block.segment.labels) {
+                labelToEntryBlock[label] = block
+            }
+        }
         val next = controlFlowGraph.blocks.getOrNull(i + 1) ?: continue
-        if (next.segment === block.segment) nextInSegment[block] = next
+        nextBlock[block] = next
     }
 
     // ControlFlowGraph connects every callee return to every caller continuation. Those edges are
@@ -252,7 +269,7 @@ private fun hasRuntimeAmbiguity(
     for (block in controlFlowGraph.blocks) {
         val successors = when (block.branchType) {
             BranchType.Return -> emptyList()
-            BranchType.Call -> block.to + listOfNotNull(nextInSegment[block])
+            BranchType.Call -> block.to + listOfNotNull(nextBlock[block])
             else -> block.to
         }
         for (successor in successors) {
@@ -316,12 +333,29 @@ private fun hasRuntimeAmbiguity(
                 }
             }
             BranchType.Call -> {
-                val returnBlock = nextInSegment[block]
-                if (block.to.isEmpty()) {
+                val returnBlock = nextBlock[block]
+                val terminator = block.segment.instructions.getOrNull(block.end - 1)
+                val (callees, mayFallThroughDirectly) = resolveSwitchCallOutcome(
+                    terminator = terminator,
+                    defaultCallees = block.to,
+                    controlFlowGraph = controlFlowGraph,
+                    labelToEntryBlock = labelToEntryBlock,
+                    executionFloors = executionFloors,
+                )
+                if (mayFallThroughDirectly) {
                     if (returnBlock == null) {
                         terminalStates.addAll(outputStates)
                     } else {
                         enqueue(FloorRuntimePosition(returnBlock, position.returnBlocks))
+                    }
+                }
+                if (callees.isEmpty()) {
+                    if (!mayFallThroughDirectly) {
+                        if (returnBlock == null) {
+                            terminalStates.addAll(outputStates)
+                        } else {
+                            enqueue(FloorRuntimePosition(returnBlock, position.returnBlocks))
+                        }
                     }
                 } else if (returnBlock != null && position.returnBlocks.size >= 64) {
                     // Match the existing interprocedural analysis depth guard: continue after an
@@ -333,7 +367,7 @@ private fun hasRuntimeAmbiguity(
                     } else {
                         position.returnBlocks + returnBlock
                     }
-                    for (callee in block.to) {
+                    for (callee in callees) {
                         enqueue(FloorRuntimePosition(callee, returnBlocks))
                     }
                 }
@@ -351,6 +385,157 @@ private fun hasRuntimeAmbiguity(
     }
 
     return terminalStates.size > 1
+}
+
+/**
+ * Resolves the possible callees and direct-fallthrough behavior of a [BranchType.Call] terminator.
+ *
+ * For [OP_SWITCH_CALL], distinguishes:
+ * - known in-range index(es): invoke only the matching callee(s);
+ * - known out-of-range index(es): fall through directly without invoking any callee;
+ * - unknown index: conservatively explore all callees AND direct fallthrough.
+ */
+private fun resolveSwitchCallOutcome(
+    terminator: Instruction?,
+    defaultCallees: List<BasicBlock>,
+    controlFlowGraph: ControlFlowGraph,
+    labelToEntryBlock: Map<Int, BasicBlock>,
+    executionFloors: () -> ExecutionFloors,
+): Pair<List<BasicBlock>, Boolean> {
+    if (terminator == null || terminator.opcode.code != OP_SWITCH_CALL.code) {
+        return Pair(defaultCallees, false)
+    }
+    val reg = (terminator.args.getOrNull(0) as? IntArg)?.value
+        ?.takeIf { it in 0..255 }
+        ?: return Pair(defaultCallees, true)
+
+    // First try static register values; if unknown, check whether the register is driven by
+    // get_floor_number and resolve against the floor-sensitive execution floors.
+    val regValues = getRegisterValue(controlFlowGraph, terminator, reg)
+    val knownIndices: Set<Int>? = if (regValues.size > 0L && regValues.size <= 32L) {
+        val vals = mutableSetOf<Int>()
+        var allKnown = true
+        for (i in 0 until regValues.size.toInt()) {
+            val v = regValues[i]
+            if (v == null) {
+                allKnown = false
+                break
+            }
+            vals.add(v)
+        }
+        if (allKnown) vals else null
+    } else {
+        null
+    } ?: resolveFloorDrivenSwitchIndices(controlFlowGraph, terminator, reg, executionFloors)
+
+    if (knownIndices == null) {
+        // Unknown index: conservatively explore all callees AND direct fallthrough.
+        return Pair(defaultCallees, true)
+    }
+
+    val callees = mutableListOf<BasicBlock>()
+    var mayFallThrough = false
+    for (index in knownIndices) {
+        val labelArg = if (index >= 0) terminator.args.getOrNull(index + 1) as? IntArg else null
+        val target = labelArg?.let { labelToEntryBlock[it.value] }
+        if (target != null) {
+            if (target !in callees) callees.add(target)
+        } else {
+            mayFallThrough = true
+        }
+    }
+    return Pair(callees, mayFallThrough)
+}
+
+private fun resolveFloorDrivenSwitchIndices(
+    controlFlowGraph: ControlFlowGraph,
+    terminator: Instruction,
+    reg: Int,
+    executionFloors: () -> ExecutionFloors,
+): Set<Int>? {
+    // Check if the register was most recently written by get_floor_number in the same block.
+    val block = controlFlowGraph.getBlockForInstruction(terminator)
+    val termIdx = block.indexOfInstruction(terminator)
+    var drivenByFloor = false
+    for (i in (termIdx - 1) downTo block.start) {
+        val inst = block.segment.instructions[i]
+        if (inst.opcode.code == OP_SYNC.code) {
+            break
+        }
+        if (inst.opcode.code == OP_GET_FLOOR_NUMBER.code) {
+            // get_floor_number <playerSlot>, <destReg> writes floor to destReg and room to destReg+1.
+            // Only slot 0 is known to identify the executing player; empty/other slots can return -1.
+            val slotArg = inst.args.getOrNull(0) as? IntArg
+            val destReg = (inst.args.getOrNull(1) as? IntArg)?.value
+            if (destReg == reg) {
+                if (slotArg != null && !slotArg.isRegRef && slotArg.value == 0) {
+                    drivenByFloor = true
+                }
+                break
+            }
+            if (destReg != null && destReg + 1 == reg) {
+                break
+            }
+        }
+        if (instructionWritesRegisterForFloorSwitch(inst, reg)) {
+            break
+        }
+    }
+    if (!drivenByFloor) return null
+    val floors = executionFloors().floorsByInstruction[terminator]
+    return floors?.takeIf { it.isNotEmpty() }
+}
+
+private fun instructionWritesRegisterForFloorSwitch(inst: Instruction, reg: Int): Boolean {
+    val args = inst.args
+    when (inst.opcode.code) {
+        OP_LETI.code,
+        OP_LETB_V3_V4.code,
+        OP_LETW.code,
+        OP_SET.code,
+        OP_CLEAR.code,
+        OP_LET.code,
+        OP_REV.code,
+        OP_ADDI.code,
+        OP_SUBI.code,
+        OP_MULI.code,
+        OP_DIVI.code,
+        OP_SYNC_REGISTER_V3_V4.code -> return (args.getOrNull(0) as? IntArg)?.value == reg
+
+        OP_STACK_POPM_V3_V4.code -> {
+            val base = (args.getOrNull(0) as? IntArg)?.value ?: return true
+            val count = (args.getOrNull(1) as? IntArg)?.value ?: return true
+            return reg in base until (base + count)
+        }
+    }
+    val params = inst.opcode.params
+    for (j in params.indices) {
+        val param = params[j]
+        when (val paramType = param.type) {
+            is RegType -> {
+                val regRef = (args.getOrNull(j) as? IntArg)?.value ?: continue
+                val regParams = paramType.registers
+                if (regParams != null) {
+                    for ((k, regParam) in regParams.withIndex()) {
+                        if (regParam.write && regRef + k == reg) return true
+                    }
+                } else if (param.write && regRef == reg) {
+                    return true
+                }
+            }
+
+            is RegVarType -> {
+                if (param.write) {
+                    for (k in j until args.size) {
+                        if ((args[k] as? IntArg)?.value == reg) return true
+                    }
+                }
+            }
+
+            else -> {}
+        }
+    }
+    return false
 }
 
 private fun FloorMapping?.toRuntimeState(): FloorRuntimeState =
@@ -655,6 +840,16 @@ private fun validMap(version: Version, mapId: Int): Boolean {
     logger.warn { "Invalid map ID $mapId for $version; expected 0..${mapCount - 1}." }
     return false
 }
+
+/**
+ * Extracts the quest episode from the script's function 0 `set_episode` instruction,
+ * defaulting to [Episode.I] when label 0 or `set_episode` is absent.
+ */
+fun getScriptEpisode(instructionSegments: List<InstructionSegment>): Episode =
+    instructionSegments
+        .find { 0 in it.labels }
+        ?.let(::getEpisode)
+        ?: Episode.I
 
 /**
  * Extracts the quest episode from function 0's `set_episode` instruction.

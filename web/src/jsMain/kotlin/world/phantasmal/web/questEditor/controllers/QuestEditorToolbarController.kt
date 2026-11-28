@@ -13,6 +13,12 @@ import world.phantasmal.psolib.buffer.Buffer
 import world.phantasmal.psolib.compression.prs.prsCompress
 import world.phantasmal.psolib.cursor.cursor
 import world.phantasmal.psolib.fileFormats.quest.*
+import world.phantasmal.web.questEditor.asm.FloorDesignationEditor
+import world.phantasmal.web.questEditor.asm.FloorDesignationSnapshot
+import world.phantasmal.web.questEditor.asm.FloorDesignationStatus
+import world.phantasmal.web.questEditor.asm.PrepareFloorVariantResult
+import world.phantasmal.web.externals.monacoEditor.ITextModel
+import world.phantasmal.web.shared.messages.AsmRange
 import world.phantasmal.web.questEditor.loading.FreeRoamAreaInfo
 import world.phantasmal.web.questEditor.loading.LOBBY_FLOOR_ID
 import world.phantasmal.web.questEditor.loading.extractRawEntityDataByFloor
@@ -54,12 +60,47 @@ enum class SaveFormat {
     FREE_ROAM,
 }
 
+data class FloorVariantOption(
+    val variantId: Int,
+    val label: String,
+    val active: Boolean,
+)
+
+sealed class FloorVariantBadge {
+    data class Editable(
+        val badgeText: String,
+        val options: List<FloorVariantOption>,
+    ) : FloorVariantBadge()
+
+    data class ReadOnly(
+        val reason: String,
+        val jumpLineNo: Int?,
+    ) : FloorVariantBadge()
+}
+
 class AreaAndLabel(
     val area: AreaModel,
     val label: String,
     val variant: AreaVariantModel? = null,
     /** Floor IDs associated with this entry, used to filter entities. */
     val floorIds: Set<Int>? = null,
+    /** Logical floor ID for this row. */
+    val floorId: Int = floorIds?.singleOrNull() ?: area.id,
+    /** Effective map ID for this row (used for click-time validation). */
+    val mapId: Int? = null,
+    /** True when the script designated a map variation outside [areaStore]'s catalog. */
+    val outOfCatalogVariant: Boolean = false,
+    /** Row label displayed inside the open dropdown (omits duplicate `- Map N` when badge shows it). */
+    val rowLabel: String = label,
+)
+
+private data class InspectionCacheKey(
+    val textModel: ITextModel,
+    val versionId: Int,
+    val version: Version,
+    val isLossy: Boolean,
+    val usedFloorIds: Set<Int>,
+    val datEntryFloorIds: Map<Int, Set<Int>>,
 )
 
 class QuestEditorToolbarController(
@@ -69,7 +110,10 @@ class QuestEditorToolbarController(
     private val questEditorUiStore: QuestEditorUiStore,
     private val asmStore: AsmStore,
     private val mapExporter: QuestMapExporter? = null,
+    private val onActivateAsmEditor: () -> Unit = {},
 ) : Controller() {
+    private var cachedInspectionKey: InspectionCacheKey? = null
+    private var cachedInspectionSnapshot: FloorDesignationSnapshot? = null
     private val _resultDialogVisible = mutableCell(false)
     private val _result = mutableCell<PwResult<*>?>(null)
     private val saving = mutableCell(false)
@@ -216,10 +260,16 @@ class QuestEditorToolbarController(
      */
     val areas: Cell<List<AreaAndLabel>> = questEditorStore.currentQuest.flatMap { quest ->
         quest?.let {
-            map(quest.entitiesPerArea, quest.areaVariants) { entitiesPerArea, variants ->
+            map(
+                quest.entitiesPerArea,
+                quest.areaVariants,
+                questEditorStore.effectiveScriptEpisode,
+            ) { entitiesPerArea, variants, effectiveScriptEpisode ->
                 val result = mutableListOf<AreaAndLabel>()
+                val effectiveEpisode =
+                    if (quest.floorMappingsFromScript) effectiveScriptEpisode else quest.episode
 
-                if (quest.floorMappings.isNotEmpty()) {
+                if (quest.floorMappingsFromScript || quest.floorMappings.isNotEmpty()) {
                     // The client's designation table is indexed by logical floor, not map area.
                     // Place each effective map in its actual floor slot; mapAreaId is not globally
                     // unique and cannot be used to infer floor identity.
@@ -228,16 +278,34 @@ class QuestEditorToolbarController(
                     val addedFloorIds = mutableSetOf<Int>()
 
                     // Episode-default area IDs match their logical floor slots.
-                    for (episodeArea in areaStore.getAreasForEpisode(quest.episode)) {
+                    for (episodeArea in areaStore.getAreasForEpisode(effectiveEpisode)) {
                         val mapping = mappingsByFloorId[episodeArea.id]
 
                         if (mapping != null) {
-                            addMappedArea(result, quest, mapping)
+                            addMappedArea(result, quest, mapping, effectiveEpisode)
                             addedFloorIds.add(mapping.floorId)
                         } else {
                             // Unmapped area: show without variant suffix or entity count.
-                            val displayName = buildAreaDisplayName(episodeArea, null, null)
-                            result.add(AreaAndLabel(episodeArea, displayName))
+                            val defaultVariant = episodeArea.areaVariants.firstOrNull()
+                            val entityCount = if (quest.floorMappings.isEmpty()) {
+                                getEntityCountForArea(entitiesPerArea, episodeArea)
+                            } else {
+                                null
+                            }
+                            val displayName = buildAreaDisplayName(episodeArea, null, entityCount)
+                            val rowName = buildAreaDisplayName(episodeArea, null, entityCount)
+                            result.add(
+                                AreaAndLabel(
+                                    area = episodeArea,
+                                    label = displayName,
+                                    variant = if (quest.floorMappings.isEmpty()) defaultVariant else null,
+                                    floorIds = null,
+                                    floorId = episodeArea.id,
+                                    mapId = getMapId(effectiveEpisode, episodeArea.id),
+                                    outOfCatalogVariant = false,
+                                    rowLabel = rowName,
+                                )
+                            )
                         }
                     }
 
@@ -249,22 +317,38 @@ class QuestEditorToolbarController(
                                 result,
                                 quest,
                                 mapping,
+                                effectiveEpisode,
                             )
                         }
                     }
                 } else {
-                    for (area in areaStore.getAreasForEpisode(quest.episode)) {
+                    for (area in areaStore.getAreasForEpisode(effectiveEpisode)) {
                         val entityCount = getEntityCountForArea(entitiesPerArea, area)
                         val areaVariants = getAreaVariants(area, variants)
 
                         if (areaVariants.isNotEmpty()) {
                             for (variant in areaVariants) {
                                 val displayName = buildAreaDisplayName(area, variant, entityCount)
-                                result.add(AreaAndLabel(area, displayName, variant))
+                                result.add(
+                                    AreaAndLabel(
+                                        area = area,
+                                        label = displayName,
+                                        variant = variant,
+                                        floorId = area.id,
+                                        mapId = getMapId(effectiveEpisode, area.id),
+                                    )
+                                )
                             }
                         } else {
                             val displayName = buildAreaDisplayName(area, null, entityCount)
-                            result.add(AreaAndLabel(area, displayName))
+                            result.add(
+                                AreaAndLabel(
+                                    area = area,
+                                    label = displayName,
+                                    floorId = area.id,
+                                    mapId = getMapId(effectiveEpisode, area.id),
+                                )
+                            )
                         }
                     }
                 }
@@ -282,21 +366,52 @@ class QuestEditorToolbarController(
         result: MutableList<AreaAndLabel>,
         quest: QuestModel,
         mapping: FloorMapping,
+        effectiveEpisode: Episode,
     ) {
-        val mapEpisode = mapping.mapEpisode ?: quest.episode
+        val mapEpisode = mapping.mapEpisode ?: effectiveEpisode
         val area = areaStore.getArea(mapEpisode, mapping.mapAreaId) ?: return
         val variant =
-            areaStore.getVariant(mapEpisode, mapping.mapAreaId, mapping.mapVariation) ?: return
+            areaStore.getVariant(mapEpisode, mapping.mapAreaId, mapping.mapVariation)
+        val outOfCatalog = variant == null
         val floorId = mapping.floorId
         val entityCount =
             quest.npcs.value.count { it.floorId == floorId } +
                 quest.objects.value.count { it.floorId == floorId }
+        val countOrNull = entityCount.takeIf { it > 0 }
         val ambiguitySuffix = if (mapping.runtimeAmbiguous) " [runtime-dependent]" else ""
-        val displayName = "Floor $floorId — " +
-            buildAreaDisplayName(area, variant, entityCount.takeIf { it > 0 }) +
-            ambiguitySuffix
+        val displayName = if (outOfCatalog) {
+            "Floor $floorId — ${area.name} - Map ${mapping.mapVariation + 1} (unsupported)" +
+                createCountSuffix(countOrNull) +
+                ambiguitySuffix
+        } else {
+            "Floor $floorId — " +
+                buildAreaDisplayName(area, variant, countOrNull) +
+                ambiguitySuffix
+        }
+        val supportsVariantBadge = quest.floorMappingsFromScript &&
+            !area.bossArea &&
+            area.name != "Lobby" &&
+            area.areaVariants.size > 1
+        val rowName = if (supportsVariantBadge) {
+            "Floor $floorId — ${area.name}" +
+                createCountSuffix(countOrNull) +
+                ambiguitySuffix
+        } else {
+            displayName
+        }
 
-        result.add(AreaAndLabel(area, displayName, variant, setOf(floorId)))
+        result.add(
+            AreaAndLabel(
+                area = area,
+                label = displayName,
+                variant = variant,
+                floorIds = setOf(floorId),
+                floorId = floorId,
+                mapId = mapping.mapId,
+                outOfCatalogVariant = outOfCatalog,
+                rowLabel = rowName,
+            )
+        )
     }
 
     private fun getAreaVariants(area: AreaModel, variants: List<AreaVariantModel>): List<AreaVariantModel> {
@@ -328,20 +443,27 @@ class QuestEditorToolbarController(
 
     val currentArea: Cell<AreaAndLabel?> = areas.flatMap { areas ->
         map(_selectedAreaAndLabel, questEditorStore.currentArea, questEditorStore.currentFloorIds) { selectedAreaAndLabel, storeCurrentArea, storeFloorIds ->
+            // In script-mapped mode, prioritize matching by logical floorIds so two floors
+            // sharing an AreaModel (e.g. Floor 3 & Floor 4 Cave 1) always highlight the active floor.
+            val byFloorIds = if (storeFloorIds != null) {
+                areas.find { it.floorIds == storeFloorIds }
+                    ?: storeFloorIds.singleOrNull()?.let { fid -> areas.find { it.floorId == fid } }
+            } else {
+                null
+            }
+            byFloorIds ?:
             // Resolve an explicit selection against the latest list. Labels and mappings are
             // rebuilt reactively, so retaining the old object would leave the dropdown stale.
             selectedAreaAndLabel?.let { selected ->
                 areas.find { candidate ->
                     candidate.floorIds == selected.floorIds &&
+                        candidate.floorId == selected.floorId &&
                         candidate.area.id == selected.area.id &&
                         candidate.variant?.episode == selected.variant?.episode &&
                         candidate.variant?.id == selected.variant?.id
                 }
             } ?:
-            // Match by floorIds first (most precise), then by area, then fallback
-            if (storeFloorIds != null) {
-                areas.find { it.floorIds == storeFloorIds }
-            } else if (storeCurrentArea != null) {
+            if (storeCurrentArea != null) {
                 areas.find { it.area.id == storeCurrentArea.id }
             } else null ?:
             // Final fallback to first area
@@ -446,9 +568,15 @@ class QuestEditorToolbarController(
         }
 
     init {
-        // Clear explicit area selection when the store's area changes externally (e.g. via
-        // goToEvent or setSelectedEntity), so the toolbar shows the correct current area.
+        // Clear explicit area selection when the store's area or logical floor changes externally
+        // (e.g. via goToEvent, setSelectedEntity, or cross-floor variant edit), so the toolbar
+        // shows the correct current floor even when two floors share an AreaModel.
         observe(questEditorStore.currentArea) {
+            if (!settingAreaFromDropdown) {
+                _selectedAreaAndLabel.value = null
+            }
+        }
+        observe(questEditorStore.currentFloorIds) {
             if (!settingAreaFromDropdown) {
                 _selectedAreaAndLabel.value = null
             }
@@ -1007,6 +1135,176 @@ class QuestEditorToolbarController(
         }
     }
 
+    /**
+     * Inspects the cached script snapshot to determine the trailing variant badge for [entry],
+     * or returns `null` when [entry] does not support variant editing (Boss, Lobby, 1-variant,
+     * non-script-backed quests, or while QuestRunner is running).
+     */
+    fun getFloorVariantBadge(entry: AreaAndLabel): FloorVariantBadge? {
+        val quest = questEditorStore.currentQuest.value ?: return null
+        if (!quest.floorMappingsFromScript) return null
+        if (!questEditorStore.questEditingEnabled.value) return null
+        if (entry.area.bossArea || entry.area.name == "Lobby" || entry.area.areaVariants.size <= 1) {
+            return null
+        }
+
+        val snapshot = getCachedInspectionSnapshot(quest) ?: return null
+        return when (val status = snapshot.statusForFloor(entry.floorId)) {
+            is FloorDesignationStatus.ReadOnly ->
+                FloorVariantBadge.ReadOnly(status.reason, status.jumpLineNo)
+
+            is FloorDesignationStatus.EditableDefault -> {
+                val options = entry.area.areaVariants.map { v ->
+                    FloorVariantOption(
+                        variantId = v.id,
+                        label = "Map ${v.id + 1}",
+                        active = v.id == 0,
+                    )
+                }
+                FloorVariantBadge.Editable("Map 1", options)
+            }
+
+            is FloorDesignationStatus.EditableBbDesignate -> {
+                val options = entry.area.areaVariants.map { v ->
+                    FloorVariantOption(
+                        variantId = v.id,
+                        label = "Map ${v.id + 1}",
+                        active = v.id == status.currentVariant,
+                    )
+                }
+                val badgeText = if (entry.outOfCatalogVariant) {
+                    "Map ${status.currentVariant + 1}?"
+                } else {
+                    "Map ${status.currentVariant + 1}"
+                }
+                FloorVariantBadge.Editable(badgeText, options)
+            }
+
+            is FloorDesignationStatus.EditableRegisterDesignate -> {
+                val options = entry.area.areaVariants.map { v ->
+                    FloorVariantOption(
+                        variantId = v.id,
+                        label = "Map ${v.id + 1}",
+                        active = v.id == status.currentVariant,
+                    )
+                }
+                val badgeText = if (entry.outOfCatalogVariant) {
+                    "Map ${status.currentVariant + 1}?"
+                } else {
+                    "Map ${status.currentVariant + 1}"
+                }
+                FloorVariantBadge.Editable(badgeText, options)
+            }
+        }
+    }
+
+    /**
+     * Applies [variantId] to [entry]'s logical floor by editing `bb_map_designate` in `AsmStore`
+     * (single source of truth), then switches the viewport to that floor.
+     */
+    fun setFloorVariant(entry: AreaAndLabel, variantId: Int): Boolean {
+        val quest = questEditorStore.currentQuest.value ?: return false
+        if (!quest.floorMappingsFromScript || !questEditorStore.questEditingEnabled.value) {
+            return false
+        }
+        val snapshot = inspectLiveScript(quest) ?: return false
+        return when (
+            val result = FloorDesignationEditor.prepareSetFloorVariantEdit(
+                snapshot = snapshot,
+                floorId = entry.floorId,
+                expectedMapId = entry.mapId,
+                newVariant = variantId,
+                preferHex = asmStore.hexFormat.value,
+            )
+        ) {
+            is PrepareFloorVariantResult.NoOp -> {
+                setCurrentArea(entry)
+                true
+            }
+
+            is PrepareFloorVariantResult.Ready -> {
+                _selectedAreaAndLabel.value = null
+                asmStore.applyProgrammaticEdit(
+                    quest = quest,
+                    edit = result.edit,
+                    candidateIr = result.candidateIr,
+                    candidateMappings = result.candidateMappings,
+                    targetFloorId = entry.floorId,
+                    scriptEpisode = result.scriptEpisode,
+                )
+            }
+
+            is PrepareFloorVariantResult.Rejected -> {
+                logger.warn { "Rejected floor ${entry.floorId} variant edit: ${result.reason}" }
+                false
+            }
+        }
+    }
+
+    /** Activates the Script dock tab first, then jumps to [lineNo] in the ASM editor. */
+    fun jumpToFloorDesignation(lineNo: Int?) {
+        onActivateAsmEditor()
+        if (lineNo != null) {
+            asmStore.goToLabelRange(AsmRange(lineNo, 1, lineNo, 1))
+        }
+    }
+
+    private fun getCachedInspectionSnapshot(quest: QuestModel): FloorDesignationSnapshot? {
+        val model = asmStore.textModel.value ?: return null
+        val (usedFloors, datEntryFloors) = collectQuestDatContext(quest)
+        val key = InspectionCacheKey(
+            textModel = model,
+            versionId = model.getAlternativeVersionId(),
+            version = quest.version,
+            isLossy = asmStore.isCurrentModelLossy(),
+            usedFloorIds = usedFloors,
+            datEntryFloorIds = datEntryFloors,
+        )
+        if (cachedInspectionKey == key) {
+            return cachedInspectionSnapshot
+        }
+        val snapshot = FloorDesignationEditor.inspect(
+            lines = model.getLinesContent().toList(),
+            version = quest.version,
+            isLossy = key.isLossy,
+            usedFloorIds = usedFloors,
+            datEntryFloorIds = datEntryFloors,
+            fallbackEpisode = quest.episode,
+        )
+        cachedInspectionKey = key
+        cachedInspectionSnapshot = snapshot
+        return snapshot
+    }
+
+    private fun inspectLiveScript(quest: QuestModel): FloorDesignationSnapshot? {
+        val model = asmStore.textModel.value ?: return null
+        val (usedFloors, datEntryFloors) = collectQuestDatContext(quest)
+        return FloorDesignationEditor.inspect(
+            lines = model.getLinesContent().toList(),
+            version = quest.version,
+            isLossy = asmStore.isCurrentModelLossy(),
+            usedFloorIds = usedFloors,
+            datEntryFloorIds = datEntryFloors,
+            fallbackEpisode = quest.episode,
+        )
+    }
+
+    private fun collectQuestDatContext(quest: QuestModel): Pair<Set<Int>, Map<Int, Set<Int>>> {
+        val objects = quest.objects.value
+        val npcs = quest.npcs.value
+        val events = quest.events.value
+        val usedFloors = buildSet {
+            objects.forEach { add(it.floorId) }
+            npcs.forEach { add(it.floorId) }
+            events.forEach { add(it.floorId) }
+        }
+        val datEntryFloors = getActiveDatScriptEntryFloorIds(
+            objects.map { it.entity },
+            npcs.map { it.entity },
+        )
+        return Pair(usedFloors, datEntryFloors)
+    }
+
     fun setShowCollisionGeometry(show: Boolean) {
         questEditorUiStore.setShowCollisionGeometry(show)
     }
@@ -1122,12 +1420,10 @@ class QuestEditorToolbarController(
      * Trigger section loading when user interacts with the section dropdown
      */
     fun ensureSectionsLoaded() {
-        val quest = questEditorStore.currentQuest.value
         val areaVariant = questEditorStore.currentAreaVariant.value
 
         if (areaVariant != null) {
-            // Use quest episode if available, otherwise default to Episode I
-            val episode = quest?.episode ?: Episode.I
+            val episode = areaVariant.episode
             // Check if sections are already loaded
             val loadedSections = areaStore.getLoadedSections(episode, areaVariant)
             if (loadedSections == null) {

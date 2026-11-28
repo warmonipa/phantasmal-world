@@ -155,19 +155,6 @@ private fun parseBinDatFromDecompressed(
             // Resolve the actual map area used to interpret each NPC. The DAT floor remains intact.
             if (floorMappings.isNotEmpty()) {
                 for (npc in npcs) {
-                    /*
-                     * Match the mapping's logical floor to NPC.floorId.
-                     *
-                     * Reason:
-                     * - FloorMapping.floorId represents the original logical floor.
-                     * - NPC.floorId stores the original DAT floor ID.
-                     * - FloorMapping.mapAreaId is derived from mapId and may differ
-                     *   from floorId when multiple floors share the same map.
-                     *
-                     * Example:
-                     *   Floor 17 -> Tower (mapId 35), variant 0
-                     *   Floor 16 -> Tower (mapId 35), variant 1
-                     */
                     val mapping = floorMappings.find { it.floorId == npc.floorId }
                     if (mapping != null) {
                         npc.mapAreaId = mapping.mapAreaId
@@ -176,6 +163,19 @@ private fun parseBinDatFromDecompressed(
                         npc.episode = mapping.mapEpisode ?: episode
                     }
                 }
+            }
+
+            // Re-evaluate floor mappings with the exact post-NPC-mapping DAT script entry floors
+            // so floor-sensitive callbacks (e.g. get_floor_number + switch_call) match editor analysis.
+            val datEntryFloorIds = extractScriptEntryPointFloorIds(objects, npcs)
+            if (datEntryFloorIds.isNotEmpty()) {
+                floorMappings = getFloorMappings(
+                    instructionSegments = instructionSegments,
+                    usedFloorIds = usedFloorIds,
+                    version = version,
+                    datEntryFloorIds = datEntryFloorIds,
+                    createControlFlowGraph = createControlFlowGraph,
+                )
             }
 
         } else {
@@ -756,6 +756,15 @@ val Version.supportsScriptNpcPreview: Boolean
         this == Version.PC_V2 ||
         this == Version.GC_V3 ||
         this == Version.BB_V4
+
+/**
+ * Returns the map of active DAT script entry labels to the logical floor IDs where each label
+ * is invoked, filtered by object mode and scripted NPC class rules.
+ */
+fun getActiveDatScriptEntryFloorIds(
+    objects: List<QuestObject>,
+    npcs: List<QuestNpc>,
+): Map<Int, Set<Int>> = extractScriptEntryPointFloorIds(objects, npcs)
 
 /**
  * DAT objects and NPCs invoke their script labels on the logical floor stored in their DAT

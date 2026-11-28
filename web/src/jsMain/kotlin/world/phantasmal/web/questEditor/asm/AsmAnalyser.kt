@@ -13,8 +13,11 @@ import world.phantasmal.cell.MutableCell
 import world.phantasmal.cell.list.ListCell
 import world.phantasmal.cell.list.mutableListCell
 import world.phantasmal.cell.mutableCell
+import world.phantasmal.psolib.Episode
 import world.phantasmal.psolib.asm.dataFlowAnalysis.FloorMapping
 import world.phantasmal.psolib.fileFormats.quest.Version
+import world.phantasmal.web.core.observable.Emitter
+import world.phantasmal.web.core.observable.Observable
 import world.phantasmal.web.shared.JSON_FORMAT
 import world.phantasmal.web.shared.messages.*
 import world.phantasmal.web.shared.messages.Label
@@ -25,8 +28,15 @@ import kotlin.coroutines.resume
 
 private val logger = KotlinLogging.logger {}
 
+data class FloorMappingsUpdate(
+    val generation: Int,
+    val floorMappings: List<FloorMapping>,
+    val scriptEpisode: Episode,
+)
+
 class AsmAnalyser {
     private var _floorMappings: MutableCell<List<FloorMapping>> = mutableCell(emptyList())
+    private val _floorMappingsUpdates = Emitter<FloorMappingsUpdate>()
     private val _problems = mutableListCell<AssemblyProblem>()
     private val _labels = mutableListCell<Label>()
     private val _registers = mutableListCell<RegisterInfo>()
@@ -48,6 +58,7 @@ class AsmAnalyser {
     }
     private var nextRequestId = atomic(0)
     private var usedFloorIds: Set<Int> = emptySet()
+    private var datEntryFloorIds: Map<Int, Set<Int>> = emptyMap()
 
     /**
      * Maps request IDs to continuations.
@@ -55,6 +66,8 @@ class AsmAnalyser {
     private val inFlightRequests = mutableMapOf<Int, CancellableContinuation<*>>()
 
     val floorMappings: Cell<List<FloorMapping>> = _floorMappings
+    /** Non-deduplicating stream of revision-tagged floor-mapping notifications from the worker. */
+    val floorMappingsUpdates: Observable<FloorMappingsUpdate> = _floorMappingsUpdates
     val problems: ListCell<AssemblyProblem> = _problems
     val labels: ListCell<Label> = _labels
     val registers: ListCell<RegisterInfo> = _registers
@@ -78,23 +91,32 @@ class AsmAnalyser {
         asm: List<String>,
         usedFloorIds: Set<Int> = emptySet(),
         version: Version = Version.BB_V4,
-    ) {
+        datEntryFloorIds: Map<Int, Set<Int>> = emptyMap(),
+    ): Int {
         asmGeneration++
         this.usedFloorIds = usedFloorIds
+        this.datEntryFloorIds = datEntryFloorIds
         _problems.clear()
         _labels.clear()
-        sendMessage(ClientNotification.SetAsm(asm, asmGeneration, usedFloorIds, version))
+        sendMessage(ClientNotification.SetAsm(asm, asmGeneration, usedFloorIds, version, datEntryFloorIds))
+        return asmGeneration
     }
 
-    fun updateAsm(changes: List<AsmChange>) {
-        sendMessage(ClientNotification.UpdateAsm(changes))
-    }
-
-    fun updateUsedFloorIds(usedFloorIds: Set<Int>) {
-        if (this.usedFloorIds == usedFloorIds) return
-        this.usedFloorIds = usedFloorIds
+    fun updateAsm(changes: List<AsmChange>): Int {
         asmGeneration++
-        sendMessage(ClientNotification.UpdateUsedFloorIds(usedFloorIds, asmGeneration))
+        sendMessage(ClientNotification.UpdateAsm(changes, asmGeneration))
+        return asmGeneration
+    }
+
+    fun updateUsedFloorIds(
+        usedFloorIds: Set<Int>,
+        datEntryFloorIds: Map<Int, Set<Int>> = this.datEntryFloorIds,
+    ) {
+        if (this.usedFloorIds == usedFloorIds && this.datEntryFloorIds == datEntryFloorIds) return
+        this.usedFloorIds = usedFloorIds
+        this.datEntryFloorIds = datEntryFloorIds
+        asmGeneration++
+        sendMessage(ClientNotification.UpdateUsedFloorIds(usedFloorIds, asmGeneration, datEntryFloorIds))
     }
 
     suspend fun getCompletions(lineNo: Int, col: Int): List<CompletionItem> =
@@ -142,6 +164,9 @@ class AsmAnalyser {
         when (message) {
             is ServerNotification.FloorMappings -> {
                 _floorMappings.value = message.floorMappings
+                _floorMappingsUpdates.emit(
+                    FloorMappingsUpdate(message.generation, message.floorMappings, message.scriptEpisode)
+                )
             }
 
             is ServerNotification.Problems -> {

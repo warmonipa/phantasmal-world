@@ -92,6 +92,9 @@ class QuestModel(
     var floorMappings: List<FloorMapping> = floorMappings
         private set
 
+    var effectiveEpisode: Episode = episode
+        private set
+
     /**
      * Returns the set of floor IDs that map to the given area+variant, or null if this quest
      * has no floor mappings (i.e., a simple single-floor quest).
@@ -329,10 +332,10 @@ class QuestModel(
             }
         } else {
             // For regular quests (no floor mappings), add variant 0 for every area in the
-            // episode so the full floor list is always available, including areas with 0
+            // effective episode so the full floor list is always available, including areas with 0
             // entities. Do NOT filter out empty areas — users expect to see all floors.
-            for (area in getAreasForEpisode(episode)) {
-                getVariant(episode, area.id, 0)?.let { variant ->
+            for (area in getAreasForEpisode(effectiveEpisode)) {
+                getVariant(effectiveEpisode, area.id, 0)?.let { variant ->
                     variants[area.id] = variant
                 }
             }
@@ -393,15 +396,19 @@ class QuestModel(
         }
     }
 
-    fun setFloorMappings(floorMappings: List<FloorMapping>) {
+    fun setFloorMappings(
+        floorMappings: List<FloorMapping>,
+        effectiveEpisode: Episode = this.effectiveEpisode,
+    ) {
         this.floorMappings = floorMappings
+        this.effectiveEpisode = effectiveEpisode
         // Re-propagate the effective map area and episode so NPC type detection stays accurate.
         val mappingsByFloor = floorMappings.associateBy(FloorMapping::floorId)
         _npcs.value.forEach { npcModel ->
             val previousType = npcModel.type
             val mapping = mappingsByFloor[npcModel.entity.floorId]
             npcModel.entity.mapAreaId = mapping?.mapAreaId ?: npcModel.entity.floorId
-            npcModel.entity.episode = mapping?.mapEpisode ?: episode
+            npcModel.entity.episode = mapping?.mapEpisode ?: effectiveEpisode
             if (npcModel.type != previousType) npcModel.refreshResolvedType()
         }
         rebuildFloorVariants()

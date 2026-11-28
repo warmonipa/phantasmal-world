@@ -286,6 +286,7 @@ class AsmEditorWidget(
             addDisposable(disposable { clearActiveScTriggerZone() })
 
             // Undo/redo.
+            addDisposable(ctrl.registerEditor())
             addDisposable(ctrl.didUndo.observe {
                 editor.focus()
 

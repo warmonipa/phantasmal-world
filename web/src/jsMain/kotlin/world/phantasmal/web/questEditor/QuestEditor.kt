@@ -91,6 +91,11 @@ class QuestEditor(
                 questEditorUiStore,
                 asmStore,
                 mapExporter,
+                onActivateAsmEditor = {
+                    questEditorController.requestActivateWidget(
+                        QuestEditorController.ASM_WIDGET_ID
+                    )
+                },
             )
         )
         val questInfoController = addDisposable(QuestInfoController(questEditorStore))

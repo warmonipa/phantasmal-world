@@ -61,14 +61,22 @@ class AsmServer(
                         when (message) {
                             is ClientNotification.SetAsm ->
                                 asmAnalyser.setAsm(
-                                    message.asm, message.generation, message.usedFloorIds, message.version,
+                                    message.asm,
+                                    message.generation,
+                                    message.usedFloorIds,
+                                    message.version,
+                                    message.datEntryFloorIds,
                                 )
 
                             is ClientNotification.UpdateAsm ->
-                                asmAnalyser.updateAsm(message.changes)
+                                asmAnalyser.updateAsm(message.changes, message.generation)
 
                             is ClientNotification.UpdateUsedFloorIds ->
-                                asmAnalyser.updateUsedFloorIds(message.usedFloorIds, message.generation)
+                                asmAnalyser.updateUsedFloorIds(
+                                    message.usedFloorIds,
+                                    message.generation,
+                                    message.datEntryFloorIds,
+                                )
                         }
                     }
 

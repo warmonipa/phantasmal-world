@@ -54,6 +54,8 @@ class AsmEditorController(private val store: AsmStore) : Controller() {
         mnemonics.mapNotNull { mnemonicToOpcode(it) }.sortedBy { it.mnemonic }
     }
 
+    fun registerEditor() = store.registerEditor()
+
     fun makeUndoCurrent() {
         store.makeUndoCurrent()
     }

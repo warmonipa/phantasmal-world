@@ -150,12 +150,32 @@ class ValueSet private constructor(private val intervals: MutableList<Interval>)
     }
 
     /**
-     * Doesn't take into account integer overflow.
+     * Scalar multiplication. Widens to all 32-bit integers if any endpoint product overflows.
      */
     operator fun timesAssign(s: Int) {
-        for (int in intervals) {
-            int.start *= s
-            int.end *= s
+        if (intervals.isEmpty()) return
+        if (s == 0) {
+            intervals.clear()
+            intervals.add(Interval(0, 0))
+            return
+        }
+        val sl = s.toLong()
+        val transformed = ArrayList<Interval>(intervals.size)
+        for (it in intervals) {
+            val a = it.start.toLong() * sl
+            val b = it.end.toLong() * sl
+            if (a < Int.MIN_VALUE || a > Int.MAX_VALUE || b < Int.MIN_VALUE || b > Int.MAX_VALUE) {
+                intervals.clear()
+                intervals.add(Interval(Int.MIN_VALUE, Int.MAX_VALUE))
+                return
+            }
+            val ai = a.toInt()
+            val bi = b.toInt()
+            transformed.add(Interval(min(ai, bi), max(ai, bi)))
+        }
+        intervals.clear()
+        for (interval in transformed) {
+            union(ValueSet(mutableListOf(interval)))
         }
     }
 
@@ -163,9 +183,25 @@ class ValueSet private constructor(private val intervals: MutableList<Interval>)
      * Integer division.
      */
     operator fun divAssign(s: Int) {
-        for (int in intervals) {
-            int.start /= s
-            int.end /= s
+        if (intervals.isEmpty()) return
+        if (s == 0) {
+            intervals.clear()
+            return
+        }
+        val transformed = ArrayList<Interval>(intervals.size)
+        for (it in intervals) {
+            if (s == -1 && it.start == Int.MIN_VALUE) {
+                intervals.clear()
+                intervals.add(Interval(Int.MIN_VALUE, Int.MAX_VALUE))
+                return
+            }
+            val a = it.start / s
+            val b = it.end / s
+            transformed.add(Interval(min(a, b), max(a, b)))
+        }
+        intervals.clear()
+        for (interval in transformed) {
+            union(ValueSet(mutableListOf(interval)))
         }
     }
 

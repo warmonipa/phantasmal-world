@@ -139,9 +139,10 @@ class QuestEditorMeshManager(
             questEditorStore.currentQuest,
             questEditorStore.currentArea,
             questEditorStore.currentAreaVariant,
+            questEditorStore.currentFloorHasUnsupportedVariant,
             questEditorUiStore.ultimate,
-        ) { quest, area, areaVariant, ultimate ->
-            if (quest != null && area != null) {
+        ) { quest, area, areaVariant, unsupportedVariant, ultimate ->
+            if (quest != null && area != null && !unsupportedVariant) {
                 if (areaVariant != null) {
                     // Load the specific variant
                     // Use variant's episode to handle cross-episode maps (e.g., EP4 quest using EP2 Lab)

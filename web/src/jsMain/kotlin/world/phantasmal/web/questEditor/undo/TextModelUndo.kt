@@ -125,6 +125,10 @@ class TextModelUndo(
             false
         }
 
+    /** Maps a raw Monaco alternativeVersionId to its canonical document revision synchronously. */
+    fun resolveDocumentVersion(rawVersionId: Int): Int =
+        documentVersions[rawVersionId] ?: rawVersionId
+
     fun preserveDocumentVersion(edit: () -> Unit) {
         preservingDocumentVersion = true
         try {
